@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import '../models/ha_entity.dart';
-import '../config/hub_config.dart';
 
 /// Manages a persistent WebSocket connection to Home Assistant.
 ///
