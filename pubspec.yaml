@@ -1,0 +1,27 @@
+name: home_hub
+description: Smart home kiosk — Immich photos, HA controls, Music Assistant, Frigate cameras.
+publish_to: 'none'
+version: 0.1.0
+
+environment:
+  sdk: ^3.11.4
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_riverpod: ^2.6.1
+  dio: ^5.7.0
+  web_socket_channel: ^3.0.1
+  cached_network_image: ^3.4.1
+  path_provider: ^2.1.4
+  shared_preferences: ^2.3.3
+  intl: ^0.19.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  mockito: ^5.4.4
+
+flutter:
+  uses-material-design: true
