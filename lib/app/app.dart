@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'hub_shell.dart';
 
 /// Root widget for the Home Hub application.
 ///
@@ -21,14 +22,8 @@ class HomeHubApp extends ConsumerWidget {
         useMaterial3: true,
         fontFamily: 'Roboto',
       ),
-      // HubShell will replace this placeholder once navigation is built
       home: const Scaffold(
-        body: Center(
-          child: Text(
-            'Home Hub',
-            style: TextStyle(fontSize: 32, fontWeight: FontWeight.w300),
-          ),
-        ),
+        body: HubShell(),
       ),
     );
   }
