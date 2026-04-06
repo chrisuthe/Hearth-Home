@@ -1,82 +1,201 @@
+import 'dart:async';
+import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hearth/services/music_assistant_service.dart';
 import 'package:hearth/models/music_state.dart';
+import 'package:web_socket_channel/web_socket_channel.dart';
+
+class FakeMaWebSocketChannel extends Fake implements WebSocketChannel {
+  final _incomingController = StreamController<dynamic>.broadcast(sync: true);
+  final sentMessages = <Map<String, dynamic>>[];
+
+  @override
+  Stream<dynamic> get stream => _incomingController.stream;
+
+  @override
+  WebSocketSink get sink => _FakeSink(sentMessages);
+
+  void simulateServerMessage(Map<String, dynamic> msg) {
+    _incomingController.add(jsonEncode(msg));
+  }
+
+  void close() => _incomingController.close();
+}
+
+class _FakeSink extends Fake implements WebSocketSink {
+  final List<Map<String, dynamic>> sent;
+  _FakeSink(this.sent);
+
+  @override
+  void add(dynamic data) {
+    sent.add(jsonDecode(data as String) as Map<String, dynamic>);
+  }
+
+  @override
+  Future close([int? closeCode, String? closeReason]) async {}
+}
 
 void main() {
   group('MusicAssistantService', () {
-    test('parsePlayerState extracts playing state from HA entity', () {
-      final state = MusicAssistantService.parsePlayerState({
-        'entity_id': 'media_player.kitchen',
-        'state': 'playing',
-        'attributes': {
-          'friendly_name': 'Kitchen Speaker',
-          'media_title': 'Bohemian Rhapsody',
-          'media_artist': 'Queen',
-          'media_album_name': 'A Night at the Opera',
-          'entity_picture': '/api/media_player_proxy/media_player.kitchen',
-          'media_duration': 355.0,
-          'media_position': 120.0,
-          'volume_level': 0.65,
-          'shuffle': false,
-          'repeat': 'off',
-        },
-      });
+    late FakeMaWebSocketChannel channel;
+    late MusicAssistantService service;
 
-      expect(state.playbackState, PlaybackState.playing);
-      expect(state.currentTrack?.title, 'Bohemian Rhapsody');
-      expect(state.currentTrack?.artist, 'Queen');
-      expect(state.currentTrack?.album, 'A Night at the Opera');
-      expect(state.volume, 0.65);
-      expect(state.activeZoneId, 'media_player.kitchen');
-      expect(state.activeZoneName, 'Kitchen Speaker');
+    setUp(() {
+      channel = FakeMaWebSocketChannel();
+      service = MusicAssistantService.withChannel(channel);
     });
 
-    test('parsePlayerState handles paused state', () {
-      final state = MusicAssistantService.parsePlayerState({
-        'entity_id': 'media_player.bedroom',
-        'state': 'paused',
-        'attributes': {
-          'friendly_name': 'Bedroom',
-          'media_title': 'Song',
-          'media_artist': 'Artist',
-          'media_album_name': 'Album',
-          'media_duration': 200.0,
-          'media_position': 50.0,
-          'volume_level': 0.4,
-        },
-      });
-      expect(state.playbackState, PlaybackState.paused);
-      expect(state.isPlaying, false);
-      expect(state.position, const Duration(seconds: 50));
+    tearDown(() {
+      service.dispose();
+      channel.close();
     });
 
-    test('parsePlayerState handles idle/off state', () {
-      final state = MusicAssistantService.parsePlayerState({
-        'entity_id': 'media_player.kitchen',
-        'state': 'idle',
-        'attributes': {'friendly_name': 'Kitchen'},
-      });
-      expect(state.playbackState, PlaybackState.idle);
-      expect(state.hasTrack, false);
+    test('sends auth command on connect', () {
+      service.connect('test-token');
+      expect(channel.sentMessages, hasLength(1));
+      expect(channel.sentMessages[0]['command'], 'auth');
+      expect(channel.sentMessages[0]['args']['token'], 'test-token');
+      expect(channel.sentMessages[0]['message_id'], isNotEmpty);
     });
 
-    test('parseZones extracts zone list from HA entities', () {
-      final zones = MusicAssistantService.parseZones([
-        {
-          'entity_id': 'media_player.kitchen',
+    test('fetches players and queues after auth success', () {
+      service.connect('test-token');
+      final authMsgId = channel.sentMessages[0]['message_id'] as String;
+      channel.simulateServerMessage({'message_id': authMsgId, 'result': true});
+      expect(channel.sentMessages, hasLength(3));
+      expect(channel.sentMessages[1]['command'], 'players/all');
+      expect(channel.sentMessages[2]['command'], 'player_queues/all');
+    });
+
+    test('emits player state on player_updated event', () async {
+      service.connect('test-token');
+      final authMsgId = channel.sentMessages[0]['message_id'] as String;
+      channel.simulateServerMessage({'message_id': authMsgId, 'result': true});
+
+      final statesFuture = service.playerStateStream.first;
+      channel.simulateServerMessage({
+        'event': 'player_updated',
+        'object_id': 'player_kitchen',
+        'data': {
+          'player_id': 'player_kitchen',
+          'display_name': 'Kitchen',
           'state': 'playing',
-          'attributes': {'friendly_name': 'Kitchen Speaker'},
+          'volume_level': 60,
+          'volume_muted': false,
+          'current_media': {
+            'title': 'Test Song',
+            'artist': 'Test Artist',
+            'album': 'Test Album',
+            'duration': 200,
+          },
         },
-        {
-          'entity_id': 'media_player.bedroom',
-          'state': 'idle',
-          'attributes': {'friendly_name': 'Bedroom Speaker'},
+      });
+
+      final state = await statesFuture;
+      expect(state.playbackState, PlaybackState.playing);
+      expect(state.currentTrack?.title, 'Test Song');
+      expect(state.activeZoneId, 'player_kitchen');
+    });
+
+    test('emits player state on queue_updated event', () async {
+      service.connect('test-token');
+      final authMsgId = channel.sentMessages[0]['message_id'] as String;
+      channel.simulateServerMessage({'message_id': authMsgId, 'result': true});
+
+      final statesFuture = service.playerStateStream.first;
+      channel.simulateServerMessage({
+        'event': 'queue_updated',
+        'object_id': 'player_kitchen',
+        'data': {
+          'queue_id': 'player_kitchen',
+          'state': 'playing',
+          'shuffle_enabled': true,
+          'repeat_mode': 'all',
+          'elapsed_time': 45,
+          'items': 10,
+          'current_item': {
+            'name': 'Queue Song',
+            'duration': 300,
+            'media_item': {
+              'name': 'Queue Song',
+              'artists': [{'name': 'Queue Artist'}],
+              'album': {'name': 'Queue Album'},
+            },
+          },
         },
-      ]);
-      expect(zones.length, 2);
-      expect(zones[0].name, 'Kitchen Speaker');
-      expect(zones[0].isActive, true);
-      expect(zones[1].isActive, false);
+      });
+
+      final state = await statesFuture;
+      expect(state.playbackState, PlaybackState.playing);
+      expect(state.currentTrack?.title, 'Queue Song');
+      expect(state.shuffle, true);
+      expect(state.repeatMode, 'all');
+      expect(state.queueSize, 10);
+    });
+
+    test('sendCommand formats message correctly', () {
+      service.connect('test-token');
+      final authMsgId = channel.sentMessages[0]['message_id'] as String;
+      channel.simulateServerMessage({'message_id': authMsgId, 'result': true});
+
+      service.sendCommand('players/cmd/pause', {'player_id': 'kitchen'});
+      final cmd = channel.sentMessages.last;
+      expect(cmd['command'], 'players/cmd/pause');
+      expect(cmd['args']['player_id'], 'kitchen');
+      expect(cmd['message_id'], isNotEmpty);
+    });
+
+    test('playPause sends play_pause command to queue', () {
+      service.connect('test-token');
+      final authMsgId = channel.sentMessages[0]['message_id'] as String;
+      channel.simulateServerMessage({'message_id': authMsgId, 'result': true});
+
+      service.playPause('player_kitchen');
+      final cmd = channel.sentMessages.last;
+      expect(cmd['command'], 'player_queues/play_pause');
+      expect(cmd['args']['queue_id'], 'player_kitchen');
+    });
+
+    test('setVolume sends volume_set command with 0-100 scale', () {
+      service.connect('test-token');
+      final authMsgId = channel.sentMessages[0]['message_id'] as String;
+      channel.simulateServerMessage({'message_id': authMsgId, 'result': true});
+
+      service.setVolume('player_kitchen', 0.75);
+      final cmd = channel.sentMessages.last;
+      expect(cmd['command'], 'players/cmd/volume_set');
+      expect(cmd['args']['volume_level'], 75);
+    });
+
+    test('tracks all players from players/all response', () {
+      service.connect('test-token');
+      final authMsgId = channel.sentMessages[0]['message_id'] as String;
+      channel.simulateServerMessage({'message_id': authMsgId, 'result': true});
+
+      final playersMsgId = channel.sentMessages[1]['message_id'] as String;
+      channel.simulateServerMessage({
+        'message_id': playersMsgId,
+        'result': [
+          {
+            'player_id': 'kitchen',
+            'display_name': 'Kitchen',
+            'state': 'playing',
+            'volume_level': 50,
+            'volume_muted': false,
+          },
+          {
+            'player_id': 'bedroom',
+            'display_name': 'Bedroom',
+            'state': 'idle',
+            'volume_level': 30,
+            'volume_muted': false,
+          },
+        ],
+      });
+
+      expect(service.playerStates, hasLength(2));
+      expect(service.playerStates['kitchen']?.activeZoneName, 'Kitchen');
+      expect(service.playerStates['bedroom']?.activeZoneName, 'Bedroom');
     });
   });
 }
