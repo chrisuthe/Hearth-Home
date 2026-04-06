@@ -14,6 +14,7 @@ class HubConfig {
   final String haUrl;
   final String haToken;
   final String musicAssistantUrl;
+  final String musicAssistantToken;
   final String frigateUrl;
   final int idleTimeoutSeconds;
   final String nightModeSource; // "ha_entity" | "api" | "clock" | "none"
@@ -29,6 +30,7 @@ class HubConfig {
     this.haUrl = '',
     this.haToken = '',
     this.musicAssistantUrl = '',
+    this.musicAssistantToken = '',
     this.frigateUrl = '',
     this.idleTimeoutSeconds = 120,
     this.nightModeSource = 'none',
@@ -45,6 +47,7 @@ class HubConfig {
     String? haUrl,
     String? haToken,
     String? musicAssistantUrl,
+    String? musicAssistantToken,
     String? frigateUrl,
     int? idleTimeoutSeconds,
     String? nightModeSource,
@@ -60,6 +63,7 @@ class HubConfig {
       haUrl: haUrl ?? this.haUrl,
       haToken: haToken ?? this.haToken,
       musicAssistantUrl: musicAssistantUrl ?? this.musicAssistantUrl,
+      musicAssistantToken: musicAssistantToken ?? this.musicAssistantToken,
       frigateUrl: frigateUrl ?? this.frigateUrl,
       idleTimeoutSeconds: idleTimeoutSeconds ?? this.idleTimeoutSeconds,
       nightModeSource: nightModeSource ?? this.nightModeSource,
@@ -77,6 +81,7 @@ class HubConfig {
         'haUrl': haUrl,
         'haToken': haToken,
         'musicAssistantUrl': musicAssistantUrl,
+        'musicAssistantToken': musicAssistantToken,
         'frigateUrl': frigateUrl,
         'idleTimeoutSeconds': idleTimeoutSeconds,
         'nightModeSource': nightModeSource,
@@ -93,6 +98,7 @@ class HubConfig {
         haUrl: json['haUrl'] as String? ?? '',
         haToken: json['haToken'] as String? ?? '',
         musicAssistantUrl: json['musicAssistantUrl'] as String? ?? '',
+        musicAssistantToken: json['musicAssistantToken'] as String? ?? '',
         frigateUrl: json['frigateUrl'] as String? ?? '',
         idleTimeoutSeconds: json['idleTimeoutSeconds'] as int? ?? 120,
         nightModeSource: json['nightModeSource'] as String? ?? 'none',

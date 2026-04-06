@@ -47,5 +47,16 @@ void main() {
       expect(config.nightModeSource, 'none');
       expect(config.idleTimeoutSeconds, 120);
     });
+
+    test('musicAssistantToken round-trips through JSON', () {
+      final config = HubConfig(
+        musicAssistantUrl: 'http://192.168.1.50:8095',
+        musicAssistantToken: 'test-token-123',
+      );
+      final json = config.toJson();
+      final restored = HubConfig.fromJson(json);
+      expect(restored.musicAssistantToken, 'test-token-123');
+      expect(restored.musicAssistantUrl, 'http://192.168.1.50:8095');
+    });
   });
 }
