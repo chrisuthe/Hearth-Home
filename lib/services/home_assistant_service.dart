@@ -25,6 +25,8 @@ class HomeAssistantService {
   bool _authenticated = false;
   int? _getStatesId;
 
+  final Map<int, Completer<Map<String, dynamic>?>> _pendingResponses = {};
+
   // Reconnection state
   String? _url;
   String? _token;
@@ -154,6 +156,15 @@ class HomeAssistantService {
 
   void _handleResult(Map<String, dynamic> msg) {
     final id = msg['id'] as int?;
+    if (id != null && _pendingResponses.containsKey(id)) {
+      final completer = _pendingResponses.remove(id)!;
+      if (msg['success'] == true) {
+        completer.complete(msg['result'] as Map<String, dynamic>?);
+      } else {
+        completer.complete(null);
+      }
+      return;
+    }
     if (id == _getStatesId && msg['success'] == true) {
       final states = msg['result'] as List<dynamic>? ?? [];
       for (final state in states) {
@@ -203,6 +214,35 @@ class HomeAssistantService {
       'service_data': data ?? {},
       'target': {'entity_id': entityId},
     });
+  }
+
+  /// Calls an HA service and waits for the result response.
+  /// Returns the result map on success, or null on failure or timeout.
+  /// Useful for services like `weather.get_forecasts` that return data.
+  Future<Map<String, dynamic>?> callServiceWithResponse({
+    required String domain,
+    required String service,
+    required String entityId,
+    Map<String, dynamic>? data,
+  }) {
+    final id = _nextId;
+    final completer = Completer<Map<String, dynamic>?>();
+    _pendingResponses[id] = completer;
+    _send({
+      'id': id,
+      'type': 'call_service',
+      'domain': domain,
+      'service': service,
+      'service_data': data ?? {},
+      'target': {'entity_id': entityId},
+    });
+    return completer.future.timeout(
+      const Duration(seconds: 10),
+      onTimeout: () {
+        _pendingResponses.remove(id);
+        return null;
+      },
+    );
   }
 
   void _send(Map<String, dynamic> msg) {

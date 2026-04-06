@@ -214,5 +214,38 @@ void main() {
       expect(callMsg['target']['entity_id'], 'light.kitchen');
       expect(callMsg['service_data']['brightness'], 150);
     });
+
+    test('callServiceWithResponse returns result data', () async {
+      service.connect('test-token');
+      fakeChannel.simulateMessage({'type': 'auth_ok'});
+      await Future.delayed(const Duration(milliseconds: 100));
+
+      final future = service.callServiceWithResponse(
+        domain: 'weather',
+        service: 'get_forecasts',
+        entityId: 'weather.pirateweather',
+        data: {'type': 'daily'},
+      );
+
+      await Future.delayed(const Duration(milliseconds: 50));
+
+      // Find the call_service message and get its id
+      final callMsg = fakeChannel.sentMessages
+          .map((s) => jsonDecode(s) as Map<String, dynamic>)
+          .where((m) => m['type'] == 'call_service' && m['domain'] == 'weather')
+          .first;
+      final msgId = callMsg['id'] as int;
+
+      fakeChannel.simulateMessage({
+        'id': msgId,
+        'type': 'result',
+        'success': true,
+        'result': {'weather.pirateweather': {'forecast': []}},
+      });
+
+      final result = await future.timeout(const Duration(seconds: 5));
+      expect(result, isA<Map<String, dynamic>>());
+      expect(result?['weather.pirateweather'], isNotNull);
+    });
   });
 }
