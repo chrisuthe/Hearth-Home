@@ -23,6 +23,7 @@ class HubConfig {
   final String? nightModeClockEnd;
   final String? defaultMusicZone;
   final bool use24HourClock;
+  final List<String> pinnedEntityIds;
 
   const HubConfig({
     this.immichUrl = '',
@@ -39,6 +40,7 @@ class HubConfig {
     this.nightModeClockEnd,
     this.defaultMusicZone,
     this.use24HourClock = false,
+    this.pinnedEntityIds = const [],
   });
 
   HubConfig copyWith({
@@ -56,6 +58,7 @@ class HubConfig {
     String? nightModeClockEnd,
     String? defaultMusicZone,
     bool? use24HourClock,
+    List<String>? pinnedEntityIds,
   }) {
     return HubConfig(
       immichUrl: immichUrl ?? this.immichUrl,
@@ -72,6 +75,7 @@ class HubConfig {
       nightModeClockEnd: nightModeClockEnd ?? this.nightModeClockEnd,
       defaultMusicZone: defaultMusicZone ?? this.defaultMusicZone,
       use24HourClock: use24HourClock ?? this.use24HourClock,
+      pinnedEntityIds: pinnedEntityIds ?? this.pinnedEntityIds,
     );
   }
 
@@ -90,6 +94,7 @@ class HubConfig {
         'nightModeClockEnd': nightModeClockEnd,
         'defaultMusicZone': defaultMusicZone,
         'use24HourClock': use24HourClock,
+        'pinnedEntityIds': pinnedEntityIds,
       };
 
   factory HubConfig.fromJson(Map<String, dynamic> json) => HubConfig(
@@ -107,6 +112,7 @@ class HubConfig {
         nightModeClockEnd: json['nightModeClockEnd'] as String?,
         defaultMusicZone: json['defaultMusicZone'] as String?,
         use24HourClock: json['use24HourClock'] as bool? ?? false,
+        pinnedEntityIds: (json['pinnedEntityIds'] as List<dynamic>?)?.cast<String>() ?? const [],
       );
 }
 

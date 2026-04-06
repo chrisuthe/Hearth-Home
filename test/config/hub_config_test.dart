@@ -58,5 +58,19 @@ void main() {
       expect(restored.musicAssistantToken, 'test-token-123');
       expect(restored.musicAssistantUrl, 'http://192.168.1.50:8095');
     });
+
+    test('pinnedEntityIds round-trips through JSON', () {
+      final config = HubConfig(
+        pinnedEntityIds: ['light.kitchen', 'climate.living_room'],
+      );
+      final json = config.toJson();
+      final restored = HubConfig.fromJson(json);
+      expect(restored.pinnedEntityIds, ['light.kitchen', 'climate.living_room']);
+    });
+
+    test('pinnedEntityIds defaults to empty list', () {
+      final config = HubConfig.fromJson({});
+      expect(config.pinnedEntityIds, isEmpty);
+    });
   });
 }
