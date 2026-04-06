@@ -21,6 +21,7 @@ class HubConfig {
   final String? nightModeClockStart;
   final String? nightModeClockEnd;
   final String? defaultMusicZone;
+  final bool use24HourClock;
 
   const HubConfig({
     this.immichUrl = '',
@@ -35,6 +36,7 @@ class HubConfig {
     this.nightModeClockStart,
     this.nightModeClockEnd,
     this.defaultMusicZone,
+    this.use24HourClock = false,
   });
 
   HubConfig copyWith({
@@ -50,6 +52,7 @@ class HubConfig {
     String? nightModeClockStart,
     String? nightModeClockEnd,
     String? defaultMusicZone,
+    bool? use24HourClock,
   }) {
     return HubConfig(
       immichUrl: immichUrl ?? this.immichUrl,
@@ -64,6 +67,7 @@ class HubConfig {
       nightModeClockStart: nightModeClockStart ?? this.nightModeClockStart,
       nightModeClockEnd: nightModeClockEnd ?? this.nightModeClockEnd,
       defaultMusicZone: defaultMusicZone ?? this.defaultMusicZone,
+      use24HourClock: use24HourClock ?? this.use24HourClock,
     );
   }
 
@@ -80,6 +84,7 @@ class HubConfig {
         'nightModeClockStart': nightModeClockStart,
         'nightModeClockEnd': nightModeClockEnd,
         'defaultMusicZone': defaultMusicZone,
+        'use24HourClock': use24HourClock,
       };
 
   factory HubConfig.fromJson(Map<String, dynamic> json) => HubConfig(
@@ -95,6 +100,7 @@ class HubConfig {
         nightModeClockStart: json['nightModeClockStart'] as String?,
         nightModeClockEnd: json['nightModeClockEnd'] as String?,
         defaultMusicZone: json['defaultMusicZone'] as String?,
+        use24HourClock: json['use24HourClock'] as bool? ?? false,
       );
 }
 

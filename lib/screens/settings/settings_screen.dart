@@ -112,6 +112,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
           ),
         ),
+        SwitchListTile(
+          secondary: const Icon(Icons.schedule, color: Colors.white54),
+          title: const Text('24-Hour Clock'),
+          subtitle: Text(
+            config.use24HourClock ? '14:30' : '2:30 PM',
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
+          ),
+          value: config.use24HourClock,
+          onChanged: (v) => _updateConfig((c) => c.copyWith(use24HourClock: v)),
+        ),
 
         const SizedBox(height: 24),
 

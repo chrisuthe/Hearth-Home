@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../config/hub_config.dart';
 import '../../models/music_state.dart';
 
 /// Contextual overlays for the ambient photo display.
@@ -24,7 +25,8 @@ class AmbientOverlays extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final now = DateTime.now();
-    final timeStr = '${now.hour}:${now.minute.toString().padLeft(2, '0')}';
+    final use24h = ref.watch(hubConfigProvider).use24HourClock;
+    final timeStr = _formatTime(now, use24h);
     final dateStr = _formatDate(now);
 
     return Stack(
@@ -197,6 +199,15 @@ class AmbientOverlays extends ConsumerWidget {
 
   /// Formats a DateTime into a human-readable date string.
   /// Example: "Sunday, April 5"
+  String _formatTime(DateTime dt, bool use24h) {
+    if (use24h) {
+      return '${dt.hour}:${dt.minute.toString().padLeft(2, '0')}';
+    }
+    final hour = dt.hour == 0 ? 12 : (dt.hour > 12 ? dt.hour - 12 : dt.hour);
+    final period = dt.hour >= 12 ? 'PM' : 'AM';
+    return '$hour:${dt.minute.toString().padLeft(2, '0')} $period';
+  }
+
   String _formatDate(DateTime dt) {
     const days = [
       'Monday',

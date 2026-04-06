@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../config/hub_config.dart';
 import '../../widgets/now_playing_bar.dart';
 import '../../models/music_state.dart';
 
@@ -37,7 +38,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final timeStr = '${_now.hour}:${_now.minute.toString().padLeft(2, '0')}';
+    final use24h = ref.watch(hubConfigProvider).use24HourClock;
+    final timeStr = _formatTime(_now, use24h);
     const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
         'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -129,6 +131,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ],
       ),
     );
+  }
+
+  String _formatTime(DateTime dt, bool use24h) {
+    if (use24h) {
+      return '${dt.hour}:${dt.minute.toString().padLeft(2, '0')}';
+    }
+    final hour = dt.hour == 0 ? 12 : (dt.hour > 12 ? dt.hour - 12 : dt.hour);
+    final period = dt.hour >= 12 ? 'PM' : 'AM';
+    return '$hour:${dt.minute.toString().padLeft(2, '0')} $period';
   }
 }
 
