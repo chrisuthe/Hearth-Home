@@ -32,7 +32,12 @@ class WeatherService {
 
     // Check if entity is already in the cache from get_states
     final existing = _ha.entities[_entityId];
-    if (existing != null) _updateFromEntity(existing);
+    if (existing != null) {
+      debugPrint('Weather: found $_entityId in HA cache, state=${existing.state}');
+      _updateFromEntity(existing);
+    } else {
+      debugPrint('Weather: $_entityId not in HA cache yet, waiting for stream');
+    }
 
     // Fetch forecasts immediately and every 30 minutes
     _fetchForecasts();
@@ -98,6 +103,9 @@ class WeatherService {
     } catch (e) {
       debugPrint('Weather forecast fetch failed: $e');
     }
+    debugPrint('Weather: forecasts loaded — '
+        '${_lastState?.dailyForecast.length ?? 0} daily, '
+        '${_lastState?.hourlyForecast.length ?? 0} hourly');
   }
 
   void dispose() {

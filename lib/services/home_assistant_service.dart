@@ -159,7 +159,15 @@ class HomeAssistantService {
     if (id != null && _pendingResponses.containsKey(id)) {
       final completer = _pendingResponses.remove(id)!;
       if (msg['success'] == true) {
-        completer.complete(msg['result'] as Map<String, dynamic>?);
+        // call_service with return_response nests data under result.response
+        final result = msg['result'];
+        if (result is Map<String, dynamic>) {
+          final response = result['response'];
+          completer.complete(
+              response is Map<String, dynamic> ? response : result);
+        } else {
+          completer.complete(null);
+        }
       } else {
         completer.complete(null);
       }
@@ -235,6 +243,7 @@ class HomeAssistantService {
       'service': service,
       'service_data': data ?? {},
       'target': {'entity_id': entityId},
+      'return_response': true,
     });
     return completer.future.timeout(
       const Duration(seconds: 10),
