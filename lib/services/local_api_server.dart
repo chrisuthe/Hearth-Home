@@ -97,6 +97,9 @@ class LocalApiServer {
               json['defaultMusicZone'] as String? ?? c.defaultMusicZone,
           use24HourClock:
               json['use24HourClock'] as bool? ?? c.use24HourClock,
+          pinnedEntityIds:
+              (json['pinnedEntityIds'] as List<dynamic>?)?.cast<String>() ??
+                  c.pinnedEntityIds,
         ));
 
     request.response.statusCode = 200;
@@ -247,6 +250,10 @@ const _configPageHtml = r'''
     <label for="idleTimeoutSeconds">Idle Timeout (seconds)</label>
     <input type="number" id="idleTimeoutSeconds" min="30" max="600" step="10" placeholder="120">
 
+    <h2>Pinned Devices</h2>
+    <label for="pinnedEntityIds">Entity IDs (one per line)</label>
+    <textarea id="pinnedEntityIds" rows="6" placeholder="light.kitchen&#10;climate.living_room&#10;switch.garage_door" style="width:100%;padding:10px 12px;margin-bottom:12px;background:#1e1e1e;border:1px solid #333;border-radius:6px;color:#e0e0e0;font-size:14px;outline:none;resize:vertical;font-family:monospace;"></textarea>
+
     <button type="submit" class="save">Save</button>
   </form>
   <div class="toast" id="toast"></div>
@@ -265,6 +272,9 @@ async function load() {
       const el = document.getElementById(f);
       if (el && cfg[f] != null && cfg[f] !== '') el.value = cfg[f];
     }
+    if (cfg.pinnedEntityIds && Array.isArray(cfg.pinnedEntityIds)) {
+      document.getElementById('pinnedEntityIds').value = cfg.pinnedEntityIds.join('\n');
+    }
   } catch(e) { showToast('Failed to load config', true); }
 }
 
@@ -279,6 +289,8 @@ document.getElementById('configForm').addEventListener('submit', async (e) => {
       body[f] = el.value;
     }
   }
+  const pinnedText = document.getElementById('pinnedEntityIds').value;
+  body.pinnedEntityIds = pinnedText.split('\n').map(s => s.trim()).filter(s => s.length > 0);
   try {
     const r = await fetch('/api/config', {
       method: 'POST',
