@@ -43,6 +43,7 @@ class _HubShellState extends ConsumerState<HubShell>
   final _ambientKey = GlobalKey<AmbientScreenState>();
   PhotoMemory? _currentMemory;
   int _currentPage = _homeIndex;
+  bool _quickTrayOpen = false;
 
   static const double _edgeZoneHeight = 80;
 
@@ -213,6 +214,68 @@ class _HubShellState extends ConsumerState<HubShell>
     );
   }
 
+  Widget _buildQuickTray() {
+    final timerService = ref.watch(timerServiceProvider);
+    return GestureDetector(
+      // Tap scrim to dismiss
+      onTap: () => setState(() => _quickTrayOpen = false),
+      child: Container(
+        color: Colors.black.withValues(alpha: 0.6),
+        child: Column(
+          children: [
+            const Spacer(),
+            // Swipe down on the tray to dismiss
+            GestureDetector(
+              onVerticalDragEnd: (details) {
+                if ((details.primaryVelocity ?? 0) > 200) {
+                  setState(() => _quickTrayOpen = false);
+                }
+              },
+              onTap: () {}, // absorb taps on tray so scrim dismiss doesn't fire
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 32, left: 24, right: 24),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1A1A1A),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _QuickAction(
+                      icon: Icons.timer,
+                      label: timerService.hasActiveTimers
+                          ? timerService.statusLabel
+                          : 'Timer',
+                      active: timerService.hasActiveTimers,
+                      onTap: () {
+                        setState(() => _quickTrayOpen = false);
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                              builder: (_) => const TimerScreen()),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            // Small handle indicator
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final idle = ref.watch(idleControllerProvider);
@@ -220,6 +283,7 @@ class _HubShellState extends ConsumerState<HubShell>
     // Drive the crossfade: forward = show active screens, reverse = show ambient
     if (idle.isIdle) {
       _fadeController.reverse();
+      _quickTrayOpen = false;
     } else {
       _fadeController.forward();
     }
@@ -351,12 +415,28 @@ class _HubShellState extends ConsumerState<HubShell>
                 targetPage: _pageCount - 1,
                 swipeDown: true,
               ),
-              _edgeSwipeZone(
+              // Bottom edge: swipe up to open quick actions tray
+              Align(
                 alignment: Alignment.bottomCenter,
-                targetPage: _homeIndex,
-                swipeDown: false,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.translucent,
+                  onVerticalDragUpdate: (_) {},
+                  onVerticalDragEnd: (details) {
+                    if ((details.primaryVelocity ?? 0) < -200) {
+                      _onUserActivity();
+                      setState(() => _quickTrayOpen = true);
+                    }
+                  },
+                  child: SizedBox(
+                    width: double.infinity,
+                    height: _edgeZoneHeight,
+                  ),
+                ),
               ),
             ],
+
+            // Quick actions tray — slides up from bottom
+            if (_quickTrayOpen && !idle.isIdle) _buildQuickTray(),
 
             // Layer 4: Timer alert — full-screen overlay when a timer fires.
             // Shows on top of everything (including ambient) so you never
@@ -364,6 +444,56 @@ class _HubShellState extends ConsumerState<HubShell>
             _buildTimerAlert(),
 
             // Event overlay layer (doorbell, alerts)
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A single square item in the quick actions tray.
+class _QuickAction extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool active;
+  final VoidCallback? onTap;
+
+  const _QuickAction({
+    required this.icon,
+    required this.label,
+    this.active = false,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 88,
+        height: 88,
+        decoration: BoxDecoration(
+          color: active
+              ? const Color(0xFF646CFF).withValues(alpha: 0.2)
+              : Colors.white.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(16),
+          border: active
+              ? Border.all(
+                  color: const Color(0xFF646CFF).withValues(alpha: 0.5))
+              : null,
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon,
+                size: 28,
+                color: active ? const Color(0xFF646CFF) : Colors.white70),
+            const SizedBox(height: 6),
+            Text(
+              label,
+              style: const TextStyle(fontSize: 11, color: Colors.white70),
+              overflow: TextOverflow.ellipsis,
+            ),
           ],
         ),
       ),
