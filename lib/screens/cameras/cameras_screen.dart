@@ -1,14 +1,18 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:media_kit/media_kit.dart';
+import 'package:media_kit_video/media_kit_video.dart';
 import '../../models/frigate_event.dart';
 import '../../services/frigate_service.dart';
 
-/// Camera grid screen -- shows live Frigate MJPEG feeds and recent events.
+/// Camera grid screen with live video expansion.
 ///
-/// Displays cameras in a responsive grid. Tapping a camera expands it to
-/// fill the screen for a closer look (useful for checking who's at the door).
-/// A horizontal event timeline along the bottom shows recent Frigate
-/// detections with thumbnails and timestamps.
+/// Two viewing modes:
+/// 1. Grid — snapshot thumbnails from Frigate's `/latest.jpg` endpoint,
+///    auto-refreshed every 3 seconds via a cache-busting query parameter.
+/// 2. Expanded — tapping a tile opens full-screen RTSP video via media_kit
+///    (libmpv on desktop, GStreamer on Pi). Tap anywhere to return to grid.
 class CamerasScreen extends ConsumerStatefulWidget {
   const CamerasScreen({super.key});
 
@@ -17,230 +21,257 @@ class CamerasScreen extends ConsumerStatefulWidget {
 }
 
 class _CamerasScreenState extends ConsumerState<CamerasScreen> {
-  /// Tracks which camera is currently expanded (full-screen), or null for grid.
-  String? _expandedCamera;
+  /// Which camera is currently expanded for full-screen video, or null for grid.
+  FrigateCamera? _expandedCamera;
+
+  /// media_kit player and controller — created when a camera is expanded,
+  /// disposed when returning to grid. Keeping these instance-level avoids
+  /// creating a new player on every rebuild.
+  Player? _player;
+  VideoController? _videoController;
+
+  @override
+  void dispose() {
+    _disposePlayer();
+    super.dispose();
+  }
+
+  /// Opens full-screen RTSP video for the given camera.
+  void _expandCamera(FrigateCamera camera) {
+    _disposePlayer();
+
+    final player = Player();
+    final controller = VideoController(player);
+
+    // Open the RTSP stream — go2rtc serves this on port 8554 by default.
+    // media_kit/libmpv handles RTSP natively with hardware acceleration.
+    player.open(Media(camera.rtspUrl));
+
+    setState(() {
+      _expandedCamera = camera;
+      _player = player;
+      _videoController = controller;
+    });
+  }
+
+  /// Returns to the grid view and cleans up the video player.
+  void _collapseCamera() {
+    _disposePlayer();
+    setState(() => _expandedCamera = null);
+  }
+
+  void _disposePlayer() {
+    _player?.dispose();
+    _player = null;
+    _videoController = null;
+  }
 
   @override
   Widget build(BuildContext context) {
-    // Read live camera list from FrigateService (loaded at app startup)
     final frigate = ref.watch(frigateServiceProvider);
     final cameras = frigate.cameras;
-    final List<FrigateEvent> recentEvents = [];
 
+    // --- Empty state ---
     if (cameras.isEmpty) {
       return Container(
         color: Colors.black.withValues(alpha: 0.7),
         child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.videocam_off,
-              size: 64,
-              color: Colors.white.withValues(alpha: 0.2),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'No cameras',
-              style: TextStyle(
-                fontSize: 18,
-                color: Colors.white.withValues(alpha: 0.4),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Connect Frigate NVR in settings',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.white.withValues(alpha: 0.3),
-              ),
-            ),
-          ],
-        ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.videocam_off, size: 64,
+                  color: Colors.white.withValues(alpha: 0.2)),
+              const SizedBox(height: 16),
+              Text('No cameras',
+                  style: TextStyle(
+                      fontSize: 18,
+                      color: Colors.white.withValues(alpha: 0.4))),
+              const SizedBox(height: 8),
+              Text('Connect Frigate NVR in settings',
+                  style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.white.withValues(alpha: 0.3))),
+            ],
+          ),
         ),
       );
     }
 
-    // Single expanded camera -- tap to return to grid
-    if (_expandedCamera != null) {
-      final camera = cameras.firstWhere(
-        (c) => c.name == _expandedCamera,
-        orElse: () => cameras.first,
-      );
+    // --- Expanded: full-screen RTSP video ---
+    if (_expandedCamera != null && _videoController != null) {
       return GestureDetector(
-        onTap: () => setState(() => _expandedCamera = null),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            // MJPEG stream rendered as a continuously-updating image
-            Image.network(
-              camera.snapshotUrl,
-              fit: BoxFit.contain,
-              errorBuilder: (_, __, ___) => Container(
-                color: Colors.black,
-                child: const Center(
-                  child: Icon(Icons.videocam_off, size: 48, color: Colors.white24),
+        onTap: _collapseCamera,
+        child: Container(
+          color: Colors.black,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // Live RTSP video via media_kit
+              Video(
+                controller: _videoController!,
+                fit: BoxFit.contain,
+              ),
+              // Camera name + back hint overlay
+              Positioned(
+                top: 16,
+                left: 16,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.black54,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.arrow_back,
+                          size: 16, color: Colors.white70),
+                      const SizedBox(width: 6),
+                      Text(_expandedCamera!.name,
+                          style: const TextStyle(
+                              fontSize: 14, color: Colors.white70)),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            // Camera name overlay in top-left corner
-            Positioned(
-              top: 16,
-              left: 16,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Colors.black54,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.arrow_back, size: 16, color: Colors.white70),
-                    const SizedBox(width: 6),
-                    Text(
-                      camera.name,
-                      style: const TextStyle(fontSize: 14, color: Colors.white70),
-                    ),
-                  ],
+              // Live indicator
+              Positioned(
+                top: 16,
+                right: 16,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withValues(alpha: 0.8),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.circle, size: 8, color: Colors.white),
+                      SizedBox(width: 4),
+                      Text('LIVE',
+                          style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white)),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       );
     }
 
-    // Grid view with event timeline below
+    // --- Grid view: auto-refreshing snapshot tiles ---
     return Container(
       color: Colors.black.withValues(alpha: 0.7),
-      child: Column(
-      children: [
-        // Camera grid -- 2 columns for the 11" landscape display
-        Expanded(
-          child: GridView.builder(
-            padding: const EdgeInsets.all(16),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-              childAspectRatio: 16 / 9,
-            ),
-            itemCount: cameras.length,
-            itemBuilder: (context, index) {
-              final camera = cameras[index];
-              return GestureDetector(
-                onTap: () => setState(() => _expandedCamera = camera.name),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      // Live MJPEG feed from Frigate
-                      Image.network(
-                        camera.snapshotUrl,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(
-                          color: Colors.white.withValues(alpha: 0.05),
-                          child: const Center(
-                            child: Icon(Icons.videocam_off, color: Colors.white24),
-                          ),
-                        ),
-                      ),
-                      // Camera name label at the bottom
-                      Positioned(
-                        bottom: 0,
-                        left: 0,
-                        right: 0,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [
-                                Colors.transparent,
-                                Colors.black.withValues(alpha: 0.7),
-                              ],
-                            ),
-                          ),
-                          child: Text(
-                            camera.name,
-                            style: const TextStyle(fontSize: 12, color: Colors.white70),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
+      child: GridView.builder(
+        padding: const EdgeInsets.all(16),
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: cameras.length <= 4 ? 2 : 3,
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 12,
+          childAspectRatio: 16 / 9,
         ),
-
-        // Recent events horizontal scroll -- shows detection thumbnails
-        if (recentEvents.isNotEmpty)
-          SizedBox(
-            height: 90,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              itemCount: recentEvents.length,
-              itemBuilder: (context, index) {
-                final event = recentEvents[index];
-                return Container(
-                  width: 110,
-                  margin: const EdgeInsets.only(right: 10),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.05),
-                    borderRadius: BorderRadius.circular(8),
-                    // Active (ongoing) events get a subtle highlight border
-                    border: event.isActive
-                        ? Border.all(color: Colors.amber.withValues(alpha: 0.4))
-                        : null,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Thumbnail from Frigate's event API
-                      Expanded(
-                        child: ClipRRect(
-                          borderRadius: const BorderRadius.vertical(
-                            top: Radius.circular(8),
-                          ),
-                          child: event.thumbnailUrl != null
-                              ? Image.network(
-                                  event.thumbnailUrl!,
-                                  width: double.infinity,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) => const Center(
-                                    child: Icon(Icons.image, size: 20, color: Colors.white24),
-                                  ),
-                                )
-                              : const Center(
-                                  child: Icon(Icons.image, size: 20, color: Colors.white24),
-                                ),
+        itemCount: cameras.length,
+        itemBuilder: (context, index) {
+          final camera = cameras[index];
+          return GestureDetector(
+            onTap: () => _expandCamera(camera),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  // Auto-refreshing snapshot tile
+                  _CameraSnapshotTile(camera: camera),
+                  // Camera name label with gradient background
+                  Positioned(
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.transparent,
+                            Colors.black.withValues(alpha: 0.7),
+                          ],
                         ),
                       ),
-                      // Event label and camera name
-                      Padding(
-                        padding: const EdgeInsets.all(6),
-                        child: Text(
-                          '${event.label} \u2022 ${event.camera}',
-                          style: const TextStyle(fontSize: 10, color: Colors.white54),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
+                      child: Text(camera.name,
+                          style: const TextStyle(
+                              fontSize: 12, color: Colors.white70)),
+                    ),
                   ),
-                );
-              },
+                ],
+              ),
             ),
-          ),
-      ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// A single camera snapshot tile that auto-refreshes every 3 seconds.
+///
+/// Uses a cache-busting query parameter (current timestamp) to force
+/// Image.network to fetch a fresh frame from Frigate's `/latest.jpg`
+/// endpoint. The old image stays visible while the new one loads,
+/// so there's no flicker between refreshes.
+class _CameraSnapshotTile extends StatefulWidget {
+  final FrigateCamera camera;
+  const _CameraSnapshotTile({required this.camera});
+
+  @override
+  State<_CameraSnapshotTile> createState() => _CameraSnapshotTileState();
+}
+
+class _CameraSnapshotTileState extends State<_CameraSnapshotTile> {
+  Timer? _refreshTimer;
+
+  /// Cache-buster value appended to the snapshot URL.
+  /// Changing this forces Image.network to re-fetch.
+  int _tick = DateTime.now().millisecondsSinceEpoch;
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (mounted) {
+        setState(() => _tick = DateTime.now().millisecondsSinceEpoch);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Image.network(
+      // Append timestamp to bust the HTTP cache and get a fresh frame
+      '${widget.camera.snapshotUrl}?t=$_tick',
+      fit: BoxFit.cover,
+      // Keep the previous frame visible while the new one loads
+      gaplessPlayback: true,
+      errorBuilder: (_, __, ___) => Container(
+        color: Colors.white.withValues(alpha: 0.05),
+        child: const Center(
+          child: Icon(Icons.videocam_off, color: Colors.white24),
+        ),
       ),
     );
   }

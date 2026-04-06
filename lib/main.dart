@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:media_kit/media_kit.dart';
 import 'app/app.dart';
 import 'config/hub_config.dart';
 import 'services/home_assistant_service.dart';
@@ -17,6 +18,10 @@ const double kWindowHeight = 864;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize media_kit for RTSP camera stream playback.
+  // Uses libmpv on Windows/Linux desktop, GStreamer on Pi via flutter-pi.
+  MediaKit.ensureInitialized();
 
   // Load persisted configuration before building the widget tree.
   // This ensures all providers have valid config on first frame.

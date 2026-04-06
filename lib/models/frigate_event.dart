@@ -65,27 +65,37 @@ class FrigateEvent {
   }
 }
 
-/// A Frigate camera with its snapshot URL.
+/// A Frigate camera with its snapshot and stream URLs.
 ///
-/// Frigate serves the latest camera frame as a JPEG at
-/// `/api/<camera_name>/latest.jpg`. We use this for the grid view since
-/// Flutter's Image.network expects a single image, not an MJPEG stream.
-/// The snapshot auto-refreshes when the widget rebuilds.
+/// Two access patterns:
+/// - [snapshotUrl]: Single JPEG frame at `/api/<name>/latest.jpg` — used
+///   for the grid view thumbnails, refreshed every few seconds.
+/// - [rtspUrl]: Live RTSP stream via go2rtc at `rtsp://<host>:8554/<name>` —
+///   used for the full-screen expanded view with real video playback.
 class FrigateCamera {
   final String name;
   final String snapshotUrl;
+  final String rtspUrl;
 
   const FrigateCamera({
     required this.name,
     required this.snapshotUrl,
+    required this.rtspUrl,
   });
 
-  /// Creates a camera model from just the camera name and Frigate base URL.
-  /// The camera list comes from Frigate's `/api/config` endpoint.
+  /// Creates a camera model from the camera name and Frigate base URL.
+  /// Derives the RTSP URL from the same host — go2rtc serves RTSP on
+  /// port 8554 by default alongside Frigate's HTTP API.
   factory FrigateCamera.fromEntry(String name, String frigateBaseUrl) {
+    // Extract host from the Frigate HTTP URL for the RTSP URL.
+    // e.g., "http://frigate.local:5000" → "frigate.local"
+    final uri = Uri.parse(frigateBaseUrl);
+    final rtspHost = uri.host;
+
     return FrigateCamera(
       name: name,
       snapshotUrl: '$frigateBaseUrl/api/$name/latest.jpg',
+      rtspUrl: 'rtsp://$rtspHost:8554/$name',
     );
   }
 }
