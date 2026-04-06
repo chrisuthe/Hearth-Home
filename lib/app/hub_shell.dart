@@ -39,6 +39,7 @@ class _HubShellState extends ConsumerState<HubShell>
   static const int _homeIndex = 1;
   static const int _pageCount = 5;
   late final FocusNode _focusNode;
+  final _ambientKey = GlobalKey<AmbientScreenState>();
 
   @override
   void initState() {
@@ -193,7 +194,7 @@ class _HubShellState extends ConsumerState<HubShell>
           children: [
             // Layer 1: Photo background — always visible behind everything.
             // The AmbientScreen handles its own photo rotation and caching.
-            const AmbientScreen(),
+            AmbientScreen(key: _ambientKey),
 
             // Layer 2: Active screens with dark scrim — fades in on activity.
             // The scrim ensures text/controls are readable over the photo.
@@ -217,13 +218,59 @@ class _HubShellState extends ConsumerState<HubShell>
               ),
             ),
 
-            // Layer 3: Ambient overlays (clock, weather, memory label) —
+            // Layer 3: Ambient overlays + photo skip buttons —
             // only visible when idle. Uses a reversed animation so they
             // fade OUT when active screens fade IN.
             FadeTransition(
               opacity: ReverseAnimation(_fadeController),
-              child: const IgnorePointer(
-                child: AmbientOverlays(),
+              child: Stack(
+                children: [
+                  const IgnorePointer(child: AmbientOverlays()),
+                  // Skip buttons — subtle arrows on the left/right edges.
+                  // Tapping these advances photos without waking the display.
+                  if (idle.isIdle) ...[
+                    Positioned(
+                      left: 8,
+                      top: 0,
+                      bottom: 0,
+                      child: Center(
+                        child: GestureDetector(
+                          onTap: () => _ambientKey.currentState?.skipBack(),
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.25),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(Icons.chevron_left,
+                                color: Colors.white.withValues(alpha: 0.4),
+                                size: 28),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      right: 8,
+                      top: 0,
+                      bottom: 0,
+                      child: Center(
+                        child: GestureDetector(
+                          onTap: () => _ambientKey.currentState?.skipForward(),
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.25),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(Icons.chevron_right,
+                                color: Colors.white.withValues(alpha: 0.4),
+                                size: 28),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
 

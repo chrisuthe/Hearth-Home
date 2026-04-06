@@ -79,6 +79,15 @@ class ImmichService {
     return photo;
   }
 
+  /// Returns the previous photo in rotation, wrapping around to the end.
+  PhotoMemory? get previousPhoto {
+    if (_cachedMemories.isEmpty) return null;
+    _currentIndex = (_currentIndex - 2).clamp(0, _cachedMemories.length - 1);
+    final photo = _cachedMemories[_currentIndex % _cachedMemories.length];
+    _currentIndex++;
+    return photo;
+  }
+
   /// Downloads a photo to local disk cache. Returns the cached file path.
   /// Skips download if the file already exists (idempotent).
   Future<String> cachePhoto(PhotoMemory memory) async {
