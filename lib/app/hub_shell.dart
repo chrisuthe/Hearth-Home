@@ -187,7 +187,10 @@ class _HubShellState extends ConsumerState<HubShell>
       onKeyEvent: _handleKeyEvent,
       child: GestureDetector(
         behavior: HitTestBehavior.translucent,
-        onTapDown: (_) => _onUserActivity(),
+        // Only track activity when not idle — during idle, taps are handled
+        // by the ambient overlay (wake) and chevron buttons (skip photo).
+        // This prevents the skip buttons from accidentally waking the screen.
+        onTapDown: idle.isIdle ? null : (_) => _onUserActivity(),
         onPanStart: (_) => _onUserActivity(),
         onPanUpdate: (_) => _onUserActivity(),
         child: Stack(
@@ -225,6 +228,18 @@ class _HubShellState extends ConsumerState<HubShell>
               opacity: ReverseAnimation(_fadeController),
               child: Stack(
                 children: [
+                  // Tap anywhere on the ambient display to wake — but the
+                  // chevron buttons sit on top and absorb their own taps.
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: idle.isIdle
+                        ? () {
+                            _onUserActivity();
+                            _pageController.jumpToPage(_homeIndex);
+                          }
+                        : null,
+                    child: const SizedBox.expand(),
+                  ),
                   const IgnorePointer(child: AmbientOverlays()),
                   // Skip buttons — subtle arrows on the left/right edges.
                   // Tapping these advances photos without waking the display.
