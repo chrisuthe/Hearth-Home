@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'idle_controller.dart';
+import '../models/photo_memory.dart';
 import '../screens/ambient/ambient_screen.dart';
 import '../screens/ambient/ambient_overlays.dart';
 import '../screens/timer/timer_screen.dart';
@@ -40,6 +41,7 @@ class _HubShellState extends ConsumerState<HubShell>
   static const int _pageCount = 5;
   late final FocusNode _focusNode;
   final _ambientKey = GlobalKey<AmbientScreenState>();
+  PhotoMemory? _currentMemory;
 
   @override
   void initState() {
@@ -197,7 +199,12 @@ class _HubShellState extends ConsumerState<HubShell>
           children: [
             // Layer 1: Photo background — always visible behind everything.
             // The AmbientScreen handles its own photo rotation and caching.
-            AmbientScreen(key: _ambientKey),
+            AmbientScreen(
+              key: _ambientKey,
+              onMemoryChanged: (memory) {
+                setState(() => _currentMemory = memory);
+              },
+            ),
 
             // Layer 2: Active screens with dark scrim — fades in on activity.
             // The scrim ensures text/controls are readable over the photo.
@@ -244,7 +251,7 @@ class _HubShellState extends ConsumerState<HubShell>
                   ),
                   IgnorePointer(
                     child: AmbientOverlays(
-                      memoryLabel: _ambientKey.currentState?.currentMemory?.memoryLabel,
+                      memoryLabel: _currentMemory?.memoryLabel,
                     ),
                   ),
                   // Skip buttons — subtle arrows on the left/right edges.

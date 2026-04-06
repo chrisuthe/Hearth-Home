@@ -14,7 +14,9 @@ import 'photo_carousel.dart';
 /// Exposes [currentMemory] so the parent can pass the memory label
 /// ("3 years ago today") to the ambient overlays.
 class AmbientScreen extends ConsumerStatefulWidget {
-  const AmbientScreen({super.key});
+  final ValueChanged<PhotoMemory?>? onMemoryChanged;
+
+  const AmbientScreen({super.key, this.onMemoryChanged});
 
   @override
   ConsumerState<AmbientScreen> createState() => AmbientScreenState();
@@ -81,6 +83,7 @@ class AmbientScreenState extends ConsumerState<AmbientScreen> {
       if (memory == null) return;
 
       setState(() => _currentMemory = memory);
+      widget.onMemoryChanged?.call(memory);
 
       final cachedPath = immich.getCachedPath(memory.assetId);
       if (cachedPath != null) {
