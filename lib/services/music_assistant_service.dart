@@ -265,3 +265,17 @@ final musicAssistantServiceProvider = Provider<MusicAssistantService>((ref) {
   ref.onDispose(() => service.dispose());
   return service;
 });
+
+/// Emits the latest player state for any player that changed.
+/// Widgets watch this to rebuild on playback updates.
+final maPlayerStateProvider = StreamProvider<MusicPlayerState>((ref) {
+  final service = ref.watch(musicAssistantServiceProvider);
+  return service.playerStateStream;
+});
+
+/// Emits the full map of all player states whenever any player updates.
+final maAllPlayersProvider =
+    StreamProvider<Map<String, MusicPlayerState>>((ref) {
+  final service = ref.watch(musicAssistantServiceProvider);
+  return service.playerStateStream.map((_) => service.playerStates);
+});

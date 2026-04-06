@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../config/hub_config.dart';
 import '../../widgets/now_playing_bar.dart';
 import '../../models/music_state.dart';
+import '../../services/music_assistant_service.dart';
 import '../timer/timer_screen.dart';
 import '../../services/timer_service.dart';
 
@@ -127,18 +128,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
           const SizedBox(height: 16),
 
-          // Now playing bar -- shows placeholder until Music Assistant connects
-          const NowPlayingBar(
-            musicState: MusicPlayerState(
-              playbackState: PlaybackState.playing,
-              currentTrack: MusicTrack(
-                title: 'No music playing',
-                artist: 'Connect Music Assistant in settings',
-                album: '',
-                duration: Duration.zero,
-              ),
-            ),
-          ),
+          // Now playing bar — live from Music Assistant
+          Builder(builder: (context) {
+            final music = ref.watch(musicAssistantServiceProvider);
+            ref.watch(maPlayerStateProvider); // trigger rebuilds
+            final players = music.playerStates;
+            final activeEntry = players.entries
+                .where((e) => e.value.isPlaying)
+                .firstOrNull;
+            final state = activeEntry?.value ?? const MusicPlayerState();
+            return NowPlayingBar(
+              musicState: state,
+              onPlayPause: activeEntry != null
+                  ? () => music.playPause(activeEntry.key)
+                  : null,
+            );
+          }),
 
           const SizedBox(height: 16),
         ],
