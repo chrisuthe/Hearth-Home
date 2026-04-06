@@ -13,7 +13,7 @@ import '../models/music_state.dart';
 /// get richer queue data (shuffle, repeat, queue size, next track) that the
 /// HA media_player entity doesn't expose.
 class MusicAssistantService {
-  final WebSocketChannel _channel;
+  WebSocketChannel? _channel;
   final _stateController = StreamController<MusicPlayerState>.broadcast();
   final _zonesController = StreamController<List<MusicZone>>.broadcast();
   final Map<String, MusicPlayerState> _playerStates = {};
@@ -27,18 +27,21 @@ class MusicAssistantService {
   int _messageCounter = 0;
   bool _isConnected = false;
 
-  /// Production constructor — creates a real WebSocket connection to [url].
-  /// Accepts `http://` or `ws://` URLs; always converts to `ws://` and
-  /// appends `/ws` if the path doesn't already end with it.
-  MusicAssistantService.fromUrl(String url)
-      : _channel = WebSocketChannel.connect(Uri.parse(_toWsUrl(url))) {
-    _listenToChannel();
-  }
+  MusicAssistantService();
 
   /// Test constructor — accepts a pre-built channel (e.g., FakeWebSocketChannel).
   MusicAssistantService.withChannel(WebSocketChannel channel)
       : _channel = channel {
     _listenToChannel();
+  }
+
+  /// Opens a WebSocket to the given MA URL and begins authentication.
+  /// Accepts http(s):// URLs and converts to ws(s):// automatically.
+  Future<void> connectToUrl(String url, String token) async {
+    _channel = WebSocketChannel.connect(Uri.parse(_toWsUrl(url)));
+    await _channel!.ready;
+    _listenToChannel();
+    connect(token);
   }
 
   // --- Public API ---
@@ -98,13 +101,13 @@ class MusicAssistantService {
     _streamSub?.cancel();
     _stateController.close();
     _zonesController.close();
-    _channel.sink.close();
+    _channel?.sink.close();
   }
 
   // --- Internal helpers ---
 
   void _listenToChannel() {
-    _streamSub = _channel.stream.listen(
+    _streamSub = _channel!.stream.listen(
       _onMessage,
       onError: (_) => _isConnected = false,
       onDone: () => _isConnected = false,
@@ -241,7 +244,7 @@ class MusicAssistantService {
   }
 
   void _send(Map<String, dynamic> msg) {
-    _channel.sink.add(jsonEncode(msg));
+    _channel?.sink.add(jsonEncode(msg));
   }
 
   String _nextMsgId() => 'msg_${++_messageCounter}';
@@ -258,10 +261,7 @@ class MusicAssistantService {
 }
 
 final musicAssistantServiceProvider = Provider<MusicAssistantService>((ref) {
-  // The channel is injected at startup via connect(); the provider just
-  // holds the instance. Startup wiring happens in main.dart (Task 4).
-  throw UnimplementedError(
-    'musicAssistantServiceProvider must be overridden with a real instance. '
-    'See main.dart for wiring.',
-  );
+  final service = MusicAssistantService();
+  ref.onDispose(() => service.dispose());
+  return service;
 });
