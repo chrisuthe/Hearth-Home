@@ -72,17 +72,23 @@ class HomeAssistantService {
     );
   }
 
-  /// Opens a WebSocket to the given HA URL and begins the auth flow.
-  /// Accepts http(s):// URLs and converts to ws(s):// automatically.
-  Future<void> connectToUrl(String url, String token) async {
-    _url = url;
-    _token = token;
+  /// Converts an http(s) URL to a ws(s) URL with /api/websocket path.
+  @visibleForTesting
+  static Uri buildWsUri(String url) {
     final uri = Uri.parse(url);
     final wsScheme = uri.scheme == 'https' ? 'wss' : 'ws';
     final wsPath = uri.path.endsWith('/api/websocket')
         ? uri.path
         : '${uri.path.replaceAll(RegExp(r'/+$'), '')}/api/websocket';
-    final wsUri = uri.replace(scheme: wsScheme, path: wsPath);
+    return uri.replace(scheme: wsScheme, path: wsPath);
+  }
+
+  /// Opens a WebSocket to the given HA URL and begins the auth flow.
+  /// Accepts http(s):// URLs and converts to ws(s):// automatically.
+  Future<void> connectToUrl(String url, String token) async {
+    _url = url;
+    _token = token;
+    final wsUri = buildWsUri(url);
     _channel = WebSocketChannel.connect(wsUri);
     await _channel!.ready.timeout(_connectTimeout);
     _reconnectDelay = 1;

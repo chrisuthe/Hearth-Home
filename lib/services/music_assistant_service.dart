@@ -52,7 +52,7 @@ class MusicAssistantService {
   Future<void> connectToUrl(String url, String token) async {
     _url = url;
     _token = token;
-    _channel = WebSocketChannel.connect(Uri.parse(_toWsUrl(url)));
+    _channel = WebSocketChannel.connect(Uri.parse(toWsUrl(url)));
     await _channel!.ready.timeout(_connectTimeout);
     _reconnectDelay = 1;
     _listenToChannel();
@@ -327,7 +327,8 @@ class MusicAssistantService {
 
   String _nextMsgId() => 'msg_${++_messageCounter}';
 
-  static String _toWsUrl(String url) {
+  @visibleForTesting
+  static String toWsUrl(String url) {
     var result = url
         .replaceFirst(RegExp(r'^http://'), 'ws://')
         .replaceFirst(RegExp(r'^https://'), 'wss://');

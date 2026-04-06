@@ -197,5 +197,116 @@ void main() {
       expect(service.playerStates['kitchen']?.activeZoneName, 'Kitchen');
       expect(service.playerStates['bedroom']?.activeZoneName, 'Bedroom');
     });
+
+    test('player_updated preserves existing album art when incoming has none',
+        () async {
+      service.connect('test-token');
+      final authMsgId = channel.sentMessages[0]['message_id'] as String;
+      channel.simulateServerMessage(
+          {'message_id': authMsgId, 'result': true});
+
+      // First: establish a player with album art via player_updated
+      channel.simulateServerMessage({
+        'event': 'player_updated',
+        'object_id': 'kitchen',
+        'data': {
+          'player_id': 'kitchen',
+          'display_name': 'Kitchen',
+          'state': 'playing',
+          'volume_level': 50,
+          'volume_muted': false,
+          'current_media': {
+            'title': 'Song A',
+            'artist': 'Artist A',
+            'album': 'Album A',
+            'image_url': 'http://art.example.com/cover.jpg',
+            'duration': 200,
+          },
+        },
+      });
+
+      await Future.delayed(const Duration(milliseconds: 50));
+      expect(service.playerStates['kitchen']?.currentTrack?.imageUrl,
+          'http://art.example.com/cover.jpg');
+
+      // Second: player_updated with NO image — should preserve existing art
+      final statesFuture = service.playerStateStream.first;
+      channel.simulateServerMessage({
+        'event': 'player_updated',
+        'object_id': 'kitchen',
+        'data': {
+          'player_id': 'kitchen',
+          'display_name': 'Kitchen',
+          'state': 'playing',
+          'volume_level': 50,
+          'volume_muted': false,
+          'current_media': {
+            'title': 'Song B',
+            'artist': 'Artist B',
+            'album': 'Album B',
+            'duration': 180,
+          },
+        },
+      });
+
+      final state = await statesFuture;
+      // Title should update but image should be preserved from Song A
+      expect(state.currentTrack?.title, 'Song B');
+      expect(state.currentTrack?.imageUrl, 'http://art.example.com/cover.jpg');
+    });
+
+    test('player_updated uses new art when incoming has image', () async {
+      service.connect('test-token');
+      final authMsgId = channel.sentMessages[0]['message_id'] as String;
+      channel.simulateServerMessage(
+          {'message_id': authMsgId, 'result': true});
+
+      // Establish with art
+      channel.simulateServerMessage({
+        'event': 'player_updated',
+        'object_id': 'kitchen',
+        'data': {
+          'player_id': 'kitchen',
+          'display_name': 'Kitchen',
+          'state': 'playing',
+          'volume_level': 50,
+          'volume_muted': false,
+          'current_media': {
+            'title': 'Song A',
+            'artist': 'Artist A',
+            'album': 'Album A',
+            'image_url': 'http://art.example.com/old.jpg',
+            'duration': 200,
+          },
+        },
+      });
+
+      await Future.delayed(const Duration(milliseconds: 50));
+
+      // Update with new art — should use the new one
+      final statesFuture = service.playerStateStream.first;
+      channel.simulateServerMessage({
+        'event': 'player_updated',
+        'object_id': 'kitchen',
+        'data': {
+          'player_id': 'kitchen',
+          'display_name': 'Kitchen',
+          'state': 'playing',
+          'volume_level': 50,
+          'volume_muted': false,
+          'current_media': {
+            'title': 'Song B',
+            'artist': 'Artist B',
+            'album': 'Album B',
+            'image_url': 'http://art.example.com/new.jpg',
+            'duration': 180,
+          },
+        },
+      });
+
+      final state = await statesFuture;
+      expect(state.currentTrack?.title, 'Song B');
+      expect(state.currentTrack?.imageUrl, 'http://art.example.com/new.jpg');
+    });
   });
 }
