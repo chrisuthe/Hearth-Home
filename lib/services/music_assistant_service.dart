@@ -122,8 +122,9 @@ class MusicAssistantService {
           final player = item as Map<String, dynamic>;
           final state = MusicPlayerState.fromMaPlayerEvent(player);
           final id = state.activeZoneId;
-          if (id != null) {
+          if (id != null && id.isNotEmpty) {
             _playerStates[id] = state;
+            _stateController.add(state);
           }
         }
         _emitZones();
@@ -138,7 +139,7 @@ class MusicAssistantService {
           final queue = item as Map<String, dynamic>;
           final queueState = MusicPlayerState.fromMaQueueEvent(queue);
           final id = queueState.activeZoneId;
-          if (id != null) {
+          if (id != null && id.isNotEmpty) {
             final existing = _playerStates[id];
             _playerStates[id] = existing == null
                 ? queueState
@@ -189,9 +190,14 @@ class MusicAssistantService {
   void _handleEvent(Map<String, dynamic> msg) {
     final event = msg['event'] as String?;
     final objectId = msg['object_id'] as String?;
-    final data = msg['data'] as Map<String, dynamic>?;
+    final rawData = msg['data'];
 
-    if (event == null || objectId == null || data == null) return;
+    // Some MA events (e.g. queue_time_updated) send a scalar, not a map.
+    // We only handle events with map-shaped data.
+    if (event == null || objectId == null || rawData is! Map<String, dynamic>) {
+      return;
+    }
+    final data = rawData;
 
     MusicPlayerState updated;
 
@@ -206,17 +212,19 @@ class MusicAssistantService {
               volume: playerState.volume,
               activeZoneId: playerState.activeZoneId,
               activeZoneName: playerState.activeZoneName,
-              currentTrack: playerState.currentTrack ?? existing.currentTrack,
+              currentTrack: _preferTrackWithImage(
+                  playerState.currentTrack, existing.currentTrack),
             );
     } else if (event == 'queue_updated') {
-      // Queue events carry track/shuffle/repeat — merge over existing player state
+      // Queue events carry track/shuffle/repeat — merge over existing player state.
+      // Preserve existing track/artwork if the queue event doesn't include one.
       final queueState = MusicPlayerState.fromMaQueueEvent(data);
       final existing = _playerStates[objectId];
       updated = existing == null
           ? queueState
           : existing.copyWith(
               playbackState: queueState.playbackState,
-              currentTrack: queueState.currentTrack,
+              currentTrack: queueState.currentTrack ?? existing.currentTrack,
               position: queueState.position,
               shuffle: queueState.shuffle,
               repeatMode: queueState.repeatMode,
@@ -230,6 +238,25 @@ class MusicAssistantService {
     _playerStates[objectId] = updated;
     _stateController.add(updated);
     _emitZones();
+  }
+
+  /// When merging player and queue events, prefer whichever track has
+  /// an image URL so album art doesn't flicker to blank.
+  MusicTrack? _preferTrackWithImage(MusicTrack? incoming, MusicTrack? existing) {
+    if (incoming == null) return existing;
+    if (existing == null) return incoming;
+    // If incoming has an image, use it. Otherwise keep existing image.
+    if (incoming.imageUrl != null) return incoming;
+    if (existing.imageUrl != null) {
+      return MusicTrack(
+        title: incoming.title,
+        artist: incoming.artist,
+        album: incoming.album,
+        imageUrl: existing.imageUrl,
+        duration: incoming.duration,
+      );
+    }
+    return incoming;
   }
 
   void _emitZones() {

@@ -226,7 +226,9 @@ class _HubShellState extends ConsumerState<HubShell>
             // fade OUT when active screens fade IN.
             FadeTransition(
               opacity: ReverseAnimation(_fadeController),
-              child: Stack(
+              child: IgnorePointer(
+                ignoring: !idle.isIdle,
+                child: Stack(
                 children: [
                   // Tap anywhere on the ambient display to wake — but the
                   // chevron buttons sit on top and absorb their own taps.
@@ -286,6 +288,7 @@ class _HubShellState extends ConsumerState<HubShell>
                     ),
                   ],
                 ],
+              ),
               ),
             ),
 
