@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import '../models/ha_entity.dart';
@@ -13,13 +14,24 @@ import '../models/ha_entity.dart';
 ///
 /// This service maintains an in-memory entity cache and broadcasts
 /// updates via [entityStream] for other services to consume.
+/// On disconnect, it automatically reconnects with exponential backoff.
 class HomeAssistantService {
   WebSocketChannel? _channel;
+  StreamSubscription? _streamSub;
   final _entityController = StreamController<HaEntity>.broadcast();
   final Map<String, HaEntity> _entities = {};
   int _msgId = 0;
   bool _authenticated = false;
   int? _getStatesId;
+
+  // Reconnection state
+  String? _url;
+  String? _token;
+  Timer? _reconnectTimer;
+  int _reconnectDelay = 1;
+  bool _disposed = false;
+  static const int _maxReconnectDelay = 30;
+  static const Duration _connectTimeout = Duration(seconds: 10);
 
   Stream<HaEntity> get entityStream => _entityController.stream;
   Map<String, HaEntity> get entities => Map.unmodifiable(_entities);
@@ -37,16 +49,34 @@ class HomeAssistantService {
   /// Starts listening on the channel. Call [connectToUrl] for production
   /// use, or use [withChannel] + [connect] for testing.
   void connect(String token) {
-    _channel!.stream.listen(
-      (data) => _handleMessage(jsonDecode(data as String), token),
-      onError: (error) {},
-      onDone: () => _authenticated = false,
+    _token = token;
+    _streamSub?.cancel();
+    _streamSub = _channel!.stream.listen(
+      (data) {
+        try {
+          _handleMessage(jsonDecode(data as String), token);
+        } catch (e) {
+          debugPrint('HA message parse error: $e');
+        }
+      },
+      onError: (error) {
+        debugPrint('HA WebSocket error: $error');
+        _authenticated = false;
+        _scheduleReconnect();
+      },
+      onDone: () {
+        debugPrint('HA WebSocket closed');
+        _authenticated = false;
+        _scheduleReconnect();
+      },
     );
   }
 
   /// Opens a WebSocket to the given HA URL and begins the auth flow.
   /// Accepts http(s):// URLs and converts to ws(s):// automatically.
   Future<void> connectToUrl(String url, String token) async {
+    _url = url;
+    _token = token;
     final uri = Uri.parse(url);
     final wsScheme = uri.scheme == 'https' ? 'wss' : 'ws';
     final wsPath = uri.path.endsWith('/api/websocket')
@@ -54,8 +84,27 @@ class HomeAssistantService {
         : '${uri.path.replaceAll(RegExp(r'/+$'), '')}/api/websocket';
     final wsUri = uri.replace(scheme: wsScheme, path: wsPath);
     _channel = WebSocketChannel.connect(wsUri);
-    await _channel!.ready;
+    await _channel!.ready.timeout(_connectTimeout);
+    _reconnectDelay = 1;
     connect(token);
+  }
+
+  void _scheduleReconnect() {
+    if (_disposed || _url == null || _token == null) return;
+    _reconnectTimer?.cancel();
+    debugPrint('HA reconnecting in ${_reconnectDelay}s...');
+    _reconnectTimer = Timer(Duration(seconds: _reconnectDelay), () async {
+      if (_disposed) return;
+      try {
+        await connectToUrl(_url!, _token!);
+        debugPrint('HA reconnected');
+      } catch (e) {
+        debugPrint('HA reconnect failed: $e');
+        _reconnectDelay = (_reconnectDelay * 2).clamp(1, _maxReconnectDelay);
+        _scheduleReconnect();
+      }
+    });
+    _reconnectDelay = (_reconnectDelay * 2).clamp(1, _maxReconnectDelay);
   }
 
   void _handleMessage(Map<String, dynamic> msg, String token) {
@@ -66,6 +115,10 @@ class HomeAssistantService {
       case 'auth_ok':
         _authenticated = true;
         _subscribeToStateChanges();
+        break;
+      case 'auth_invalid':
+        debugPrint('HA auth failed: ${msg['message'] ?? 'invalid token'}');
+        _authenticated = false;
         break;
       case 'event':
         _handleEvent(msg);
@@ -97,9 +150,14 @@ class HomeAssistantService {
     if (id == _getStatesId && msg['success'] == true) {
       final states = msg['result'] as List<dynamic>? ?? [];
       for (final state in states) {
-        final entity = HaEntity.fromEventData(state as Map<String, dynamic>);
-        _entities[entity.entityId] = entity;
-        _entityController.add(entity);
+        try {
+          final entity =
+              HaEntity.fromEventData(state as Map<String, dynamic>);
+          _entities[entity.entityId] = entity;
+          _entityController.add(entity);
+        } catch (e) {
+          debugPrint('HA entity parse error: $e');
+        }
       }
       _getStatesId = null;
     }
@@ -113,9 +171,13 @@ class HomeAssistantService {
     final newState = data['new_state'] as Map<String, dynamic>?;
     if (newState == null) return;
 
-    final entity = HaEntity.fromEventData(newState);
-    _entities[entity.entityId] = entity;
-    _entityController.add(entity);
+    try {
+      final entity = HaEntity.fromEventData(newState);
+      _entities[entity.entityId] = entity;
+      _entityController.add(entity);
+    } catch (e) {
+      debugPrint('HA entity parse error: $e');
+    }
   }
 
   /// Calls an HA service (e.g., turn_on, set_temperature).
@@ -137,10 +199,17 @@ class HomeAssistantService {
   }
 
   void _send(Map<String, dynamic> msg) {
-    _channel?.sink.add(jsonEncode(msg));
+    if (_channel == null) {
+      debugPrint('HA send dropped (not connected): ${msg['type'] ?? msg['command']}');
+      return;
+    }
+    _channel!.sink.add(jsonEncode(msg));
   }
 
   void dispose() {
+    _disposed = true;
+    _reconnectTimer?.cancel();
+    _streamSub?.cancel();
     _channel?.sink.close();
     _entityController.close();
   }

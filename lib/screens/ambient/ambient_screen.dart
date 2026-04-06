@@ -73,7 +73,9 @@ class AmbientScreenState extends ConsumerState<AmbientScreen> {
       final immich = ref.read(immichServiceProvider);
       await immich.loadMemories();
       await immich.prefetchPhotos();
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('Immich memory refresh failed: $e');
+    }
   }
 
   Future<void> _loadPhoto({required bool forward}) async {
@@ -92,7 +94,9 @@ class AmbientScreenState extends ConsumerState<AmbientScreen> {
         final path = await immich.cachePhoto(memory);
         _photoPathController.add(path);
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('Photo load failed: $e');
+    }
   }
 
   @override

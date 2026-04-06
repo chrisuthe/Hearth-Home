@@ -25,7 +25,11 @@ class FrigateService {
     required HomeAssistantService ha,
   })  : _baseUrl = baseUrl,
         _ha = ha,
-        _dio = Dio(BaseOptions(baseUrl: baseUrl));
+        _dio = Dio(BaseOptions(
+          baseUrl: baseUrl,
+          connectTimeout: const Duration(seconds: 10),
+          receiveTimeout: const Duration(seconds: 30),
+        ));
 
   Stream<FrigateEvent> get eventStream => _eventController.stream;
   List<FrigateCamera> get cameras => List.unmodifiable(_cameras);

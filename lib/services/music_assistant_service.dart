@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import '../models/music_state.dart';
@@ -12,6 +13,8 @@ import '../models/music_state.dart';
 /// Replaces the old HA-piggyback approach: this talks directly to MA so we
 /// get richer queue data (shuffle, repeat, queue size, next track) that the
 /// HA media_player entity doesn't expose.
+///
+/// On disconnect, automatically reconnects with exponential backoff.
 class MusicAssistantService {
   WebSocketChannel? _channel;
   final _stateController = StreamController<MusicPlayerState>.broadcast();
@@ -27,6 +30,15 @@ class MusicAssistantService {
   int _messageCounter = 0;
   bool _isConnected = false;
 
+  // Reconnection state
+  String? _url;
+  String? _token;
+  Timer? _reconnectTimer;
+  int _reconnectDelay = 1;
+  bool _disposed = false;
+  static const int _maxReconnectDelay = 30;
+  static const Duration _connectTimeout = Duration(seconds: 10);
+
   MusicAssistantService();
 
   /// Test constructor — accepts a pre-built channel (e.g., FakeWebSocketChannel).
@@ -38,8 +50,11 @@ class MusicAssistantService {
   /// Opens a WebSocket to the given MA URL and begins authentication.
   /// Accepts http(s):// URLs and converts to ws(s):// automatically.
   Future<void> connectToUrl(String url, String token) async {
+    _url = url;
+    _token = token;
     _channel = WebSocketChannel.connect(Uri.parse(_toWsUrl(url)));
-    await _channel!.ready;
+    await _channel!.ready.timeout(_connectTimeout);
+    _reconnectDelay = 1;
     _listenToChannel();
     connect(token);
   }
@@ -55,6 +70,7 @@ class MusicAssistantService {
   /// Authenticate with [token] and fetch initial state.
   /// Call this after construction.
   void connect(String token) {
+    _token = token;
     final msgId = _nextMsgId();
     _pendingCommands[msgId] = (result) {
       _isConnected = true;
@@ -98,6 +114,8 @@ class MusicAssistantService {
   }
 
   void dispose() {
+    _disposed = true;
+    _reconnectTimer?.cancel();
     _streamSub?.cancel();
     _stateController.close();
     _zonesController.close();
@@ -107,11 +125,39 @@ class MusicAssistantService {
   // --- Internal helpers ---
 
   void _listenToChannel() {
+    _streamSub?.cancel();
     _streamSub = _channel!.stream.listen(
       _onMessage,
-      onError: (_) => _isConnected = false,
-      onDone: () => _isConnected = false,
+      onError: (error) {
+        debugPrint('MA WebSocket error: $error');
+        _isConnected = false;
+        _scheduleReconnect();
+      },
+      onDone: () {
+        debugPrint('MA WebSocket closed');
+        _isConnected = false;
+        _scheduleReconnect();
+      },
     );
+  }
+
+  void _scheduleReconnect() {
+    if (_disposed || _url == null || _token == null) return;
+    _reconnectTimer?.cancel();
+    debugPrint('MA reconnecting in ${_reconnectDelay}s...');
+    _reconnectTimer = Timer(Duration(seconds: _reconnectDelay), () async {
+      if (_disposed) return;
+      try {
+        _pendingCommands.clear();
+        await connectToUrl(_url!, _token!);
+        debugPrint('MA reconnected');
+      } catch (e) {
+        debugPrint('MA reconnect failed: $e');
+        _reconnectDelay = (_reconnectDelay * 2).clamp(1, _maxReconnectDelay);
+        _scheduleReconnect();
+      }
+    });
+    _reconnectDelay = (_reconnectDelay * 2).clamp(1, _maxReconnectDelay);
   }
 
   void _fetchInitialState() {
@@ -168,7 +214,8 @@ class MusicAssistantService {
     final Map<String, dynamic> msg;
     try {
       msg = jsonDecode(raw as String) as Map<String, dynamic>;
-    } catch (_) {
+    } catch (e) {
+      debugPrint('MA message parse error: $e');
       return;
     }
 
@@ -271,7 +318,11 @@ class MusicAssistantService {
   }
 
   void _send(Map<String, dynamic> msg) {
-    _channel?.sink.add(jsonEncode(msg));
+    if (_channel == null) {
+      debugPrint('MA send dropped (not connected): ${msg['command']}');
+      return;
+    }
+    _channel!.sink.add(jsonEncode(msg));
   }
 
   String _nextMsgId() => 'msg_${++_messageCounter}';

@@ -24,6 +24,8 @@ class ImmichService {
         _dio = Dio(BaseOptions(
           baseUrl: baseUrl,
           headers: buildAuthHeaders(apiKey),
+          connectTimeout: const Duration(seconds: 10),
+          receiveTimeout: const Duration(seconds: 30),
         ));
 
   List<PhotoMemory> get memories => List.unmodifiable(_cachedMemories);

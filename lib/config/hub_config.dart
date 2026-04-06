@@ -131,8 +131,15 @@ class HubConfigNotifier extends StateNotifier<HubConfig> {
     final dir = await getApplicationSupportDirectory();
     final file = File('${dir.path}/hub_config.json');
     if (await file.exists()) {
-      final json = jsonDecode(await file.readAsString()) as Map<String, dynamic>;
-      state = HubConfig.fromJson(json);
+      try {
+        final json =
+            jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+        state = HubConfig.fromJson(json);
+      } catch (e) {
+        // Corrupt config (e.g. power loss during write, SD card bit rot).
+        // Fall back to defaults so the kiosk can still boot and be reconfigured.
+        state = const HubConfig();
+      }
     }
   }
 
