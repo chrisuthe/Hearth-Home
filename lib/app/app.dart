@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'hub_shell.dart';
@@ -19,6 +20,7 @@ class HearthApp extends ConsumerWidget {
     return MaterialApp(
       title: 'Hearth',
       debugShowCheckedModeBanner: false,
+      scrollBehavior: const _TouchScrollBehavior(),
       theme: ThemeData(
         brightness: Brightness.dark,
         scaffoldBackgroundColor: Colors.black,
@@ -32,4 +34,19 @@ class HearthApp extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// Enables drag-to-scroll for mouse input on desktop.
+/// Flutter defaults to touch-only drag scrolling, which makes PageView
+/// and ListView unusable with a mouse on Windows/Linux. On the Pi with
+/// a touchscreen this is a no-op since touch is already enabled.
+class _TouchScrollBehavior extends MaterialScrollBehavior {
+  const _TouchScrollBehavior();
+
+  @override
+  Set<PointerDeviceKind> get dragDevices => {
+        PointerDeviceKind.touch,
+        PointerDeviceKind.mouse,
+        PointerDeviceKind.stylus,
+      };
 }

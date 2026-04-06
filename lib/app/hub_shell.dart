@@ -44,6 +44,8 @@ class _HubShellState extends ConsumerState<HubShell>
   PhotoMemory? _currentMemory;
   int _currentPage = _homeIndex;
 
+  static const double _edgeZoneHeight = 80;
+
   @override
   void initState() {
     super.initState();
@@ -74,6 +76,39 @@ class _HubShellState extends ConsumerState<HubShell>
 
   void _onUserActivity() {
     ref.read(idleControllerProvider).onUserActivity();
+  }
+
+  /// Builds an invisible edge-swipe zone that navigates to [targetPage]
+  /// when dragged in [direction] (positive = down, negative = up).
+  Widget _edgeSwipeZone({
+    required AlignmentGeometry alignment,
+    required int targetPage,
+    required bool swipeDown,
+  }) {
+    return Align(
+      alignment: alignment,
+      child: GestureDetector(
+        // Opaque so this zone exclusively captures touches — prevents
+        // the PageView underneath from competing for the gesture.
+        behavior: HitTestBehavior.opaque,
+        onVerticalDragUpdate: (_) {},
+        onVerticalDragEnd: (details) {
+          final v = details.primaryVelocity ?? 0;
+          if ((swipeDown && v > 200) || (!swipeDown && v < -200)) {
+            _onUserActivity();
+            _pageController.animateToPage(
+              targetPage,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeInOut,
+            );
+          }
+        },
+        child: SizedBox(
+          width: double.infinity,
+          height: _edgeZoneHeight,
+        ),
+      ),
+    );
   }
 
   /// Handles arrow key navigation for desktop testing.
@@ -199,8 +234,6 @@ class _HubShellState extends ConsumerState<HubShell>
         // by the ambient overlay (wake) and chevron buttons (skip photo).
         // This prevents the skip buttons from accidentally waking the screen.
         onTapDown: idle.isIdle ? null : (_) => _onUserActivity(),
-        onPanStart: (_) => _onUserActivity(),
-        onPanUpdate: (_) => _onUserActivity(),
         child: Stack(
           children: [
             // Layer 1: Photo background — always visible behind everything.
@@ -308,6 +341,22 @@ class _HubShellState extends ConsumerState<HubShell>
               ),
               ),
             ),
+
+            // Edge-swipe zones — invisible strips at top/bottom that navigate
+            // on vertical drag. Sit above content so they always win the
+            // gesture arena over inner scrollables.
+            if (!idle.isIdle) ...[
+              _edgeSwipeZone(
+                alignment: Alignment.topCenter,
+                targetPage: _pageCount - 1,
+                swipeDown: true,
+              ),
+              _edgeSwipeZone(
+                alignment: Alignment.bottomCenter,
+                targetPage: _homeIndex,
+                swipeDown: false,
+              ),
+            ],
 
             // Layer 4: Timer alert — full-screen overlay when a timer fires.
             // Shows on top of everything (including ambient) so you never
