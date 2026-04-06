@@ -1,17 +1,38 @@
-# home_hub
+# Hearth
 
-A new Flutter project.
+Open-source Flutter smart home kiosk — a Google Nest Hub replacement designed for Raspberry Pi 5 with an 11" AMOLED display, running via [flutter-pi](https://github.com/ardera/flutter-pi).
 
-## Getting Started
+## Features
 
-This project is a starting point for a Flutter application.
+- **Ambient Photo Display** — Cycles through Immich "on this day" memories with clock and weather overlays. Tap to wake, auto-returns to photos after idle timeout.
+- **Home Assistant Controls** — Lights and climate cards powered by HA WebSocket connection.
+- **Music Assistant** — Media playback controls via HA media_player entities.
+- **Frigate Cameras** — Live RTSP streams and real-time event alerts through HA.
+- **Timers** — Full-screen alerts that show over any screen, including ambient mode.
+- **Night Mode** — Triggered by clock schedule, HA entity state, or external API call.
+- **Local HTTP API** — External devices can control display mode on port 8090.
 
-A few resources to get you started if this is your first Flutter project:
+## Quick Start
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+```bash
+flutter pub get
+flutter run -d windows   # or -d linux for desktop dev
+```
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+Configure service URLs and API keys in the Settings screen (swipe right to the last page).
+
+## Architecture
+
+Swipe-based navigation across five screens: **Media ← Home → Controls → Cameras → Settings**
+
+The display is a crossfade between an always-on photo background and the active UI layer — not traditional screen navigation. The app starts in ambient mode and wakes on touch.
+
+## Target Hardware
+
+- Raspberry Pi 5
+- 11" AMOLED (2368×1728, rendered at half resolution for performance)
+- Runs via flutter-pi with GStreamer for video
+
+## License
+
+MIT
