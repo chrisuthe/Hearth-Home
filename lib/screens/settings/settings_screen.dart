@@ -136,6 +136,28 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
         const SizedBox(height: 24),
 
+        // --- Weather section ---
+        _SectionHeader(title: 'Weather'),
+        const SizedBox(height: 8),
+
+        _SettingsTile(
+          icon: Icons.thermostat,
+          title: 'Weather Entity',
+          subtitle: config.weatherEntityId.isEmpty
+              ? 'Not configured'
+              : config.weatherEntityId,
+          onTap: () => _showTextInputDialog(
+            title: 'Weather Entity ID',
+            currentValue: config.weatherEntityId,
+            hint: 'weather.pirateweather',
+            onSave: (value) => _updateConfig(
+              (c) => c.copyWith(weatherEntityId: value),
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 24),
+
         // --- Night Mode section ---
         _SectionHeader(title: 'Night Mode'),
         const SizedBox(height: 8),
