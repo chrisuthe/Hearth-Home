@@ -112,6 +112,9 @@ class HubConfig {
 class HubConfigNotifier extends StateNotifier<HubConfig> {
   HubConfigNotifier() : super(const HubConfig());
 
+  /// Public read access for non-widget code (e.g. the HTTP config server).
+  HubConfig get current => state;
+
   Future<void> load() async {
     final dir = await getApplicationSupportDirectory();
     final file = File('${dir.path}/hub_config.json');

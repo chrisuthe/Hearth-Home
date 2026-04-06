@@ -1,18 +1,24 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hearth/config/hub_config.dart';
 import 'package:hearth/services/local_api_server.dart';
 import 'package:hearth/services/display_mode_service.dart';
 
 void main() {
   group('LocalApiServer', () {
     late DisplayModeService displayService;
+    late HubConfigNotifier configNotifier;
     late LocalApiServer server;
     late int port;
 
     setUp(() async {
       displayService = DisplayModeService();
-      server = LocalApiServer(displayModeService: displayService);
+      configNotifier = HubConfigNotifier();
+      server = LocalApiServer(
+        displayModeService: displayService,
+        configNotifier: configNotifier,
+      );
       port = await server.start(port: 0); // random available port
     });
 
