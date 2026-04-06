@@ -28,6 +28,11 @@ class _AmbientScreenState extends ConsumerState<AmbientScreen> {
   /// Timer that triggers photo rotation every 15 seconds.
   Timer? _photoTimer;
 
+  /// Timer that reloads the full memory list from Immich periodically.
+  /// This picks up any new photos that Immich processes throughout the day
+  /// and keeps the rotation fresh without requiring a restart.
+  Timer? _refreshTimer;
+
   /// The currently displayed photo's memory metadata, used for the overlay label.
   PhotoMemory? _currentMemory;
 
@@ -39,6 +44,10 @@ class _AmbientScreenState extends ConsumerState<AmbientScreen> {
   void initState() {
     super.initState();
     _startPhotoRotation();
+    // Reload memories from Immich every 5 minutes to pick up new photos
+    _refreshTimer = Timer.periodic(const Duration(minutes: 5), (_) {
+      _refreshMemories();
+    });
   }
 
   /// Kicks off the photo rotation cycle: load one immediately, then every 15s.
@@ -47,6 +56,17 @@ class _AmbientScreenState extends ConsumerState<AmbientScreen> {
     _photoTimer = Timer.periodic(const Duration(seconds: 15), (_) {
       _loadNextPhoto();
     });
+  }
+
+  /// Re-fetches the memory list from Immich and prefetches new photos.
+  Future<void> _refreshMemories() async {
+    try {
+      final immich = ref.read(immichServiceProvider);
+      await immich.loadMemories();
+      await immich.prefetchPhotos();
+    } catch (_) {
+      // Will retry on the next 5-minute interval
+    }
   }
 
   /// Fetches the next photo from ImmichService and pushes its path to the carousel.
@@ -79,6 +99,7 @@ class _AmbientScreenState extends ConsumerState<AmbientScreen> {
   @override
   void dispose() {
     _photoTimer?.cancel();
+    _refreshTimer?.cancel();
     _photoPathController.close();
     super.dispose();
   }
