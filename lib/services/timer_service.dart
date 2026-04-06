@@ -106,8 +106,36 @@ class TimerService extends ChangeNotifier {
   void _ensureTicking() {
     _ticker ??= Timer.periodic(
       const Duration(milliseconds: 200),
-      (_) => notifyListeners(),
+      (_) => _onTick(),
     );
+  }
+
+  /// Set of timer IDs that have already triggered their alarm.
+  /// Prevents the alarm from firing repeatedly on every tick.
+  final Set<int> _alreadyFired = {};
+
+  void _onTick() {
+    // Check for newly fired timers and play an alarm sound
+    for (final timer in _timers) {
+      if (timer.isDone && !timer.isDismissed && !_alreadyFired.contains(timer.id)) {
+        _alreadyFired.add(timer.id);
+        _playAlarmSound();
+      }
+    }
+    notifyListeners();
+  }
+
+  /// TODO: Play an alarm sound when a timer fires.
+  ///
+  /// Options to implement later:
+  /// - audioplayers package for a bundled .wav/.mp3 asset
+  /// - Platform channel to trigger system notification sound
+  /// - HDMI audio output on the Pi's connected display speakers
+  ///
+  /// For now this is a no-op stub. When implemented, the sound should
+  /// loop until the user dismisses the timer alert.
+  void _playAlarmSound() {
+    // Stub — wire up audio playback here
   }
 
   void _stopTicking() {
