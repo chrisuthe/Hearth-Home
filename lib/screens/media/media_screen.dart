@@ -50,6 +50,13 @@ class _MediaScreenState extends ConsumerState<MediaScreen> {
       padding: const EdgeInsets.all(32),
       child: Column(
         children: [
+          if (music.isConnected)
+            _ZonePicker(
+              allPlayers: validPlayers,
+              selectedPlayerId: playerId,
+              onZoneSelected: (id) =>
+                  setState(() => _selectedPlayerId = id),
+            ),
           Expanded(
             child: (state != null && state.hasTrack)
                 ? _NowPlaying(
@@ -72,13 +79,6 @@ class _MediaScreenState extends ConsumerState<MediaScreen> {
                   )
                 : _NoMusic(isConnected: music.isConnected),
           ),
-          if (music.isConnected)
-            _ZonePicker(
-              allPlayers: validPlayers,
-              selectedPlayerId: playerId,
-              onZoneSelected: (id) =>
-                  setState(() => _selectedPlayerId = id),
-            ),
         ],
       ),
     );
@@ -340,7 +340,7 @@ class _ZonePicker extends StatelessWidget {
         : 'Select zone';
 
     return Padding(
-      padding: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.only(bottom: 8),
       child: GestureDetector(
         onTap: () => _showZonePicker(context),
         child: Container(
