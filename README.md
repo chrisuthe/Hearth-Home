@@ -2,6 +2,9 @@
 
 Open-source Flutter smart home kiosk — a Google Nest Hub replacement designed for Raspberry Pi 5 with an 11" AMOLED display, running via [flutter-pi](https://github.com/ardera/flutter-pi).
 
+![hearth](https://github.com/user-attachments/assets/8d2dcddf-fbf3-49e4-9453-9b92bd47c9ea)
+
+
 ## Features
 
 - **Ambient Photo Display** — Cycles through Immich "on this day" memories with clock and weather overlays. Tap to wake, auto-returns to photos after idle timeout.
