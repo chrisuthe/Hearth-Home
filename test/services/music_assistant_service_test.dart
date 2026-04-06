@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:home_hub/services/music_assistant_service.dart';
-import 'package:home_hub/models/music_state.dart';
+import 'package:hearth/services/music_assistant_service.dart';
+import 'package:hearth/models/music_state.dart';
 
 void main() {
   group('MusicAssistantService', () {

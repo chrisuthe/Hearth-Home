@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:home_hub/services/display_mode_service.dart';
-import 'package:home_hub/config/hub_config.dart';
+import 'package:hearth/services/display_mode_service.dart';
+import 'package:hearth/config/hub_config.dart';
 
 void main() {
   group('DisplayModeService', () {

@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
-import 'package:home_hub/services/home_assistant_service.dart';
+import 'package:hearth/services/home_assistant_service.dart';
 
 /// In-memory WebSocket pair for testing without a real server.
 ///

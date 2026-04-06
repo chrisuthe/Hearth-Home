@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:home_hub/services/frigate_service.dart';
+import 'package:hearth/services/frigate_service.dart';
 
 void main() {
   group('FrigateService', () {

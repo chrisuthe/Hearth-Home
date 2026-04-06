@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:home_hub/app/idle_controller.dart';
+import 'package:hearth/app/idle_controller.dart';
 
 void main() {
   group('IdleController', () {

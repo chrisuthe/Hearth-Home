@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:home_hub/models/ha_entity.dart';
+import 'package:hearth/models/ha_entity.dart';
 
 void main() {
   group('HaEntity', () {

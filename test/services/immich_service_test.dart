@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:home_hub/services/immich_service.dart';
+import 'package:hearth/services/immich_service.dart';
 
 void main() {
   group('ImmichService', () {

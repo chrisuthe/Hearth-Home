@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:home_hub/models/frigate_event.dart';
+import 'package:hearth/models/frigate_event.dart';
 
 void main() {
   group('FrigateEvent', () {

@@ -89,13 +89,13 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "com.homehub" "\0"
-            VALUE "FileDescription", "home_hub" "\0"
+            VALUE "CompanyName", "com.hearth" "\0"
+            VALUE "FileDescription", "Hearth" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "home_hub" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2026 com.homehub. All rights reserved." "\0"
-            VALUE "OriginalFilename", "home_hub.exe" "\0"
-            VALUE "ProductName", "home_hub" "\0"
+            VALUE "InternalName", "hearth" "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2026 com.hearth. All rights reserved." "\0"
+            VALUE "OriginalFilename", "hearth.exe" "\0"
+            VALUE "ProductName", "Hearth" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

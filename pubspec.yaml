@@ -1,4 +1,4 @@
-name: home_hub
+name: hearth
 description: Smart home kiosk — Immich photos, HA controls, Music Assistant, Frigate cameras.
 publish_to: 'none'
 version: 0.1.0

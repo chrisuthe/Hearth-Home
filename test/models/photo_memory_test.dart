@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:home_hub/models/photo_memory.dart';
+import 'package:hearth/models/photo_memory.dart';
 
 void main() {
   group('PhotoMemory', () {
