@@ -1,14 +1,17 @@
 import 'dart:convert';
-import 'dart:io';
 import 'dart:math';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+// dart:io and path_provider compile to stubs on web — guarded by kIsWeb at runtime.
+import 'dart:io' if (dart.library.html) 'dart:io';
 import 'package:path_provider/path_provider.dart';
 
 /// Central configuration for a single Home Hub device.
 ///
 /// Each hub stores its own config locally — there's no shared backend.
-/// Values persist as JSON in the app support directory so they survive
-/// restarts without needing a database.
+/// On native platforms, values persist as JSON in the app support directory.
+/// On web, config lives only in memory (session-only "try before you buy").
 class HubConfig {
   final String apiKey;
   final String immichUrl;
@@ -131,16 +134,16 @@ class HubConfig {
 
 /// Manages config state and persists changes to disk automatically.
 ///
-/// Loaded once at app startup via [load], then updated through [update]
-/// which writes back to JSON immediately. This keeps the settings screen
-/// responsive — no "save" button needed.
+/// On native, loaded once at app startup via [load], then updated through
+/// [update] which writes back to JSON immediately.
+/// On web, config is in-memory only — no persistence across sessions.
 class HubConfigNotifier extends StateNotifier<HubConfig> {
   HubConfigNotifier() : super(const HubConfig());
 
-  /// Public read access for non-widget code (e.g. the HTTP config server).
   HubConfig get current => state;
 
   Future<void> load() async {
+    if (kIsWeb) return;
     final dir = await getApplicationSupportDirectory();
     final file = File('${dir.path}/hub_config.json');
     if (await file.exists()) {
@@ -149,13 +152,9 @@ class HubConfigNotifier extends StateNotifier<HubConfig> {
             jsonDecode(await file.readAsString()) as Map<String, dynamic>;
         state = HubConfig.fromJson(json);
       } catch (e) {
-        // Corrupt config (e.g. power loss during write, SD card bit rot).
-        // Fall back to defaults so the kiosk can still boot and be reconfigured.
         state = const HubConfig();
       }
     }
-    // Auto-generate an API key on first boot so the local API server
-    // is always protected, even if the user never touches settings.
     if (state.apiKey.isEmpty) {
       await update((c) => c.copyWith(apiKey: HubConfig.generateApiKey()));
     }
@@ -163,9 +162,11 @@ class HubConfigNotifier extends StateNotifier<HubConfig> {
 
   Future<void> update(HubConfig Function(HubConfig) updater) async {
     final updated = updater(state);
-    final dir = await getApplicationSupportDirectory();
-    final file = File('${dir.path}/hub_config.json');
-    await file.writeAsString(jsonEncode(updated.toJson()));
+    if (!kIsWeb) {
+      final dir = await getApplicationSupportDirectory();
+      final file = File('${dir.path}/hub_config.json');
+      await file.writeAsString(jsonEncode(updated.toJson()));
+    }
     state = updated;
   }
 }

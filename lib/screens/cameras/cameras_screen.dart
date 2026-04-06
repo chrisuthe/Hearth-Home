@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
@@ -38,14 +39,19 @@ class _CamerasScreenState extends ConsumerState<CamerasScreen> {
   }
 
   /// Opens full-screen RTSP video for the given camera.
+  /// On web, RTSP/libmpv is not available — show a message instead.
   void _expandCamera(FrigateCamera camera) {
+    if (kIsWeb) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Live video requires the desktop app')),
+      );
+      return;
+    }
     _disposePlayer();
 
     final player = Player();
     final controller = VideoController(player);
 
-    // Open the RTSP stream — go2rtc serves this on port 8554 by default.
-    // media_kit/libmpv handles RTSP natively with hardware acceleration.
     player.open(Media(camera.rtspUrl));
 
     setState(() {

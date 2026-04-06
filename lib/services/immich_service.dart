@@ -1,9 +1,12 @@
 import 'dart:async';
-import 'dart:io';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path_provider/path_provider.dart';
 import '../models/photo_memory.dart';
+
+// dart:io and path_provider are native-only, guarded by kIsWeb at runtime.
+import 'dart:io' if (dart.library.html) 'dart:io';
+import 'package:path_provider/path_provider.dart';
 import '../config/hub_config.dart';
 
 /// Fetches and caches photos from Immich's memories API.
@@ -95,9 +98,13 @@ class ImmichService {
     return photo;
   }
 
-  /// Downloads a photo to local disk cache. Returns the cached file path.
-  /// Skips download if the file already exists (idempotent).
+  /// Returns a usable image source for the given photo.
+  /// On native: downloads to local disk cache and returns the file path.
+  /// On web: returns the Immich thumbnail URL directly (no disk caching).
   Future<String> cachePhoto(PhotoMemory memory) async {
+    if (kIsWeb) {
+      return '$_baseUrl/api/assets/${memory.assetId}/thumbnail?size=preview';
+    }
     final dir = await getApplicationSupportDirectory();
     final cacheDir = Directory('${dir.path}/photo_cache');
     if (!cacheDir.existsSync()) cacheDir.createSync(recursive: true);
@@ -106,9 +113,6 @@ class ImmichService {
     final file = File(filePath);
     if (file.existsSync()) return filePath;
 
-    // Use the thumbnail endpoint instead of /original — it always returns
-    // a display-ready JPEG regardless of the source format (HEIC, RAW, video).
-    // 'size=preview' gives a high-res version suitable for the 1184x864 display.
     final response = await _dio.get(
       '/api/assets/${memory.assetId}/thumbnail',
       queryParameters: {'size': 'preview'},
@@ -119,7 +123,9 @@ class ImmichService {
   }
 
   /// Pre-downloads the next N photos to disk so transitions are instant.
+  /// Skipped on web — photos load directly from the Immich server.
   Future<void> prefetchPhotos({int count = 5}) async {
+    if (kIsWeb) return;
     _cachedFilePaths.clear();
     for (var i = 0; i < count && i < _cachedMemories.length; i++) {
       final idx = (_currentIndex + i) % _cachedMemories.length;
@@ -129,7 +135,11 @@ class ImmichService {
   }
 
   /// Looks up a previously cached file path by asset ID.
+  /// On web, returns the network URL directly.
   String? getCachedPath(String assetId) {
+    if (kIsWeb) {
+      return '$_baseUrl/api/assets/$assetId/thumbnail?size=preview';
+    }
     final idx = _cachedFilePaths.indexWhere((p) => p.contains(assetId));
     return idx >= 0 ? _cachedFilePaths[idx] : null;
   }

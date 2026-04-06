@@ -1,14 +1,16 @@
 import 'dart:async';
-import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../main.dart' show kWindowWidth, kWindowHeight;
 
+// dart:io is native-only, guarded by kIsWeb at runtime.
+import 'dart:io' if (dart.library.html) 'dart:io';
+
 /// Displays a stream of photos with crossfade transitions.
 ///
-/// Photos arrive via [photoPathStream] as local file paths (pre-cached by
-/// ImmichService). The first photo appears immediately; subsequent photos
-/// crossfade in over 1.5 seconds. Simple and smooth — no motion effects
-/// needed since photos cycle frequently enough to keep the display fresh.
+/// Photos arrive via [photoPathStream] as local file paths (native) or
+/// network URLs (web). The first photo appears immediately; subsequent
+/// photos crossfade in over 1.5 seconds.
 class PhotoCarousel extends StatefulWidget {
   final Stream<String?> photoPathStream;
 
@@ -59,33 +61,37 @@ class _PhotoCarouselState extends State<PhotoCarousel>
     super.dispose();
   }
 
+  Widget _buildImage(String source) {
+    if (kIsWeb || source.startsWith('http')) {
+      return Image.network(
+        source,
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: double.infinity,
+        errorBuilder: (_, __, ___) => const SizedBox.expand(),
+      );
+    }
+    return Image.file(
+      File(source),
+      fit: BoxFit.cover,
+      width: double.infinity,
+      height: double.infinity,
+      cacheWidth: kWindowWidth.toInt(),
+      cacheHeight: kWindowHeight.toInt(),
+      errorBuilder: (_, __, ___) => const SizedBox.expand(),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Stack(
       fit: StackFit.expand,
       children: [
-        if (_currentPath != null)
-          Image.file(
-            File(_currentPath!),
-            fit: BoxFit.cover,
-            width: double.infinity,
-            height: double.infinity,
-            cacheWidth: kWindowWidth.toInt(),
-            cacheHeight: kWindowHeight.toInt(),
-            errorBuilder: (_, __, ___) => const SizedBox.expand(),
-          ),
+        if (_currentPath != null) _buildImage(_currentPath!),
         if (_nextPath != null)
           FadeTransition(
             opacity: _crossfadeController,
-            child: Image.file(
-              File(_nextPath!),
-              fit: BoxFit.cover,
-              width: double.infinity,
-              height: double.infinity,
-              cacheWidth: kWindowWidth.toInt(),
-              cacheHeight: kWindowHeight.toInt(),
-              errorBuilder: (_, __, ___) => const SizedBox.expand(),
-            ),
+            child: _buildImage(_nextPath!),
           ),
       ],
     );
