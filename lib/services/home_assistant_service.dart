@@ -19,6 +19,7 @@ class HomeAssistantService {
   final Map<String, HaEntity> _entities = {};
   int _msgId = 0;
   bool _authenticated = false;
+  int? _getStatesId;
 
   Stream<HaEntity> get entityStream => _entityController.stream;
   Map<String, HaEntity> get entities => Map.unmodifiable(_entities);
@@ -69,17 +70,39 @@ class HomeAssistantService {
       case 'event':
         _handleEvent(msg);
         break;
+      case 'result':
+        _handleResult(msg);
+        break;
     }
   }
 
   /// Subscribes to all state_changed events. HA will push every entity
   /// state change for the lifetime of this subscription.
+  /// Also sends get_states to fetch the full current entity list immediately.
   void _subscribeToStateChanges() {
     _send({
       'id': _nextId,
       'type': 'subscribe_events',
       'event_type': 'state_changed',
     });
+    _getStatesId = _nextId;
+    _send({
+      'id': _getStatesId,
+      'type': 'get_states',
+    });
+  }
+
+  void _handleResult(Map<String, dynamic> msg) {
+    final id = msg['id'] as int?;
+    if (id == _getStatesId && msg['success'] == true) {
+      final states = msg['result'] as List<dynamic>? ?? [];
+      for (final state in states) {
+        final entity = HaEntity.fromEventData(state as Map<String, dynamic>);
+        _entities[entity.entityId] = entity;
+        _entityController.add(entity);
+      }
+      _getStatesId = null;
+    }
   }
 
   void _handleEvent(Map<String, dynamic> msg) {

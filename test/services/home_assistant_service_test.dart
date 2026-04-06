@@ -130,6 +130,67 @@ void main() {
       expect(entity.brightness, 200);
     });
 
+    test('fetches all states after auth_ok', () async {
+      service.connect('test-token');
+
+      fakeChannel.simulateMessage({'type': 'auth_required'});
+      fakeChannel.simulateMessage({'type': 'auth_ok'});
+
+      await Future.delayed(const Duration(milliseconds: 100));
+
+      // After auth_ok, should have sent: auth, subscribe_events, get_states
+      final messages = fakeChannel.sentMessages
+          .map((s) => jsonDecode(s) as Map<String, dynamic>)
+          .toList();
+      expect(messages.length, 3);
+      expect(messages[2]['type'], 'get_states');
+    });
+
+    test('populates entities from get_states result', () async {
+      service.connect('test-token');
+
+      fakeChannel.simulateMessage({'type': 'auth_required'});
+      fakeChannel.simulateMessage({'type': 'auth_ok'});
+
+      await Future.delayed(const Duration(milliseconds: 100));
+
+      // get_states is the 3rd message sent, grab its id
+      final getStatesId =
+          (jsonDecode(fakeChannel.sentMessages[2]) as Map<String, dynamic>)['id']
+              as int;
+
+      // Simulate get_states response
+      fakeChannel.simulateMessage({
+        'id': getStatesId,
+        'type': 'result',
+        'success': true,
+        'result': [
+          {
+            'entity_id': 'light.kitchen',
+            'state': 'on',
+            'attributes': {'friendly_name': 'Kitchen Light', 'brightness': 200},
+            'last_changed': '2026-04-06T12:00:00.000Z',
+          },
+          {
+            'entity_id': 'climate.living_room',
+            'state': 'heat',
+            'attributes': {
+              'friendly_name': 'Living Room',
+              'temperature': 72,
+              'current_temperature': 70,
+            },
+            'last_changed': '2026-04-06T12:00:00.000Z',
+          },
+        ],
+      });
+
+      await Future.delayed(const Duration(milliseconds: 100));
+
+      expect(service.entities.length, 2);
+      expect(service.entities['light.kitchen']?.name, 'Kitchen Light');
+      expect(service.entities['climate.living_room']?.state, 'heat');
+    });
+
     test('call_service sends correct message format', () async {
       service.connect('test-token');
       fakeChannel.simulateMessage(
