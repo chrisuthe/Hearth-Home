@@ -36,7 +36,10 @@ class ImmichService {
 
   /// Loads today's memories from Immich and shuffles them for the display rotation.
   Future<void> loadMemories() async {
-    final response = await _dio.get('/api/memories');
+    final today = DateTime.now();
+    final response = await _dio.get('/api/memories', queryParameters: {
+      'for': today.toIso8601String(),
+    });
     final memoriesJson = response.data as List<dynamic>;
     _cachedMemories.clear();
     _cachedMemories.addAll(parseMemories(

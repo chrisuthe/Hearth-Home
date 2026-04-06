@@ -242,7 +242,11 @@ class _HubShellState extends ConsumerState<HubShell>
                         : null,
                     child: const SizedBox.expand(),
                   ),
-                  const IgnorePointer(child: AmbientOverlays()),
+                  IgnorePointer(
+                    child: AmbientOverlays(
+                      memoryLabel: _ambientKey.currentState?.currentMemory?.memoryLabel,
+                    ),
+                  ),
                   // Skip buttons — subtle arrows on the left/right edges.
                   // Tapping these advances photos without waking the display.
                   if (idle.isIdle) ...[

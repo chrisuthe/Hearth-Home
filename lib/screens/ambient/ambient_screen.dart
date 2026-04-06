@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../models/photo_memory.dart';
 import '../../services/immich_service.dart';
 import 'photo_carousel.dart';
 
@@ -9,6 +10,9 @@ import 'photo_carousel.dart';
 /// Photos rotate every 15 seconds with crossfade transitions. The parent
 /// (HubShell) can call [skipForward] and [skipBack] via a GlobalKey to
 /// let the user manually advance photos without waking the active screens.
+///
+/// Exposes [currentMemory] so the parent can pass the memory label
+/// ("3 years ago today") to the ambient overlays.
 class AmbientScreen extends ConsumerStatefulWidget {
   const AmbientScreen({super.key});
 
@@ -20,6 +24,10 @@ class AmbientScreenState extends ConsumerState<AmbientScreen> {
   final _photoPathController = StreamController<String?>.broadcast();
   Timer? _photoTimer;
   Timer? _refreshTimer;
+  PhotoMemory? _currentMemory;
+
+  /// The currently displayed photo's memory metadata.
+  PhotoMemory? get currentMemory => _currentMemory;
 
   @override
   void initState() {
@@ -71,6 +79,8 @@ class AmbientScreenState extends ConsumerState<AmbientScreen> {
       final immich = ref.read(immichServiceProvider);
       final memory = forward ? immich.nextPhoto : immich.previousPhoto;
       if (memory == null) return;
+
+      setState(() => _currentMemory = memory);
 
       final cachedPath = immich.getCachedPath(memory.assetId);
       if (cachedPath != null) {
