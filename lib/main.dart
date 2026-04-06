@@ -5,7 +5,7 @@ import 'app/app.dart';
 import 'config/hub_config.dart';
 import 'services/home_assistant_service.dart';
 import 'services/immich_service.dart';
-// music_assistant_service import moved — wired in Task 4.
+import 'services/music_assistant_service.dart';
 import 'services/frigate_service.dart';
 import 'services/display_mode_service.dart';
 import 'services/local_api_server.dart';
@@ -41,9 +41,6 @@ Future<void> main() async {
       debugPrint('HA connection failed: $e');
     }
 
-    // Music Assistant: direct WebSocket connection wired in Task 4.
-    // (musicAssistantServiceProvider is overridden at startup there.)
-
     // Frigate: real-time events via HA binary_sensor entities
     if (config.frigateUrl.isNotEmpty) {
       final frigate = container.read(frigateServiceProvider);
@@ -60,6 +57,20 @@ Future<void> main() async {
     if (config.nightModeSource == 'ha_entity' &&
         config.nightModeHaEntity != null) {
       displayMode.listenToHaEntity(ha, config.nightModeHaEntity!);
+    }
+  }
+
+  // --- Connect to Music Assistant ---
+  // Direct WebSocket to MA for rich playback control.
+  // Independent of HA — connects directly to MA's own API.
+  if (config.musicAssistantUrl.isNotEmpty &&
+      config.musicAssistantToken.isNotEmpty) {
+    final music = container.read(musicAssistantServiceProvider);
+    try {
+      await music.connectToUrl(
+          config.musicAssistantUrl, config.musicAssistantToken);
+    } catch (e) {
+      debugPrint('Music Assistant connection failed: $e');
     }
   }
 
