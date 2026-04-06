@@ -74,12 +74,17 @@ class WeatherService {
         data: {'type': 'hourly'},
       );
 
+      debugPrint('Weather: daily response=$dailyResult');
+      debugPrint('Weather: hourly response=$hourlyResult');
+
       List<DailyForecast>? daily;
       List<HourlyForecast>? hourly;
 
       if (dailyResult != null) {
         final entityData = dailyResult[_entityId] as Map<String, dynamic>?;
         final forecastList = entityData?['forecast'] as List<dynamic>?;
+        debugPrint('Weather: daily entityData keys=${entityData?.keys}, '
+            'forecast items=${forecastList?.length}');
         if (forecastList != null) {
           daily = WeatherState.parseDailyForecast(forecastList);
         }
@@ -88,13 +93,18 @@ class WeatherService {
       if (hourlyResult != null) {
         final entityData = hourlyResult[_entityId] as Map<String, dynamic>?;
         final forecastList = entityData?['forecast'] as List<dynamic>?;
+        debugPrint('Weather: hourly entityData keys=${entityData?.keys}, '
+            'forecast items=${forecastList?.length}');
         if (forecastList != null) {
           hourly = WeatherState.parseHourlyForecast(forecastList).take(24).toList();
         }
       }
 
-      if (_lastState != null && (daily != null || hourly != null)) {
-        _lastState = _lastState!.copyWith(
+      if (daily != null || hourly != null) {
+        _lastState = (_lastState ?? const WeatherState(
+          condition: 'cloudy',
+          temperature: 0,
+        )).copyWith(
           dailyForecast: daily,
           hourlyForecast: hourly,
         );
