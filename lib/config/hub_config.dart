@@ -29,6 +29,7 @@ class HubConfig {
   final String? defaultMusicZone;
   final bool use24HourClock;
   final List<String> pinnedEntityIds;
+  final String weatherEntityId;
 
   const HubConfig({
     this.apiKey = '',
@@ -47,6 +48,7 @@ class HubConfig {
     this.defaultMusicZone,
     this.use24HourClock = false,
     this.pinnedEntityIds = const [],
+    this.weatherEntityId = '',
   });
 
   static String generateApiKey() {
@@ -72,6 +74,7 @@ class HubConfig {
     String? defaultMusicZone,
     bool? use24HourClock,
     List<String>? pinnedEntityIds,
+    String? weatherEntityId,
   }) {
     return HubConfig(
       apiKey: apiKey ?? this.apiKey,
@@ -90,6 +93,7 @@ class HubConfig {
       defaultMusicZone: defaultMusicZone ?? this.defaultMusicZone,
       use24HourClock: use24HourClock ?? this.use24HourClock,
       pinnedEntityIds: pinnedEntityIds ?? this.pinnedEntityIds,
+      weatherEntityId: weatherEntityId ?? this.weatherEntityId,
     );
   }
 
@@ -110,6 +114,7 @@ class HubConfig {
         'defaultMusicZone': defaultMusicZone,
         'use24HourClock': use24HourClock,
         'pinnedEntityIds': pinnedEntityIds,
+        'weatherEntityId': weatherEntityId,
       };
 
   factory HubConfig.fromJson(Map<String, dynamic> json) => HubConfig(
@@ -129,6 +134,7 @@ class HubConfig {
         defaultMusicZone: json['defaultMusicZone'] as String?,
         use24HourClock: json['use24HourClock'] as bool? ?? false,
         pinnedEntityIds: (json['pinnedEntityIds'] as List<dynamic>?)?.cast<String>() ?? const [],
+        weatherEntityId: json['weatherEntityId'] as String? ?? '',
       );
 }
 

@@ -72,5 +72,19 @@ void main() {
       final config = HubConfig.fromJson({});
       expect(config.pinnedEntityIds, isEmpty);
     });
+
+    test('weatherEntityId round-trips through JSON', () {
+      final config = HubConfig(
+        weatherEntityId: 'weather.pirateweather',
+      );
+      final json = config.toJson();
+      final restored = HubConfig.fromJson(json);
+      expect(restored.weatherEntityId, 'weather.pirateweather');
+    });
+
+    test('weatherEntityId defaults to empty string', () {
+      final config = HubConfig.fromJson({});
+      expect(config.weatherEntityId, '');
+    });
   });
 }
