@@ -137,7 +137,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
               padding:
                   const EdgeInsets.symmetric(horizontal: 48, vertical: 14),
               decoration: BoxDecoration(
-                color: const Color(0xFF4285F4),
+                color: const Color(0xFF646CFF),
                 borderRadius: BorderRadius.circular(28),
               ),
               child: const Text('Start',
@@ -300,7 +300,7 @@ class _RingPainter extends CustomPainter {
 
     // Progress arc — blue while counting, orange when done
     final progressColor =
-        isDone ? const Color(0xFFFF9800) : const Color(0xFF4285F4);
+        isDone ? const Color(0xFFFF9800) : const Color(0xFF646CFF);
     final sweepAngle = progress * 2 * pi;
     canvas.drawArc(
       Rect.fromCircle(center: center, radius: radius),

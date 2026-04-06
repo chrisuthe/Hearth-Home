@@ -87,8 +87,10 @@ class ImmichService {
   /// Returns the previous photo in rotation, wrapping around to the end.
   PhotoMemory? get previousPhoto {
     if (_cachedMemories.isEmpty) return null;
-    _currentIndex = (_currentIndex - 2).clamp(0, _cachedMemories.length - 1);
-    final photo = _cachedMemories[_currentIndex % _cachedMemories.length];
+    // Step back 2 (undo the post-increment from nextPhoto, then one more)
+    // and wrap around to the end of the list if needed.
+    _currentIndex = ((_currentIndex - 2) % _cachedMemories.length);
+    final photo = _cachedMemories[_currentIndex];
     _currentIndex++;
     return photo;
   }

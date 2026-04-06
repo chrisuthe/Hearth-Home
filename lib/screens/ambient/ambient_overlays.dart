@@ -182,8 +182,8 @@ class _AmbientOverlaysState extends ConsumerState<AmbientOverlays> {
                         ),
                         child: Icon(
                           widget.musicState!.isPlaying
-                              ? Icons.play_arrow
-                              : Icons.pause,
+                              ? Icons.pause
+                              : Icons.play_arrow,
                           color: Colors.white,
                           size: 18,
                         ),

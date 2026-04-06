@@ -199,17 +199,17 @@ class _SceneButton extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 14),
         decoration: BoxDecoration(
           color: active
-              ? const Color(0xFF4285F4).withValues(alpha: 0.2)
+              ? const Color(0xFF646CFF).withValues(alpha: 0.2)
               : Colors.white.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(12),
           border: active
-              ? Border.all(color: const Color(0xFF4285F4).withValues(alpha: 0.5))
+              ? Border.all(color: const Color(0xFF646CFF).withValues(alpha: 0.5))
               : null,
         ),
         child: Column(
           children: [
             Icon(icon, size: 24,
-                color: active ? const Color(0xFF4285F4) : Colors.white70),
+                color: active ? const Color(0xFF646CFF) : Colors.white70),
             const SizedBox(height: 4),
             Text(
               label,

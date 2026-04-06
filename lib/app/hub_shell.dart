@@ -130,8 +130,9 @@ class _HubShellState extends ConsumerState<HubShell>
     final fired = timerService.firedTimers;
     if (fired.isEmpty) return const SizedBox.shrink();
 
-    // Wake from idle when a timer fires
-    _onUserActivity();
+    // Wake from idle when a timer fires — deferred to avoid
+    // notifyListeners() during build.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _onUserActivity());
 
     return GestureDetector(
       onTap: () => timerService.dismissAllFired(),
