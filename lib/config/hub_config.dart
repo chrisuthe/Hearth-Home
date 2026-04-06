@@ -162,10 +162,11 @@ class HubConfigNotifier extends StateNotifier<HubConfig> {
   }
 
   Future<void> update(HubConfig Function(HubConfig) updater) async {
-    state = updater(state);
+    final updated = updater(state);
     final dir = await getApplicationSupportDirectory();
     final file = File('${dir.path}/hub_config.json');
-    await file.writeAsString(jsonEncode(state.toJson()));
+    await file.writeAsString(jsonEncode(updated.toJson()));
+    state = updated;
   }
 }
 

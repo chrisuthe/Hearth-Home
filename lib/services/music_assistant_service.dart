@@ -131,11 +131,13 @@ class MusicAssistantService {
       onError: (error) {
         debugPrint('MA WebSocket error: $error');
         _isConnected = false;
+        _pendingCommands.clear();
         _scheduleReconnect();
       },
       onDone: () {
         debugPrint('MA WebSocket closed');
         _isConnected = false;
+        _pendingCommands.clear();
         _scheduleReconnect();
       },
     );

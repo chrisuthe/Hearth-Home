@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../config/hub_config.dart';
 import '../../models/music_state.dart';
+import '../../utils/time_format.dart';
 
 /// Contextual overlays for the ambient photo display.
 ///
@@ -49,8 +50,8 @@ class _AmbientOverlaysState extends ConsumerState<AmbientOverlays> {
   Widget build(BuildContext context) {
     final now = _now;
     final use24h = ref.watch(hubConfigProvider.select((c) => c.use24HourClock));
-    final timeStr = _formatTime(now, use24h);
-    final dateStr = _formatDate(now);
+    final timeStr = formatTime(now, use24h);
+    final dateStr = formatDateLong(now);
 
     return Stack(
       children: [
@@ -118,7 +119,7 @@ class _AmbientOverlaysState extends ConsumerState<AmbientOverlays> {
                 ),
               ),
               Text(
-                'Partly Cloudy',
+                'Partly Cloudy (placeholder)',
                 style: TextStyle(
                   fontSize: 14,
                   color: Colors.white.withValues(alpha: 0.6),
@@ -222,41 +223,4 @@ class _AmbientOverlaysState extends ConsumerState<AmbientOverlays> {
     );
   }
 
-  /// Formats a DateTime into a human-readable date string.
-  /// Example: "Sunday, April 5"
-  String _formatTime(DateTime dt, bool use24h) {
-    if (use24h) {
-      return '${dt.hour}:${dt.minute.toString().padLeft(2, '0')}';
-    }
-    final hour = dt.hour == 0 ? 12 : (dt.hour > 12 ? dt.hour - 12 : dt.hour);
-    final period = dt.hour >= 12 ? 'PM' : 'AM';
-    return '$hour:${dt.minute.toString().padLeft(2, '0')} $period';
-  }
-
-  String _formatDate(DateTime dt) {
-    const days = [
-      'Monday',
-      'Tuesday',
-      'Wednesday',
-      'Thursday',
-      'Friday',
-      'Saturday',
-      'Sunday',
-    ];
-    const months = [
-      'January',
-      'February',
-      'March',
-      'April',
-      'May',
-      'June',
-      'July',
-      'August',
-      'September',
-      'October',
-      'November',
-      'December',
-    ];
-    return '${days[dt.weekday - 1]}, ${months[dt.month - 1]} ${dt.day}';
-  }
 }

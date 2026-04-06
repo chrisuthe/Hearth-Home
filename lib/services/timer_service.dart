@@ -84,7 +84,7 @@ class TimerService extends ChangeNotifier {
   void dismissTimer(int id) {
     final timer = _timers.firstWhere((t) => t.id == id);
     timer._dismissed = true;
-    // Clean up fully dismissed timers
+    _alreadyFired.remove(id);
     _timers.removeWhere((t) => t.isDismissed);
     if (_timers.isEmpty) _stopTicking();
     notifyListeners();
@@ -94,6 +94,7 @@ class TimerService extends ChangeNotifier {
   void dismissAllFired() {
     for (final t in firedTimers) {
       t._dismissed = true;
+      _alreadyFired.remove(t.id);
     }
     _timers.removeWhere((t) => t.isDismissed);
     if (_timers.isEmpty) _stopTicking();

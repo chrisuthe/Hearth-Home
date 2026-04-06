@@ -7,6 +7,7 @@ import '../../models/music_state.dart';
 import '../../services/music_assistant_service.dart';
 import '../timer/timer_screen.dart';
 import '../../services/timer_service.dart';
+import '../../utils/time_format.dart';
 
 /// The home screen -- the default landing page when waking from ambient.
 ///
@@ -33,7 +34,7 @@ class HomeScreen extends ConsumerWidget {
 
           const SizedBox(height: 24),
 
-          // Weather summary -- placeholder until wired to HA weather entity
+          // Weather summary — placeholder until wired to HA weather entity
           Row(
             children: [
               const Text(
@@ -46,7 +47,7 @@ class HomeScreen extends ConsumerWidget {
                 children: [
                   const Text('Partly Cloudy', style: TextStyle(fontSize: 16)),
                   Text(
-                    'H: 78\u00B0 L: 65\u00B0',
+                    'H: 78\u00B0 L: 65\u00B0  (placeholder)',
                     style: TextStyle(
                       fontSize: 14,
                       color: Colors.white.withValues(alpha: 0.5),
@@ -137,11 +138,8 @@ class _ClockDisplayState extends ConsumerState<_ClockDisplay> {
   @override
   Widget build(BuildContext context) {
     final use24h = ref.watch(hubConfigProvider.select((c) => c.use24HourClock));
-    final timeStr = _formatTime(_now, use24h);
-    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    final dateStr = '${days[_now.weekday - 1]}, ${months[_now.month - 1]} ${_now.day}';
+    final timeStr = formatTime(_now, use24h);
+    final dateStr = formatDateShort(_now);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -166,14 +164,6 @@ class _ClockDisplayState extends ConsumerState<_ClockDisplay> {
     );
   }
 
-  String _formatTime(DateTime dt, bool use24h) {
-    if (use24h) {
-      return '${dt.hour}:${dt.minute.toString().padLeft(2, '0')}';
-    }
-    final hour = dt.hour == 0 ? 12 : (dt.hour > 12 ? dt.hour - 12 : dt.hour);
-    final period = dt.hour >= 12 ? 'PM' : 'AM';
-    return '$hour:${dt.minute.toString().padLeft(2, '0')} $period';
-  }
 }
 
 /// A rounded button for triggering HA scenes (Movie Night, Goodnight, etc.)

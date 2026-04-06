@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/music_state.dart';
 import '../../services/music_assistant_service.dart';
+import '../../app/app.dart' show kDialogBackground;
 import '../../config/hub_config.dart';
 
 /// Full media playback screen -- swipe left from Home to reach it.
@@ -369,7 +370,7 @@ class _ZonePicker extends StatelessWidget {
   void _showZonePicker(BuildContext context) {
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: const Color(0xFF1E1E1E),
+      backgroundColor: kDialogBackground,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),

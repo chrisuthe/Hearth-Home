@@ -195,13 +195,12 @@ class _SafetyOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Positioned(
-      top: 0,
-      left: 0,
-      right: 0,
+    return Align(
+      alignment: Alignment.topCenter,
       child: Material(
         color: Colors.transparent,
         child: Container(
+          width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           decoration: BoxDecoration(
             color: Colors.red.shade900,
@@ -272,15 +271,14 @@ class _InfoOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Positioned(
-      top: 0,
-      left: 0,
-      right: 0,
+    return Align(
+      alignment: Alignment.topCenter,
       child: Material(
         color: Colors.transparent,
         child: GestureDetector(
           onTap: onDismiss,
           child: Container(
+            width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
             decoration: BoxDecoration(
               color: Colors.blue.shade900.withValues(alpha: 0.9),

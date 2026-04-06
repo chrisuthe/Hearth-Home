@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../config/hub_config.dart';
 import '../../models/ha_entity.dart';
 import '../../services/home_assistant_service.dart';
+import '../../app/app.dart' show kDialogBackground;
 
 /// Settings screen -- configure connections, display, night mode, and music.
 ///
@@ -288,7 +289,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final result = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1E1E),
+        backgroundColor: kDialogBackground,
         title: Text(title),
         content: TextField(
           controller: controller,
@@ -326,7 +327,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
-          backgroundColor: const Color(0xFF1E1E1E),
+          backgroundColor: kDialogBackground,
           title: Text(title),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -370,7 +371,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final result = await showDialog<String>(
       context: context,
       builder: (ctx) => SimpleDialog(
-        backgroundColor: const Color(0xFF1E1E1E),
+        backgroundColor: kDialogBackground,
         title: Text(title),
         children: options.entries.map((entry) {
           return SimpleDialogOption(
@@ -511,7 +512,7 @@ class _EntityPickerDialogState extends State<_EntityPickerDialog> {
         .toList();
 
     return AlertDialog(
-      backgroundColor: const Color(0xFF1E1E1E),
+      backgroundColor: kDialogBackground,
       title: const Text('Select Devices'),
       content: SizedBox(
         width: double.maxFinite,
