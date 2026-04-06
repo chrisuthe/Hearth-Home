@@ -58,6 +58,6 @@ class IdleController extends ChangeNotifier {
 }
 
 final idleControllerProvider = ChangeNotifierProvider<IdleController>((ref) {
-  final config = ref.watch(hubConfigProvider);
-  return IdleController(timeoutSeconds: config.idleTimeoutSeconds);
+  final timeout = ref.watch(hubConfigProvider.select((c) => c.idleTimeoutSeconds));
+  return IdleController(timeoutSeconds: timeout);
 });

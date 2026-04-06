@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import '../../main.dart' show kWindowWidth, kWindowHeight;
 
 /// Displays a stream of photos with crossfade transitions.
 ///
@@ -42,7 +43,10 @@ class _PhotoCarouselState extends State<PhotoCarousel>
       } else {
         _nextPath = path;
         _crossfadeController.forward(from: 0.0).then((_) {
-          setState(() => _currentPath = _nextPath);
+          setState(() {
+            _currentPath = _nextPath;
+            _nextPath = null;
+          });
         });
       }
     });
@@ -66,6 +70,8 @@ class _PhotoCarouselState extends State<PhotoCarousel>
             fit: BoxFit.cover,
             width: double.infinity,
             height: double.infinity,
+            cacheWidth: kWindowWidth.toInt(),
+            cacheHeight: kWindowHeight.toInt(),
             errorBuilder: (_, __, ___) => const SizedBox.expand(),
           ),
         if (_nextPath != null)
@@ -76,6 +82,8 @@ class _PhotoCarouselState extends State<PhotoCarousel>
               fit: BoxFit.cover,
               width: double.infinity,
               height: double.infinity,
+              cacheWidth: kWindowWidth.toInt(),
+              cacheHeight: kWindowHeight.toInt(),
               errorBuilder: (_, __, ___) => const SizedBox.expand(),
             ),
           ),

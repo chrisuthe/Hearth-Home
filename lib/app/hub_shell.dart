@@ -42,12 +42,17 @@ class _HubShellState extends ConsumerState<HubShell>
   late final FocusNode _focusNode;
   final _ambientKey = GlobalKey<AmbientScreenState>();
   PhotoMemory? _currentMemory;
+  int _currentPage = _homeIndex;
 
   @override
   void initState() {
     super.initState();
     _focusNode = FocusNode();
     _pageController = PageController(initialPage: _homeIndex);
+    _pageController.addListener(() {
+      final page = _pageController.page?.round() ?? _homeIndex;
+      if (page != _currentPage) setState(() => _currentPage = page);
+    });
     // Controls the active/ambient crossfade:
     // 0.0 = idle (ambient overlays visible, active screens hidden)
     // 1.0 = active (screens visible, ambient overlays hidden)
@@ -217,12 +222,12 @@ class _HubShellState extends ConsumerState<HubShell>
                   physics: idle.isIdle
                       ? const NeverScrollableScrollPhysics()
                       : const BouncingScrollPhysics(),
-                  children: const [
-                    MediaScreen(),
-                    HomeScreen(),
-                    ControlsScreen(),
-                    CamerasScreen(),
-                    SettingsScreen(),
+                  children: [
+                    const MediaScreen(),
+                    const HomeScreen(),
+                    const ControlsScreen(),
+                    CamerasScreen(isActive: _currentPage == 3),
+                    const SettingsScreen(),
                   ],
                 ),
               ),

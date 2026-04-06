@@ -109,9 +109,9 @@ class FrigateService {
 }
 
 final frigateServiceProvider = Provider<FrigateService>((ref) {
-  final config = ref.watch(hubConfigProvider);
+  final frigateUrl = ref.watch(hubConfigProvider.select((c) => c.frigateUrl));
   final ha = ref.watch(homeAssistantServiceProvider);
-  final service = FrigateService(baseUrl: config.frigateUrl, ha: ha);
+  final service = FrigateService(baseUrl: frigateUrl, ha: ha);
   ref.onDispose(() => service.dispose());
   return service;
 });

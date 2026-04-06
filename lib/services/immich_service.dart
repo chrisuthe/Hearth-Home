@@ -138,10 +138,11 @@ class ImmichService {
 }
 
 final immichServiceProvider = Provider<ImmichService>((ref) {
-  final config = ref.watch(hubConfigProvider);
+  final immichUrl = ref.watch(hubConfigProvider.select((c) => c.immichUrl));
+  final immichApiKey = ref.watch(hubConfigProvider.select((c) => c.immichApiKey));
   final service = ImmichService(
-    baseUrl: config.immichUrl,
-    apiKey: config.immichApiKey,
+    baseUrl: immichUrl,
+    apiKey: immichApiKey,
   );
   ref.onDispose(() => service.dispose());
   return service;

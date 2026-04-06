@@ -14,7 +14,8 @@ import '../../services/frigate_service.dart';
 /// 2. Expanded — tapping a tile opens full-screen RTSP video via media_kit
 ///    (libmpv on desktop, GStreamer on Pi). Tap anywhere to return to grid.
 class CamerasScreen extends ConsumerStatefulWidget {
-  const CamerasScreen({super.key});
+  final bool isActive;
+  const CamerasScreen({super.key, this.isActive = false});
 
   @override
   ConsumerState<CamerasScreen> createState() => _CamerasScreenState();
@@ -188,7 +189,10 @@ class _CamerasScreenState extends ConsumerState<CamerasScreen> {
                 fit: StackFit.expand,
                 children: [
                   // Auto-refreshing snapshot tile
-                  _CameraSnapshotTile(camera: camera),
+                  _CameraSnapshotTile(
+                    camera: camera,
+                    isActive: widget.isActive,
+                  ),
                   // Camera name label with gradient background
                   Positioned(
                     bottom: 0,
@@ -230,7 +234,8 @@ class _CamerasScreenState extends ConsumerState<CamerasScreen> {
 /// so there's no flicker between refreshes.
 class _CameraSnapshotTile extends StatefulWidget {
   final FrigateCamera camera;
-  const _CameraSnapshotTile({required this.camera});
+  final bool isActive;
+  const _CameraSnapshotTile({required this.camera, this.isActive = false});
 
   @override
   State<_CameraSnapshotTile> createState() => _CameraSnapshotTileState();
@@ -246,6 +251,24 @@ class _CameraSnapshotTileState extends State<_CameraSnapshotTile> {
   @override
   void initState() {
     super.initState();
+    if (widget.isActive) _startTimer();
+  }
+
+  @override
+  void didUpdateWidget(_CameraSnapshotTile oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isActive && !oldWidget.isActive) {
+      // Becoming visible — refresh immediately and start polling
+      setState(() => _tick = DateTime.now().millisecondsSinceEpoch);
+      _startTimer();
+    } else if (!widget.isActive && oldWidget.isActive) {
+      _refreshTimer?.cancel();
+      _refreshTimer = null;
+    }
+  }
+
+  void _startTimer() {
+    _refreshTimer?.cancel();
     _refreshTimer = Timer.periodic(const Duration(seconds: 3), (_) {
       if (mounted) {
         setState(() => _tick = DateTime.now().millisecondsSinceEpoch);

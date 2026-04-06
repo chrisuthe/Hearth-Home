@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,7 +13,7 @@ import '../../models/music_state.dart';
 /// - Bottom-right: weather (temperature + condition)
 /// - Top-left: memory label ("3 years ago today")
 /// - Top-right: now-playing pill (track name, artist, zone)
-class AmbientOverlays extends ConsumerWidget {
+class AmbientOverlays extends ConsumerStatefulWidget {
   final String? memoryLabel;
   final MusicPlayerState? musicState;
 
@@ -23,9 +24,31 @@ class AmbientOverlays extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final now = DateTime.now();
-    final use24h = ref.watch(hubConfigProvider).use24HourClock;
+  ConsumerState<AmbientOverlays> createState() => _AmbientOverlaysState();
+}
+
+class _AmbientOverlaysState extends ConsumerState<AmbientOverlays> {
+  late Timer _clockTimer;
+  DateTime _now = DateTime.now();
+
+  @override
+  void initState() {
+    super.initState();
+    _clockTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+      setState(() => _now = DateTime.now());
+    });
+  }
+
+  @override
+  void dispose() {
+    _clockTimer.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final now = _now;
+    final use24h = ref.watch(hubConfigProvider.select((c) => c.use24HourClock));
     final timeStr = _formatTime(now, use24h);
     final dateStr = _formatDate(now);
 
@@ -107,7 +130,7 @@ class AmbientOverlays extends ConsumerWidget {
 
         // Memory label — top left, shows "X years ago today".
         // Only visible when the current photo has memory metadata from Immich.
-        if (memoryLabel != null)
+        if (widget.memoryLabel != null)
           Positioned(
             top: 16,
             left: 16,
@@ -118,7 +141,7 @@ class AmbientOverlays extends ConsumerWidget {
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Text(
-                memoryLabel!,
+                widget.memoryLabel!,
                 style: TextStyle(
                   fontSize: 13,
                   color: Colors.white.withValues(alpha: 0.7),
@@ -130,11 +153,12 @@ class AmbientOverlays extends ConsumerWidget {
         // Now playing pill — top right, backdrop-blurred container.
         // Shows current track info from Music Assistant when audio is active.
         // Uses BackdropFilter for a frosted-glass effect over the photo.
-        if (musicState != null && musicState!.hasTrack)
+        if (widget.musicState != null && widget.musicState!.hasTrack)
           Positioned(
             top: 16,
             right: 16,
-            child: ClipRRect(
+            child: RepaintBoundary(
+              child: ClipRRect(
               borderRadius: BorderRadius.circular(8),
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
@@ -157,7 +181,7 @@ class AmbientOverlays extends ConsumerWidget {
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Icon(
-                          musicState!.isPlaying
+                          widget.musicState!.isPlaying
                               ? Icons.play_arrow
                               : Icons.pause,
                           color: Colors.white,
@@ -171,7 +195,7 @@ class AmbientOverlays extends ConsumerWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            musicState!.currentTrack!.title,
+                            widget.musicState!.currentTrack!.title,
                             style: const TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w500,
@@ -179,7 +203,7 @@ class AmbientOverlays extends ConsumerWidget {
                             ),
                           ),
                           Text(
-                            '${musicState!.currentTrack!.artist} \u00B7 ${musicState!.activeZoneName ?? ""}',
+                            '${widget.musicState!.currentTrack!.artist} \u00B7 ${widget.musicState!.activeZoneName ?? ""}',
                             style: TextStyle(
                               fontSize: 11,
                               color: Colors.white.withValues(alpha: 0.5),
@@ -192,6 +216,7 @@ class AmbientOverlays extends ConsumerWidget {
                 ),
               ),
             ),
+          ),
           ),
       ],
     );

@@ -13,44 +13,14 @@ import '../../services/timer_service.dart';
 /// Shows a large clock, date, weather summary, configurable scene buttons,
 /// and a compact now-playing bar. Designed to give a quick overview without
 /// requiring any interaction -- glanceable information at arm's length.
-class HomeScreen extends ConsumerStatefulWidget {
+class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
   @override
-  ConsumerState<HomeScreen> createState() => _HomeScreenState();
-}
-
-class _HomeScreenState extends ConsumerState<HomeScreen> {
-  late Timer _clockTimer;
-  DateTime _now = DateTime.now();
-
-  @override
-  void initState() {
-    super.initState();
-    // Update the clock every second for a live display
-    _clockTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      setState(() => _now = DateTime.now());
-    });
-  }
-
-  @override
-  void dispose() {
-    _clockTimer.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final use24h = ref.watch(hubConfigProvider).use24HourClock;
-    final timeStr = _formatTime(_now, use24h);
-    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    final dateStr = '${days[_now.weekday - 1]}, ${months[_now.month - 1]} ${_now.day}';
+  Widget build(BuildContext context, WidgetRef ref) {
+    final timerService = ref.watch(timerServiceProvider);
 
     return Container(
-      // Semi-transparent dark background so text is readable over the
-      // ambient photo that's always visible behind active screens.
       color: Colors.black.withValues(alpha: 0.7),
       padding: const EdgeInsets.all(32),
       child: Column(
@@ -58,23 +28,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         children: [
           const Spacer(flex: 1),
 
-          // Large clock -- the primary visual anchor
-          Text(
-            timeStr,
-            style: const TextStyle(
-              fontSize: 96,
-              fontWeight: FontWeight.w100,
-              height: 1.0,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            dateStr,
-            style: TextStyle(
-              fontSize: 20,
-              color: Colors.white.withValues(alpha: 0.6),
-            ),
-          ),
+          // Clock owns its own 1Hz timer so it doesn't rebuild the rest
+          const _ClockDisplay(),
 
           const SizedBox(height: 24),
 
@@ -108,11 +63,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           Row(
             children: [
               _SceneButton(
-                label: ref.watch(timerServiceProvider).hasActiveTimers
-                    ? ref.watch(timerServiceProvider).statusLabel
+                label: timerService.hasActiveTimers
+                    ? timerService.statusLabel
                     : 'Set a timer',
                 icon: Icons.timer,
-                active: ref.watch(timerServiceProvider).hasActiveTimers,
+                active: timerService.hasActiveTimers,
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (_) => const TimerScreen(),
@@ -148,6 +103,66 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           const SizedBox(height: 16),
         ],
       ),
+    );
+  }
+}
+
+/// Self-contained clock widget with its own per-second timer.
+/// Isolates the 1Hz rebuild from the rest of HomeScreen.
+class _ClockDisplay extends ConsumerStatefulWidget {
+  const _ClockDisplay();
+
+  @override
+  ConsumerState<_ClockDisplay> createState() => _ClockDisplayState();
+}
+
+class _ClockDisplayState extends ConsumerState<_ClockDisplay> {
+  late Timer _timer;
+  DateTime _now = DateTime.now();
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      setState(() => _now = DateTime.now());
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final use24h = ref.watch(hubConfigProvider.select((c) => c.use24HourClock));
+    final timeStr = _formatTime(_now, use24h);
+    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    final dateStr = '${days[_now.weekday - 1]}, ${months[_now.month - 1]} ${_now.day}';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          timeStr,
+          style: const TextStyle(
+            fontSize: 96,
+            fontWeight: FontWeight.w100,
+            height: 1.0,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          dateStr,
+          style: TextStyle(
+            fontSize: 20,
+            color: Colors.white.withValues(alpha: 0.6),
+          ),
+        ),
+      ],
     );
   }
 

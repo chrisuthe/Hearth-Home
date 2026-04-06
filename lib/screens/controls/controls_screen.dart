@@ -6,17 +6,27 @@ import '../../services/home_assistant_service.dart';
 import 'light_card.dart';
 import 'climate_card.dart';
 
-class ControlsScreen extends ConsumerWidget {
+class ControlsScreen extends ConsumerStatefulWidget {
   const ControlsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final config = ref.watch(hubConfigProvider);
-    final ha = ref.watch(homeAssistantServiceProvider);
-    // Watch entity stream to trigger rebuilds
-    ref.watch(haEntitiesProvider);
+  ConsumerState<ControlsScreen> createState() => _ControlsScreenState();
+}
 
-    final pinned = config.pinnedEntityIds;
+class _ControlsScreenState extends ConsumerState<ControlsScreen> {
+  @override
+  Widget build(BuildContext context) {
+    final config = ref.watch(hubConfigProvider.select((c) => c.pinnedEntityIds));
+    final ha = ref.watch(homeAssistantServiceProvider);
+    // Only rebuild when a pinned entity changes, not on every HA event
+    ref.listen(haEntitiesProvider, (prev, next) {
+      final entity = next.valueOrNull;
+      if (entity != null && config.contains(entity.entityId)) {
+        setState(() {});
+      }
+    });
+
+    final pinned = config;
 
     if (!ha.isConnected) {
       return const _EmptyState(
