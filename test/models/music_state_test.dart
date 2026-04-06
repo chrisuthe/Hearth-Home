@@ -63,4 +63,116 @@ void main() {
       expect(zone.isActive, true);
     });
   });
+
+  group('MaQueueItem', () {
+    test('parses from MA queue_updated event data', () {
+      final item = MaQueueItem.fromMaJson({
+        'name': 'Bohemian Rhapsody',
+        'duration': 355,
+        'media_item': {
+          'name': 'Bohemian Rhapsody',
+          'uri': 'library://track/42',
+          'media_type': 'track',
+          'artists': [{'name': 'Queen'}],
+          'album': {'name': 'A Night at the Opera'},
+          'image': {'url': 'http://ma/image/42'},
+        },
+      });
+      expect(item.title, 'Bohemian Rhapsody');
+      expect(item.artist, 'Queen');
+      expect(item.album, 'A Night at the Opera');
+      expect(item.imageUrl, 'http://ma/image/42');
+      expect(item.duration, const Duration(seconds: 355));
+      expect(item.uri, 'library://track/42');
+    });
+
+    test('handles missing optional fields gracefully', () {
+      final item = MaQueueItem.fromMaJson({
+        'name': 'Radio Stream',
+        'duration': 0,
+      });
+      expect(item.title, 'Radio Stream');
+      expect(item.artist, 'Unknown');
+      expect(item.album, '');
+      expect(item.imageUrl, isNull);
+      expect(item.uri, isNull);
+    });
+  });
+
+  group('MusicPlayerState.fromMaPlayerEvent', () {
+    test('parses full MA player_updated event', () {
+      final state = MusicPlayerState.fromMaPlayerEvent({
+        'player_id': 'player_kitchen_1',
+        'display_name': 'Kitchen Speaker',
+        'state': 'playing',
+        'volume_level': 45,
+        'volume_muted': false,
+        'current_media': {
+          'uri': 'library://track/42',
+          'title': 'Bohemian Rhapsody',
+          'artist': 'Queen',
+          'album': 'A Night at the Opera',
+          'image_url': 'http://ma/image/42',
+          'duration': 355,
+        },
+      });
+      expect(state.playbackState, PlaybackState.playing);
+      expect(state.currentTrack?.title, 'Bohemian Rhapsody');
+      expect(state.volume, 0.45);
+      expect(state.activeZoneId, 'player_kitchen_1');
+      expect(state.activeZoneName, 'Kitchen Speaker');
+    });
+
+    test('parses idle MA player with no current_media', () {
+      final state = MusicPlayerState.fromMaPlayerEvent({
+        'player_id': 'player_bedroom_1',
+        'display_name': 'Bedroom',
+        'state': 'idle',
+        'volume_level': 30,
+        'volume_muted': false,
+      });
+      expect(state.playbackState, PlaybackState.idle);
+      expect(state.hasTrack, false);
+      expect(state.volume, 0.30);
+    });
+  });
+
+  group('MusicPlayerState.fromMaQueueEvent', () {
+    test('parses queue_updated event with current and next items', () {
+      final state = MusicPlayerState.fromMaQueueEvent({
+        'queue_id': 'player_kitchen_1',
+        'state': 'playing',
+        'shuffle_enabled': true,
+        'repeat_mode': 'all',
+        'current_item': {
+          'name': 'Current Song',
+          'duration': 200,
+          'media_item': {
+            'name': 'Current Song',
+            'artists': [{'name': 'Artist A'}],
+            'album': {'name': 'Album A'},
+            'image': {'url': 'http://ma/img/1'},
+          },
+        },
+        'next_item': {
+          'name': 'Next Song',
+          'duration': 180,
+          'media_item': {
+            'name': 'Next Song',
+            'artists': [{'name': 'Artist B'}],
+            'album': {'name': 'Album B'},
+          },
+        },
+        'elapsed_time': 45,
+        'items': 12,
+      });
+      expect(state.playbackState, PlaybackState.playing);
+      expect(state.currentTrack?.title, 'Current Song');
+      expect(state.position, const Duration(seconds: 45));
+      expect(state.shuffle, true);
+      expect(state.repeatMode, 'all');
+      expect(state.nextTrack?.title, 'Next Song');
+      expect(state.queueSize, 12);
+    });
+  });
 }

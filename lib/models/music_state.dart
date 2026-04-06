@@ -52,6 +52,8 @@ class MusicPlayerState {
   final String? activeZoneName;
   final bool shuffle;
   final String repeatMode; // "off" | "one" | "all"
+  final MusicTrack? nextTrack;
+  final int queueSize;
 
   const MusicPlayerState({
     this.playbackState = PlaybackState.idle,
@@ -62,6 +64,8 @@ class MusicPlayerState {
     this.activeZoneName,
     this.shuffle = false,
     this.repeatMode = 'off',
+    this.nextTrack,
+    this.queueSize = 0,
   });
 
   bool get isPlaying => playbackState == PlaybackState.playing;
@@ -76,6 +80,8 @@ class MusicPlayerState {
     String? activeZoneName,
     bool? shuffle,
     String? repeatMode,
+    MusicTrack? nextTrack,
+    int? queueSize,
   }) {
     return MusicPlayerState(
       playbackState: playbackState ?? this.playbackState,
@@ -86,6 +92,123 @@ class MusicPlayerState {
       activeZoneName: activeZoneName ?? this.activeZoneName,
       shuffle: shuffle ?? this.shuffle,
       repeatMode: repeatMode ?? this.repeatMode,
+      nextTrack: nextTrack ?? this.nextTrack,
+      queueSize: queueSize ?? this.queueSize,
+    );
+  }
+
+  /// Parses a Music Assistant `player_updated` WebSocket event payload.
+  /// MA volume is 0–100; we normalise to 0.0–1.0.
+  factory MusicPlayerState.fromMaPlayerEvent(Map<String, dynamic> json) {
+    final stateStr = json['state'] as String? ?? 'idle';
+    final playbackState = switch (stateStr) {
+      'playing' => PlaybackState.playing,
+      'paused' => PlaybackState.paused,
+      _ => PlaybackState.idle,
+    };
+
+    final currentMedia = json['current_media'] as Map<String, dynamic>?;
+    MusicTrack? track;
+    if (currentMedia != null && currentMedia['title'] != null) {
+      track = MusicTrack(
+        title: currentMedia['title'] as String,
+        artist: currentMedia['artist'] as String? ?? 'Unknown',
+        album: currentMedia['album'] as String? ?? '',
+        imageUrl: currentMedia['image_url'] as String?,
+        duration: Duration(seconds: (currentMedia['duration'] as num?)?.toInt() ?? 0),
+      );
+    }
+
+    return MusicPlayerState(
+      playbackState: playbackState,
+      currentTrack: track,
+      volume: ((json['volume_level'] as num?)?.toDouble() ?? 50) / 100,
+      activeZoneId: json['player_id'] as String?,
+      activeZoneName: json['display_name'] as String?,
+    );
+  }
+
+  /// Parses a Music Assistant `queue_updated` WebSocket event payload.
+  factory MusicPlayerState.fromMaQueueEvent(Map<String, dynamic> json) {
+    final stateStr = json['state'] as String? ?? 'idle';
+    final playbackState = switch (stateStr) {
+      'playing' => PlaybackState.playing,
+      'paused' => PlaybackState.paused,
+      _ => PlaybackState.idle,
+    };
+
+    final currentItemJson = json['current_item'] as Map<String, dynamic>?;
+    MusicTrack? currentTrack;
+    if (currentItemJson != null) {
+      final qi = MaQueueItem.fromMaJson(currentItemJson);
+      currentTrack = MusicTrack(
+        title: qi.title,
+        artist: qi.artist,
+        album: qi.album,
+        imageUrl: qi.imageUrl,
+        duration: qi.duration,
+      );
+    }
+
+    final nextItemJson = json['next_item'] as Map<String, dynamic>?;
+    MusicTrack? nextTrack;
+    if (nextItemJson != null) {
+      final qi = MaQueueItem.fromMaJson(nextItemJson);
+      nextTrack = MusicTrack(
+        title: qi.title,
+        artist: qi.artist,
+        album: qi.album,
+        imageUrl: qi.imageUrl,
+        duration: qi.duration,
+      );
+    }
+
+    return MusicPlayerState(
+      playbackState: playbackState,
+      currentTrack: currentTrack,
+      position: Duration(seconds: (json['elapsed_time'] as num?)?.toInt() ?? 0),
+      shuffle: json['shuffle_enabled'] as bool? ?? false,
+      repeatMode: json['repeat_mode'] as String? ?? 'off',
+      activeZoneId: json['queue_id'] as String?,
+      nextTrack: nextTrack,
+      queueSize: (json['items'] as num?)?.toInt() ?? 0,
+    );
+  }
+}
+
+/// A single item in a Music Assistant play queue.
+class MaQueueItem {
+  final String title;
+  final String artist;
+  final String album;
+  final String? imageUrl;
+  final Duration duration;
+  final String? uri;
+
+  const MaQueueItem({
+    required this.title,
+    required this.artist,
+    required this.album,
+    this.imageUrl,
+    required this.duration,
+    this.uri,
+  });
+
+  factory MaQueueItem.fromMaJson(Map<String, dynamic> json) {
+    final mediaItem = json['media_item'] as Map<String, dynamic>?;
+    final artists = (mediaItem?['artists'] as List<dynamic>?) ?? [];
+    final artistName =
+        artists.isNotEmpty ? artists[0]['name'] as String? ?? 'Unknown' : 'Unknown';
+    final album = mediaItem?['album'] as Map<String, dynamic>?;
+    final image = mediaItem?['image'] as Map<String, dynamic>?;
+
+    return MaQueueItem(
+      title: json['name'] as String? ?? 'Unknown',
+      artist: artistName,
+      album: album?['name'] as String? ?? '',
+      imageUrl: image?['url'] as String?,
+      duration: Duration(seconds: (json['duration'] as num?)?.toInt() ?? 0),
+      uri: mediaItem?['uri'] as String?,
     );
   }
 }
