@@ -5,6 +5,7 @@ import '../../config/hub_config.dart';
 import '../../widgets/now_playing_bar.dart';
 import '../../models/music_state.dart';
 import '../timer/timer_screen.dart';
+import '../../services/timer_service.dart';
 
 /// The home screen -- the default landing page when waking from ambient.
 ///
@@ -106,8 +107,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           Row(
             children: [
               _SceneButton(
-                label: 'Set a timer',
+                label: ref.watch(timerServiceProvider).hasActiveTimers
+                    ? ref.watch(timerServiceProvider).statusLabel
+                    : 'Set a timer',
                 icon: Icons.timer,
+                active: ref.watch(timerServiceProvider).hasActiveTimers,
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (_) => const TimerScreen(),
@@ -157,8 +161,14 @@ class _SceneButton extends StatelessWidget {
   final String label;
   final IconData icon;
   final VoidCallback? onTap;
+  final bool active;
 
-  const _SceneButton({required this.label, required this.icon, this.onTap});
+  const _SceneButton({
+    required this.label,
+    required this.icon,
+    this.onTap,
+    this.active = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -168,12 +178,18 @@ class _SceneButton extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 14),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.08),
+          color: active
+              ? const Color(0xFF4285F4).withValues(alpha: 0.2)
+              : Colors.white.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(12),
+          border: active
+              ? Border.all(color: const Color(0xFF4285F4).withValues(alpha: 0.5))
+              : null,
         ),
         child: Column(
           children: [
-            Icon(icon, size: 24, color: Colors.white70),
+            Icon(icon, size: 24,
+                color: active ? const Color(0xFF4285F4) : Colors.white70),
             const SizedBox(height: 4),
             Text(
               label,

@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'idle_controller.dart';
 import '../screens/ambient/ambient_screen.dart';
 import '../screens/ambient/ambient_overlays.dart';
+import '../screens/timer/timer_screen.dart';
+import '../services/timer_service.dart';
 import '../screens/home/home_screen.dart';
 import '../screens/media/media_screen.dart';
 import '../screens/controls/controls_screen.dart';
@@ -112,6 +114,61 @@ class _HubShellState extends ConsumerState<HubShell>
     }
   }
 
+  /// Full-screen alert overlay when one or more timers have fired.
+  /// Wakes the display from idle and shows a big "Time's up!" with
+  /// the countdown rings. Tap anywhere to dismiss all fired timers.
+  Widget _buildTimerAlert() {
+    final timerService = ref.watch(timerServiceProvider);
+    final fired = timerService.firedTimers;
+    if (fired.isEmpty) return const SizedBox.shrink();
+
+    // Wake from idle when a timer fires
+    _onUserActivity();
+
+    return GestureDetector(
+      onTap: () => timerService.dismissAllFired(),
+      child: Container(
+        color: Colors.black.withValues(alpha: 0.92),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.timer, size: 48, color: Color(0xFFFF9800)),
+              const SizedBox(height: 16),
+              Text(
+                fired.length == 1 ? "Time's up!" : "${fired.length} timers done!",
+                style: const TextStyle(
+                  fontSize: 36,
+                  fontWeight: FontWeight.w200,
+                  color: Color(0xFFFF9800),
+                ),
+              ),
+              const SizedBox(height: 32),
+              // Show the fired timer rings
+              Wrap(
+                spacing: 24,
+                runSpacing: 24,
+                alignment: WrapAlignment.center,
+                children: fired.map((t) => TimerDisplay(
+                  timer: t,
+                  size: fired.length == 1 ? 220 : 160,
+                )).toList(),
+              ),
+              const SizedBox(height: 32),
+              Text(
+                'Tap anywhere to dismiss',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.white.withValues(alpha: 0.4),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final idle = ref.watch(idleControllerProvider);
@@ -169,6 +226,11 @@ class _HubShellState extends ConsumerState<HubShell>
                 child: AmbientOverlays(),
               ),
             ),
+
+            // Layer 4: Timer alert — full-screen overlay when a timer fires.
+            // Shows on top of everything (including ambient) so you never
+            // miss a timer, even if the display is idle showing photos.
+            _buildTimerAlert(),
 
             // Event overlay layer (doorbell, alerts)
           ],

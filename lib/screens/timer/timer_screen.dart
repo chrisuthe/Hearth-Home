@@ -1,66 +1,56 @@
-import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../services/timer_service.dart';
 
 /// Full-screen timer interface inspired by the Google Nest Hub.
 ///
-/// Supports multiple simultaneous timers with large, glanceable countdowns.
-/// Interaction flow:
-/// 1. Tap "Set a timer" → opens this screen with a duration picker
-/// 2. Pick hours/minutes/seconds with scroll wheels → tap Start
-/// 3. Timer counts down with a circular progress ring
-/// 4. When done, the ring pulses and a "DONE" label replaces the countdown
-/// 5. Tap the timer to dismiss, or tap + to add another timer
-class TimerScreen extends StatefulWidget {
+/// All timer state lives in [TimerService] via Riverpod, so timers
+/// keep counting when you navigate away. This screen is just a view
+/// into the global timer state — setting timers, viewing countdowns,
+/// and dismissing completed ones.
+class TimerScreen extends ConsumerStatefulWidget {
   const TimerScreen({super.key});
 
   @override
-  State<TimerScreen> createState() => _TimerScreenState();
+  ConsumerState<TimerScreen> createState() => _TimerScreenState();
 }
 
-class _TimerScreenState extends State<TimerScreen> {
-  final List<_ActiveTimer> _timers = [];
-  bool _showPicker = true;
+class _TimerScreenState extends ConsumerState<TimerScreen> {
+  bool _showPicker = false;
 
   // Duration picker state
   int _pickHours = 0;
   int _pickMinutes = 5;
   int _pickSeconds = 0;
 
+  @override
+  void initState() {
+    super.initState();
+    // Show the picker if there are no active timers
+    final service = ref.read(timerServiceProvider);
+    _showPicker = service.timers.isEmpty;
+  }
+
   void _startTimer() {
     final totalSeconds =
         _pickHours * 3600 + _pickMinutes * 60 + _pickSeconds;
     if (totalSeconds == 0) return;
 
-    setState(() {
-      _timers.add(_ActiveTimer(
-        totalDuration: Duration(seconds: totalSeconds),
-        onTick: () {
-          if (mounted) setState(() {});
-        },
-      ));
-      _showPicker = false;
-    });
-  }
-
-  void _dismissTimer(int index) {
-    setState(() {
-      _timers[index].dispose();
-      _timers.removeAt(index);
-      if (_timers.isEmpty) _showPicker = true;
-    });
-  }
-
-  @override
-  void dispose() {
-    for (final t in _timers) {
-      t.dispose();
-    }
-    super.dispose();
+    ref.read(timerServiceProvider).startTimer(Duration(seconds: totalSeconds));
+    setState(() => _showPicker = false);
   }
 
   @override
   Widget build(BuildContext context) {
+    final service = ref.watch(timerServiceProvider);
+    final timers = service.timers;
+
+    // Auto-show picker if all timers are dismissed
+    if (timers.isEmpty && !_showPicker) {
+      _showPicker = true;
+    }
+
     return Container(
       color: Colors.black.withValues(alpha: 0.85),
       child: Column(
@@ -81,8 +71,7 @@ class _TimerScreenState extends State<TimerScreen> {
                         fontWeight: FontWeight.w300,
                         color: Colors.white)),
                 const Spacer(),
-                // Add another timer button — only when timers are active
-                if (!_showPicker && _timers.isNotEmpty)
+                if (!_showPicker && timers.isNotEmpty)
                   IconButton(
                     icon: const Icon(Icons.add_circle_outline,
                         color: Colors.white70),
@@ -95,14 +84,13 @@ class _TimerScreenState extends State<TimerScreen> {
           ),
 
           Expanded(
-            child: _showPicker ? _buildPicker() : _buildTimerList(),
+            child: _showPicker ? _buildPicker() : _buildTimerList(timers),
           ),
         ],
       ),
     );
   }
 
-  /// Duration picker with three scroll wheels for hours, minutes, seconds.
   Widget _buildPicker() {
     return Center(
       child: Column(
@@ -114,7 +102,6 @@ class _TimerScreenState extends State<TimerScreen> {
                   fontWeight: FontWeight.w200,
                   color: Colors.white70)),
           const SizedBox(height: 32),
-          // Scroll wheels
           SizedBox(
             height: 180,
             child: Row(
@@ -144,7 +131,6 @@ class _TimerScreenState extends State<TimerScreen> {
             ),
           ),
           const SizedBox(height: 32),
-          // Start button
           GestureDetector(
             onTap: _startTimer,
             child: Container(
@@ -161,46 +147,29 @@ class _TimerScreenState extends State<TimerScreen> {
                       color: Colors.white)),
             ),
           ),
-          // Quick presets
           const SizedBox(height: 24),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              _PresetChip(
-                  label: '1 min',
-                  onTap: () {
-                    _pickHours = 0;
-                    _pickMinutes = 1;
-                    _pickSeconds = 0;
-                    _startTimer();
-                  }),
+              _PresetChip(label: '1 min', onTap: () {
+                _pickHours = 0; _pickMinutes = 1; _pickSeconds = 0;
+                _startTimer();
+              }),
               const SizedBox(width: 10),
-              _PresetChip(
-                  label: '5 min',
-                  onTap: () {
-                    _pickHours = 0;
-                    _pickMinutes = 5;
-                    _pickSeconds = 0;
-                    _startTimer();
-                  }),
+              _PresetChip(label: '5 min', onTap: () {
+                _pickHours = 0; _pickMinutes = 5; _pickSeconds = 0;
+                _startTimer();
+              }),
               const SizedBox(width: 10),
-              _PresetChip(
-                  label: '10 min',
-                  onTap: () {
-                    _pickHours = 0;
-                    _pickMinutes = 10;
-                    _pickSeconds = 0;
-                    _startTimer();
-                  }),
+              _PresetChip(label: '10 min', onTap: () {
+                _pickHours = 0; _pickMinutes = 10; _pickSeconds = 0;
+                _startTimer();
+              }),
               const SizedBox(width: 10),
-              _PresetChip(
-                  label: '15 min',
-                  onTap: () {
-                    _pickHours = 0;
-                    _pickMinutes = 15;
-                    _pickSeconds = 0;
-                    _startTimer();
-                  }),
+              _PresetChip(label: '15 min', onTap: () {
+                _pickHours = 0; _pickMinutes = 15; _pickSeconds = 0;
+                _startTimer();
+              }),
             ],
           ),
         ],
@@ -208,17 +177,18 @@ class _TimerScreenState extends State<TimerScreen> {
     );
   }
 
-  /// List/grid of active timers, each with a circular progress ring.
-  Widget _buildTimerList() {
-    if (_timers.length == 1) {
-      // Single timer — show it large and centered
-      return Center(child: _TimerDisplay(
-        timer: _timers[0],
-        size: 280,
-        onDismiss: () => _dismissTimer(0),
-      ));
+  Widget _buildTimerList(List<HubTimer> timers) {
+    final service = ref.read(timerServiceProvider);
+
+    if (timers.length == 1) {
+      return Center(
+        child: TimerDisplay(
+          timer: timers[0],
+          size: 280,
+          onDismiss: () => service.dismissTimer(timers[0].id),
+        ),
+      );
     }
-    // Multiple timers — grid layout
     return GridView.builder(
       padding: const EdgeInsets.all(24),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -226,90 +196,34 @@ class _TimerScreenState extends State<TimerScreen> {
         crossAxisSpacing: 24,
         mainAxisSpacing: 24,
       ),
-      itemCount: _timers.length,
+      itemCount: timers.length,
       itemBuilder: (context, index) {
-        return _TimerDisplay(
-          timer: _timers[index],
+        return TimerDisplay(
+          timer: timers[index],
           size: 200,
-          onDismiss: () => _dismissTimer(index),
+          onDismiss: () => service.dismissTimer(timers[index].id),
         );
       },
     );
   }
 }
 
-/// Manages the state and tick callback for a single countdown timer.
-class _ActiveTimer {
-  final Duration totalDuration;
-  late final DateTime _startTime;
-  late final Timer _ticker;
-  bool _paused = false;
-  Duration _pausedRemaining = Duration.zero;
-
-  _ActiveTimer({
-    required this.totalDuration,
-    required VoidCallback onTick,
-  }) {
-    _startTime = DateTime.now();
-    _pausedRemaining = totalDuration;
-    _ticker = Timer.periodic(const Duration(milliseconds: 100), (_) => onTick());
-  }
-
-  Duration get remaining {
-    if (_paused) return _pausedRemaining;
-    final elapsed = DateTime.now().difference(_startTime);
-    final left = totalDuration - elapsed;
-    return left.isNegative ? Duration.zero : left;
-  }
-
-  double get progress {
-    if (totalDuration.inMilliseconds == 0) return 0;
-    return 1.0 - (remaining.inMilliseconds / totalDuration.inMilliseconds);
-  }
-
-  bool get isDone => remaining == Duration.zero;
-
-  bool get isPaused => _paused;
-
-  void togglePause() {
-    if (_paused) {
-      // Resume: adjust start time so remaining stays correct
-      _paused = false;
-    } else {
-      _pausedRemaining = remaining;
-      _paused = true;
-    }
-  }
-
-  void dispose() {
-    _ticker.cancel();
-  }
-}
-
 /// Circular countdown display with progress ring.
-class _TimerDisplay extends StatelessWidget {
-  final _ActiveTimer timer;
+/// Public so HubShell can reuse it in the fired-timer alert overlay.
+class TimerDisplay extends StatelessWidget {
+  final HubTimer timer;
   final double size;
-  final VoidCallback onDismiss;
+  final VoidCallback? onDismiss;
 
-  const _TimerDisplay({
+  const TimerDisplay({
+    super.key,
     required this.timer,
     required this.size,
-    required this.onDismiss,
+    this.onDismiss,
   });
 
   @override
   Widget build(BuildContext context) {
-    final remaining = timer.remaining;
-    final hours = remaining.inHours;
-    final minutes = remaining.inMinutes.remainder(60);
-    final seconds = remaining.inSeconds.remainder(60);
-
-    // Format: show hours only if > 0
-    final timeStr = hours > 0
-        ? '$hours:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}'
-        : '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
-
     final isDone = timer.isDone;
 
     return GestureDetector(
@@ -336,25 +250,22 @@ class _TimerDisplay extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (isDone) ...[
-                  Icon(Icons.check_circle,
-                      size: size * 0.15, color: const Color(0xFF4CAF50)),
+                  Icon(Icons.timer,
+                      size: size * 0.15, color: const Color(0xFFFF9800)),
                   const SizedBox(height: 4),
                 ],
                 Text(
-                  isDone ? 'DONE' : timeStr,
+                  isDone ? "Time's up!" : timer.remainingLabel,
                   style: TextStyle(
-                    fontSize: isDone ? size * 0.12 : size * 0.18,
+                    fontSize: isDone ? size * 0.1 : size * 0.18,
                     fontWeight: FontWeight.w200,
-                    color: isDone
-                        ? const Color(0xFF4CAF50)
-                        : Colors.white,
+                    color: isDone ? const Color(0xFFFF9800) : Colors.white,
                   ),
                 ),
                 if (isDone)
                   Text('Tap to dismiss',
                       style: TextStyle(
-                          fontSize: size * 0.05,
-                          color: Colors.white38)),
+                          fontSize: size * 0.05, color: Colors.white38)),
               ],
             ),
           ],
@@ -387,13 +298,13 @@ class _RingPainter extends CustomPainter {
         ..strokeWidth = strokeWidth,
     );
 
-    // Progress arc
+    // Progress arc — blue while counting, orange when done
     final progressColor =
-        isDone ? const Color(0xFF4CAF50) : const Color(0xFF4285F4);
+        isDone ? const Color(0xFFFF9800) : const Color(0xFF4285F4);
     final sweepAngle = progress * 2 * pi;
     canvas.drawArc(
       Rect.fromCircle(center: center, radius: radius),
-      -pi / 2, // start from top
+      -pi / 2,
       sweepAngle,
       false,
       Paint()
@@ -433,7 +344,8 @@ class _ScrollWheelState extends State<_ScrollWheel> {
   @override
   void initState() {
     super.initState();
-    _controller = FixedExtentScrollController(initialItem: widget.initialValue);
+    _controller =
+        FixedExtentScrollController(initialItem: widget.initialValue);
   }
 
   @override
