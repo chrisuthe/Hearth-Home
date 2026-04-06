@@ -80,6 +80,8 @@ class LocalApiServer {
           haToken: json['haToken'] as String? ?? c.haToken,
           musicAssistantUrl:
               json['musicAssistantUrl'] as String? ?? c.musicAssistantUrl,
+          musicAssistantToken:
+              json['musicAssistantToken'] as String? ?? c.musicAssistantToken,
           frigateUrl: json['frigateUrl'] as String? ?? c.frigateUrl,
           idleTimeoutSeconds:
               json['idleTimeoutSeconds'] as int? ?? c.idleTimeoutSeconds,
