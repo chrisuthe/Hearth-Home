@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../config/hub_config.dart';
 import '../../widgets/now_playing_bar.dart';
 import '../../models/music_state.dart';
+import '../timer/timer_screen.dart';
 
 /// The home screen -- the default landing page when waking from ambient.
 ///
@@ -101,10 +102,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
           const Spacer(flex: 2),
 
-          // Quick scene buttons -- configurable HA scenes
+          // Quick action buttons
           Row(
             children: [
-              _SceneButton(label: 'Movie Night', icon: Icons.movie),
+              _SceneButton(
+                label: 'Set a timer',
+                icon: Icons.timer,
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const TimerScreen(),
+                  ),
+                ),
+              ),
               const SizedBox(width: 12),
               _SceneButton(label: 'Goodnight', icon: Icons.bedtime),
               const SizedBox(width: 12),
@@ -147,14 +156,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 class _SceneButton extends StatelessWidget {
   final String label;
   final IconData icon;
+  final VoidCallback? onTap;
 
-  const _SceneButton({required this.label, required this.icon});
+  const _SceneButton({required this.label, required this.icon, this.onTap});
 
   @override
   Widget build(BuildContext context) {
     return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14),
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 14),
         decoration: BoxDecoration(
           color: Colors.white.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(12),
@@ -169,6 +181,7 @@ class _SceneButton extends StatelessWidget {
             ),
           ],
         ),
+      ),
       ),
     );
   }
