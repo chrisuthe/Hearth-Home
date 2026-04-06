@@ -4,7 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../config/hub_config.dart';
 import '../../models/music_state.dart';
+import '../../services/weather_service.dart';
 import '../../utils/time_format.dart';
+import '../../utils/weather_icon_mapping.dart';
+import '../weather/forecast_overlay.dart';
 
 /// Contextual overlays for the ambient photo display.
 ///
@@ -50,6 +53,8 @@ class _AmbientOverlaysState extends ConsumerState<AmbientOverlays> {
   Widget build(BuildContext context) {
     final now = _now;
     final use24h = ref.watch(hubConfigProvider.select((c) => c.use24HourClock));
+    final weatherAsync = ref.watch(weatherStateProvider);
+    final weather = weatherAsync.valueOrNull;
     final timeStr = formatTime(now, use24h);
     final dateStr = formatDateLong(now);
 
@@ -101,31 +106,44 @@ class _AmbientOverlaysState extends ConsumerState<AmbientOverlays> {
           ),
         ),
 
-        // Weather — bottom right.
-        // Placeholder values for now; will be wired to Home Assistant
-        // weather entity in a future task.
+        // Weather — bottom right, live from HA
         Positioned(
           right: 24,
           bottom: 20,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              const Text(
-                '72\u00B0',
-                style: TextStyle(
-                  fontSize: 36,
-                  color: Colors.white,
-                  fontWeight: FontWeight.w300,
-                ),
-              ),
-              Text(
-                'Partly Cloudy (placeholder)',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.white.withValues(alpha: 0.6),
-                ),
-              ),
-            ],
+          child: GestureDetector(
+            onTap: weather != null
+                ? () => showDialog(
+                      context: context,
+                      builder: (_) => ForecastOverlay(weather: weather),
+                    )
+                : null,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                if (weather != null) ...[
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(weatherIconForCondition(weather.condition),
+                          size: 24, color: Colors.white70),
+                      const SizedBox(width: 8),
+                      Text(
+                        '${weather.temperature.round()}\u00B0',
+                        style: const TextStyle(
+                          fontSize: 36, color: Colors.white, fontWeight: FontWeight.w300),
+                      ),
+                    ],
+                  ),
+                  Text(
+                    _conditionLabel(weather.condition),
+                    style: TextStyle(fontSize: 14, color: Colors.white.withValues(alpha: 0.6)),
+                  ),
+                ] else ...[
+                  const Text('--\u00B0',
+                      style: TextStyle(fontSize: 36, color: Colors.white, fontWeight: FontWeight.w300)),
+                ],
+              ],
+            ),
           ),
         ),
 
@@ -223,4 +241,24 @@ class _AmbientOverlaysState extends ConsumerState<AmbientOverlays> {
     );
   }
 
+}
+
+String _conditionLabel(String condition) {
+  return switch (condition) {
+    'sunny' => 'Sunny',
+    'clear-night' => 'Clear',
+    'partlycloudy' => 'Partly Cloudy',
+    'cloudy' => 'Cloudy',
+    'rainy' => 'Rainy',
+    'pouring' => 'Heavy Rain',
+    'snowy' => 'Snowy',
+    'snowy-rainy' => 'Sleet',
+    'lightning' => 'Thunderstorm',
+    'lightning-rainy' => 'Thunderstorm',
+    'hail' => 'Hail',
+    'fog' => 'Foggy',
+    'windy' => 'Windy',
+    'windy-variant' => 'Windy',
+    _ => condition,
+  };
 }

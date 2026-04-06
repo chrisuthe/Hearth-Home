@@ -5,7 +5,10 @@ import '../../config/hub_config.dart';
 import '../../widgets/now_playing_bar.dart';
 import '../../models/music_state.dart';
 import '../../services/music_assistant_service.dart';
+import '../../services/weather_service.dart';
+import '../../utils/weather_icon_mapping.dart';
 import '../timer/timer_screen.dart';
+import '../weather/forecast_overlay.dart';
 import '../../services/timer_service.dart';
 import '../../utils/time_format.dart';
 
@@ -20,6 +23,8 @@ class HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final timerService = ref.watch(timerServiceProvider);
+    final weatherAsync = ref.watch(weatherStateProvider);
+    final weather = weatherAsync.valueOrNull;
 
     return Container(
       color: Colors.black.withValues(alpha: 0.7),
@@ -34,28 +39,52 @@ class HomeScreen extends ConsumerWidget {
 
           const SizedBox(height: 24),
 
-          // Weather summary — placeholder until wired to HA weather entity
-          Row(
-            children: [
-              const Text(
-                '72\u00B0',
-                style: TextStyle(fontSize: 48, fontWeight: FontWeight.w200),
-              ),
-              const SizedBox(width: 16),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Partly Cloudy', style: TextStyle(fontSize: 16)),
-                  Text(
-                    'H: 78\u00B0 L: 65\u00B0  (placeholder)',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.white.withValues(alpha: 0.5),
-                    ),
+          // Weather — live from HA weather entity
+          GestureDetector(
+            onTap: weather != null
+                ? () => showDialog(
+                      context: context,
+                      builder: (_) => ForecastOverlay(weather: weather),
+                    )
+                : null,
+            child: Row(
+              children: [
+                if (weather != null) ...[
+                  Icon(
+                    weatherIconForCondition(weather.condition),
+                    size: 36,
+                    color: Colors.white70,
                   ),
+                  const SizedBox(width: 12),
+                  Text(
+                    '${weather.temperature.round()}\u00B0',
+                    style: const TextStyle(fontSize: 48, fontWeight: FontWeight.w200),
+                  ),
+                  const SizedBox(width: 16),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(_conditionLabel(weather.condition),
+                          style: const TextStyle(fontSize: 16)),
+                      if (weather.dailyForecast.isNotEmpty)
+                        Text(
+                          'H: ${weather.dailyForecast.first.high.round()}\u00B0 L: ${weather.dailyForecast.first.low.round()}\u00B0',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.white.withValues(alpha: 0.5),
+                          ),
+                        ),
+                    ],
+                  ),
+                ] else ...[
+                  const Text('--\u00B0',
+                      style: TextStyle(fontSize: 48, fontWeight: FontWeight.w200)),
+                  const SizedBox(width: 16),
+                  Text('Set weather in Settings',
+                      style: TextStyle(fontSize: 16, color: Colors.white.withValues(alpha: 0.4))),
                 ],
-              ),
-            ],
+              ],
+            ),
           ),
 
           const Spacer(flex: 2),
@@ -211,4 +240,24 @@ class _SceneButton extends StatelessWidget {
       ),
     );
   }
+}
+
+String _conditionLabel(String condition) {
+  return switch (condition) {
+    'sunny' => 'Sunny',
+    'clear-night' => 'Clear',
+    'partlycloudy' => 'Partly Cloudy',
+    'cloudy' => 'Cloudy',
+    'rainy' => 'Rainy',
+    'pouring' => 'Heavy Rain',
+    'snowy' => 'Snowy',
+    'snowy-rainy' => 'Sleet',
+    'lightning' => 'Thunderstorm',
+    'lightning-rainy' => 'Thunderstorm',
+    'hail' => 'Hail',
+    'fog' => 'Foggy',
+    'windy' => 'Windy',
+    'windy-variant' => 'Windy',
+    _ => condition,
+  };
 }
