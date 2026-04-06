@@ -88,9 +88,9 @@ class _HubShellState extends ConsumerState<HubShell>
     return Align(
       alignment: alignment,
       child: GestureDetector(
-        // Opaque so this zone exclusively captures touches — prevents
-        // the PageView underneath from competing for the gesture.
-        behavior: HitTestBehavior.opaque,
+        // Translucent so taps pass through to content below (e.g., zone
+        // picker) while vertical drags are still captured by this zone.
+        behavior: HitTestBehavior.translucent,
         onVerticalDragUpdate: (_) {},
         onVerticalDragEnd: (details) {
           final v = details.primaryVelocity ?? 0;
