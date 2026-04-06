@@ -229,6 +229,11 @@ const _configPageHtml = r'''
     <h2>Music Assistant</h2>
     <label for="musicAssistantUrl">Server URL</label>
     <input type="text" id="musicAssistantUrl" placeholder="http://192.168.1.x:8095">
+    <label for="musicAssistantToken">Token</label>
+    <div class="secret-wrap">
+      <input type="password" id="musicAssistantToken" placeholder="Paste your MA long-lived token">
+      <button type="button" class="toggle-vis" onclick="toggleVis(this)">&#x1f441;</button>
+    </div>
     <label for="defaultMusicZone">Default Zone</label>
     <input type="text" id="defaultMusicZone" placeholder="media_player.living_room">
 
@@ -247,7 +252,7 @@ const _configPageHtml = r'''
 <script>
 const fields = [
   'immichUrl','immichApiKey','haUrl','haToken',
-  'musicAssistantUrl','defaultMusicZone','frigateUrl','idleTimeoutSeconds'
+  'musicAssistantUrl','musicAssistantToken','defaultMusicZone','frigateUrl','idleTimeoutSeconds'
 ];
 
 async function load() {

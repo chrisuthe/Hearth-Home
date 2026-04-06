@@ -215,6 +215,22 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
         ),
         _SettingsTile(
+          icon: Icons.key,
+          title: 'Music Assistant Token',
+          subtitle: config.musicAssistantToken.isEmpty
+              ? 'Not configured'
+              : '\u2022' * 8,
+          onTap: () => _showTextInputDialog(
+            title: 'Music Assistant Token',
+            currentValue: config.musicAssistantToken,
+            hint: 'Paste your MA long-lived token',
+            obscure: true,
+            onSave: (value) => _updateConfig(
+              (c) => c.copyWith(musicAssistantToken: value),
+            ),
+          ),
+        ),
+        _SettingsTile(
           icon: Icons.speaker_group,
           title: 'Default Zone',
           subtitle: config.defaultMusicZone ?? 'Not set',
