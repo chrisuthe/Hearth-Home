@@ -94,7 +94,8 @@ class FrigateService {
     });
   }
 
-  String mjpegUrl(String cameraName) => '$_baseUrl/api/$cameraName';
+  String snapshotUrl(String cameraName) =>
+      '$_baseUrl/api/$cameraName/latest.jpg';
 
   void dispose() {
     _entitySub?.cancel();

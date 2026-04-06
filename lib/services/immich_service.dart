@@ -90,8 +90,12 @@ class ImmichService {
     final file = File(filePath);
     if (file.existsSync()) return filePath;
 
+    // Use the thumbnail endpoint instead of /original — it always returns
+    // a display-ready JPEG regardless of the source format (HEIC, RAW, video).
+    // 'size=preview' gives a high-res version suitable for the 1184x864 display.
     final response = await _dio.get(
-      '/api/assets/${memory.assetId}/original',
+      '/api/assets/${memory.assetId}/thumbnail',
+      queryParameters: {'size': 'preview'},
       options: Options(responseType: ResponseType.bytes),
     );
     await file.writeAsBytes(response.data as List<int>);

@@ -22,7 +22,9 @@ class ControlsScreen extends ConsumerWidget {
     final hasDevices = lights.isNotEmpty || climates.isNotEmpty;
 
     if (!hasDevices) {
-      return Center(
+      return Container(
+        color: Colors.black.withValues(alpha: 0.7),
+        child: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -48,6 +50,7 @@ class ControlsScreen extends ConsumerWidget {
               ),
             ),
           ],
+        ),
         ),
       );
     }

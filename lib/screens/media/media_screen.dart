@@ -19,7 +19,8 @@ class MediaScreen extends ConsumerWidget {
       playbackState: PlaybackState.idle,
     );
 
-    return Padding(
+    return Container(
+      color: Colors.black.withValues(alpha: 0.7),
       padding: const EdgeInsets.all(32),
       child: state.hasTrack ? _NowPlaying(state: state) : const _NoMusic(),
     );

@@ -43,7 +43,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     final dateStr = '${days[_now.weekday - 1]}, ${months[_now.month - 1]} ${_now.day}';
 
-    return Padding(
+    return Container(
+      // Semi-transparent dark background so text is readable over the
+      // ambient photo that's always visible behind active screens.
+      color: Colors.black.withValues(alpha: 0.7),
       padding: const EdgeInsets.all(32),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

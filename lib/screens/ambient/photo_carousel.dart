@@ -154,6 +154,9 @@ class _PhotoCarouselState extends State<PhotoCarousel>
               fit: BoxFit.cover,
               width: double.infinity,
               height: double.infinity,
+              // Gracefully handle corrupt or non-image files (e.g., video assets
+              // from Immich) — show nothing rather than crashing the display.
+              errorBuilder: (_, __, ___) => const SizedBox.expand(),
             ),
           ),
 
@@ -168,6 +171,7 @@ class _PhotoCarouselState extends State<PhotoCarousel>
               fit: BoxFit.cover,
               width: double.infinity,
               height: double.infinity,
+              errorBuilder: (_, __, ___) => const SizedBox.expand(),
             ),
           ),
       ],

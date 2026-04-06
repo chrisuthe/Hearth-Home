@@ -1,0 +1,71 @@
+<h2>Architecture Approach</h2>
+<p class="subtitle">How should the app connect to your services?</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Direct API — Flutter talks to everything</h3>
+      <p>The Flutter app connects directly to Immich, Music Assistant, Home Assistant, and Frigate APIs via REST + WebSocket. No middleware.</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pros</h4><ul>
+          <li>Simplest to build and deploy — one app, no backend</li>
+          <li>Lowest latency — direct WebSocket connections</li>
+          <li>Fewer moving parts to break</li>
+        </ul></div>
+        <div class="cons"><h4>Cons</h4><ul>
+          <li>All API logic lives in Dart — switching services means app changes</li>
+          <li>Credentials stored on-device</li>
+          <li>Harder to share state if you build a second hub later</li>
+        </ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Thin Backend — Local API gateway on the Pi</h3>
+      <p>A lightweight Go/Node service on the Pi aggregates all APIs into one unified WebSocket. Flutter connects only to localhost.</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pros</h4><ul>
+          <li>Clean separation — Flutter is pure UI, backend handles API logic</li>
+          <li>Easy to swap services without touching the app</li>
+          <li>Backend can cache photos, pre-fetch memories, handle Frigate events</li>
+          <li>Voice integration later plugs into the backend naturally</li>
+        </ul></div>
+        <div class="cons"><h4>Cons</h4><ul>
+          <li>Two things to build and maintain</li>
+          <li>More RAM usage on Pi (~50-100MB for the backend)</li>
+          <li>Added complexity for initial development</li>
+        </ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>HA-Centric — Home Assistant as the hub</h3>
+      <p>Route everything through Home Assistant. Use HA's Music Assistant, Frigate, and Immich integrations. Flutter only talks to HA's WebSocket API.</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pros</h4><ul>
+          <li>Single API connection to manage</li>
+          <li>Leverages existing HA integrations you already have</li>
+          <li>HA handles automations (doorbell → show camera) server-side</li>
+        </ul></div>
+        <div class="cons"><h4>Cons</h4><ul>
+          <li>HA becomes a single point of failure for everything</li>
+          <li>Limited control over Immich photo selection (HA integration is basic)</li>
+          <li>Higher latency for camera feeds and music control</li>
+          <li>You're back to depending on HA's UI paradigm for data</li>
+        </ul></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 2rem; padding: 1.25rem; background: rgba(255,255,255,0.03); border-radius: 8px; border-left: 3px solid #646cff;">
+  <h3 style="margin-top:0">Recommendation: A (Direct API)</h3>
+  <p style="margin-bottom:0">For a single-hub household, Direct API is the right starting point. It's the fastest path to a working product, and the "harder to scale" downside doesn't matter until you build hub #2. The architecture naturally allows extracting a backend later if needed — the API client classes become the backend's logic layer. Voice integration (when you add it) can run as a sidecar process that sends commands to the same APIs.</p>
+</div>

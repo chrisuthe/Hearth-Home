@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/frigate_event.dart';
+import '../../services/frigate_service.dart';
 
 /// Camera grid screen -- shows live Frigate MJPEG feeds and recent events.
 ///
@@ -21,12 +22,15 @@ class _CamerasScreenState extends ConsumerState<CamerasScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Placeholder data -- will be wired to FrigateService providers
-    final List<FrigateCamera> cameras = [];
+    // Read live camera list from FrigateService (loaded at app startup)
+    final frigate = ref.watch(frigateServiceProvider);
+    final cameras = frigate.cameras;
     final List<FrigateEvent> recentEvents = [];
 
     if (cameras.isEmpty) {
-      return Center(
+      return Container(
+        color: Colors.black.withValues(alpha: 0.7),
+        child: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -53,6 +57,7 @@ class _CamerasScreenState extends ConsumerState<CamerasScreen> {
             ),
           ],
         ),
+        ),
       );
     }
 
@@ -69,7 +74,7 @@ class _CamerasScreenState extends ConsumerState<CamerasScreen> {
           children: [
             // MJPEG stream rendered as a continuously-updating image
             Image.network(
-              camera.mjpegStreamUrl,
+              camera.snapshotUrl,
               fit: BoxFit.contain,
               errorBuilder: (_, __, ___) => Container(
                 color: Colors.black,
@@ -107,7 +112,9 @@ class _CamerasScreenState extends ConsumerState<CamerasScreen> {
     }
 
     // Grid view with event timeline below
-    return Column(
+    return Container(
+      color: Colors.black.withValues(alpha: 0.7),
+      child: Column(
       children: [
         // Camera grid -- 2 columns for the 11" landscape display
         Expanded(
@@ -131,7 +138,7 @@ class _CamerasScreenState extends ConsumerState<CamerasScreen> {
                     children: [
                       // Live MJPEG feed from Frigate
                       Image.network(
-                        camera.mjpegStreamUrl,
+                        camera.snapshotUrl,
                         fit: BoxFit.cover,
                         errorBuilder: (_, __, ___) => Container(
                           color: Colors.white.withValues(alpha: 0.05),
@@ -234,6 +241,7 @@ class _CamerasScreenState extends ConsumerState<CamerasScreen> {
             ),
           ),
       ],
+      ),
     );
   }
 }

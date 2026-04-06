@@ -19,8 +19,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Widget build(BuildContext context) {
     final config = ref.watch(hubConfigProvider);
 
-    return ListView(
-      padding: const EdgeInsets.all(24),
+    return Container(
+      color: Colors.black.withValues(alpha: 0.7),
+      child: ListView(
+        padding: const EdgeInsets.all(24),
       children: [
         // --- Connections section ---
         _SectionHeader(title: 'Connections'),
@@ -216,6 +218,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
         ),
       ],
+      ),
     );
   }
 

@@ -14,9 +14,10 @@ class IdleController extends ChangeNotifier {
   bool _isIdle = false;
   int _timeoutSeconds;
 
-  IdleController({int timeoutSeconds = 120})
-      : _timeoutSeconds = timeoutSeconds {
-    _startTimer();
+  IdleController({int timeoutSeconds = 120, bool startIdle = true})
+      : _timeoutSeconds = timeoutSeconds,
+        _isIdle = startIdle {
+    if (!startIdle) _startTimer();
   }
 
   bool get isIdle => _isIdle;

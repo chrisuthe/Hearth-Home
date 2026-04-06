@@ -1,0 +1,113 @@
+<h2>Screen Navigation Model</h2>
+<p class="subtitle">The core UX skeleton — how screens relate and how users move between them</p>
+
+<div class="mockup">
+  <div class="mockup-header">Navigation Flow</div>
+  <div class="mockup-body" style="padding: 2rem; background: #1a1a2e;">
+    <!-- Ambient Screen -->
+    <div style="display: flex; align-items: center; justify-content: center; gap: 1rem; flex-wrap: wrap;">
+
+      <!-- Ambient -->
+      <div style="background: linear-gradient(135deg, #2d1b69, #11998e); border-radius: 12px; padding: 1.25rem; width: 220px; text-align: center; border: 2px solid #646cff;">
+        <div style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; color: #888; margin-bottom: 0.5rem;">Default / Idle</div>
+        <div style="font-size: 1.1rem; font-weight: 600; color: #fff;">🖼 Ambient</div>
+        <div style="font-size: 0.75rem; color: #aaa; margin-top: 0.5rem;">Immich memories<br>Clock + weather overlay<br>Now-playing overlay<br>Dims at night</div>
+      </div>
+
+      <div style="color: #646cff; font-size: 1.5rem;">→<br><span style="font-size: 0.65rem; color: #888;">tap</span></div>
+
+      <!-- Home -->
+      <div style="background: rgba(100, 108, 255, 0.15); border-radius: 12px; padding: 1.25rem; width: 220px; text-align: center; border: 2px solid #646cff;">
+        <div style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; color: #888; margin-bottom: 0.5rem;">Hub Screen</div>
+        <div style="font-size: 1.1rem; font-weight: 600; color: #fff;">🏠 Home</div>
+        <div style="font-size: 0.75rem; color: #aaa; margin-top: 0.5rem;">Clock + date<br>Weather<br>Quick scene buttons<br>Now-playing mini bar</div>
+      </div>
+    </div>
+
+    <!-- Swipe row -->
+    <div style="text-align: center; margin: 1.5rem 0; color: #646cff;">
+      ↕ <span style="font-size: 0.7rem; color: #888;">swipe left / right from Home</span>
+    </div>
+
+    <!-- Swipeable screens -->
+    <div style="display: flex; align-items: flex-start; justify-content: center; gap: 1rem; flex-wrap: wrap;">
+
+      <div style="background: rgba(255,255,255,0.05); border-radius: 12px; padding: 1.25rem; width: 180px; text-align: center;">
+        <div style="font-size: 1.1rem; font-weight: 600; color: #fff;">🎵 Media</div>
+        <div style="font-size: 0.75rem; color: #aaa; margin-top: 0.5rem;">Album art<br>Play/pause/skip<br>Volume<br>Zone selector<br>Queue view</div>
+      </div>
+
+      <div style="background: rgba(255,255,255,0.05); border-radius: 12px; padding: 1.25rem; width: 180px; text-align: center;">
+        <div style="font-size: 1.1rem; font-weight: 600; color: #fff;">💡 Controls</div>
+        <div style="font-size: 0.75rem; color: #aaa; margin-top: 0.5rem;">Room-grouped lights<br>Brightness sliders<br>Thermostat<br>Scene activation</div>
+      </div>
+
+      <div style="background: rgba(255,255,255,0.05); border-radius: 12px; padding: 1.25rem; width: 180px; text-align: center;">
+        <div style="font-size: 1.1rem; font-weight: 600; color: #fff;">📷 Cameras</div>
+        <div style="font-size: 0.75rem; color: #aaa; margin-top: 0.5rem;">Frigate live feeds<br>Grid or single view<br>Recent events list</div>
+      </div>
+
+      <div style="background: rgba(255,255,255,0.05); border-radius: 12px; padding: 1.25rem; width: 180px; text-align: center;">
+        <div style="font-size: 1.1rem; font-weight: 600; color: #fff;">⚙️ Settings</div>
+        <div style="font-size: 0.75rem; color: #aaa; margin-top: 0.5rem;">Brightness<br>Active music zone<br>Display timeout<br>Photo preferences</div>
+      </div>
+    </div>
+
+    <!-- Event interrupts -->
+    <div style="margin-top: 2rem; padding: 1.25rem; background: rgba(255, 82, 82, 0.1); border-radius: 12px; border: 1px solid rgba(255, 82, 82, 0.3);">
+      <div style="font-size: 0.8rem; font-weight: 600; color: #ff5252; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.5rem;">Event Interrupts (overlay from any screen)</div>
+      <div style="display: flex; gap: 2rem; flex-wrap: wrap;">
+        <div style="font-size: 0.8rem; color: #ccc;">
+          <strong style="color: #ff5252;">Doorbell ring</strong><br>
+          Frigate event → fullscreen camera<br>
+          Auto-dismiss after 30s or tap
+        </div>
+        <div style="font-size: 0.8rem; color: #ccc;">
+          <strong style="color: #ff8a65;">Person detected</strong><br>
+          Frigate event → subtle notification bar<br>
+          Tap to expand to camera view
+        </div>
+        <div style="font-size: 0.8rem; color: #ccc;">
+          <strong style="color: #ffd54f;">HA alerts</strong><br>
+          Smoke/CO/leak alerts → persistent banner<br>
+          Requires manual dismiss
+        </div>
+      </div>
+    </div>
+
+    <!-- Idle behavior -->
+    <div style="margin-top: 1.5rem; padding: 1rem; background: rgba(255,255,255,0.03); border-radius: 8px; text-align: center;">
+      <span style="font-size: 0.75rem; color: #888;">
+        <strong>Idle timeout:</strong> Any screen → fade to Ambient after ~2 min of no touch
+        &nbsp;|&nbsp;
+        <strong>Night mode:</strong> Ambient dims display, clock-only with minimal brightness
+      </span>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 1.5rem;">
+  <h3>Navigation Rules</h3>
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+    <div style="padding: 1rem; background: rgba(255,255,255,0.03); border-radius: 8px;">
+      <div style="font-size: 0.8rem; color: #646cff; font-weight: 600; margin-bottom: 0.5rem;">Screen Order (horizontal swipe)</div>
+      <div style="font-size: 0.85rem; color: #ccc;">Media ← Home → Controls → Cameras → Settings</div>
+      <div style="font-size: 0.75rem; color: #888; margin-top: 0.25rem;">Home is the center. PageView with snapping physics.</div>
+    </div>
+    <div style="padding: 1rem; background: rgba(255,255,255,0.03); border-radius: 8px;">
+      <div style="font-size: 0.8rem; color: #646cff; font-weight: 600; margin-bottom: 0.5rem;">Ambient ↔ Active</div>
+      <div style="font-size: 0.85rem; color: #ccc;">Tap ambient → Home. Idle 2min → fade to Ambient.</div>
+      <div style="font-size: 0.75rem; color: #888; margin-top: 0.25rem;">Ambient is a layer above, not part of the PageView.</div>
+    </div>
+    <div style="padding: 1rem; background: rgba(255,255,255,0.03); border-radius: 8px;">
+      <div style="font-size: 0.8rem; color: #646cff; font-weight: 600; margin-bottom: 0.5rem;">Event Interrupts</div>
+      <div style="font-size: 0.85rem; color: #ccc;">Overlay on top of everything. Priority: safety > doorbell > info.</div>
+      <div style="font-size: 0.75rem; color: #888; margin-top: 0.25rem;">Doorbell auto-shows camera. Safety alerts are persistent.</div>
+    </div>
+    <div style="padding: 1rem; background: rgba(255,255,255,0.03); border-radius: 8px;">
+      <div style="font-size: 0.8rem; color: #646cff; font-weight: 600; margin-bottom: 0.5rem;">Swipe Physics</div>
+      <div style="font-size: 0.85rem; color: #ccc;">Snappy, slightly dampened. Not floaty, not rigid.</div>
+      <div style="font-size: 0.75rem; color: #888; margin-top: 0.25rem;">Match Nest Hub feel: quick flick to next, slow drag snaps back.</div>
+    </div>
+  </div>
+</div>

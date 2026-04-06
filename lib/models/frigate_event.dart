@@ -65,18 +65,19 @@ class FrigateEvent {
   }
 }
 
-/// A Frigate camera with its MJPEG stream URL.
+/// A Frigate camera with its snapshot URL.
 ///
-/// Frigate serves live MJPEG streams at `/api/<camera_name>`, which we
-/// render directly in a Flutter Image widget — no video codec or player
-/// plugin needed. This keeps the kiosk dependency footprint small.
+/// Frigate serves the latest camera frame as a JPEG at
+/// `/api/<camera_name>/latest.jpg`. We use this for the grid view since
+/// Flutter's Image.network expects a single image, not an MJPEG stream.
+/// The snapshot auto-refreshes when the widget rebuilds.
 class FrigateCamera {
   final String name;
-  final String mjpegStreamUrl;
+  final String snapshotUrl;
 
   const FrigateCamera({
     required this.name,
-    required this.mjpegStreamUrl,
+    required this.snapshotUrl,
   });
 
   /// Creates a camera model from just the camera name and Frigate base URL.
@@ -84,7 +85,7 @@ class FrigateCamera {
   factory FrigateCamera.fromEntry(String name, String frigateBaseUrl) {
     return FrigateCamera(
       name: name,
-      mjpegStreamUrl: '$frigateBaseUrl/api/$name',
+      snapshotUrl: '$frigateBaseUrl/api/$name/latest.jpg',
     );
   }
 }

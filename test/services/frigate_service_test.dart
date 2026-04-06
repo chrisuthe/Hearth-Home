@@ -16,8 +16,8 @@ void main() {
       );
       expect(cameras.length, 3);
       expect(cameras[0].name, 'backyard');
-      expect(cameras[0].mjpegStreamUrl,
-          'http://frigate.local:5000/api/backyard');
+      expect(cameras[0].snapshotUrl,
+          'http://frigate.local:5000/api/backyard/latest.jpg');
     });
 
     test('parseEvents extracts event list', () {

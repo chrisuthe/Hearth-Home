@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'idle_controller.dart';
 import '../screens/ambient/ambient_screen.dart';
@@ -10,13 +11,15 @@ import '../screens/settings/settings_screen.dart';
 
 /// The main shell that manages the two-layer navigation model.
 ///
-/// Layer 1 (Active): A horizontal PageView with snapping physics.
-/// Screen order: Media <- Home -> Controls -> Cameras -> Settings
-/// Home is the center position (index 1).
+/// Three visual layers, bottom to top:
+/// 1. Photo background — always visible, provides the ambient photo behind
+///    every screen. Continuously rotates Immich memories.
+/// 2. Active layer — PageView with screens. Has a dark scrim so content
+///    is readable over the photo. Fades OUT when idle.
+/// 3. Ambient overlays — clock, weather, memory label. Fades IN when idle.
 ///
-/// Layer 2 (Ambient): Full-screen photo display that fades in after
-/// the idle timeout and fades out on any touch. Tapping ambient
-/// always returns to the Home screen.
+/// Screen order (horizontal swipe):
+///   Media ← Home → Controls → Cameras → Settings
 class HubShell extends ConsumerStatefulWidget {
   const HubShell({super.key});
 
@@ -31,13 +34,18 @@ class _HubShellState extends ConsumerState<HubShell>
 
   /// Home sits at index 1. Media is left (0), Controls+ are right (2-4).
   static const int _homeIndex = 1;
+  static const int _pageCount = 5;
+  late final FocusNode _focusNode;
 
   @override
   void initState() {
     super.initState();
+    _focusNode = FocusNode();
     _pageController = PageController(initialPage: _homeIndex);
-    // Controls the ambient layer opacity: 0 = active visible, 1 = ambient visible.
-    // 800ms gives a gentle crossfade that feels natural on the kiosk display.
+    // Controls the active/ambient crossfade:
+    // 0.0 = idle (ambient overlays visible, active screens hidden)
+    // 1.0 = active (screens visible, ambient overlays hidden)
+    // Starts at 0.0 so the photo display is the first thing visible.
     _fadeController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 800),
@@ -47,6 +55,7 @@ class _HubShellState extends ConsumerState<HubShell>
 
   @override
   void dispose() {
+    _focusNode.dispose();
     _pageController.dispose();
     _fadeController.dispose();
     super.dispose();
@@ -56,68 +65,103 @@ class _HubShellState extends ConsumerState<HubShell>
     ref.read(idleControllerProvider).onUserActivity();
   }
 
+  /// Handles arrow key navigation for desktop testing.
+  /// Left/Right move between screens, Up = Home, Down = Settings.
+  void _handleKeyEvent(KeyEvent event) {
+    if (event is! KeyDownEvent) return;
+    _onUserActivity();
+
+    final idle = ref.read(idleControllerProvider);
+    if (idle.isIdle) {
+      _pageController.jumpToPage(_homeIndex);
+      return;
+    }
+
+    final currentPage = _pageController.page?.round() ?? _homeIndex;
+
+    if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+      if (currentPage > 0) {
+        _pageController.animateToPage(
+          currentPage - 1,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+        );
+      }
+    } else if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+      if (currentPage < _pageCount - 1) {
+        _pageController.animateToPage(
+          currentPage + 1,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+        );
+      }
+    } else if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+      _pageController.animateToPage(
+        _pageCount - 1,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    } else if (event.logicalKey == LogicalKeyboardKey.arrowUp ||
+        event.logicalKey == LogicalKeyboardKey.home) {
+      _pageController.animateToPage(
+        _homeIndex,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final idle = ref.watch(idleControllerProvider);
 
-    // Drive the crossfade animation based on idle state.
-    // forward() and reverse() are no-ops if already at the target value,
-    // so calling them every build is safe and keeps the logic declarative.
+    // Drive the crossfade: forward = show active screens, reverse = show ambient
     if (idle.isIdle) {
-      _fadeController.forward();
-    } else {
       _fadeController.reverse();
+    } else {
+      _fadeController.forward();
     }
 
-    return GestureDetector(
-      // translucent so the PageView still receives scroll gestures
-      behavior: HitTestBehavior.translucent,
-      onTapDown: (_) => _onUserActivity(),
-      onPanStart: (_) => _onUserActivity(),
-      onPanUpdate: (_) => _onUserActivity(),
-      child: Stack(
-        children: [
-          // Active layer: horizontal PageView with all screens.
-          // Disabled scrolling when idle so stray touches don't change pages
-          // while the ambient overlay is visible.
-          PageView(
-            controller: _pageController,
-            physics: idle.isIdle
-                ? const NeverScrollableScrollPhysics()
-                : const BouncingScrollPhysics(),
-            children: const [
-              MediaScreen(),
-              HomeScreen(),
-              ControlsScreen(),
-              CamerasScreen(),
-              SettingsScreen(),
-            ],
-          ),
+    return KeyboardListener(
+      focusNode: _focusNode,
+      autofocus: true,
+      onKeyEvent: _handleKeyEvent,
+      child: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onTapDown: (_) => _onUserActivity(),
+        onPanStart: (_) => _onUserActivity(),
+        onPanUpdate: (_) => _onUserActivity(),
+        child: Stack(
+          children: [
+            // Layer 1: Photo background — always visible behind everything.
+            // The AmbientScreen handles its own photo rotation and caching.
+            const AmbientScreen(),
 
-          // Ambient layer: fades in over the active screens when idle.
-          // FadeTransition is driven by _fadeController so the crossfade
-          // animates smoothly rather than popping.
-          FadeTransition(
-            opacity: _fadeController,
-            child: IgnorePointer(
-              // Only accept taps when the ambient layer is actually visible.
-              // This prevents the ambient GestureDetector from stealing taps
-              // that should go to the active layer underneath.
-              ignoring: !idle.isIdle,
-              child: GestureDetector(
-                onTap: () {
-                  _onUserActivity();
-                  // Always return to the Home screen when waking from ambient.
-                  // Users expect a consistent landing point after idle.
-                  _pageController.jumpToPage(_homeIndex);
-                },
-                child: const AmbientScreen(),
+            // Layer 2: Active screens with dark scrim — fades in on activity.
+            // The scrim ensures text/controls are readable over the photo.
+            FadeTransition(
+              opacity: _fadeController,
+              child: IgnorePointer(
+                ignoring: idle.isIdle,
+                child: PageView(
+                  controller: _pageController,
+                  physics: idle.isIdle
+                      ? const NeverScrollableScrollPhysics()
+                      : const BouncingScrollPhysics(),
+                  children: const [
+                    MediaScreen(),
+                    HomeScreen(),
+                    ControlsScreen(),
+                    CamerasScreen(),
+                    SettingsScreen(),
+                  ],
+                ),
               ),
             ),
-          ),
 
-          // Event overlay layer (doorbell, alerts) — wired in Task 15
-        ],
+            // Event overlay layer (doorbell, alerts)
+          ],
+        ),
       ),
     );
   }

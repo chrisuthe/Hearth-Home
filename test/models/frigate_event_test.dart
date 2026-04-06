@@ -36,10 +36,11 @@ void main() {
       expect(event.endTime, isNull);
     });
 
-    test('FrigateCamera builds correct stream URL', () {
+    test('FrigateCamera builds correct snapshot URL', () {
       final cam =
           FrigateCamera.fromEntry('driveway', 'http://frigate.local:5000');
-      expect(cam.mjpegStreamUrl, 'http://frigate.local:5000/api/driveway');
+      expect(cam.snapshotUrl,
+          'http://frigate.local:5000/api/driveway/latest.jpg');
     });
   });
 }
