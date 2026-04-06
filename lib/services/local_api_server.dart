@@ -1,22 +1,30 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../config/hub_config.dart';
 import 'display_mode_service.dart';
 
 /// Minimal HTTP server for external device control and configuration.
 ///
-/// Runs on port 8090 by default. Endpoints:
-///   GET  /                 — config web page for entering service credentials
-///   GET  /api/config       — read current config as JSON
+/// Runs on port 8090 by default. All /api/* endpoints require a Bearer
+/// token matching the auto-generated apiKey in HubConfig. The config
+/// page at / is unauthenticated so a fresh kiosk can be set up from
+/// any browser on the LAN.
+///
+/// Endpoints:
+///   GET  /                 — config web page (unauthenticated)
+///   GET  /api/config       — read config (secrets redacted)
 ///   POST /api/config       — update config fields
-///   POST /api/display-mode — set night/day mode from external devices
+///   POST /api/display-mode — set night/day mode
 ///   GET  /api/display-mode — query current mode
 class LocalApiServer {
   final DisplayModeService _displayModeService;
   final HubConfigNotifier _configNotifier;
   HttpServer? _server;
+
+  static const int _maxBodySize = 64 * 1024; // 64 KB
 
   LocalApiServer({
     required DisplayModeService displayModeService,
@@ -31,75 +39,118 @@ class LocalApiServer {
   }
 
   Future<void> _handleRequest(HttpRequest request) async {
-    final path = request.uri.path;
+    try {
+      final path = request.uri.path;
 
-    if (path == '/') {
-      await _serveConfigPage(request);
-    } else if (path == '/api/config') {
-      if (request.method == 'GET') {
-        await _handleGetConfig(request);
-      } else if (request.method == 'POST') {
-        await _handlePostConfig(request);
+      if (path == '/') {
+        await _serveConfigPage(request);
+      } else if (path.startsWith('/api/')) {
+        if (!_checkAuth(request)) return;
+        if (path == '/api/config') {
+          if (request.method == 'GET') {
+            await _handleGetConfig(request);
+          } else if (request.method == 'POST') {
+            await _handlePostConfig(request);
+          } else {
+            request.response.statusCode = 405;
+            await request.response.close();
+          }
+        } else if (path == '/api/display-mode') {
+          if (request.method == 'POST') {
+            await _handleSetDisplayMode(request);
+          } else if (request.method == 'GET') {
+            await _handleGetDisplayMode(request);
+          } else {
+            request.response.statusCode = 405;
+            await request.response.close();
+          }
+        } else {
+          request.response.statusCode = 404;
+          request.response.write(jsonEncode({'error': 'not found'}));
+          await request.response.close();
+        }
       } else {
-        request.response.statusCode = 405;
+        request.response.statusCode = 404;
+        request.response.write(jsonEncode({'error': 'not found'}));
         await request.response.close();
       }
-    } else if (path == '/api/display-mode') {
-      if (request.method == 'POST') {
-        await _handleSetDisplayMode(request);
-      } else if (request.method == 'GET') {
-        await _handleGetDisplayMode(request);
-      } else {
-        request.response.statusCode = 405;
+    } catch (e) {
+      debugPrint('API server error: $e');
+      try {
+        request.response.statusCode = 500;
+        request.response.headers.contentType = ContentType.json;
+        request.response.write(jsonEncode({'error': 'internal server error'}));
         await request.response.close();
+      } catch (_) {
+        // Response may already be closed or broken — nothing more we can do.
       }
-    } else {
-      request.response.statusCode = 404;
-      request.response.write(jsonEncode({'error': 'not found'}));
-      await request.response.close();
     }
+  }
+
+  /// Validates the Bearer token against the stored API key.
+  /// Returns true if authorized, false if rejected (response already sent).
+  bool _checkAuth(HttpRequest request) {
+    final apiKey = _configNotifier.current.apiKey;
+    final authHeader = request.headers.value('authorization');
+    final token = authHeader != null && authHeader.startsWith('Bearer ')
+        ? authHeader.substring(7)
+        : null;
+
+    if (token != apiKey) {
+      request.response.statusCode = 401;
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(jsonEncode({'error': 'unauthorized'}));
+      request.response.close();
+      return false;
+    }
+    return true;
+  }
+
+  /// Reads and decodes a JSON request body with size limit enforcement.
+  Future<Map<String, dynamic>> _readJsonBody(HttpRequest request) async {
+    final body = await utf8.decoder.bind(request).join();
+    if (body.length > _maxBodySize) {
+      throw const FormatException('Request body too large');
+    }
+    return jsonDecode(body) as Map<String, dynamic>;
   }
 
   // --- Config endpoints ---
 
   Future<void> _handleGetConfig(HttpRequest request) async {
+    final json = _configNotifier.current.toJson();
+    // Redact secrets — tokens are write-only from the API's perspective.
+    const secretFields = ['apiKey', 'haToken', 'immichApiKey', 'musicAssistantToken'];
+    for (final field in secretFields) {
+      final value = json[field] as String? ?? '';
+      json[field] = value.isEmpty ? '' : '••••••••';
+    }
     request.response.statusCode = 200;
     request.response.headers.contentType = ContentType.json;
-    request.response.write(jsonEncode(_configNotifier.current.toJson()));
+    request.response.write(jsonEncode(json));
     await request.response.close();
   }
 
   Future<void> _handlePostConfig(HttpRequest request) async {
-    final body = await utf8.decoder.bind(request).join();
-    final json = jsonDecode(body) as Map<String, dynamic>;
+    final json = await _readJsonBody(request);
 
-    await _configNotifier.update((c) => HubConfig(
-          immichUrl: json['immichUrl'] as String? ?? c.immichUrl,
-          immichApiKey: json['immichApiKey'] as String? ?? c.immichApiKey,
-          haUrl: json['haUrl'] as String? ?? c.haUrl,
-          haToken: json['haToken'] as String? ?? c.haToken,
-          musicAssistantUrl:
-              json['musicAssistantUrl'] as String? ?? c.musicAssistantUrl,
-          musicAssistantToken:
-              json['musicAssistantToken'] as String? ?? c.musicAssistantToken,
-          frigateUrl: json['frigateUrl'] as String? ?? c.frigateUrl,
-          idleTimeoutSeconds:
-              json['idleTimeoutSeconds'] as int? ?? c.idleTimeoutSeconds,
-          nightModeSource:
-              json['nightModeSource'] as String? ?? c.nightModeSource,
-          nightModeHaEntity:
-              json['nightModeHaEntity'] as String? ?? c.nightModeHaEntity,
-          nightModeClockStart:
-              json['nightModeClockStart'] as String? ?? c.nightModeClockStart,
-          nightModeClockEnd:
-              json['nightModeClockEnd'] as String? ?? c.nightModeClockEnd,
-          defaultMusicZone:
-              json['defaultMusicZone'] as String? ?? c.defaultMusicZone,
-          use24HourClock:
-              json['use24HourClock'] as bool? ?? c.use24HourClock,
+    await _configNotifier.update((c) => c.copyWith(
+          immichUrl: json['immichUrl'] as String?,
+          immichApiKey: json['immichApiKey'] as String?,
+          haUrl: json['haUrl'] as String?,
+          haToken: json['haToken'] as String?,
+          musicAssistantUrl: json['musicAssistantUrl'] as String?,
+          musicAssistantToken: json['musicAssistantToken'] as String?,
+          frigateUrl: json['frigateUrl'] as String?,
+          idleTimeoutSeconds: json['idleTimeoutSeconds'] as int?,
+          nightModeSource: json['nightModeSource'] as String?,
+          nightModeHaEntity: json['nightModeHaEntity'] as String?,
+          nightModeClockStart: json['nightModeClockStart'] as String?,
+          nightModeClockEnd: json['nightModeClockEnd'] as String?,
+          defaultMusicZone: json['defaultMusicZone'] as String?,
+          use24HourClock: json['use24HourClock'] as bool?,
           pinnedEntityIds:
-              (json['pinnedEntityIds'] as List<dynamic>?)?.cast<String>() ??
-                  c.pinnedEntityIds,
+              (json['pinnedEntityIds'] as List<dynamic>?)?.cast<String>(),
         ));
 
     request.response.statusCode = 200;
@@ -111,8 +162,7 @@ class LocalApiServer {
   // --- Display mode endpoints ---
 
   Future<void> _handleSetDisplayMode(HttpRequest request) async {
-    final body = await utf8.decoder.bind(request).join();
-    final json = jsonDecode(body) as Map<String, dynamic>;
+    final json = await _readJsonBody(request);
     final modeStr = json['mode'] as String?;
 
     final mode = modeStr == 'night' ? DisplayMode.night : DisplayMode.day;
@@ -125,18 +175,25 @@ class LocalApiServer {
   }
 
   Future<void> _handleGetDisplayMode(HttpRequest request) async {
+    final config = _configNotifier.current;
+    final mode = _displayModeService.resolveMode(config: config);
     request.response.statusCode = 200;
     request.response.headers.contentType = ContentType.json;
-    request.response.write(jsonEncode({'mode': 'day'}));
+    request.response.write(jsonEncode({'mode': mode.name}));
     await request.response.close();
   }
 
   // --- Config web page ---
 
   Future<void> _serveConfigPage(HttpRequest request) async {
+    final apiKey = _configNotifier.current.apiKey;
     request.response.statusCode = 200;
     request.response.headers.contentType = ContentType.html;
-    request.response.write(_configPageHtml);
+    request.response.headers.add('X-Content-Type-Options', 'nosniff');
+    request.response.headers.add('X-Frame-Options', 'DENY');
+    // Inject the API key into the page so JS can authenticate requests.
+    request.response.write(_configPageHtml.replaceFirst(
+        '{{API_KEY}}', apiKey.replaceAll(r'\', r'\\').replaceAll("'", r"\'")));
     await request.response.close();
   }
 
@@ -157,6 +214,7 @@ final localApiServerProvider = Provider<LocalApiServer>((ref) {
 // ---------------------------------------------------------------------------
 // Inline HTML for the config page. Kept as a raw string to avoid any build
 // tooling — this page is hit once to enter credentials, not a production UI.
+// The {{API_KEY}} placeholder is replaced server-side on each request.
 // ---------------------------------------------------------------------------
 
 const _configPageHtml = r'''
@@ -206,6 +264,9 @@ const _configPageHtml = r'''
   }
   .toast.show { opacity: 1; }
   .toast.error { color: #f87171; }
+  .hint {
+    font-size: 11px; color: #666; margin-bottom: 12px;
+  }
 </style>
 </head>
 <body>
@@ -221,6 +282,7 @@ const _configPageHtml = r'''
       <input type="password" id="immichApiKey" placeholder="Paste your Immich API key">
       <button type="button" class="toggle-vis" onclick="toggleVis(this)">&#x1f441;</button>
     </div>
+    <div class="hint" id="immichApiKey_hint"></div>
 
     <h2>Home Assistant</h2>
     <label for="haUrl">Server URL</label>
@@ -230,6 +292,7 @@ const _configPageHtml = r'''
       <input type="password" id="haToken" placeholder="Paste your HA token">
       <button type="button" class="toggle-vis" onclick="toggleVis(this)">&#x1f441;</button>
     </div>
+    <div class="hint" id="haToken_hint"></div>
 
     <h2>Music Assistant</h2>
     <label for="musicAssistantUrl">Server URL</label>
@@ -239,6 +302,7 @@ const _configPageHtml = r'''
       <input type="password" id="musicAssistantToken" placeholder="Paste your MA long-lived token">
       <button type="button" class="toggle-vis" onclick="toggleVis(this)">&#x1f441;</button>
     </div>
+    <div class="hint" id="musicAssistantToken_hint"></div>
     <label for="defaultMusicZone">Default Zone</label>
     <input type="text" id="defaultMusicZone" placeholder="media_player.living_room">
 
@@ -259,18 +323,31 @@ const _configPageHtml = r'''
   <div class="toast" id="toast"></div>
 </div>
 <script>
+const API_KEY = '{{API_KEY}}';
+const headers = {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + API_KEY};
+
 const fields = [
   'immichUrl','immichApiKey','haUrl','haToken',
   'musicAssistantUrl','musicAssistantToken','defaultMusicZone','frigateUrl','idleTimeoutSeconds'
 ];
+const secretFields = ['immichApiKey', 'haToken', 'musicAssistantToken'];
+const REDACTED = '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022';
 
 async function load() {
   try {
-    const r = await fetch('/api/config');
+    const r = await fetch('/api/config', {headers});
     const cfg = await r.json();
     for (const f of fields) {
       const el = document.getElementById(f);
-      if (el && cfg[f] != null && cfg[f] !== '') el.value = cfg[f];
+      if (!el) continue;
+      const val = cfg[f];
+      if (secretFields.includes(f)) {
+        // Secret fields are redacted in the response. Show hint, don't fill.
+        const hint = document.getElementById(f + '_hint');
+        if (val === REDACTED && hint) hint.textContent = 'A value is saved. Leave blank to keep it.';
+      } else if (val != null && val !== '') {
+        el.value = val;
+      }
     }
     if (cfg.pinnedEntityIds && Array.isArray(cfg.pinnedEntityIds)) {
       document.getElementById('pinnedEntityIds').value = cfg.pinnedEntityIds.join('\n');
@@ -285,6 +362,9 @@ document.getElementById('configForm').addEventListener('submit', async (e) => {
     const el = document.getElementById(f);
     if (f === 'idleTimeoutSeconds') {
       body[f] = parseInt(el.value) || 120;
+    } else if (secretFields.includes(f)) {
+      // Only send secret fields if user entered a new value
+      if (el.value.trim() !== '') body[f] = el.value;
     } else {
       body[f] = el.value;
     }
@@ -292,11 +372,7 @@ document.getElementById('configForm').addEventListener('submit', async (e) => {
   const pinnedText = document.getElementById('pinnedEntityIds').value;
   body.pinnedEntityIds = pinnedText.split('\n').map(s => s.trim()).filter(s => s.length > 0);
   try {
-    const r = await fetch('/api/config', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify(body)
-    });
+    const r = await fetch('/api/config', {method: 'POST', headers, body: JSON.stringify(body)});
     if (r.ok) { showToast('Saved! Restart Hearth to apply.'); }
     else { showToast('Save failed', true); }
   } catch(e) { showToast('Save failed', true); }

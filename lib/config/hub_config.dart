@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -9,6 +10,7 @@ import 'package:path_provider/path_provider.dart';
 /// Values persist as JSON in the app support directory so they survive
 /// restarts without needing a database.
 class HubConfig {
+  final String apiKey;
   final String immichUrl;
   final String immichApiKey;
   final String haUrl;
@@ -26,6 +28,7 @@ class HubConfig {
   final List<String> pinnedEntityIds;
 
   const HubConfig({
+    this.apiKey = '',
     this.immichUrl = '',
     this.immichApiKey = '',
     this.haUrl = '',
@@ -43,7 +46,14 @@ class HubConfig {
     this.pinnedEntityIds = const [],
   });
 
+  static String generateApiKey() {
+    final rng = Random.secure();
+    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    return List.generate(32, (_) => chars[rng.nextInt(chars.length)]).join();
+  }
+
   HubConfig copyWith({
+    String? apiKey,
     String? immichUrl,
     String? immichApiKey,
     String? haUrl,
@@ -61,6 +71,7 @@ class HubConfig {
     List<String>? pinnedEntityIds,
   }) {
     return HubConfig(
+      apiKey: apiKey ?? this.apiKey,
       immichUrl: immichUrl ?? this.immichUrl,
       immichApiKey: immichApiKey ?? this.immichApiKey,
       haUrl: haUrl ?? this.haUrl,
@@ -80,6 +91,7 @@ class HubConfig {
   }
 
   Map<String, dynamic> toJson() => {
+        'apiKey': apiKey,
         'immichUrl': immichUrl,
         'immichApiKey': immichApiKey,
         'haUrl': haUrl,
@@ -98,6 +110,7 @@ class HubConfig {
       };
 
   factory HubConfig.fromJson(Map<String, dynamic> json) => HubConfig(
+        apiKey: json['apiKey'] as String? ?? '',
         immichUrl: json['immichUrl'] as String? ?? '',
         immichApiKey: json['immichApiKey'] as String? ?? '',
         haUrl: json['haUrl'] as String? ?? '',
@@ -140,6 +153,11 @@ class HubConfigNotifier extends StateNotifier<HubConfig> {
         // Fall back to defaults so the kiosk can still boot and be reconfigured.
         state = const HubConfig();
       }
+    }
+    // Auto-generate an API key on first boot so the local API server
+    // is always protected, even if the user never touches settings.
+    if (state.apiKey.isEmpty) {
+      await update((c) => c.copyWith(apiKey: HubConfig.generateApiKey()));
     }
   }
 
