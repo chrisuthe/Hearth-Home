@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
+import '../config/hub_config.dart';
 import '../models/music_state.dart';
 
 /// Direct WebSocket client for the Music Assistant API.
@@ -342,8 +343,14 @@ class MusicAssistantService {
 }
 
 final musicAssistantServiceProvider = Provider<MusicAssistantService>((ref) {
+  final maUrl = ref.watch(hubConfigProvider.select((c) => c.musicAssistantUrl));
+  final maToken = ref.watch(hubConfigProvider.select((c) => c.musicAssistantToken));
   final service = MusicAssistantService();
   ref.onDispose(() => service.dispose());
+  if (maUrl.isNotEmpty && maToken.isNotEmpty) {
+    service.connectToUrl(maUrl, maToken).catchError(
+        (e) => debugPrint('MA connection failed: $e'));
+  }
   return service;
 });
 

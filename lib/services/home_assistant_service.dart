@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
+import '../config/hub_config.dart';
 import '../models/ha_entity.dart';
 
 /// Manages a persistent WebSocket connection to Home Assistant.
@@ -222,8 +223,14 @@ class HomeAssistantService {
 }
 
 final homeAssistantServiceProvider = Provider<HomeAssistantService>((ref) {
+  final haUrl = ref.watch(hubConfigProvider.select((c) => c.haUrl));
+  final haToken = ref.watch(hubConfigProvider.select((c) => c.haToken));
   final service = HomeAssistantService();
   ref.onDispose(() => service.dispose());
+  if (haUrl.isNotEmpty && haToken.isNotEmpty) {
+    service.connectToUrl(haUrl, haToken).catchError(
+        (e) => debugPrint('HA connection failed: $e'));
+  }
   return service;
 });
 

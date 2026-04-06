@@ -203,8 +203,10 @@ class LocalApiServer {
 }
 
 final localApiServerProvider = Provider<LocalApiServer>((ref) {
-  final displayService = ref.watch(displayModeServiceProvider);
-  final configNotifier = ref.watch(hubConfigProvider.notifier);
+  // Use ref.read — the server reads config/display state per-request,
+  // so it doesn't need to be recreated when config changes.
+  final displayService = ref.read(displayModeServiceProvider);
+  final configNotifier = ref.read(hubConfigProvider.notifier);
   return LocalApiServer(
     displayModeService: displayService,
     configNotifier: configNotifier,

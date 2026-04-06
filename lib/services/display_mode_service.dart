@@ -95,8 +95,14 @@ class DisplayModeService {
 }
 
 final displayModeServiceProvider = Provider<DisplayModeService>((ref) {
+  final nightSource = ref.watch(hubConfigProvider.select((c) => c.nightModeSource));
+  final nightEntity = ref.watch(hubConfigProvider.select((c) => c.nightModeHaEntity));
   final service = DisplayModeService();
   ref.onDispose(() => service.dispose());
+  if (nightSource == 'ha_entity' && nightEntity != null) {
+    final ha = ref.watch(homeAssistantServiceProvider);
+    service.listenToHaEntity(ha, nightEntity);
+  }
   return service;
 });
 

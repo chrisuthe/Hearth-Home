@@ -157,5 +157,10 @@ final immichServiceProvider = Provider<ImmichService>((ref) {
     apiKey: immichApiKey,
   );
   ref.onDispose(() => service.dispose());
+  if (immichUrl.isNotEmpty && immichApiKey.isNotEmpty) {
+    service.loadMemories().then((_) {
+      if (!kIsWeb) service.prefetchPhotos();
+    }).catchError((e) { debugPrint('Immich load failed: $e'); });
+  }
   return service;
 });
