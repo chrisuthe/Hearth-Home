@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../config/hub_config.dart';
+import '../../models/ha_entity.dart';
+import '../../services/home_assistant_service.dart';
 
 /// Settings screen -- configure connections, display, night mode, and music.
 ///
@@ -121,6 +123,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
           value: config.use24HourClock,
           onChanged: (v) => _updateConfig((c) => c.copyWith(use24HourClock: v)),
+        ),
+        _SettingsTile(
+          icon: Icons.devices,
+          title: 'Pinned Devices',
+          subtitle: config.pinnedEntityIds.isEmpty
+              ? 'No devices selected'
+              : '${config.pinnedEntityIds.length} devices',
+          onTap: () => _showEntityPicker(context, ref),
         ),
 
         const SizedBox(height: 24),
@@ -381,6 +391,38 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
     if (result != null) onSave(result);
   }
+
+  Future<void> _showEntityPicker(BuildContext context, WidgetRef ref) async {
+    final ha = ref.read(homeAssistantServiceProvider);
+    final config = ref.read(hubConfigProvider);
+    final allEntities = ha.entities.values
+        .where((e) => ['light', 'switch', 'climate', 'fan', 'cover', 'lock', 'input_boolean']
+            .contains(e.domain))
+        .toList()
+      ..sort((a, b) => a.name.compareTo(b.name));
+
+    if (allEntities.isEmpty) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No entities available. Is HA connected?')),
+      );
+      return;
+    }
+
+    final selected = Set<String>.from(config.pinnedEntityIds);
+
+    if (!context.mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => _EntityPickerDialog(
+        entities: allEntities,
+        selected: selected,
+        onSave: (ids) => _updateConfig(
+          (c) => c.copyWith(pinnedEntityIds: ids.toList()),
+        ),
+      ),
+    );
+  }
 }
 
 /// Section header used to visually group related settings.
@@ -431,6 +473,102 @@ class _SettingsTile extends StatelessWidget {
       trailing: const Icon(Icons.chevron_right, color: Colors.white24),
       onTap: onTap,
       contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+    );
+  }
+}
+
+class _EntityPickerDialog extends StatefulWidget {
+  final List<HaEntity> entities;
+  final Set<String> selected;
+  final ValueChanged<Set<String>> onSave;
+
+  const _EntityPickerDialog({
+    required this.entities,
+    required this.selected,
+    required this.onSave,
+  });
+
+  @override
+  State<_EntityPickerDialog> createState() => _EntityPickerDialogState();
+}
+
+class _EntityPickerDialogState extends State<_EntityPickerDialog> {
+  late final Set<String> _selected;
+  String _search = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _selected = Set<String>.from(widget.selected);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final filtered = widget.entities
+        .where((e) =>
+            e.name.toLowerCase().contains(_search.toLowerCase()) ||
+            e.entityId.toLowerCase().contains(_search.toLowerCase()))
+        .toList();
+
+    return AlertDialog(
+      backgroundColor: const Color(0xFF1E1E1E),
+      title: const Text('Select Devices'),
+      content: SizedBox(
+        width: double.maxFinite,
+        height: 400,
+        child: Column(
+          children: [
+            TextField(
+              decoration: const InputDecoration(
+                hintText: 'Search entities...',
+                prefixIcon: Icon(Icons.search, color: Colors.white38),
+              ),
+              onChanged: (v) => setState(() => _search = v),
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: ListView.builder(
+                itemCount: filtered.length,
+                itemBuilder: (ctx, i) {
+                  final entity = filtered[i];
+                  final isSelected = _selected.contains(entity.entityId);
+                  return CheckboxListTile(
+                    dense: true,
+                    title: Text(entity.name, style: const TextStyle(fontSize: 14)),
+                    subtitle: Text(entity.entityId,
+                        style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.white.withValues(alpha: 0.3))),
+                    value: isSelected,
+                    onChanged: (v) {
+                      setState(() {
+                        if (v == true) {
+                          _selected.add(entity.entityId);
+                        } else {
+                          _selected.remove(entity.entityId);
+                        }
+                      });
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: () {
+            widget.onSave(_selected);
+            Navigator.pop(context);
+          },
+          child: Text('Save (${_selected.length})'),
+        ),
+      ],
     );
   }
 }
