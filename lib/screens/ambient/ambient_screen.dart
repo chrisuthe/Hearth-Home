@@ -2,10 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../services/immich_service.dart';
-import '../../models/music_state.dart';
-import '../../models/photo_memory.dart';
 import 'photo_carousel.dart';
-import 'ambient_overlays.dart';
 
 /// The ambient display — visible ~90% of the time when the hub is idle.
 ///
@@ -32,13 +29,6 @@ class _AmbientScreenState extends ConsumerState<AmbientScreen> {
   /// This picks up any new photos that Immich processes throughout the day
   /// and keeps the rotation fresh without requiring a restart.
   Timer? _refreshTimer;
-
-  /// The currently displayed photo's memory metadata, used for the overlay label.
-  PhotoMemory? _currentMemory;
-
-  /// Current music playback state from Music Assistant via Home Assistant.
-  /// Will be wired to the music service provider in a future task.
-  MusicPlayerState? _musicState;
 
   @override
   void initState() {
@@ -83,11 +73,11 @@ class _AmbientScreenState extends ConsumerState<AmbientScreen> {
       // Try the prefetch cache first, then download on demand
       final cachedPath = immich.getCachedPath(memory.assetId);
       if (cachedPath != null) {
-        setState(() => _currentMemory = memory);
+        // Photo loaded successfully
         _photoPathController.add(cachedPath);
       } else {
         final path = await immich.cachePhoto(memory);
-        setState(() => _currentMemory = memory);
+        // Photo loaded successfully
         _photoPathController.add(path);
       }
     } catch (_) {
@@ -108,19 +98,8 @@ class _AmbientScreenState extends ConsumerState<AmbientScreen> {
   Widget build(BuildContext context) {
     return Container(
       color: Colors.black,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          // Full-bleed photo carousel with Ken Burns animation
-          PhotoCarousel(
-            photoPathStream: _photoPathController.stream,
-          ),
-          // Contextual overlays: clock, weather, memory label, now-playing
-          AmbientOverlays(
-            memoryLabel: _currentMemory?.memoryLabel,
-            musicState: _musicState,
-          ),
-        ],
+      child: PhotoCarousel(
+        photoPathStream: _photoPathController.stream,
       ),
     );
   }

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'idle_controller.dart';
 import '../screens/ambient/ambient_screen.dart';
+import '../screens/ambient/ambient_overlays.dart';
 import '../screens/home/home_screen.dart';
 import '../screens/media/media_screen.dart';
 import '../screens/controls/controls_screen.dart';
@@ -156,6 +157,16 @@ class _HubShellState extends ConsumerState<HubShell>
                     SettingsScreen(),
                   ],
                 ),
+              ),
+            ),
+
+            // Layer 3: Ambient overlays (clock, weather, memory label) —
+            // only visible when idle. Uses a reversed animation so they
+            // fade OUT when active screens fade IN.
+            FadeTransition(
+              opacity: ReverseAnimation(_fadeController),
+              child: const IgnorePointer(
+                child: AmbientOverlays(),
               ),
             ),
 
