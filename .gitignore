@@ -46,3 +46,6 @@ app.*.map.json
 
 # Local device config (contains API keys/tokens)
 hub_config.json
+
+# Git worktrees
+.worktrees/
