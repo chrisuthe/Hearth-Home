@@ -34,6 +34,11 @@ class HubConfig {
   final String sendspinPlayerName;
   final int sendspinBufferSeconds;
   final String sendspinClientId;
+  final String displayProfile; // "auto" | "amoled-11" | "rpi-7" | "hdmi"
+  final int displayWidth;      // 0 = use profile default
+  final int displayHeight;     // 0 = use profile default
+  final bool autoUpdate;
+  final String currentVersion;
 
   const HubConfig({
     this.apiKey = '',
@@ -57,6 +62,11 @@ class HubConfig {
     this.sendspinPlayerName = '',
     this.sendspinBufferSeconds = 5,
     this.sendspinClientId = '',
+    this.displayProfile = 'auto',
+    this.displayWidth = 0,
+    this.displayHeight = 0,
+    this.autoUpdate = true,
+    this.currentVersion = '',
   });
 
   static String generateApiKey() {
@@ -87,6 +97,11 @@ class HubConfig {
     String? sendspinPlayerName,
     int? sendspinBufferSeconds,
     String? sendspinClientId,
+    String? displayProfile,
+    int? displayWidth,
+    int? displayHeight,
+    bool? autoUpdate,
+    String? currentVersion,
   }) {
     return HubConfig(
       apiKey: apiKey ?? this.apiKey,
@@ -110,6 +125,11 @@ class HubConfig {
       sendspinPlayerName: sendspinPlayerName ?? this.sendspinPlayerName,
       sendspinBufferSeconds: sendspinBufferSeconds ?? this.sendspinBufferSeconds,
       sendspinClientId: sendspinClientId ?? this.sendspinClientId,
+      displayProfile: displayProfile ?? this.displayProfile,
+      displayWidth: displayWidth ?? this.displayWidth,
+      displayHeight: displayHeight ?? this.displayHeight,
+      autoUpdate: autoUpdate ?? this.autoUpdate,
+      currentVersion: currentVersion ?? this.currentVersion,
     );
   }
 
@@ -135,6 +155,11 @@ class HubConfig {
         'sendspinPlayerName': sendspinPlayerName,
         'sendspinBufferSeconds': sendspinBufferSeconds,
         'sendspinClientId': sendspinClientId,
+        'displayProfile': displayProfile,
+        'displayWidth': displayWidth,
+        'displayHeight': displayHeight,
+        'autoUpdate': autoUpdate,
+        'currentVersion': currentVersion,
       };
 
   factory HubConfig.fromJson(Map<String, dynamic> json) => HubConfig(
@@ -159,6 +184,11 @@ class HubConfig {
         sendspinPlayerName: json['sendspinPlayerName'] as String? ?? '',
         sendspinBufferSeconds: json['sendspinBufferSeconds'] as int? ?? 5,
         sendspinClientId: json['sendspinClientId'] as String? ?? '',
+        displayProfile: json['displayProfile'] as String? ?? 'auto',
+        displayWidth: json['displayWidth'] as int? ?? 0,
+        displayHeight: json['displayHeight'] as int? ?? 0,
+        autoUpdate: json['autoUpdate'] as bool? ?? true,
+        currentVersion: json['currentVersion'] as String? ?? '',
       );
 }
 

@@ -116,5 +116,41 @@ void main() {
       expect(updated.sendspinPlayerName, 'Test');
       expect(updated.sendspinEnabled, true);
     });
+
+    test('new display fields have sensible defaults', () {
+      const config = HubConfig();
+      expect(config.displayProfile, 'auto');
+      expect(config.displayWidth, 0);
+      expect(config.displayHeight, 0);
+      expect(config.autoUpdate, true);
+      expect(config.currentVersion, '');
+    });
+
+    test('new fields round-trip through JSON', () {
+      const config = HubConfig(
+        displayProfile: 'amoled-11',
+        displayWidth: 1184,
+        displayHeight: 864,
+        autoUpdate: false,
+        currentVersion: '1.0.0',
+      );
+      final json = config.toJson();
+      final restored = HubConfig.fromJson(json);
+      expect(restored.displayProfile, 'amoled-11');
+      expect(restored.displayWidth, 1184);
+      expect(restored.displayHeight, 864);
+      expect(restored.autoUpdate, false);
+      expect(restored.currentVersion, '1.0.0');
+    });
+
+    test('copyWith preserves new fields when unchanged', () {
+      const config = HubConfig(
+        displayProfile: 'amoled-11',
+        autoUpdate: false,
+      );
+      final updated = config.copyWith(immichUrl: 'http://test');
+      expect(updated.displayProfile, 'amoled-11');
+      expect(updated.autoUpdate, false);
+    });
   });
 }
