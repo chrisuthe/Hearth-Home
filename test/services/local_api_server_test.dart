@@ -151,5 +151,39 @@ void main() {
       final response = await get('/api/unknown', headers: authHeaders);
       expect(response.statusCode, 404);
     });
+
+    // --- WiFi endpoints ---
+
+    test('GET /api/wifi/scan returns JSON with networks array', () async {
+      final response = await get('/api/wifi/scan',
+          headers: authHeaders);
+      expect(response.statusCode, 200);
+      final body = await readBody(response);
+      final data = jsonDecode(body) as Map<String, dynamic>;
+      expect(data['networks'], isA<List>());
+    });
+
+    test('POST /api/wifi/connect returns JSON with success field', () async {
+      final response = await post('/api/wifi/connect',
+          body: jsonEncode({'ssid': 'TestNet', 'password': 'secret'}),
+          headers: authHeaders);
+      // On Windows/non-Linux the connect returns false → 500
+      expect([200, 500], contains(response.statusCode));
+      final body = await readBody(response);
+      final data = jsonDecode(body) as Map<String, dynamic>;
+      expect(data.containsKey('success'), true);
+    });
+
+    // --- Update status endpoint ---
+
+    test('GET /api/update/status returns version info', () async {
+      final response = await get('/api/update/status',
+          headers: authHeaders);
+      expect(response.statusCode, 200);
+      final body = await readBody(response);
+      final data = jsonDecode(body) as Map<String, dynamic>;
+      expect(data.containsKey('currentVersion'), true);
+      expect(data.containsKey('autoUpdate'), true);
+    });
   });
 }

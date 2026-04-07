@@ -5,6 +5,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../config/hub_config.dart';
 import 'display_mode_service.dart';
+import 'wifi_service.dart';
+import 'update_service.dart';
 
 /// Minimal HTTP server for external device control and configuration.
 ///
@@ -19,9 +21,15 @@ import 'display_mode_service.dart';
 ///   POST /api/config       — update config fields
 ///   POST /api/display-mode — set night/day mode
 ///   GET  /api/display-mode — query current mode
+///   GET  /api/wifi/scan    — scan for WiFi networks
+///   POST /api/wifi/connect — connect to a WiFi network
+///   GET  /api/update/status — current version and auto-update setting
 class LocalApiServer {
   final DisplayModeService _displayModeService;
   final HubConfigNotifier _configNotifier;
+  final WifiService _wifiService;
+  // ignore: unused_field
+  final UpdateService _updateService;
   HttpServer? _server;
 
   static const int _maxBodySize = 64 * 1024; // 64 KB
@@ -29,8 +37,12 @@ class LocalApiServer {
   LocalApiServer({
     required DisplayModeService displayModeService,
     required HubConfigNotifier configNotifier,
+    WifiService? wifiService,
+    UpdateService? updateService,
   })  : _displayModeService = displayModeService,
-        _configNotifier = configNotifier;
+        _configNotifier = configNotifier,
+        _wifiService = wifiService ?? WifiService(),
+        _updateService = updateService ?? UpdateService();
 
   Future<int> start({int port = 8090}) async {
     _server = await HttpServer.bind(InternetAddress.anyIPv4, port);
@@ -64,6 +76,12 @@ class LocalApiServer {
             request.response.statusCode = 405;
             await request.response.close();
           }
+        } else if (path == '/api/wifi/scan' && request.method == 'GET') {
+          await _handleWifiScan(request);
+        } else if (path == '/api/wifi/connect' && request.method == 'POST') {
+          await _handleWifiConnect(request);
+        } else if (path == '/api/update/status' && request.method == 'GET') {
+          await _handleUpdateStatus(request);
         } else {
           request.response.statusCode = 404;
           request.response.write(jsonEncode({'error': 'not found'}));
@@ -113,6 +131,20 @@ class LocalApiServer {
       throw const FormatException('Request body too large');
     }
     return jsonDecode(body) as Map<String, dynamic>;
+  }
+
+  /// Reads raw request body as a string with size limit enforcement.
+  /// Returns null and sends a 400 response if the body is too large.
+  Future<String?> _readBody(HttpRequest request) async {
+    final body = await utf8.decoder.bind(request).join();
+    if (body.length > _maxBodySize) {
+      request.response.statusCode = 400;
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(jsonEncode({'error': 'request body too large'}));
+      await request.response.close();
+      return null;
+    }
+    return body;
   }
 
   // --- Config endpoints ---
@@ -183,6 +215,54 @@ class LocalApiServer {
     await request.response.close();
   }
 
+  // --- WiFi endpoints ---
+
+  Future<void> _handleWifiScan(HttpRequest request) async {
+    final networks = await _wifiService.scan();
+    final connected = await _wifiService.activeConnection();
+    request.response
+      ..statusCode = 200
+      ..headers.contentType = ContentType.json
+      ..write(jsonEncode({
+        'networks': networks.map((n) => {
+          'ssid': n.ssid,
+          'signal': n.signalStrength,
+          'security': n.security,
+          'isOpen': n.isOpen,
+        }).toList(),
+        'connected': connected,
+      }));
+    await request.response.close();
+  }
+
+  Future<void> _handleWifiConnect(HttpRequest request) async {
+    final body = await _readBody(request);
+    if (body == null) return;
+    final data = jsonDecode(body) as Map<String, dynamic>;
+    final ssid = data['ssid'] as String? ?? '';
+    final password = data['password'] as String? ?? '';
+    final success = password.isEmpty
+        ? await _wifiService.connectOpen(ssid)
+        : await _wifiService.connect(ssid, password);
+    request.response
+      ..statusCode = success ? 200 : 500
+      ..headers.contentType = ContentType.json
+      ..write(jsonEncode({'success': success}));
+    await request.response.close();
+  }
+
+  Future<void> _handleUpdateStatus(HttpRequest request) async {
+    final config = _configNotifier.current;
+    request.response
+      ..statusCode = 200
+      ..headers.contentType = ContentType.json
+      ..write(jsonEncode({
+        'currentVersion': config.currentVersion,
+        'autoUpdate': config.autoUpdate,
+      }));
+    await request.response.close();
+  }
+
   // --- Config web page ---
 
   Future<void> _serveConfigPage(HttpRequest request) async {
@@ -207,9 +287,13 @@ final localApiServerProvider = Provider<LocalApiServer>((ref) {
   // so it doesn't need to be recreated when config changes.
   final displayService = ref.read(displayModeServiceProvider);
   final configNotifier = ref.read(hubConfigProvider.notifier);
+  final wifiService = ref.read(wifiServiceProvider);
+  final updateService = ref.read(updateServiceProvider);
   return LocalApiServer(
     displayModeService: displayService,
     configNotifier: configNotifier,
+    wifiService: wifiService,
+    updateService: updateService,
   );
 });
 
