@@ -1,0 +1,5 @@
+config BR2_PACKAGE_HEARTH_UPDATER
+	bool "hearth-updater"
+	help
+	  OTA app bundle updater for Hearth. Checks GitHub Releases
+	  for new versions and atomically swaps the app bundle.
