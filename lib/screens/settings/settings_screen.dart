@@ -6,6 +6,9 @@ import '../../services/home_assistant_service.dart';
 import '../../app/app.dart' show kDialogBackground;
 import '../../services/sendspin/sendspin_service.dart';
 import '../../models/sendspin_state.dart';
+import 'wifi_settings.dart';
+import 'display_settings.dart';
+import 'update_settings.dart';
 
 /// Settings screen -- configure connections, display, night mode, and music.
 ///
@@ -29,6 +32,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       child: ListView(
         padding: const EdgeInsets.all(24),
       children: [
+        // --- Network section ---
+        _SectionHeader(title: 'Network'),
+        const SizedBox(height: 8),
+        const WifiSettingsSection(),
+        const SizedBox(height: 24),
+
         // --- Connections section ---
         _SectionHeader(title: 'Connections'),
         const SizedBox(height: 8),
@@ -127,6 +136,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           value: config.use24HourClock,
           onChanged: (v) => _updateConfig((c) => c.copyWith(use24HourClock: v)),
         ),
+        const DisplaySettingsSection(),
         _SettingsTile(
           icon: Icons.devices,
           title: 'Pinned Devices',
@@ -371,6 +381,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             );
           },
         ),
+
+        const SizedBox(height: 24),
+
+        // --- Updates section ---
+        _SectionHeader(title: 'Updates'),
+        const SizedBox(height: 8),
+        const UpdateSettingsSection(),
       ],
       ),
     );
