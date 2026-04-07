@@ -1,0 +1,3 @@
+# Force LF line endings for Buildroot files (Linux build system is LF-sensitive)
+buildroot-hearth/** text eol=lf
+scripts/*.sh text eol=lf
