@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'app/app.dart';
 import 'config/hub_config.dart';
 import 'services/local_api_server.dart';
+import 'services/sendspin/sendspin_service.dart';
 
 // media_kit uses native libmpv — not available on web.
 import 'package:media_kit/media_kit.dart';
@@ -41,6 +42,12 @@ Future<void> main() async {
   // self-initializing providers — they watch their config fields and
   // connect automatically. When config changes in Settings, Riverpod
   // disposes the old instance and creates a new one that reconnects.
+
+  // Sendspin player is also self-initializing but needs an eager read
+  // to start mDNS advertisement when config says enabled.
+  if (!kIsWeb) {
+    container.read(sendspinServiceProvider);
+  }
 
   runApp(
     UncontrolledProviderScope(

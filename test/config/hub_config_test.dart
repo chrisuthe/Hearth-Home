@@ -86,5 +86,35 @@ void main() {
       final config = HubConfig.fromJson({});
       expect(config.weatherEntityId, '');
     });
+
+    test('sendspin fields have correct defaults', () {
+      const config = HubConfig();
+      expect(config.sendspinEnabled, false);
+      expect(config.sendspinPlayerName, '');
+      expect(config.sendspinBufferSeconds, 5);
+      expect(config.sendspinClientId, '');
+    });
+
+    test('sendspin fields round-trip through JSON', () {
+      final config = HubConfig(
+        sendspinEnabled: true,
+        sendspinPlayerName: 'Kitchen Display',
+        sendspinBufferSeconds: 10,
+        sendspinClientId: 'abc-123',
+      );
+      final json = config.toJson();
+      final restored = HubConfig.fromJson(json);
+      expect(restored.sendspinEnabled, true);
+      expect(restored.sendspinPlayerName, 'Kitchen Display');
+      expect(restored.sendspinBufferSeconds, 10);
+      expect(restored.sendspinClientId, 'abc-123');
+    });
+
+    test('sendspin copyWith preserves unchanged fields', () {
+      final config = HubConfig(sendspinPlayerName: 'Test');
+      final updated = config.copyWith(sendspinEnabled: true);
+      expect(updated.sendspinPlayerName, 'Test');
+      expect(updated.sendspinEnabled, true);
+    });
   });
 }

@@ -4,6 +4,8 @@ import '../../config/hub_config.dart';
 import '../../models/ha_entity.dart';
 import '../../services/home_assistant_service.dart';
 import '../../app/app.dart' show kDialogBackground;
+import '../../services/sendspin/sendspin_service.dart';
+import '../../models/sendspin_state.dart';
 
 /// Settings screen -- configure connections, display, night mode, and music.
 ///
@@ -275,6 +277,99 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               (c) => c.copyWith(defaultMusicZone: value),
             ),
           ),
+        ),
+
+        const SizedBox(height: 24),
+
+        // --- Sendspin section ---
+        const _SectionHeader(title: 'Sendspin Audio'),
+        const SizedBox(height: 8),
+
+        SwitchListTile(
+          secondary: const Icon(Icons.speaker, color: Colors.white54),
+          title: const Text('Enable Sendspin Player'),
+          subtitle: Text(
+            config.sendspinEnabled ? 'Active' : 'Disabled',
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
+          ),
+          value: config.sendspinEnabled,
+          onChanged: config.sendspinPlayerName.isEmpty
+              ? null
+              : (v) async {
+                  if (v && config.sendspinClientId.isEmpty) {
+                    await _updateConfig((c) => c.copyWith(
+                      sendspinEnabled: true,
+                      sendspinClientId: HubConfig.generateApiKey(),
+                    ));
+                  } else {
+                    await _updateConfig((c) => c.copyWith(sendspinEnabled: v));
+                  }
+                },
+        ),
+        _SettingsTile(
+          icon: Icons.label,
+          title: 'Player Name',
+          subtitle: config.sendspinPlayerName.isEmpty
+              ? 'Required — name shown in Music Assistant'
+              : config.sendspinPlayerName,
+          onTap: () => _showTextInputDialog(
+            title: 'Sendspin Player Name',
+            currentValue: config.sendspinPlayerName,
+            hint: 'Kitchen Display',
+            onSave: (value) => _updateConfig(
+              (c) => c.copyWith(sendspinPlayerName: value),
+            ),
+          ),
+        ),
+        _SettingsTile(
+          icon: Icons.memory,
+          title: 'Buffer Size',
+          subtitle: '${config.sendspinBufferSeconds}s audio buffer',
+          onTap: () => _showChoiceDialog(
+            title: 'Buffer Size',
+            options: const {
+              '5': '5 seconds',
+              '7': '7 seconds',
+              '10': '10 seconds',
+            },
+            currentValue: config.sendspinBufferSeconds.toString(),
+            onSave: (value) => _updateConfig(
+              (c) => c.copyWith(sendspinBufferSeconds: int.parse(value)),
+            ),
+          ),
+        ),
+        Builder(
+          builder: (context) {
+            final sendspinState = ref.watch(sendspinStateProvider);
+            final statusText = sendspinState.when(
+              data: (s) {
+                switch (s.connectionState) {
+                  case SendspinConnectionState.disabled:
+                    return 'Disabled';
+                  case SendspinConnectionState.advertising:
+                    return 'Waiting for server...';
+                  case SendspinConnectionState.connected:
+                    return 'Connected';
+                  case SendspinConnectionState.syncing:
+                    return 'Synchronizing...';
+                  case SendspinConnectionState.streaming:
+                    final codec = s.codec?.toUpperCase() ?? '';
+                    final rate = s.sampleRate != null ? '${s.sampleRate! ~/ 1000}kHz' : '';
+                    return 'Streaming $codec $rate';
+                  case SendspinConnectionState.disconnected:
+                    return 'Disconnected — reconnecting...';
+                }
+              },
+              loading: () => 'Loading...',
+              error: (_, e) => 'Error',
+            );
+            return _SettingsTile(
+              icon: Icons.info_outline,
+              title: 'Status',
+              subtitle: statusText,
+              onTap: () {},
+            );
+          },
         ),
       ],
       ),

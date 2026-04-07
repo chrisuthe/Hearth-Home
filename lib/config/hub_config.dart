@@ -30,6 +30,10 @@ class HubConfig {
   final bool use24HourClock;
   final List<String> pinnedEntityIds;
   final String weatherEntityId;
+  final bool sendspinEnabled;
+  final String sendspinPlayerName;
+  final int sendspinBufferSeconds;
+  final String sendspinClientId;
 
   const HubConfig({
     this.apiKey = '',
@@ -49,6 +53,10 @@ class HubConfig {
     this.use24HourClock = false,
     this.pinnedEntityIds = const [],
     this.weatherEntityId = '',
+    this.sendspinEnabled = false,
+    this.sendspinPlayerName = '',
+    this.sendspinBufferSeconds = 5,
+    this.sendspinClientId = '',
   });
 
   static String generateApiKey() {
@@ -75,6 +83,10 @@ class HubConfig {
     bool? use24HourClock,
     List<String>? pinnedEntityIds,
     String? weatherEntityId,
+    bool? sendspinEnabled,
+    String? sendspinPlayerName,
+    int? sendspinBufferSeconds,
+    String? sendspinClientId,
   }) {
     return HubConfig(
       apiKey: apiKey ?? this.apiKey,
@@ -94,6 +106,10 @@ class HubConfig {
       use24HourClock: use24HourClock ?? this.use24HourClock,
       pinnedEntityIds: pinnedEntityIds ?? this.pinnedEntityIds,
       weatherEntityId: weatherEntityId ?? this.weatherEntityId,
+      sendspinEnabled: sendspinEnabled ?? this.sendspinEnabled,
+      sendspinPlayerName: sendspinPlayerName ?? this.sendspinPlayerName,
+      sendspinBufferSeconds: sendspinBufferSeconds ?? this.sendspinBufferSeconds,
+      sendspinClientId: sendspinClientId ?? this.sendspinClientId,
     );
   }
 
@@ -115,6 +131,10 @@ class HubConfig {
         'use24HourClock': use24HourClock,
         'pinnedEntityIds': pinnedEntityIds,
         'weatherEntityId': weatherEntityId,
+        'sendspinEnabled': sendspinEnabled,
+        'sendspinPlayerName': sendspinPlayerName,
+        'sendspinBufferSeconds': sendspinBufferSeconds,
+        'sendspinClientId': sendspinClientId,
       };
 
   factory HubConfig.fromJson(Map<String, dynamic> json) => HubConfig(
@@ -135,6 +155,10 @@ class HubConfig {
         use24HourClock: json['use24HourClock'] as bool? ?? false,
         pinnedEntityIds: (json['pinnedEntityIds'] as List<dynamic>?)?.cast<String>() ?? const [],
         weatherEntityId: json['weatherEntityId'] as String? ?? '',
+        sendspinEnabled: json['sendspinEnabled'] as bool? ?? false,
+        sendspinPlayerName: json['sendspinPlayerName'] as String? ?? '',
+        sendspinBufferSeconds: json['sendspinBufferSeconds'] as int? ?? 5,
+        sendspinClientId: json['sendspinClientId'] as String? ?? '',
       );
 }
 
