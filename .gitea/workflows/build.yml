@@ -42,7 +42,7 @@ jobs:
       - name: Create Gitea Release
         if: startsWith(github.ref, 'refs/tags/v')
         env:
-          GITEA_TOKEN: ${{ secrets.GITEA_TOKEN }}
+          GITEA_TOKEN: ${{ secrets.TOKEN }}
         run: |
           TAG="${GITHUB_REF_NAME}"
           # Create release
