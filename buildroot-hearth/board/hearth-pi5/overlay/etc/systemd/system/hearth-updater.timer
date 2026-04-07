@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily Hearth update check
+
+[Timer]
+OnBootSec=2min
+OnCalendar=daily
+Persistent=true
+
+[Install]
+WantedBy=timers.target

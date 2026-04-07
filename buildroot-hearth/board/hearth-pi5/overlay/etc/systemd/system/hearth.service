@@ -1,0 +1,17 @@
+[Unit]
+Description=Hearth Smart Home Kiosk
+After=network-online.target graphical.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/bin/flutter-pi /opt/hearth/bundle
+Restart=on-failure
+RestartSec=5
+StartLimitIntervalSec=60
+StartLimitBurst=3
+Environment=XDG_RUNTIME_DIR=/run/user/0
+
+[Install]
+WantedBy=multi-user.target

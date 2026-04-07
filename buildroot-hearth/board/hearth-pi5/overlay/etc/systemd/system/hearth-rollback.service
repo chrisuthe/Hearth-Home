@@ -1,0 +1,17 @@
+[Unit]
+Description=Hearth rollback on repeated failures
+After=hearth.service
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c '\
+  if [ -d /opt/hearth/bundle.prev ]; then \
+    rm -rf /opt/hearth/bundle && \
+    mv /opt/hearth/bundle.prev /opt/hearth/bundle && \
+    head -1 /opt/hearth/bundle/version.txt > /etc/hearth-version 2>/dev/null; \
+    logger -t hearth-rollback "Rolled back to previous bundle"; \
+    systemctl reset-failed hearth.service; \
+    systemctl start hearth.service; \
+  else \
+    logger -t hearth-rollback "No previous bundle to roll back to"; \
+  fi'
