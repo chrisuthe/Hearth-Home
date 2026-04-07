@@ -4,15 +4,34 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hearth/app/app.dart';
 import 'package:hearth/config/hub_config.dart';
 import 'package:hearth/screens/setup/setup_wizard.dart';
+import 'package:hearth/services/wifi_service.dart';
+
+/// Fake WiFi service that never calls Process.run — safe for CI.
+class FakeWifiService extends WifiService {
+  @override
+  Future<List<WifiNetwork>> scan() async => [];
+  @override
+  Future<bool> connect(String ssid, String password) async => false;
+  @override
+  Future<bool> connectOpen(String ssid) async => false;
+  @override
+  Future<String?> activeConnection() async => null;
+  @override
+  Future<bool> disconnect() async => false;
+}
 
 void main() {
   group('SetupWizard', () {
+    /// Common overrides for all setup wizard tests.
+    final testOverrides = [
+      hubConfigProvider.overrideWith((ref) => HubConfigNotifier()),
+      wifiServiceProvider.overrideWithValue(FakeWifiService()),
+    ];
+
     testWidgets('shows WiFi step first', (tester) async {
       await tester.pumpWidget(
         ProviderScope(
-          overrides: [
-            hubConfigProvider.overrideWith((ref) => HubConfigNotifier()),
-          ],
+          overrides: testOverrides,
           child: const MaterialApp(home: Scaffold(body: SetupWizard())),
         ),
       );
@@ -22,9 +41,7 @@ void main() {
     testWidgets('shows skip button on WiFi step', (tester) async {
       await tester.pumpWidget(
         ProviderScope(
-          overrides: [
-            hubConfigProvider.overrideWith((ref) => HubConfigNotifier()),
-          ],
+          overrides: testOverrides,
           child: const MaterialApp(home: Scaffold(body: SetupWizard())),
         ),
       );
@@ -34,9 +51,7 @@ void main() {
     testWidgets('shows progress bar with 4 steps', (tester) async {
       await tester.pumpWidget(
         ProviderScope(
-          overrides: [
-            hubConfigProvider.overrideWith((ref) => HubConfigNotifier()),
-          ],
+          overrides: testOverrides,
           child: const MaterialApp(home: Scaffold(body: SetupWizard())),
         ),
       );
@@ -47,9 +62,7 @@ void main() {
     testWidgets('skip button advances to services step', (tester) async {
       await tester.pumpWidget(
         ProviderScope(
-          overrides: [
-            hubConfigProvider.overrideWith((ref) => HubConfigNotifier()),
-          ],
+          overrides: testOverrides,
           child: const MaterialApp(home: Scaffold(body: SetupWizard())),
         ),
       );
@@ -61,9 +74,7 @@ void main() {
     testWidgets('services step shows HA URL field', (tester) async {
       await tester.pumpWidget(
         ProviderScope(
-          overrides: [
-            hubConfigProvider.overrideWith((ref) => HubConfigNotifier()),
-          ],
+          overrides: testOverrides,
           child: const MaterialApp(home: Scaffold(body: SetupWizard())),
         ),
       );
@@ -76,9 +87,7 @@ void main() {
     testWidgets('services step Next disabled when HA URL empty', (tester) async {
       await tester.pumpWidget(
         ProviderScope(
-          overrides: [
-            hubConfigProvider.overrideWith((ref) => HubConfigNotifier()),
-          ],
+          overrides: testOverrides,
           child: const MaterialApp(home: Scaffold(body: SetupWizard())),
         ),
       );
@@ -95,9 +104,7 @@ void main() {
     testWidgets('services step Back returns to WiFi step', (tester) async {
       await tester.pumpWidget(
         ProviderScope(
-          overrides: [
-            hubConfigProvider.overrideWith((ref) => HubConfigNotifier()),
-          ],
+          overrides: testOverrides,
           child: const MaterialApp(home: Scaffold(body: SetupWizard())),
         ),
       );
@@ -117,6 +124,7 @@ void main() {
         ProviderScope(
           overrides: [
             hubConfigProvider.overrideWith((ref) => notifier),
+            wifiServiceProvider.overrideWithValue(FakeWifiService()),
           ],
           child: const HearthApp(),
         ),
