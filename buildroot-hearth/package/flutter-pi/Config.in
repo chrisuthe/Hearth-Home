@@ -1,0 +1,11 @@
+config BR2_PACKAGE_FLUTTER_PI
+	bool "flutter-pi"
+	depends on BR2_PACKAGE_MESA3D
+	depends on BR2_PACKAGE_LIBINPUT
+	depends on BR2_PACKAGE_LIBDRM
+	help
+	  Flutter runtime for Raspberry Pi using DRM/KMS.
+	  Renders Flutter apps directly on the framebuffer
+	  without X11 or Wayland.
+
+	  https://github.com/ardera/flutter-pi
