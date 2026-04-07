@@ -1,0 +1,25 @@
+# GPU / Display (flutter-pi rendering via DRM/KMS)
+CONFIG_DRM=y
+CONFIG_DRM_V3D=y
+CONFIG_DRM_VC4=y
+
+# USB HID (keyboards, mice)
+CONFIG_USB_HID=y
+CONFIG_HID_GENERIC=y
+
+# USB Touchscreens
+CONFIG_HID_MULTITOUCH=y
+CONFIG_INPUT_TOUCHSCREEN=y
+CONFIG_TOUCHSCREEN_USB_COMPOSITE=m
+
+# Input event interface (libinput reads this)
+CONFIG_INPUT_EVDEV=y
+
+# USB Audio (USB sound cards)
+CONFIG_SND_USB=y
+CONFIG_SND_USB_AUDIO=y
+
+# WiFi (onboard Pi 5 + common USB adapters)
+CONFIG_CFG80211=y
+CONFIG_MAC80211=y
+CONFIG_BRCMFMAC=y
