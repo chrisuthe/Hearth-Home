@@ -1,0 +1,155 @@
+name: Build Pi Image
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      buildroot_version:
+        description: 'Buildroot version tag (e.g., 2024.11)'
+        required: false
+        default: '2024.11'
+
+concurrency:
+  group: pi-image-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  BUILDROOT_VERSION: ${{ github.event.inputs.buildroot_version || '2024.11' }}
+
+jobs:
+  build-bundle:
+    name: Cross-compile Flutter bundle
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Install flutterpi_tool
+        run: dart pub global activate flutterpi_tool 0.10.1
+
+      - name: Swap dependencies for Pi
+        run: ./scripts/prepare-pi-build.sh
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Cross-compile for Pi 5
+        run: |
+          export PATH="$PATH:$HOME/.pub-cache/bin"
+          flutterpi_tool build --release --cpu=pi5
+
+      - name: Package bundle
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          tar czf "hearth-bundle-${VERSION}.tar.gz" -C build/flutter_assets .
+
+      - name: Upload bundle artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: hearth-bundle
+          path: hearth-bundle-*.tar.gz
+
+  build-image:
+    name: Build Buildroot SD card image
+    needs: build-bundle
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download bundle artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: hearth-bundle
+
+      - name: Install Buildroot dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential gcc g++ make \
+            libncurses-dev unzip bc python3 \
+            cpio rsync wget file \
+            dosfstools mtools genimage
+
+      - name: Download Buildroot
+        run: |
+          wget -q "https://buildroot.org/downloads/buildroot-${BUILDROOT_VERSION}.tar.xz"
+          tar xf "buildroot-${BUILDROOT_VERSION}.tar.xz"
+
+      - name: Inject Flutter bundle into overlay
+        run: |
+          BUNDLE_TAR=$(ls hearth-bundle-*.tar.gz)
+          mkdir -p buildroot-hearth/board/hearth-pi5/overlay/opt/hearth/bundle
+          tar xzf "$BUNDLE_TAR" -C buildroot-hearth/board/hearth-pi5/overlay/opt/hearth/bundle/
+
+      - name: Configure Buildroot
+        run: |
+          cd "buildroot-${BUILDROOT_VERSION}"
+          make BR2_EXTERNAL="${GITHUB_WORKSPACE}/buildroot-hearth" hearth_pi5_defconfig
+
+      - name: Build image
+        env:
+          HEARTH_VERSION: ${{ github.ref_name }}
+        run: |
+          cd "buildroot-${BUILDROOT_VERSION}"
+          make -j$(nproc)
+
+      - name: Compress image
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          cp "buildroot-${BUILDROOT_VERSION}/output/images/sdcard.img" .
+          xz -9 -T0 sdcard.img
+          mv sdcard.img.xz "hearth-${VERSION}-pi5.img.xz"
+
+      - name: Upload image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: hearth-pi-image
+          path: hearth-*-pi5.img.xz
+
+  release:
+    name: Publish to Gitea Release
+    needs: [build-bundle, build-image]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Create release and upload assets
+        env:
+          GITEA_TOKEN: ${{ secrets.GITEA_TOKEN }}
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          SERVER="${GITHUB_SERVER_URL}"
+          REPO="${GITHUB_REPOSITORY}"
+
+          # Create release
+          RELEASE_ID=$(curl -s -X POST \
+            -H "Authorization: token ${GITEA_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "{\"tag_name\": \"${TAG}\", \"name\": \"Hearth ${TAG}\", \"body\": \"Hearth ${TAG} release\"}" \
+            "${SERVER}/api/v1/repos/${REPO}/releases" \
+            | grep -o '"id":[0-9]*' | head -1 | cut -d: -f2)
+
+          echo "Created release ID: ${RELEASE_ID}"
+
+          # Upload bundle
+          BUNDLE=$(ls hearth-bundle/hearth-bundle-*.tar.gz)
+          curl -s -X POST \
+            -H "Authorization: token ${GITEA_TOKEN}" \
+            -F "attachment=@${BUNDLE}" \
+            "${SERVER}/api/v1/repos/${REPO}/releases/${RELEASE_ID}/assets"
+
+          # Upload image
+          IMAGE=$(ls hearth-pi-image/hearth-*-pi5.img.xz)
+          curl -s -X POST \
+            -H "Authorization: token ${GITEA_TOKEN}" \
+            -F "attachment=@${IMAGE}" \
+            "${SERVER}/api/v1/repos/${REPO}/releases/${RELEASE_ID}/assets"
+
+          echo "Uploaded bundle and image to release ${TAG}"
