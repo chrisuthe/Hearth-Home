@@ -1,0 +1,2 @@
+source "$BR2_EXTERNAL_HEARTH_PATH/package/flutter-pi/Config.in"
+source "$BR2_EXTERNAL_HEARTH_PATH/package/hearth-updater/Config.in"
