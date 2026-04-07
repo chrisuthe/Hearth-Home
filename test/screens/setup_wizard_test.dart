@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hearth/app/app.dart';
 import 'package:hearth/config/hub_config.dart';
 import 'package:hearth/screens/setup/setup_wizard.dart';
 
@@ -106,6 +107,20 @@ void main() {
       // Scroll to Back button in case it's off-screen
       await tester.ensureVisible(find.text('Back'));
       await tester.tap(find.text('Back'));
+      await tester.pumpAndSettle();
+      expect(find.text('Connect to WiFi'), findsOneWidget);
+    });
+
+    testWidgets('HearthApp shows setup wizard when haUrl is empty', (tester) async {
+      final notifier = HubConfigNotifier();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            hubConfigProvider.overrideWith((ref) => notifier),
+          ],
+          child: const HearthApp(),
+        ),
+      );
       await tester.pumpAndSettle();
       expect(find.text('Connect to WiFi'), findsOneWidget);
     });

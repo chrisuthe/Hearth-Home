@@ -1,6 +1,8 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../config/hub_config.dart';
+import '../screens/setup/setup_wizard.dart';
 import 'hub_shell.dart';
 
 /// Root widget for the Hearth application.
@@ -17,6 +19,9 @@ class HearthApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final config = ref.watch(hubConfigProvider);
+    final needsSetup = config.haUrl.isEmpty;
+
     return MaterialApp(
       title: 'Hearth',
       debugShowCheckedModeBanner: false,
@@ -29,8 +34,8 @@ class HearthApp extends ConsumerWidget {
         fontFamily: 'Roboto',
         dialogTheme: const DialogThemeData(backgroundColor: kDialogBackground),
       ),
-      home: const Scaffold(
-        body: HubShell(),
+      home: Scaffold(
+        body: needsSetup ? const SetupWizard() : const HubShell(),
       ),
     );
   }
