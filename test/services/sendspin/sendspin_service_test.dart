@@ -17,6 +17,7 @@ void main() {
         playerName: '',
         bufferSeconds: 5,
         clientId: 'test-id',
+        serverUrl: '',
       );
       expect(service.state.connectionState, SendspinConnectionState.disabled);
       service.dispose();
@@ -29,6 +30,7 @@ void main() {
         playerName: 'Test',
         bufferSeconds: 5,
         clientId: 'test-id',
+        serverUrl: '',
       );
       expect(service.state.connectionState, SendspinConnectionState.disabled);
       service.dispose();

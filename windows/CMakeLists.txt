@@ -49,6 +49,9 @@ endfunction()
 set(FLUTTER_MANAGED_DIR "${CMAKE_CURRENT_SOURCE_DIR}/flutter")
 add_subdirectory(${FLUTTER_MANAGED_DIR})
 
+# Sendspin FLAC native decoder.
+add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/../native/sendspin_flac" "${CMAKE_CURRENT_BINARY_DIR}/sendspin_flac")
+
 # Application build; see runner/CMakeLists.txt.
 add_subdirectory("runner")
 
@@ -74,6 +77,12 @@ set(INSTALL_BUNDLE_LIB_DIR "${CMAKE_INSTALL_PREFIX}")
 
 install(TARGETS ${BINARY_NAME} RUNTIME DESTINATION "${CMAKE_INSTALL_PREFIX}"
   COMPONENT Runtime)
+
+get_target_property(_flac_type sendspin_flac TYPE)
+if(NOT _flac_type STREQUAL "INTERFACE_LIBRARY")
+  install(TARGETS sendspin_flac RUNTIME DESTINATION "${CMAKE_INSTALL_PREFIX}"
+    COMPONENT Runtime)
+endif()
 
 install(FILES "${FLUTTER_ICU_DATA_FILE}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
   COMPONENT Runtime)

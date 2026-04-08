@@ -1,4 +1,5 @@
 #include "my_application.h"
+#include "sendspin_audio_plugin.h"
 
 #include <flutter_linux/flutter_linux.h>
 #ifdef GDK_WINDOWING_X11
@@ -74,6 +75,7 @@ static void my_application_activate(GApplication* application) {
   gtk_widget_realize(GTK_WIDGET(view));
 
   fl_register_plugins(FL_PLUGIN_REGISTRY(view));
+  sendspin_audio_plugin_register(FL_PLUGIN_REGISTRY(view));
 
   gtk_widget_grab_focus(GTK_WIDGET(view));
 }

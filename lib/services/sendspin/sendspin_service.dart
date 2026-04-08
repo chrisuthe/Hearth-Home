@@ -22,6 +22,10 @@ class SendspinService {
   HttpServer? _httpServer;
   BonsoirBroadcast? _bonsoirBroadcast;
   StreamSubscription? _stateSubscription;
+  WebSocket? _webSocket;
+  Timer? _reconnectTimer;
+  int _reconnectDelay = 1;
+  String _serverUrl = '';
   final _stateController = StreamController<SendspinPlayerState>.broadcast();
 
   SendspinPlayerState _state = const SendspinPlayerState();
@@ -33,6 +37,7 @@ class SendspinService {
     required String playerName,
     required int bufferSeconds,
     required String clientId,
+    required String serverUrl,
   }) async {
     await _stop();
     if (!enabled || playerName.isEmpty) {
@@ -45,7 +50,14 @@ class SendspinService {
       bufferSeconds: bufferSeconds,
     );
     _stateSubscription = _client!.stateStream.listen(_updateState);
-    await _startServer(playerName, clientId);
+
+    if (serverUrl.isNotEmpty) {
+      // Client mode: connect outward to the specified server
+      await _connectToServer(serverUrl);
+    } else {
+      // Server mode: advertise via mDNS and wait for connections
+      await _startServer(playerName, clientId);
+    }
   }
 
   Future<void> _startServer(String playerName, String clientId) async {
@@ -96,51 +108,99 @@ class SendspinService {
     try {
       final socket = await WebSocketTransformer.upgrade(request);
       debugPrint('Sendspin: server connected');
-      socket.add(_client!.buildClientHello());
-      _client!.onSendText = (message) => socket.add(message);
-
-      _audioSink = SendspinAudioSink();
-      _audioSink!.onSamplesRequested = (frameCount) {
-        if (_client == null) return;
-        final samples = _client!.pullSamples(frameCount * 2); // stereo
-        final bytes = Uint8List(samples.length * 2);
-        final view = ByteData.view(bytes.buffer);
-        for (int i = 0; i < samples.length; i++) {
-          view.setInt16(i * 2, samples[i], Endian.little);
-        }
-        _audioSink!.writeSamples(bytes);
-      };
-
-      socket.listen(
-        (data) {
-          if (data is String) {
-            _client!.handleTextMessage(data);
-          } else if (data is List<int>) {
-            _client!.handleBinaryMessage(Uint8List.fromList(data));
-          }
-        },
-        onDone: () {
-          debugPrint('Sendspin: server disconnected');
-          _client?.stopClockSync();
-          _audioSink?.stop();
-          _updateState(
-            _state.copyWith(
-              connectionState: SendspinConnectionState.advertising,
-            ),
-          );
-        },
-        onError: (e) => debugPrint('Sendspin: WebSocket error: $e'),
-      );
-
-      _updateState(
-        _state.copyWith(connectionState: SendspinConnectionState.connected),
-      );
+      _setupWebSocket(socket, onDone: () {
+        debugPrint('Sendspin: server disconnected');
+        _client?.stopClockSync();
+        _audioSink?.stop();
+        _audioSink?.dispose();
+        _audioSink = null;
+        _updateState(
+          _state.copyWith(
+            connectionState: SendspinConnectionState.advertising,
+          ),
+        );
+      });
     } catch (e) {
       debugPrint('Sendspin: WebSocket upgrade failed: $e');
     }
   }
 
+  Future<void> _connectToServer(String url) async {
+    _serverUrl = url;
+    _reconnectDelay = 1;
+    _updateState(
+      _state.copyWith(connectionState: SendspinConnectionState.advertising),
+    );
+    debugPrint('Sendspin: connecting to server $url');
+
+    try {
+      _webSocket = await WebSocket.connect(url);
+      _reconnectDelay = 1;
+      _setupWebSocket(_webSocket!, onDone: () {
+        debugPrint('Sendspin: server disconnected, reconnecting...');
+        _client?.stopClockSync();
+        _audioSink?.stop();
+        _audioSink?.dispose();
+        _audioSink = null;
+        _updateState(
+          _state.copyWith(
+            connectionState: SendspinConnectionState.disconnected,
+          ),
+        );
+        _scheduleReconnect();
+      });
+    } catch (e) {
+      debugPrint('Sendspin: connection to $url failed: $e');
+      _scheduleReconnect();
+    }
+  }
+
+  void _setupWebSocket(dynamic socket, {required VoidCallback onDone}) {
+    socket.add(_client!.buildClientHello());
+    _client!.onSendText = (message) => socket.add(message);
+
+    _audioSink = SendspinAudioSink();
+    _audioSink!.onSamplesRequested = (frameCount) {
+      if (_client == null) return;
+      final samples = _client!.pullSamples(frameCount * 2); // stereo
+      final bytes = Uint8List(samples.length * 2);
+      final view = ByteData.view(bytes.buffer);
+      for (int i = 0; i < samples.length; i++) {
+        view.setInt16(i * 2, samples[i], Endian.little);
+      }
+      _audioSink!.writeSamples(bytes);
+    };
+
+    socket.listen(
+      (data) {
+        if (data is String) {
+          _client!.handleTextMessage(data);
+        } else if (data is List<int>) {
+          _client!.handleBinaryMessage(Uint8List.fromList(data));
+        }
+      },
+      onDone: onDone,
+      onError: (e) => debugPrint('Sendspin: WebSocket error: $e'),
+    );
+
+    _updateState(
+      _state.copyWith(connectionState: SendspinConnectionState.connected),
+    );
+  }
+
+  void _scheduleReconnect() {
+    if (_serverUrl.isEmpty) return;
+    _reconnectTimer?.cancel();
+    _reconnectTimer = Timer(Duration(seconds: _reconnectDelay), () {
+      _connectToServer(_serverUrl);
+    });
+    _reconnectDelay = (_reconnectDelay * 2).clamp(1, 30);
+  }
+
   Future<void> _stop() async {
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
+    _serverUrl = '';
     _client?.dispose();
     _client = null;
     _stateSubscription?.cancel();
@@ -148,6 +208,8 @@ class SendspinService {
     await _audioSink?.stop();
     await _audioSink?.dispose();
     _audioSink = null;
+    _webSocket?.close();
+    _webSocket = null;
     await _bonsoirBroadcast?.stop();
     _bonsoirBroadcast = null;
     await _httpServer?.close();
@@ -178,6 +240,8 @@ final sendspinServiceProvider = Provider<SendspinService>((ref) {
       ref.watch(hubConfigProvider.select((c) => c.sendspinBufferSeconds));
   final clientId =
       ref.watch(hubConfigProvider.select((c) => c.sendspinClientId));
+  final serverUrl =
+      ref.watch(hubConfigProvider.select((c) => c.sendspinServerUrl));
 
   final service = SendspinService();
   ref.onDispose(() => service.dispose());
@@ -189,6 +253,7 @@ final sendspinServiceProvider = Provider<SendspinService>((ref) {
           playerName: playerName,
           bufferSeconds: bufferSeconds,
           clientId: clientId,
+          serverUrl: serverUrl,
         )
         .catchError((e) => debugPrint('Sendspin configure failed: $e'));
   }
