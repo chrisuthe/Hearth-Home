@@ -1,7 +1,19 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../config/hub_config.dart';
 import '../../services/update_service.dart';
+
+/// Reads installed version from /etc/hearth-version (written by the OTA updater).
+final installedVersionProvider = Provider<String>((ref) {
+  if (kIsWeb) return '';
+  try {
+    return File('/etc/hearth-version').readAsStringSync().trim();
+  } catch (_) {
+    return '';
+  }
+});
 
 /// Shows current version, latest available version, and the auto-update toggle.
 class UpdateSettingsSection extends ConsumerWidget {
@@ -10,6 +22,7 @@ class UpdateSettingsSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final config = ref.watch(hubConfigProvider);
+    final installedVersion = ref.watch(installedVersionProvider);
     final latestAsync = ref.watch(latestUpdateProvider);
 
     return Column(
@@ -19,7 +32,7 @@ class UpdateSettingsSection extends ConsumerWidget {
           leading: const Icon(Icons.info_outline, color: Colors.white54, size: 22),
           title: const Text('Current Version', style: TextStyle(fontSize: 15)),
           subtitle: Text(
-            config.currentVersion.isEmpty ? 'Unknown' : config.currentVersion,
+            installedVersion.isEmpty ? 'Unknown' : installedVersion,
             style: TextStyle(
               fontSize: 13,
               color: Colors.white.withValues(alpha: 0.4),
@@ -36,7 +49,7 @@ class UpdateSettingsSection extends ConsumerWidget {
                 return const Icon(Icons.check_circle_outline,
                     color: Colors.green, size: 22);
               }
-              final isNewer = info.isNewerThan(config.currentVersion);
+              final isNewer = info.isNewerThan(installedVersion);
               return Icon(
                 isNewer ? Icons.system_update_alt : Icons.check_circle_outline,
                 color: isNewer ? Colors.amber : Colors.green,
@@ -63,7 +76,7 @@ class UpdateSettingsSection extends ConsumerWidget {
                   ),
                 );
               }
-              final isNewer = info.isNewerThan(config.currentVersion);
+              final isNewer = info.isNewerThan(installedVersion);
               return Text(
                 isNewer ? 'v${info.version} available' : 'Up to date',
                 style: TextStyle(
