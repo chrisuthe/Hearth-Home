@@ -40,11 +40,12 @@ jobs:
       - name: Cross-compile for Pi 5
         run: |
           export PATH="$PATH:$HOME/.pub-cache/bin"
-          flutterpi_tool build --release --cpu=pi5
+          flutterpi_tool build --release --arch=arm64 --cpu=pi4
 
       - name: Package bundle
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
+          VERSION="${VERSION:-dev}"
           tar czf "hearth-bundle-${VERSION}.tar.gz" -C build/flutter_assets .
 
       - name: Upload bundle artifact
