@@ -1,8 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import '../../main.dart' show kWindowWidth, kWindowHeight;
-
 // dart:io is native-only, guarded by kIsWeb at runtime.
 import 'dart:io' if (dart.library.html) 'dart:io';
 
@@ -76,8 +74,6 @@ class _PhotoCarouselState extends State<PhotoCarousel>
       fit: BoxFit.cover,
       width: double.infinity,
       height: double.infinity,
-      cacheWidth: kWindowWidth.toInt(),
-      cacheHeight: kWindowHeight.toInt(),
       errorBuilder: (_, __, ___) => const SizedBox.expand(),
     );
   }
