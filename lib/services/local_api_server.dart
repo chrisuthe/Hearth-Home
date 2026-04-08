@@ -174,6 +174,7 @@ class LocalApiServer {
           musicAssistantUrl: json['musicAssistantUrl'] as String?,
           musicAssistantToken: json['musicAssistantToken'] as String?,
           frigateUrl: json['frigateUrl'] as String?,
+          weatherEntityId: json['weatherEntityId'] as String?,
           idleTimeoutSeconds: json['idleTimeoutSeconds'] as int?,
           nightModeSource: json['nightModeSource'] as String?,
           nightModeHaEntity: json['nightModeHaEntity'] as String?,
@@ -396,6 +397,10 @@ const _configPageHtml = r'''
     <label for="frigateUrl">Server URL</label>
     <input type="text" id="frigateUrl" placeholder="http://192.168.1.x:5000">
 
+    <h2>Weather</h2>
+    <label for="weatherEntityId">Weather Entity ID</label>
+    <input type="text" id="weatherEntityId" placeholder="weather.pirateweather">
+
     <h2>Display</h2>
     <label for="idleTimeoutSeconds">Idle Timeout (seconds)</label>
     <input type="number" id="idleTimeoutSeconds" min="30" max="600" step="10" placeholder="120">
@@ -414,7 +419,8 @@ const headers = {'Content-Type': 'application/json', 'Authorization': 'Bearer ' 
 
 const fields = [
   'immichUrl','immichApiKey','haUrl','haToken',
-  'musicAssistantUrl','musicAssistantToken','defaultMusicZone','frigateUrl','idleTimeoutSeconds'
+  'musicAssistantUrl','musicAssistantToken','defaultMusicZone','frigateUrl',
+  'weatherEntityId','idleTimeoutSeconds'
 ];
 const secretFields = ['immichApiKey', 'haToken', 'musicAssistantToken'];
 const REDACTED = '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022';
