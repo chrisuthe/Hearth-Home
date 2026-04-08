@@ -82,6 +82,10 @@ class LocalApiServer {
           await _handleWifiConnect(request);
         } else if (path == '/api/update/status' && request.method == 'GET') {
           await _handleUpdateStatus(request);
+        } else if (path == '/api/update/check' && request.method == 'POST') {
+          await _handleUpdateCheck(request);
+        } else if (path == '/api/update/apply' && request.method == 'POST') {
+          await _handleUpdateApply(request);
         } else {
           request.response.statusCode = 404;
           request.response.write(jsonEncode({'error': 'not found'}));
@@ -267,6 +271,43 @@ class LocalApiServer {
         'currentVersion': config.currentVersion,
         'autoUpdate': config.autoUpdate,
       }));
+    await request.response.close();
+  }
+
+  Future<void> _handleUpdateCheck(HttpRequest request) async {
+    final config = _configNotifier.current;
+    final latest = await _updateService.checkForUpdate();
+    final available = latest != null && latest.isNewerThan(config.currentVersion);
+    request.response
+      ..statusCode = 200
+      ..headers.contentType = ContentType.json
+      ..write(jsonEncode({
+        'currentVersion': config.currentVersion,
+        'latestVersion': latest?.version,
+        'updateAvailable': available,
+        'bundleUrl': latest?.bundleUrl,
+      }));
+    await request.response.close();
+  }
+
+  Future<void> _handleUpdateApply(HttpRequest request) async {
+    // Run hearth-updater as a subprocess
+    try {
+      final result = await Process.run('/usr/bin/hearth-updater', []);
+      request.response
+        ..statusCode = result.exitCode == 0 ? 200 : 500
+        ..headers.contentType = ContentType.json
+        ..write(jsonEncode({
+          'success': result.exitCode == 0,
+          'output': result.stdout.toString(),
+          'error': result.stderr.toString(),
+        }));
+    } catch (e) {
+      request.response
+        ..statusCode = 500
+        ..headers.contentType = ContentType.json
+        ..write(jsonEncode({'success': false, 'error': e.toString()}));
+    }
     await request.response.close();
   }
 
@@ -469,6 +510,13 @@ const _configPageHtml = r'''
     <label for="autoUpdate" class="checkbox-label">
       <input type="checkbox" id="autoUpdate"> Auto-Update
     </label>
+    <div id="updateInfo" style="margin-bottom:12px;padding:12px;background:#1a1a1a;border-radius:6px;font-size:13px;color:#888;">
+      <span id="updateText">Click "Check for Updates" to check.</span>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:16px;">
+      <button type="button" onclick="checkUpdate()" style="flex:1;padding:10px;background:#333;color:#e0e0e0;border:1px solid #444;border-radius:6px;cursor:pointer;font-size:13px;">Check for Updates</button>
+      <button type="button" id="applyBtn" onclick="applyUpdate()" style="flex:1;padding:10px;background:#333;color:#e0e0e0;border:1px solid #444;border-radius:6px;cursor:pointer;font-size:13px;display:none;">Install Update</button>
+    </div>
 
     <button type="submit" class="save">Save</button>
   </form>
@@ -565,6 +613,45 @@ function showToast(msg, isError) {
   t.textContent = msg;
   t.className = 'toast show' + (isError ? ' error' : '');
   setTimeout(() => t.className = 'toast', 2500);
+}
+
+async function checkUpdate() {
+  const txt = document.getElementById('updateText');
+  const btn = document.getElementById('applyBtn');
+  txt.textContent = 'Checking...';
+  txt.style.color = '#888';
+  btn.style.display = 'none';
+  try {
+    const r = await fetch('/api/update/check', {method:'POST', headers});
+    const d = await r.json();
+    if (d.updateAvailable) {
+      txt.textContent = 'Update available: v' + d.latestVersion + ' (current: v' + (d.currentVersion || 'unknown') + ')';
+      txt.style.color = '#fbbf24';
+      btn.style.display = 'block';
+    } else {
+      txt.textContent = 'Up to date' + (d.currentVersion ? ' (v' + d.currentVersion + ')' : '') + (d.latestVersion ? ' — latest: v' + d.latestVersion : '');
+      txt.style.color = '#4ade80';
+    }
+  } catch(e) { txt.textContent = 'Check failed'; txt.style.color = '#f87171'; }
+}
+
+async function applyUpdate() {
+  const txt = document.getElementById('updateText');
+  const btn = document.getElementById('applyBtn');
+  txt.textContent = 'Installing update...';
+  txt.style.color = '#888';
+  btn.style.display = 'none';
+  try {
+    const r = await fetch('/api/update/apply', {method:'POST', headers});
+    const d = await r.json();
+    if (d.success) {
+      txt.textContent = 'Update installed! Hearth is restarting...';
+      txt.style.color = '#4ade80';
+    } else {
+      txt.textContent = 'Update failed: ' + (d.error || 'unknown error');
+      txt.style.color = '#f87171';
+    }
+  } catch(e) { txt.textContent = 'Update failed'; txt.style.color = '#f87171'; }
 }
 
 load();
