@@ -29,7 +29,7 @@ jobs:
           channel: stable
 
       - name: Install flutterpi_tool
-        run: dart pub global activate flutterpi_tool 0.10.1
+        run: dart pub global activate --source git https://github.com/ardera/flutterpi_tool.git
 
       - name: Swap dependencies for Pi
         run: ./scripts/prepare-pi-build.sh
