@@ -234,6 +234,10 @@ class HomeAssistantService {
     required String entityId,
     Map<String, dynamic>? data,
   }) {
+    if (!_authenticated) {
+      Log.w('HA', 'callServiceWithResponse dropped (not authenticated): $domain.$service');
+      return Future.value(null);
+    }
     final id = _nextId;
     final completer = Completer<Map<String, dynamic>?>();
     _pendingResponses[id] = completer;

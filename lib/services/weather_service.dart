@@ -24,9 +24,20 @@ class WeatherService {
   WeatherState? get current => _lastState;
 
   void start() {
+    bool forecastsFetched = false;
+
     _entitySub = _ha.entityStream.listen((entity) {
       if (entity.entityId == _entityId) {
         _updateFromEntity(entity);
+        // Fetch forecasts on first entity update (proves HA is authenticated)
+        if (!forecastsFetched) {
+          forecastsFetched = true;
+          _fetchForecasts();
+          _forecastTimer = Timer.periodic(
+            const Duration(minutes: 30),
+            (_) => _fetchForecasts(),
+          );
+        }
       }
     });
 
@@ -35,16 +46,15 @@ class WeatherService {
     if (existing != null) {
       Log.i('Weather', 'Found $_entityId in HA cache, state=${existing.state}');
       _updateFromEntity(existing);
+      forecastsFetched = true;
+      _fetchForecasts();
+      _forecastTimer = Timer.periodic(
+        const Duration(minutes: 30),
+        (_) => _fetchForecasts(),
+      );
     } else {
-      Log.d('Weather', '$_entityId not in HA cache yet, waiting for stream');
+      Log.d('Weather', '$_entityId not in HA cache yet, waiting for entity stream');
     }
-
-    // Fetch forecasts immediately and every 30 minutes
-    _fetchForecasts();
-    _forecastTimer = Timer.periodic(
-      const Duration(minutes: 30),
-      (_) => _fetchForecasts(),
-    );
   }
 
   void _updateFromEntity(HaEntity entity) {
