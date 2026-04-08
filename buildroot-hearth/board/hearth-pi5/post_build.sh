@@ -40,9 +40,6 @@ fi
 # using the host depmod. Host kmod must be built with xz support for this
 # to work (BR2_PACKAGE_HOST_KMOD_XZ=y).
 
-# Allow root login with empty password for initial setup (set a real password after first boot)
-sed -i 's|^root:[^:]*:|root::0:|' "$TARGET_DIR/etc/shadow" 2>/dev/null || true
-
 # Set hostname
 echo "hearth" > "$TARGET_DIR/etc/hostname"
 
