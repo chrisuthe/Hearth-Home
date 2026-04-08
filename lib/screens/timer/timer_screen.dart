@@ -51,7 +51,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
       _showPicker = true;
     }
 
-    return Container(
+    return Material(
       color: Colors.black.withValues(alpha: 0.85),
       child: Column(
         children: [
