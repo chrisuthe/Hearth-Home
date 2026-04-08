@@ -1,6 +1,11 @@
 # Hearth Pi 5 defconfig
 # Based on Buildroot's official raspberrypi5_defconfig with additions for
-# flutter-pi, NetworkManager, GStreamer, systemd, and Hearth services.
+# NetworkManager, GStreamer, systemd, and Hearth services.
+#
+# flutter-pi and the Flutter engine are NOT built by Buildroot. They are
+# provided as pre-built binaries in the rootfs overlay, cross-compiled by
+# flutterpi_tool in CI. This decouples the Flutter version from Buildroot
+# and lets us use the latest Flutter without waiting for Buildroot updates.
 
 # === Base: raspberrypi5_defconfig ===
 BR2_aarch64=y
@@ -17,7 +22,7 @@ BR2_LINUX_KERNEL_INTREE_DTS_NAME="broadcom/bcm2712-rpi-5-b broadcom/bcm2712d0-rp
 BR2_LINUX_KERNEL_NEEDS_HOST_OPENSSL=y
 BR2_PACKAGE_BUSYBOX_SHOW_OTHERS=y
 BR2_PACKAGE_RPI_FIRMWARE=y
-# config.txt is written by our post_build.sh (BR2_EXTERNAL path doesn't expand here)
+# config.txt is written by our post_build.sh
 BR2_PACKAGE_RPI_FIRMWARE_INSTALL_DTB_OVERLAYS=y
 BR2_PACKAGE_RPI_FIRMWARE_CMDLINE_FILE="board/raspberrypi5/cmdline_5.txt"
 BR2_PACKAGE_XZ=y
@@ -33,7 +38,7 @@ BR2_PACKAGE_HOST_MTOOLS=y
 
 # === Hearth additions ===
 
-# Toolchain: glibc required by flutter-engine (official defconfig uses uclibc)
+# Toolchain: glibc required by flutter-pi/engine at runtime
 BR2_TOOLCHAIN_BUILDROOT_GLIBC=y
 BR2_USE_WCHAR=y
 BR2_INSTALL_LIBSTDCPP=y
@@ -42,7 +47,7 @@ BR2_PACKAGE_HOST_LINUX_HEADERS_CUSTOM_6_6=y
 # Kernel: add USB audio, touchscreen, and WiFi driver fragments
 BR2_LINUX_KERNEL_CONFIG_FRAGMENT_FILES="board/raspberrypi/linux-4k-page-size.fragment $(BR2_EXTERNAL_HEARTH_PATH)/board/hearth-pi5/linux.fragment"
 
-# Rootfs: larger for flutter-pi + app bundle + GStreamer
+# Rootfs: sized for app bundle + GStreamer + system
 BR2_TARGET_ROOTFS_EXT2_SIZE="512M"
 
 # Init system: systemd (required by flutter-pi and NetworkManager)
@@ -54,7 +59,7 @@ BR2_PACKAGE_NETWORK_MANAGER=y
 BR2_PACKAGE_AVAHI=y
 BR2_PACKAGE_AVAHI_DAEMON=y
 
-# Graphics / DRM (required by flutter-pi)
+# Graphics / DRM (runtime deps for flutter-pi)
 BR2_PACKAGE_MESA3D=y
 BR2_PACKAGE_MESA3D_GALLIUM_DRIVER_V3D=y
 BR2_PACKAGE_MESA3D_GALLIUM_DRIVER_VC4=y
@@ -62,22 +67,26 @@ BR2_PACKAGE_MESA3D_OPENGL_ES=y
 BR2_PACKAGE_MESA3D_OPENGL_EGL=y
 BR2_PACKAGE_LIBDRM=y
 BR2_PACKAGE_LIBINPUT=y
+BR2_PACKAGE_LIBXKBCOMMON=y
+
+# GStreamer (runtime deps for flutter-pi audio/video)
+BR2_PACKAGE_GSTREAMER1=y
+BR2_PACKAGE_GST1_PLUGINS_BASE=y
+BR2_PACKAGE_GST1_PLUGINS_BASE_PLUGIN_ALSA=y
+BR2_PACKAGE_GST1_PLUGINS_BASE_PLUGIN_VIDEOCONVERTSCALE=y
+BR2_PACKAGE_GST1_PLUGINS_GOOD=y
+BR2_PACKAGE_GST1_PLUGINS_GOOD_PLUGIN_V4L2=y
+BR2_PACKAGE_GST1_PLUGINS_BAD=y
+BR2_PACKAGE_GST1_PLUGINS_BAD_PLUGIN_KMS=y
 
 # Audio
 BR2_PACKAGE_ALSA_LIB=y
 BR2_PACKAGE_ALSA_UTILS=y
 
-# flutter-pi (built-in Buildroot package) with GStreamer plugins
-BR2_PACKAGE_FLUTTER_PI=y
-BR2_PACKAGE_FLUTTER_PI_GSTREAMER_AUDIO_PLAYER_PLUGIN=y
-BR2_PACKAGE_FLUTTER_PI_GSTREAMER_VIDEO_PLAYER_PLUGIN=y
-
 # Hearth OTA updater
 BR2_PACKAGE_HEARTH_UPDATER=y
 
 # Rootfs overlay and post-build scripts
-# Use official Pi 5 post-image script for correct genimage handling,
-# chain our post-build script after the official one for Hearth additions.
 BR2_ROOTFS_OVERLAY="$(BR2_EXTERNAL_HEARTH_PATH)/board/hearth-pi5/overlay"
 BR2_ROOTFS_POST_BUILD_SCRIPT="board/raspberrypi5/post-build.sh $(BR2_EXTERNAL_HEARTH_PATH)/board/hearth-pi5/post_build.sh"
 BR2_ROOTFS_POST_IMAGE_SCRIPT="board/raspberrypi5/post-image.sh"

@@ -28,7 +28,7 @@ jobs:
       # --- Flutter bundle ---
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.4'
+          flutter-version: '3.38.0'
 
       - name: Install flutterpi_tool
         run: dart pub global activate flutterpi_tool 0.10.1
@@ -53,15 +53,8 @@ jobs:
             echo "ERROR: Could not find flutter-pi bundle"
             exit 1
           fi
-          # Repackage into Buildroot's meta-flutter layout
-          BUNDLE_DIR="hearth-bundle-staging"
-          mkdir -p "$BUNDLE_DIR/lib" "$BUNDLE_DIR/data/flutter_assets"
-          cp "$SRC_DIR/app.so" "$BUNDLE_DIR/lib/libapp.so"
-          cp "$SRC_DIR/icudtl.dat" "$BUNDLE_DIR/data/" 2>/dev/null || true
-          for item in AssetManifest.bin AssetManifest.json FontManifest.json NOTICES.Z NativeAssetsManifest.json version.json fonts packages shaders; do
-            [ -e "$SRC_DIR/$item" ] && cp -r "$SRC_DIR/$item" "$BUNDLE_DIR/data/flutter_assets/"
-          done
-          tar czf "hearth-bundle-${VERSION}.tar.gz" -C "$BUNDLE_DIR" .
+          # Package the full flutterpi_tool output as-is (default layout)
+          tar czf "hearth-bundle-${VERSION}.tar.gz" -C "$SRC_DIR" .
 
       # --- Buildroot image ---
       - name: Install Buildroot dependencies

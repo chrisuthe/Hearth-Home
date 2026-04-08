@@ -6,7 +6,8 @@ Wants=network-online.target
 [Service]
 Type=simple
 User=root
-ExecStart=/usr/bin/flutter-pi --release /opt/hearth/bundle
+ExecStart=/opt/hearth/bundle/flutter-pi --release /opt/hearth/bundle
+Environment=LD_LIBRARY_PATH=/opt/hearth/bundle
 Restart=on-failure
 RestartSec=5
 StartLimitIntervalSec=60
