@@ -1,6 +1,14 @@
 #!/bin/bash
-# Swap media_kit dependencies for flutterpi_gstreamer_video_player
-# before cross-compiling for Raspberry Pi.
+# Prepare the project for Raspberry Pi cross-compilation with flutterpi_tool.
+#
+# What this does:
+# 1. Removes Windows-only media_kit native libs (not needed on Pi)
+# 2. Adds flutterpi_gstreamer_video_player for native video on flutter-pi
+# 3. Relaxes SDK constraint for the older Flutter pinned in Pi CI
+#
+# media_kit's Dart API packages (media_kit, media_kit_video) are kept because
+# the source code imports them. The native implementation on Pi comes from
+# flutterpi_gstreamer_video_player + GStreamer instead of libmpv.
 #
 # Usage: ./scripts/prepare-pi-build.sh
 # Run from the project root directory.
@@ -14,17 +22,15 @@ if [ ! -f "$PUBSPEC" ]; then
     exit 1
 fi
 
-echo "Swapping media_kit → flutterpi_gstreamer_video_player in $PUBSPEC"
+echo "Preparing pubspec for Pi cross-compilation..."
 
-# Comment out media_kit packages
-sed -i 's/^  media_kit:/#  media_kit:/' "$PUBSPEC"
-sed -i 's/^  media_kit_video:/#  media_kit_video:/' "$PUBSPEC"
+# Remove Windows-only native libs (not available on ARM64)
 sed -i 's/^  media_kit_libs_windows_video:/#  media_kit_libs_windows_video:/' "$PUBSPEC"
-sed -i 's/^  media_kit_libs_linux:/#  media_kit_libs_linux:/' "$PUBSPEC"
 
 # Add flutterpi_gstreamer_video_player if not already present
 if ! grep -q 'flutterpi_gstreamer_video_player' "$PUBSPEC"; then
-    sed -i '/^#  media_kit_libs_linux:/a\  flutterpi_gstreamer_video_player: ^0.1.0' "$PUBSPEC"
+    # Insert after media_kit_libs_linux line
+    sed -i '/^  media_kit_libs_linux:/a\  flutterpi_gstreamer_video_player: ^0.1.0' "$PUBSPEC"
 fi
 
 # Relax SDK constraint for older Flutter versions used in Pi cross-compilation.
