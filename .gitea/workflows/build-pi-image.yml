@@ -48,11 +48,18 @@ jobs:
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           VERSION="${VERSION:-dev}"
-          BUNDLE_DIR=$(find build/flutter-pi -maxdepth 1 -type d ! -name flutter-pi | head -1)
-          if [ -z "$BUNDLE_DIR" ] || [ ! -f "$BUNDLE_DIR/app.so" ]; then
+          SRC_DIR=$(find build/flutter-pi -maxdepth 1 -type d ! -name flutter-pi | head -1)
+          if [ -z "$SRC_DIR" ] || [ ! -f "$SRC_DIR/app.so" ]; then
             echo "ERROR: Could not find flutter-pi bundle"
             exit 1
           fi
+          # Repackage into the layout Buildroot's flutter-pi expects
+          BUNDLE_DIR="hearth-bundle-staging"
+          mkdir -p "$BUNDLE_DIR/data/flutter_assets"
+          cp "$SRC_DIR/app.so" "$BUNDLE_DIR/"
+          for item in AssetManifest.bin AssetManifest.json FontManifest.json NOTICES.Z NativeAssetsManifest.json fonts packages shaders; do
+            [ -e "$SRC_DIR/$item" ] && cp -r "$SRC_DIR/$item" "$BUNDLE_DIR/data/flutter_assets/"
+          done
           tar czf "hearth-bundle-${VERSION}.tar.gz" -C "$BUNDLE_DIR" .
 
       # --- Buildroot image ---

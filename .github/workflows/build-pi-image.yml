@@ -46,14 +46,22 @@ jobs:
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           VERSION="${VERSION:-dev}"
-          # flutterpi_tool outputs to build/flutter-pi/<cpu>/ (e.g. pi4-64)
-          BUNDLE_DIR=$(find build/flutter-pi -maxdepth 1 -type d ! -name flutter-pi | head -1)
-          if [ -z "$BUNDLE_DIR" ] || [ ! -f "$BUNDLE_DIR/app.so" ]; then
-            echo "ERROR: Could not find flutter-pi bundle (expected app.so in build/flutter-pi/*/)"
-            find build -type f 2>/dev/null | head -20
+          # flutterpi_tool outputs to build/flutter-pi/<cpu>/
+          SRC_DIR=$(find build/flutter-pi -maxdepth 1 -type d ! -name flutter-pi | head -1)
+          if [ -z "$SRC_DIR" ] || [ ! -f "$SRC_DIR/app.so" ]; then
+            echo "ERROR: Could not find flutter-pi bundle"
             exit 1
           fi
-          echo "Packaging bundle from: $BUNDLE_DIR"
+          # Repackage into the layout Buildroot's flutter-pi expects:
+          #   app.so                    (AOT compiled app)
+          #   data/flutter_assets/      (asset files)
+          BUNDLE_DIR="hearth-bundle-staging"
+          mkdir -p "$BUNDLE_DIR/data/flutter_assets"
+          cp "$SRC_DIR/app.so" "$BUNDLE_DIR/"
+          # Copy asset files (everything except binaries and engine files)
+          for item in AssetManifest.bin AssetManifest.json FontManifest.json NOTICES.Z NativeAssetsManifest.json fonts packages shaders; do
+            [ -e "$SRC_DIR/$item" ] && cp -r "$SRC_DIR/$item" "$BUNDLE_DIR/data/flutter_assets/"
+          done
           tar czf "hearth-bundle-${VERSION}.tar.gz" -C "$BUNDLE_DIR" .
 
       - name: Upload bundle artifact
