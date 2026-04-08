@@ -19,7 +19,12 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   if (!kIsWeb) {
-    MediaKit.ensureInitialized();
+    try {
+      MediaKit.ensureInitialized();
+    } catch (e) {
+      // libmpv not available (e.g. on Pi with flutter-pi + GStreamer)
+      debugPrint('MediaKit init skipped: $e');
+    }
   }
 
   final container = ProviderContainer();
