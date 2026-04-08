@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/app.dart' show kDialogBackground;
@@ -21,11 +22,26 @@ class _SetupWizardState extends ConsumerState<SetupWizard> {
   bool _scanning = false;
   String? _connectedSsid;
   String? _error;
+  String? _ipAddress;
 
   @override
   void initState() {
     super.initState();
     _scan();
+  }
+
+  Future<void> _resolveIp() async {
+    try {
+      final interfaces = await NetworkInterface.list();
+      for (final iface in interfaces) {
+        for (final addr in iface.addresses) {
+          if (addr.type == InternetAddressType.IPv4 && !addr.isLoopback) {
+            if (mounted) setState(() => _ipAddress = addr.address);
+            return;
+          }
+        }
+      }
+    } catch (_) {}
   }
 
   Future<void> _scan() async {
@@ -42,6 +58,7 @@ class _SetupWizardState extends ConsumerState<SetupWizard> {
         _connectedSsid = connected;
         _scanning = false;
       });
+      if (connected != null) _resolveIp();
     }
   }
 
@@ -52,6 +69,7 @@ class _SetupWizardState extends ConsumerState<SetupWizard> {
       if (mounted) {
         if (success) {
           setState(() => _connectedSsid = network.ssid);
+          _resolveIp();
         } else {
           setState(() => _error = 'Failed to connect to ${network.ssid}');
         }
@@ -66,6 +84,7 @@ class _SetupWizardState extends ConsumerState<SetupWizard> {
     if (mounted) {
       if (success) {
         setState(() => _connectedSsid = network.ssid);
+        _resolveIp();
       } else {
         setState(() => _error = 'Wrong password or connection failed');
       }
@@ -176,14 +195,34 @@ class _SetupWizardState extends ConsumerState<SetupWizard> {
                 ),
               const SizedBox(height: 16),
               if (_connectedSsid != null) ...[
-                Text(
-                  'Configure services at http://hearth.local:8090',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Colors.white.withValues(alpha: 0.4),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1E1E1E),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Continue setup from a browser:',
+                        style: TextStyle(fontSize: 14, color: Colors.white70),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        _ipAddress != null
+                            ? 'http://$_ipAddress:8090'
+                            : 'http://hearth.local:8090',
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xFF646CFF),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 16),
               ],
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
