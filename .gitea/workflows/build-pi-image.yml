@@ -26,10 +26,10 @@ jobs:
 
       - uses: subosito/flutter-action@v2
         with:
-          channel: stable
+          flutter-version: '3.32.4'
 
       - name: Install flutterpi_tool
-        run: dart pub global activate --source git https://github.com/ardera/flutterpi_tool.git
+        run: dart pub global activate flutterpi_tool 0.10.1
 
       - name: Swap dependencies for Pi
         run: ./scripts/prepare-pi-build.sh
