@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../utils/logger.dart';
 import '../models/photo_memory.dart';
 
 // dart:io and path_provider are native-only, guarded by kIsWeb at runtime.
@@ -160,7 +161,7 @@ final immichServiceProvider = Provider<ImmichService>((ref) {
   if (immichUrl.isNotEmpty && immichApiKey.isNotEmpty) {
     service.loadMemories().then((_) {
       if (!kIsWeb) service.prefetchPhotos();
-    }).catchError((e) { debugPrint('Immich load failed: $e'); });
+    }).catchError((e) { Log.e('Immich', 'Load failed: $e'); });
   }
   return service;
 });

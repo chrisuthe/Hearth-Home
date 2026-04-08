@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/photo_memory.dart';
 import '../../services/immich_service.dart';
+import '../../utils/logger.dart';
 import 'photo_carousel.dart';
 
 /// The ambient display — visible ~90% of the time when the hub is idle.
@@ -74,7 +75,7 @@ class AmbientScreenState extends ConsumerState<AmbientScreen> {
       await immich.loadMemories();
       await immich.prefetchPhotos();
     } catch (e) {
-      debugPrint('Immich memory refresh failed: $e');
+      Log.w('Immich', 'Memory refresh failed: $e');
     }
   }
 
@@ -95,7 +96,7 @@ class AmbientScreenState extends ConsumerState<AmbientScreen> {
         _photoPathController.add(path);
       }
     } catch (e) {
-      debugPrint('Photo load failed: $e');
+      Log.w('Immich', 'Photo load failed: $e');
     }
   }
 

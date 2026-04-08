@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../utils/logger.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import '../config/hub_config.dart';
 import '../models/music_state.dart';
@@ -130,13 +131,13 @@ class MusicAssistantService {
     _streamSub = _channel!.stream.listen(
       _onMessage,
       onError: (error) {
-        debugPrint('MA WebSocket error: $error');
+        Log.e('MA', 'WebSocket error: $error');
         _isConnected = false;
         _pendingCommands.clear();
         _scheduleReconnect();
       },
       onDone: () {
-        debugPrint('MA WebSocket closed');
+        Log.i('MA', 'WebSocket closed');
         _isConnected = false;
         _pendingCommands.clear();
         _scheduleReconnect();
@@ -147,15 +148,15 @@ class MusicAssistantService {
   void _scheduleReconnect() {
     if (_disposed || _url == null || _token == null) return;
     _reconnectTimer?.cancel();
-    debugPrint('MA reconnecting in ${_reconnectDelay}s...');
+    Log.w('MA', 'Reconnecting in ${_reconnectDelay}s...');
     _reconnectTimer = Timer(Duration(seconds: _reconnectDelay), () async {
       if (_disposed) return;
       try {
         _pendingCommands.clear();
         await connectToUrl(_url!, _token!);
-        debugPrint('MA reconnected');
+        Log.i('MA', 'Reconnected');
       } catch (e) {
-        debugPrint('MA reconnect failed: $e');
+        Log.e('MA', 'Reconnect failed: $e');
         _reconnectDelay = (_reconnectDelay * 2).clamp(1, _maxReconnectDelay);
         _scheduleReconnect();
       }
@@ -218,7 +219,7 @@ class MusicAssistantService {
     try {
       msg = jsonDecode(raw as String) as Map<String, dynamic>;
     } catch (e) {
-      debugPrint('MA message parse error: $e');
+      Log.e('MA', 'Message parse error: $e');
       return;
     }
 
@@ -322,7 +323,7 @@ class MusicAssistantService {
 
   void _send(Map<String, dynamic> msg) {
     if (_channel == null) {
-      debugPrint('MA send dropped (not connected): ${msg['command']}');
+      Log.w('MA', 'Send dropped (not connected): ${msg['command']}');
       return;
     }
     _channel!.sink.add(jsonEncode(msg));
@@ -349,7 +350,7 @@ final musicAssistantServiceProvider = Provider<MusicAssistantService>((ref) {
   ref.onDispose(() => service.dispose());
   if (maUrl.isNotEmpty && maToken.isNotEmpty) {
     service.connectToUrl(maUrl, maToken).catchError(
-        (e) => debugPrint('MA connection failed: $e'));
+        (e) => Log.e('MA', 'Connection failed: $e'));
   }
   return service;
 });

@@ -1,6 +1,6 @@
 import 'dart:typed_data';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import '../../utils/logger.dart';
 
 /// Platform channel interface to native audio output.
 ///
@@ -72,7 +72,7 @@ class SendspinAudioSink {
         onSamplesRequested?.call(frameCount);
         return null;
       default:
-        debugPrint('SendspinAudioSink: unknown native call ${call.method}');
+        Log.w('Sendspin', 'AudioSink: unknown native call ${call.method}');
         return null;
     }
   }

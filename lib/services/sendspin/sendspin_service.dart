@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bonsoir/bonsoir.dart';
 import '../../config/hub_config.dart';
 import '../../models/sendspin_state.dart';
+import '../../utils/logger.dart';
 import 'sendspin_audio_sink.dart';
 import 'sendspin_client.dart';
 
@@ -66,7 +67,7 @@ class SendspinService {
       _updateState(
         _state.copyWith(connectionState: SendspinConnectionState.advertising),
       );
-      debugPrint('Sendspin: WebSocket server listening on port 8928');
+      Log.i('Sendspin', 'WebSocket server listening on port 8928');
 
       _httpServer!.listen((request) {
         if (WebSocketTransformer.isUpgradeRequest(request)) {
@@ -93,9 +94,9 @@ class SendspinService {
       _bonsoirBroadcast = BonsoirBroadcast(service: service);
       await _bonsoirBroadcast!.initialize();
       await _bonsoirBroadcast!.start();
-      debugPrint('Sendspin: mDNS registered as "$playerName"');
+      Log.i('Sendspin', 'mDNS registered as "$playerName"');
     } catch (e) {
-      debugPrint('Sendspin: failed to start server: $e');
+      Log.e('Sendspin', 'Failed to start server: $e');
       _updateState(
         _state.copyWith(
           connectionState: SendspinConnectionState.disconnected,
@@ -107,9 +108,9 @@ class SendspinService {
   Future<void> _handleWebSocketUpgrade(HttpRequest request) async {
     try {
       final socket = await WebSocketTransformer.upgrade(request);
-      debugPrint('Sendspin: server connected');
+      Log.i('Sendspin', 'Server connected');
       _setupWebSocket(socket, onDone: () {
-        debugPrint('Sendspin: server disconnected');
+        Log.i('Sendspin', 'Server disconnected');
         _client?.stopClockSync();
         _audioSink?.stop();
         _audioSink?.dispose();
@@ -121,7 +122,7 @@ class SendspinService {
         );
       });
     } catch (e) {
-      debugPrint('Sendspin: WebSocket upgrade failed: $e');
+      Log.e('Sendspin', 'WebSocket upgrade failed: $e');
     }
   }
 
@@ -131,13 +132,13 @@ class SendspinService {
     _updateState(
       _state.copyWith(connectionState: SendspinConnectionState.advertising),
     );
-    debugPrint('Sendspin: connecting to server $url');
+    Log.i('Sendspin', 'Connecting to server $url');
 
     try {
       _webSocket = await WebSocket.connect(url);
       _reconnectDelay = 1;
       _setupWebSocket(_webSocket!, onDone: () {
-        debugPrint('Sendspin: server disconnected, reconnecting...');
+        Log.w('Sendspin', 'Server disconnected, reconnecting...');
         _client?.stopClockSync();
         _audioSink?.stop();
         _audioSink?.dispose();
@@ -150,7 +151,7 @@ class SendspinService {
         _scheduleReconnect();
       });
     } catch (e) {
-      debugPrint('Sendspin: connection to $url failed: $e');
+      Log.e('Sendspin', 'Connection to $url failed: $e');
       _scheduleReconnect();
     }
   }
@@ -180,7 +181,7 @@ class SendspinService {
         }
       },
       onDone: onDone,
-      onError: (e) => debugPrint('Sendspin: WebSocket error: $e'),
+      onError: (e) => Log.e('Sendspin', 'WebSocket error: $e'),
     );
 
     _updateState(
@@ -255,7 +256,7 @@ final sendspinServiceProvider = Provider<SendspinService>((ref) {
           clientId: clientId,
           serverUrl: serverUrl,
         )
-        .catchError((e) => debugPrint('Sendspin configure failed: $e'));
+        .catchError((e) => Log.e('Sendspin', 'Configure failed: $e'));
   }
 
   return service;

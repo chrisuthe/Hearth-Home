@@ -1,5 +1,5 @@
 import 'dart:collection';
-import 'package:flutter/foundation.dart';
+import '../../utils/logger.dart';
 
 class _AudioChunk implements Comparable<_AudioChunk> {
   final int timestampUs;
@@ -58,9 +58,7 @@ class SendspinBuffer {
     final chunk = _AudioChunk(timestampUs, List<int>.of(samples));
     final added = _chunks.add(chunk);
     if (!added) {
-      debugPrint(
-        'SendspinBuffer: duplicate timestamp $timestampUs µs — chunk dropped',
-      );
+      Log.w('Sendspin', 'Buffer: duplicate timestamp $timestampUs µs — chunk dropped');
       return;
     }
     _totalSamples += samples.length;
@@ -68,9 +66,7 @@ class SendspinBuffer {
     // Check startup threshold after each insertion.
     if (!_startupMet && bufferDepthMs >= startupBufferMs) {
       _startupMet = true;
-      debugPrint(
-        'SendspinBuffer: startup buffer met ($startupBufferMs ms)',
-      );
+      Log.d('Sendspin', 'Buffer: startup buffer met ($startupBufferMs ms)');
     }
 
     _trimToMax();
@@ -110,9 +106,7 @@ class SendspinBuffer {
 
     // Pad with silence if we ran out of data.
     if (remaining > 0) {
-      debugPrint(
-        'SendspinBuffer: underrun — padding $remaining samples with silence',
-      );
+      Log.d('Sendspin', 'Buffer: underrun — padding $remaining samples with silence');
       result.addAll(List<int>.filled(remaining, 0));
     }
 
@@ -124,7 +118,7 @@ class SendspinBuffer {
     _chunks.clear();
     _totalSamples = 0;
     _startupMet = startupBufferMs == 0;
-    debugPrint('SendspinBuffer: flushed');
+    Log.d('Sendspin', 'Buffer: flushed');
   }
 
   /// Drop oldest chunks until the buffer is within [maxBufferMs].
@@ -134,9 +128,7 @@ class SendspinBuffer {
       final oldest = _chunks.first;
       _totalSamples -= oldest.samples.length;
       _chunks.remove(oldest);
-      debugPrint(
-        'SendspinBuffer: overflow — dropped chunk ts=${oldest.timestampUs} µs',
-      );
+      Log.w('Sendspin', 'Buffer: overflow — dropped chunk ts=${oldest.timestampUs} µs');
     }
   }
 }

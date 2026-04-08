@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../utils/logger.dart';
 import '../config/hub_config.dart';
 import 'display_mode_service.dart';
 import 'wifi_service.dart';
@@ -102,7 +102,7 @@ class LocalApiServer {
         await request.response.close();
       }
     } catch (e) {
-      debugPrint('API server error: $e');
+      Log.e('API', 'Request handler error: $e');
       try {
         request.response.statusCode = 500;
         request.response.headers.contentType = ContentType.json;

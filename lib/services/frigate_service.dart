@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../utils/logger.dart';
 import '../models/frigate_event.dart';
 import '../config/hub_config.dart';
 import 'home_assistant_service.dart';
@@ -117,7 +117,7 @@ final frigateServiceProvider = Provider<FrigateService>((ref) {
   if (frigateUrl.isNotEmpty) {
     service.listenForHaEvents();
     service.loadCameras().catchError(
-        (e) => debugPrint('Frigate camera load failed: $e'));
+        (e) => Log.e('Frigate', 'Camera load failed: $e'));
   }
   return service;
 });

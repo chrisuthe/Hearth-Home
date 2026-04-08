@@ -1,6 +1,7 @@
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'utils/logger.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'app/app.dart';
 import 'config/hub_config.dart';
@@ -36,9 +37,9 @@ Future<void> main() async {
     final apiServer = container.read(localApiServerProvider);
     try {
       final port = await apiServer.start();
-      debugPrint('Local API server listening on port $port');
+      Log.i('App', 'Local API server listening on port $port');
     } catch (e) {
-      debugPrint('API server start failed: $e');
+      Log.e('App', 'API server start failed: $e');
     }
   }
 

@@ -1,6 +1,6 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../utils/logger.dart';
 import '../config/hub_config.dart';
 import '../models/ha_entity.dart';
 import '../models/weather_state.dart';
@@ -33,10 +33,10 @@ class WeatherService {
     // Check if entity is already in the cache from get_states
     final existing = _ha.entities[_entityId];
     if (existing != null) {
-      debugPrint('Weather: found $_entityId in HA cache, state=${existing.state}');
+      Log.i('Weather', 'Found $_entityId in HA cache, state=${existing.state}');
       _updateFromEntity(existing);
     } else {
-      debugPrint('Weather: $_entityId not in HA cache yet, waiting for stream');
+      Log.d('Weather', '$_entityId not in HA cache yet, waiting for stream');
     }
 
     // Fetch forecasts immediately and every 30 minutes
@@ -74,8 +74,8 @@ class WeatherService {
         data: {'type': 'hourly'},
       );
 
-      debugPrint('Weather: daily response=$dailyResult');
-      debugPrint('Weather: hourly response=$hourlyResult');
+      Log.d('Weather', 'Daily response=$dailyResult');
+      Log.d('Weather', 'Hourly response=$hourlyResult');
 
       List<DailyForecast>? daily;
       List<HourlyForecast>? hourly;
@@ -83,7 +83,7 @@ class WeatherService {
       if (dailyResult != null) {
         final entityData = dailyResult[_entityId] as Map<String, dynamic>?;
         final forecastList = entityData?['forecast'] as List<dynamic>?;
-        debugPrint('Weather: daily entityData keys=${entityData?.keys}, '
+        Log.d('Weather', 'Daily entityData keys=${entityData?.keys}, '
             'forecast items=${forecastList?.length}');
         if (forecastList != null) {
           daily = WeatherState.parseDailyForecast(forecastList);
@@ -93,7 +93,7 @@ class WeatherService {
       if (hourlyResult != null) {
         final entityData = hourlyResult[_entityId] as Map<String, dynamic>?;
         final forecastList = entityData?['forecast'] as List<dynamic>?;
-        debugPrint('Weather: hourly entityData keys=${entityData?.keys}, '
+        Log.d('Weather', 'Hourly entityData keys=${entityData?.keys}, '
             'forecast items=${forecastList?.length}');
         if (forecastList != null) {
           hourly = WeatherState.parseHourlyForecast(forecastList).take(24).toList();
@@ -111,9 +111,9 @@ class WeatherService {
         _controller.add(_lastState!);
       }
     } catch (e) {
-      debugPrint('Weather forecast fetch failed: $e');
+      Log.e('Weather', 'Forecast fetch failed: $e');
     }
-    debugPrint('Weather: forecasts loaded — '
+    Log.i('Weather', 'Forecasts loaded — '
         '${_lastState?.dailyForecast.length ?? 0} daily, '
         '${_lastState?.hourlyForecast.length ?? 0} hourly');
   }

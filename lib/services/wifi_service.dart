@@ -1,7 +1,7 @@
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../utils/logger.dart';
 
 /// A WiFi network discovered via nmcli.
 class WifiNetwork {
@@ -52,12 +52,12 @@ class WifiService {
         'yes',
       ]);
       if (result.exitCode != 0) {
-        debugPrint('WifiService.scan: nmcli error: ${result.stderr}');
+        Log.e('WiFi', 'Scan nmcli error: ${result.stderr}');
         return [];
       }
       return parseScanOutput(result.stdout as String);
     } catch (e) {
-      debugPrint('WifiService.scan: exception: $e');
+      Log.e('WiFi', 'Scan exception: $e');
       return [];
     }
   }
@@ -78,12 +78,12 @@ class WifiService {
         password,
       ]);
       if (result.exitCode != 0) {
-        debugPrint('WifiService.connect: nmcli error: ${result.stderr}');
+        Log.e('WiFi', 'Connect nmcli error: ${result.stderr}');
         return false;
       }
       return true;
     } catch (e) {
-      debugPrint('WifiService.connect: exception: $e');
+      Log.e('WiFi', 'Connect exception: $e');
       return false;
     }
   }
@@ -102,12 +102,12 @@ class WifiService {
         ssid,
       ]);
       if (result.exitCode != 0) {
-        debugPrint('WifiService.connectOpen: nmcli error: ${result.stderr}');
+        Log.e('WiFi', 'ConnectOpen nmcli error: ${result.stderr}');
         return false;
       }
       return true;
     } catch (e) {
-      debugPrint('WifiService.connectOpen: exception: $e');
+      Log.e('WiFi', 'ConnectOpen exception: $e');
       return false;
     }
   }
@@ -127,13 +127,12 @@ class WifiService {
         'status',
       ]);
       if (result.exitCode != 0) {
-        debugPrint(
-            'WifiService.activeConnection: nmcli error: ${result.stderr}');
+        Log.e('WiFi', 'ActiveConnection nmcli error: ${result.stderr}');
         return null;
       }
       return parseActiveConnection(result.stdout as String);
     } catch (e) {
-      debugPrint('WifiService.activeConnection: exception: $e');
+      Log.e('WiFi', 'ActiveConnection exception: $e');
       return null;
     }
   }
@@ -151,12 +150,12 @@ class WifiService {
         'wlan0',
       ]);
       if (result.exitCode != 0) {
-        debugPrint('WifiService.disconnect: nmcli error: ${result.stderr}');
+        Log.e('WiFi', 'Disconnect nmcli error: ${result.stderr}');
         return false;
       }
       return true;
     } catch (e) {
-      debugPrint('WifiService.disconnect: exception: $e');
+      Log.e('WiFi', 'Disconnect exception: $e');
       return false;
     }
   }

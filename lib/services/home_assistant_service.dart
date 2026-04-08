@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../utils/logger.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import '../config/hub_config.dart';
 import '../models/ha_entity.dart';
@@ -59,16 +60,16 @@ class HomeAssistantService {
         try {
           _handleMessage(jsonDecode(data as String), token);
         } catch (e) {
-          debugPrint('HA message parse error: $e');
+          Log.e('HA', 'Message parse error: $e');
         }
       },
       onError: (error) {
-        debugPrint('HA WebSocket error: $error');
+        Log.e('HA', 'WebSocket error: $error');
         _authenticated = false;
         _scheduleReconnect();
       },
       onDone: () {
-        debugPrint('HA WebSocket closed');
+        Log.i('HA', 'WebSocket closed');
         _authenticated = false;
         _scheduleReconnect();
       },
@@ -101,14 +102,14 @@ class HomeAssistantService {
   void _scheduleReconnect() {
     if (_disposed || _url == null || _token == null) return;
     _reconnectTimer?.cancel();
-    debugPrint('HA reconnecting in ${_reconnectDelay}s...');
+    Log.w('HA', 'Reconnecting in ${_reconnectDelay}s...');
     _reconnectTimer = Timer(Duration(seconds: _reconnectDelay), () async {
       if (_disposed) return;
       try {
         await connectToUrl(_url!, _token!);
-        debugPrint('HA reconnected');
+        Log.i('HA', 'Reconnected');
       } catch (e) {
-        debugPrint('HA reconnect failed: $e');
+        Log.e('HA', 'Reconnect failed: $e');
         _reconnectDelay = (_reconnectDelay * 2).clamp(1, _maxReconnectDelay);
         _scheduleReconnect();
       }
@@ -126,7 +127,7 @@ class HomeAssistantService {
         _subscribeToStateChanges();
         break;
       case 'auth_invalid':
-        debugPrint('HA auth failed: ${msg['message'] ?? 'invalid token'}');
+        Log.e('HA', 'Auth failed: ${msg['message'] ?? 'invalid token'}');
         _authenticated = false;
         break;
       case 'event':
@@ -182,7 +183,7 @@ class HomeAssistantService {
           _entities[entity.entityId] = entity;
           _entityController.add(entity);
         } catch (e) {
-          debugPrint('HA entity parse error: $e');
+          Log.e('HA', 'Entity parse error: $e');
         }
       }
       _getStatesId = null;
@@ -202,7 +203,7 @@ class HomeAssistantService {
       _entities[entity.entityId] = entity;
       _entityController.add(entity);
     } catch (e) {
-      debugPrint('HA entity parse error: $e');
+      Log.e('HA', 'Entity parse error: $e');
     }
   }
 
@@ -256,7 +257,7 @@ class HomeAssistantService {
 
   void _send(Map<String, dynamic> msg) {
     if (_channel == null) {
-      debugPrint('HA send dropped (not connected): ${msg['type'] ?? msg['command']}');
+      Log.w('HA', 'Send dropped (not connected): ${msg['type'] ?? msg['command']}');
       return;
     }
     _channel!.sink.add(jsonEncode(msg));
@@ -278,7 +279,7 @@ final homeAssistantServiceProvider = Provider<HomeAssistantService>((ref) {
   ref.onDispose(() => service.dispose());
   if (haUrl.isNotEmpty && haToken.isNotEmpty) {
     service.connectToUrl(haUrl, haToken).catchError(
-        (e) => debugPrint('HA connection failed: $e'));
+        (e) => Log.e('HA', 'Connection failed: $e'));
   }
   return service;
 });
