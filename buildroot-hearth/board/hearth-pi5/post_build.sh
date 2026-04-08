@@ -4,6 +4,19 @@
 set -e
 
 TARGET_DIR="$1"
+BINARIES_DIR="${TARGET_DIR}/../images"
+
+# Write config.txt for Pi 5 boot (enables GPU DRM overlay for flutter-pi)
+mkdir -p "${BINARIES_DIR}/rpi-firmware"
+cat > "${BINARIES_DIR}/rpi-firmware/config.txt" << 'ENDCONFIG'
+kernel=Image
+dtoverlay=vc4-kms-v3d
+gpu_mem=256
+disable_overscan=1
+disable_splash=1
+boot_delay=0
+hdmi_force_hotplug=1
+ENDCONFIG
 
 # Enable services
 mkdir -p "$TARGET_DIR/etc/systemd/system/multi-user.target.wants"

@@ -28,7 +28,7 @@ jobs:
       # --- Flutter bundle ---
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.38.0'
+          flutter-version: '3.24.4'
 
       - name: Install flutterpi_tool
         run: dart pub global activate flutterpi_tool 0.10.1
