@@ -322,6 +322,21 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
         ),
         _SettingsTile(
+          icon: Icons.dns,
+          title: 'Server URL',
+          subtitle: config.sendspinServerUrl.isEmpty
+              ? 'Auto-discover via mDNS'
+              : config.sendspinServerUrl,
+          onTap: () => _showTextInputDialog(
+            title: 'Sendspin Server URL',
+            currentValue: config.sendspinServerUrl,
+            hint: 'ws://192.168.1.x:8095 (blank for auto)',
+            onSave: (value) => _updateConfig(
+              (c) => c.copyWith(sendspinServerUrl: value),
+            ),
+          ),
+        ),
+        _SettingsTile(
           icon: Icons.memory,
           title: 'Buffer Size',
           subtitle: '${config.sendspinBufferSeconds}s audio buffer',

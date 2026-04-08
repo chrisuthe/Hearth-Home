@@ -34,6 +34,7 @@ class HubConfig {
   final String sendspinPlayerName;
   final int sendspinBufferSeconds;
   final String sendspinClientId;
+  final String sendspinServerUrl;
 
   const HubConfig({
     this.apiKey = '',
@@ -57,6 +58,7 @@ class HubConfig {
     this.sendspinPlayerName = '',
     this.sendspinBufferSeconds = 5,
     this.sendspinClientId = '',
+    this.sendspinServerUrl = '',
   });
 
   static String generateApiKey() {
@@ -87,6 +89,7 @@ class HubConfig {
     String? sendspinPlayerName,
     int? sendspinBufferSeconds,
     String? sendspinClientId,
+    String? sendspinServerUrl,
   }) {
     return HubConfig(
       apiKey: apiKey ?? this.apiKey,
@@ -110,6 +113,7 @@ class HubConfig {
       sendspinPlayerName: sendspinPlayerName ?? this.sendspinPlayerName,
       sendspinBufferSeconds: sendspinBufferSeconds ?? this.sendspinBufferSeconds,
       sendspinClientId: sendspinClientId ?? this.sendspinClientId,
+      sendspinServerUrl: sendspinServerUrl ?? this.sendspinServerUrl,
     );
   }
 
@@ -135,6 +139,7 @@ class HubConfig {
         'sendspinPlayerName': sendspinPlayerName,
         'sendspinBufferSeconds': sendspinBufferSeconds,
         'sendspinClientId': sendspinClientId,
+        'sendspinServerUrl': sendspinServerUrl,
       };
 
   factory HubConfig.fromJson(Map<String, dynamic> json) => HubConfig(
@@ -159,6 +164,7 @@ class HubConfig {
         sendspinPlayerName: json['sendspinPlayerName'] as String? ?? '',
         sendspinBufferSeconds: json['sendspinBufferSeconds'] as int? ?? 5,
         sendspinClientId: json['sendspinClientId'] as String? ?? '',
+        sendspinServerUrl: json['sendspinServerUrl'] as String? ?? '',
       );
 }
 

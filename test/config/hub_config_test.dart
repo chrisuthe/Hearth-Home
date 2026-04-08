@@ -110,6 +110,18 @@ void main() {
       expect(restored.sendspinClientId, 'abc-123');
     });
 
+    test('sendspinServerUrl round-trips through JSON', () {
+      const config = HubConfig(sendspinServerUrl: 'ws://192.168.1.50:8095');
+      final json = config.toJson();
+      final restored = HubConfig.fromJson(json);
+      expect(restored.sendspinServerUrl, 'ws://192.168.1.50:8095');
+    });
+
+    test('sendspinServerUrl defaults to empty string', () {
+      final config = HubConfig.fromJson({});
+      expect(config.sendspinServerUrl, '');
+    });
+
     test('sendspin copyWith preserves unchanged fields', () {
       final config = HubConfig(sendspinPlayerName: 'Test');
       final updated = config.copyWith(sendspinEnabled: true);
