@@ -13,28 +13,108 @@ Open-source Flutter smart home kiosk — a Google Nest Hub replacement designed 
 - **Frigate Cameras** — Live RTSP streams and real-time event alerts through HA.
 - **Timers** — Full-screen alerts that show over any screen, including ambient mode.
 - **Night Mode** — Triggered by clock schedule, HA entity state, or external API call.
-- **Local HTTP API** — External devices can control display mode on port 8090.
+- **Web Configuration** — Configure all settings from any browser at `http://<pi-ip>:8090`.
+- **OTA Updates** — Automatic app bundle updates from GitHub Releases.
 
-## Quick Start
+## Install on Raspberry Pi
+
+### What You Need
+
+- Raspberry Pi 5 (2GB or more)
+- MicroSD card (8GB+)
+- Display (HDMI monitor, official 7" touchscreen, or 11" AMOLED)
+- Ethernet or WiFi connection
+
+### Step 1: Flash Pi OS
+
+Download and flash **Raspberry Pi OS Lite (64-bit)** using [Raspberry Pi Imager](https://www.raspberrypi.com/software/).
+
+In the imager settings (gear icon), configure:
+- **Enable SSH** (so you can connect remotely)
+- **Set username and password**
+- **Configure WiFi** (if not using ethernet)
+
+### Step 2: Boot and SSH In
+
+Insert the SD card, power on the Pi, and SSH in from your computer:
+
+```bash
+ssh <username>@<pi-ip-address>
+```
+
+### Step 3: Run the Setup Script
+
+```bash
+curl -sL https://raw.githubusercontent.com/chrisuthe/Hearth-Home/main/scripts/setup-pi.sh | sudo bash
+```
+
+This installs flutter-pi, downloads the latest app bundle from GitHub Releases, and configures systemd services. Takes about 5-10 minutes.
+
+### Step 4: Start Hearth
+
+```bash
+sudo systemctl start hearth.service
+```
+
+On first launch, the setup wizard helps you connect to WiFi (if not already connected) and displays the URL for web configuration.
+
+### Step 5: Configure Services
+
+Open a browser on any device on your network and go to:
+
+```
+http://<pi-ip-address>:8090
+```
+
+Enter your service URLs and API keys:
+- **Home Assistant** — Server URL + long-lived access token
+- **Immich** — Server URL + API key
+- **Frigate** — Server URL (optional)
+- **Music Assistant** — Server URL + token (optional)
+
+Save and restart Hearth to apply:
+
+```bash
+sudo systemctl restart hearth.service
+```
+
+### Updating
+
+Hearth checks for updates automatically. You can also trigger a manual update:
+
+```bash
+sudo /usr/bin/hearth-updater
+```
+
+Or use the "Check for Updates" button on the web configuration page.
+
+## Development
+
+### Desktop (Windows/Linux)
 
 ```bash
 flutter pub get
-flutter run -d windows   # or -d linux for desktop dev
+flutter run -d windows   # or -d linux
 ```
 
-Configure service URLs and API keys in the Settings screen (swipe right to the last page).
+### Run Tests
 
-## Architecture
+```bash
+flutter test
+flutter analyze
+```
 
-Swipe-based navigation across five screens: **Media ← Home → Controls → Cameras → Settings**
+### Architecture
+
+Swipe-based navigation across five screens: **Media <- Home -> Controls -> Cameras -> Settings**
 
 The display is a crossfade between an always-on photo background and the active UI layer — not traditional screen navigation. The app starts in ambient mode and wakes on touch.
 
-## Target Hardware
+### Target Hardware
 
 - Raspberry Pi 5
-- 11" AMOLED (2368×1728, rendered at half resolution for performance)
-- Runs via flutter-pi with GStreamer for video
+- 11" AMOLED (2368x1728, rendered at half resolution for performance)
+- Also supports: Official RPi 7" touchscreen, generic HDMI monitors
 
 ## License
 
