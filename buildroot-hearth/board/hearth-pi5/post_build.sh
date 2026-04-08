@@ -36,10 +36,9 @@ if [ -n "$HEARTH_VERSION" ]; then
     echo "$HEARTH_VERSION" > "$TARGET_DIR/etc/hearth-version"
 fi
 
-# Enable depmod-firstboot service so modules.dep is generated on first boot
-mkdir -p "$TARGET_DIR/etc/systemd/system/sysinit.target.wants"
-ln -sf /etc/systemd/system/depmod-firstboot.service \
-    "$TARGET_DIR/etc/systemd/system/sysinit.target.wants/depmod-firstboot.service"
+# Note: depmod is run by Buildroot's target-finalize hook (linux/linux.mk)
+# using the host depmod. Host kmod must be built with xz support for this
+# to work (BR2_PACKAGE_HOST_KMOD_XZ=y).
 
 # Set hostname
 echo "hearth" > "$TARGET_DIR/etc/hostname"
