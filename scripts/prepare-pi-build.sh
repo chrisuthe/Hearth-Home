@@ -27,4 +27,9 @@ if ! grep -q 'flutterpi_gstreamer_video_player' "$PUBSPEC"; then
     sed -i '/^#  media_kit_libs_linux:/a\  flutterpi_gstreamer_video_player: ^0.1.0' "$PUBSPEC"
 fi
 
-echo "Done. Run 'flutter pub get' then 'flutterpi_tool build --release --cpu=pi5'"
+# Relax SDK constraint for older Flutter versions used in Pi cross-compilation.
+# The Pi build uses the latest Flutter that has flutterpi engine artifacts,
+# which may lag behind the dev desktop version.
+sed -i 's/sdk: ^3\.[0-9]*\.[0-9]*/sdk: ^3.7.0/' "$PUBSPEC"
+
+echo "Done. Run 'flutter pub get' then 'flutterpi_tool build --release --arch=arm64 --cpu=pi4'"
