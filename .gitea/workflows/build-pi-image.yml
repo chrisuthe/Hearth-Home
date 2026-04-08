@@ -1,31 +1,21 @@
-name: Build Pi Image
+name: Build Pi Bundle
 
 on:
   push:
     tags: ['v*']
   workflow_dispatch:
-    inputs:
-      buildroot_version:
-        description: 'Buildroot version tag (e.g., 2024.11)'
-        required: false
-        default: '2024.11'
 
 concurrency:
-  group: pi-image-${{ github.ref }}
+  group: pi-bundle-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  BUILDROOT_VERSION: ${{ github.event.inputs.buildroot_version || '2024.11' }}
-
 jobs:
-  build:
-    name: Build bundle and SD card image
+  build-bundle:
+    name: Cross-compile Flutter bundle
     runs-on: ubuntu-latest
-    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
 
-      # --- Flutter bundle ---
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.38.0'
@@ -53,57 +43,15 @@ jobs:
             echo "ERROR: Could not find flutter-pi bundle"
             exit 1
           fi
-          # Package the full flutterpi_tool output as-is (default layout)
           tar czf "hearth-bundle-${VERSION}.tar.gz" -C "$SRC_DIR" .
-
-      # --- Buildroot image ---
-      - name: Install Buildroot dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            build-essential gcc g++ make \
-            libncurses-dev unzip bc python3 \
-            cpio rsync wget file bzip2 \
-            dosfstools mtools libssl-dev perl
-
-      - name: Download Buildroot
-        run: |
-          wget -q "https://buildroot.org/downloads/buildroot-${BUILDROOT_VERSION}.tar.xz"
-          tar xf "buildroot-${BUILDROOT_VERSION}.tar.xz"
-
-      - name: Inject Flutter bundle into overlay
-        run: |
-          BUNDLE_TAR=$(ls hearth-bundle-*.tar.gz)
-          mkdir -p buildroot-hearth/board/hearth-pi5/overlay/opt/hearth/bundle
-          tar xzf "$BUNDLE_TAR" -C buildroot-hearth/board/hearth-pi5/overlay/opt/hearth/bundle/
-
-      - name: Configure Buildroot
-        run: |
-          cd "buildroot-${BUILDROOT_VERSION}"
-          make BR2_EXTERNAL="${GITHUB_WORKSPACE}/buildroot-hearth" hearth_pi5_defconfig
-
-      - name: Build image
-        env:
-          HEARTH_VERSION: ${{ github.ref_name }}
-        run: |
-          cd "buildroot-${BUILDROOT_VERSION}"
-          make -j$(nproc)
-
-      - name: Compress image
-        run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          VERSION="${VERSION:-dev}"
-          cp "buildroot-${BUILDROOT_VERSION}/output/images/sdcard.img" .
-          xz -3 -T0 sdcard.img
-          mv sdcard.img.xz "hearth-${VERSION}-pi5.img.xz"
 
   release:
     name: Publish to Gitea Release
-    needs: [build]
+    needs: [build-bundle]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
     steps:
-      - name: Create release and upload assets
+      - name: Create release and upload bundle
         env:
           GITEA_TOKEN: ${{ secrets.TOKEN }}
         run: |
@@ -120,12 +68,11 @@ jobs:
 
           echo "Created release ID: ${RELEASE_ID}"
 
-          for asset in hearth-bundle-*.tar.gz hearth-*-pi5.img.xz; do
-            if [ -f "$asset" ]; then
-              curl -s -X POST \
-                -H "Authorization: token ${GITEA_TOKEN}" \
-                -F "attachment=@${asset}" \
-                "${SERVER}/api/v1/repos/${REPO}/releases/${RELEASE_ID}/assets"
-              echo "Uploaded $asset"
-            fi
-          done
+          BUNDLE=$(ls hearth-bundle-*.tar.gz 2>/dev/null)
+          if [ -n "$BUNDLE" ]; then
+            curl -s -X POST \
+              -H "Authorization: token ${GITEA_TOKEN}" \
+              -F "attachment=@${BUNDLE}" \
+              "${SERVER}/api/v1/repos/${REPO}/releases/${RELEASE_ID}/assets"
+            echo "Uploaded $BUNDLE"
+          fi
