@@ -36,11 +36,10 @@ if [ -n "$HEARTH_VERSION" ]; then
     echo "$HEARTH_VERSION" > "$TARGET_DIR/etc/hearth-version"
 fi
 
-# Run depmod so modprobe can find kernel modules
-KERNEL_VERSION=$(ls "$TARGET_DIR/lib/modules/" | head -1)
-if [ -n "$KERNEL_VERSION" ]; then
-    ${HOST_DIR}/sbin/depmod -a -b "$TARGET_DIR" "$KERNEL_VERSION"
-fi
+# Enable depmod-firstboot service so modules.dep is generated on first boot
+mkdir -p "$TARGET_DIR/etc/systemd/system/sysinit.target.wants"
+ln -sf /etc/systemd/system/depmod-firstboot.service \
+    "$TARGET_DIR/etc/systemd/system/sysinit.target.wants/depmod-firstboot.service"
 
 # Set hostname
 echo "hearth" > "$TARGET_DIR/etc/hostname"
