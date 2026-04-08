@@ -62,67 +62,20 @@ jobs:
           name: hearth-bundle
           path: hearth-bundle-*.tar.gz
 
-  build-image:
-    name: Build Buildroot SD card image
-    needs: build-bundle
-    runs-on: ubuntu-latest
-    timeout-minutes: 90
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Download bundle artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: hearth-bundle
-
-      - name: Install Buildroot dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            build-essential gcc g++ make \
-            libncurses-dev unzip bc python3 \
-            cpio rsync wget file \
-            dosfstools mtools genimage
-
-      - name: Download Buildroot
-        run: |
-          wget -q "https://buildroot.org/downloads/buildroot-${BUILDROOT_VERSION}.tar.xz"
-          tar xf "buildroot-${BUILDROOT_VERSION}.tar.xz"
-
-      - name: Inject Flutter bundle into overlay
-        run: |
-          BUNDLE_TAR=$(ls hearth-bundle-*.tar.gz)
-          mkdir -p buildroot-hearth/board/hearth-pi5/overlay/opt/hearth/bundle
-          tar xzf "$BUNDLE_TAR" -C buildroot-hearth/board/hearth-pi5/overlay/opt/hearth/bundle/
-
-      - name: Configure Buildroot
-        run: |
-          cd "buildroot-${BUILDROOT_VERSION}"
-          make BR2_EXTERNAL="${GITHUB_WORKSPACE}/buildroot-hearth" hearth_pi5_defconfig
-
-      - name: Build image
-        env:
-          HEARTH_VERSION: ${{ github.ref_name }}
-        run: |
-          cd "buildroot-${BUILDROOT_VERSION}"
-          make -j$(nproc)
-
-      - name: Compress image
-        run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          cp "buildroot-${BUILDROOT_VERSION}/output/images/sdcard.img" .
-          xz -9 -T0 sdcard.img
-          mv sdcard.img.xz "hearth-${VERSION}-pi5.img.xz"
-
-      - name: Upload image artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: hearth-pi-image
-          path: hearth-*-pi5.img.xz
+  # TODO: Buildroot image job disabled until defconfig is validated against
+  # a local Buildroot checkout. The defconfig needs to be tested and fixed
+  # for Buildroot 2024.11 compatibility (legacy config options, package renames).
+  # Re-enable once buildroot-hearth/configs/hearth_pi5_defconfig passes
+  # `make hearth_pi5_defconfig && make` locally.
+  #
+  # build-image:
+  #   name: Build Buildroot SD card image
+  #   needs: build-bundle
+  #   ...
 
   release:
     name: Publish to GitHub Release
-    needs: [build-bundle, build-image]
+    needs: [build-bundle]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
     permissions:
@@ -136,5 +89,4 @@ jobs:
         with:
           files: |
             hearth-bundle/hearth-bundle-*.tar.gz
-            hearth-pi-image/hearth-*-pi5.img.xz
           generate_release_notes: true
