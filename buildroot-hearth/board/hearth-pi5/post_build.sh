@@ -36,6 +36,12 @@ if [ -n "$HEARTH_VERSION" ]; then
     echo "$HEARTH_VERSION" > "$TARGET_DIR/etc/hearth-version"
 fi
 
+# Run depmod so modprobe can find kernel modules
+KERNEL_VERSION=$(ls "$TARGET_DIR/lib/modules/" | head -1)
+if [ -n "$KERNEL_VERSION" ]; then
+    ${HOST_DIR}/sbin/depmod -a -b "$TARGET_DIR" "$KERNEL_VERSION"
+fi
+
 # Set hostname
 echo "hearth" > "$TARGET_DIR/etc/hostname"
 
