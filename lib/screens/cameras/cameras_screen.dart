@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,6 +7,11 @@ import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import '../../models/frigate_event.dart';
 import '../../services/frigate_service.dart';
+
+/// Whether media_kit (libmpv) is available for RTSP video.
+/// False on web and when HEARTH_NO_MEDIAKIT is set (Pi with flutter-pi).
+bool get _hasMediaKit =>
+    !kIsWeb && !Platform.environment.containsKey('HEARTH_NO_MEDIAKIT');
 
 /// Camera grid screen with live video expansion.
 ///
@@ -38,27 +44,26 @@ class _CamerasScreenState extends ConsumerState<CamerasScreen> {
     super.dispose();
   }
 
-  /// Opens full-screen RTSP video for the given camera.
-  /// On web, RTSP/libmpv is not available — show a message instead.
+  /// Opens full-screen view for the given camera.
+  /// Uses RTSP video via media_kit on desktop, or a full-screen snapshot on Pi/web.
   void _expandCamera(FrigateCamera camera) {
-    if (kIsWeb) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Live video requires the desktop app')),
-      );
-      return;
-    }
     _disposePlayer();
 
-    final player = Player();
-    final controller = VideoController(player);
-
-    player.open(Media(camera.rtspUrl));
-
-    setState(() {
-      _expandedCamera = camera;
-      _player = player;
-      _videoController = controller;
-    });
+    if (_hasMediaKit) {
+      final player = Player();
+      final controller = VideoController(player);
+      player.open(Media(camera.rtspUrl));
+      setState(() {
+        _expandedCamera = camera;
+        _player = player;
+        _videoController = controller;
+      });
+    } else {
+      // No libmpv — show full-screen auto-refreshing snapshot
+      setState(() {
+        _expandedCamera = camera;
+      });
+    }
   }
 
   /// Returns to the grid view and cleans up the video player.
@@ -104,8 +109,8 @@ class _CamerasScreenState extends ConsumerState<CamerasScreen> {
       );
     }
 
-    // --- Expanded: full-screen RTSP video ---
-    if (_expandedCamera != null && _videoController != null) {
+    // --- Expanded: full-screen video or snapshot ---
+    if (_expandedCamera != null) {
       return GestureDetector(
         onTap: _collapseCamera,
         child: Container(
@@ -113,11 +118,16 @@ class _CamerasScreenState extends ConsumerState<CamerasScreen> {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              // Live RTSP video via media_kit
-              Video(
-                controller: _videoController!,
-                fit: BoxFit.contain,
-              ),
+              if (_videoController != null)
+                Video(
+                  controller: _videoController!,
+                  fit: BoxFit.contain,
+                )
+              else
+                _CameraSnapshotTile(
+                  camera: _expandedCamera!,
+                  isActive: true,
+                ),
               // Camera name + back hint overlay
               Positioned(
                 top: 16,
