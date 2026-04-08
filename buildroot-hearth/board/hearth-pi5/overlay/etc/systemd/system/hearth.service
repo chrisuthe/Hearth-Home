@@ -8,6 +8,7 @@ Type=simple
 User=root
 ExecStart=/opt/hearth/bundle/flutter-pi --release /opt/hearth/bundle
 Environment=LD_LIBRARY_PATH=/opt/hearth/bundle
+Environment=HEARTH_NO_MEDIAKIT=1
 Restart=on-failure
 RestartSec=5
 StartLimitIntervalSec=60

@@ -1,3 +1,4 @@
+import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -18,13 +19,11 @@ const double kWindowHeight = 864;
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  if (!kIsWeb) {
-    try {
-      MediaKit.ensureInitialized();
-    } catch (e) {
-      // libmpv not available (e.g. on Pi with flutter-pi + GStreamer)
-      debugPrint('MediaKit init skipped: $e');
-    }
+  // Initialize media_kit (libmpv) on desktop platforms only.
+  // On Pi with flutter-pi, video is handled by GStreamer — libmpv is not available.
+  // dart:io Platform.environment check avoids calling into FFI on unsupported platforms.
+  if (!kIsWeb && !Platform.environment.containsKey('HEARTH_NO_MEDIAKIT')) {
+    MediaKit.ensureInitialized();
   }
 
   final container = ProviderContainer();
