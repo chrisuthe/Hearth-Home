@@ -49,3 +49,9 @@ hub_config.json
 
 # Git worktrees
 .worktrees/
+
+# Claude superpowers working files
+.superpowers/
+
+# Planning docs (kept locally, not in repo)
+docs/
