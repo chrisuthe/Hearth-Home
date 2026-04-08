@@ -262,27 +262,36 @@ class LocalApiServer {
     await request.response.close();
   }
 
+  /// Reads the installed version from /etc/hearth-version (written by the updater).
+  String _readInstalledVersion() {
+    try {
+      return File('/etc/hearth-version').readAsStringSync().trim();
+    } catch (_) {
+      return '';
+    }
+  }
+
   Future<void> _handleUpdateStatus(HttpRequest request) async {
     final config = _configNotifier.current;
     request.response
       ..statusCode = 200
       ..headers.contentType = ContentType.json
       ..write(jsonEncode({
-        'currentVersion': config.currentVersion,
+        'currentVersion': _readInstalledVersion(),
         'autoUpdate': config.autoUpdate,
       }));
     await request.response.close();
   }
 
   Future<void> _handleUpdateCheck(HttpRequest request) async {
-    final config = _configNotifier.current;
+    final currentVersion = _readInstalledVersion();
     final latest = await _updateService.checkForUpdate();
-    final available = latest != null && latest.isNewerThan(config.currentVersion);
+    final available = latest != null && latest.isNewerThan(currentVersion);
     request.response
       ..statusCode = 200
       ..headers.contentType = ContentType.json
       ..write(jsonEncode({
-        'currentVersion': config.currentVersion,
+        'currentVersion': currentVersion,
         'latestVersion': latest?.version,
         'updateAvailable': available,
         'bundleUrl': latest?.bundleUrl,
