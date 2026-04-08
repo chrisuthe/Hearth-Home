@@ -35,7 +35,7 @@ jobs:
       - run: flutter build windows --release
       - name: Package build
         run: Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath hearth-windows.zip
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v3
         with:
           name: hearth-windows
           path: hearth-windows.zip

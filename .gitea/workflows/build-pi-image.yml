@@ -18,12 +18,14 @@ env:
   BUILDROOT_VERSION: ${{ github.event.inputs.buildroot_version || '2024.11' }}
 
 jobs:
-  build-bundle:
-    name: Cross-compile Flutter bundle
+  build:
+    name: Build bundle and SD card image
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
 
+      # --- Flutter bundle ---
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.38.0'
@@ -48,32 +50,12 @@ jobs:
           VERSION="${VERSION:-dev}"
           BUNDLE_DIR=$(find build/flutter-pi -maxdepth 1 -type d ! -name flutter-pi | head -1)
           if [ -z "$BUNDLE_DIR" ] || [ ! -f "$BUNDLE_DIR/app.so" ]; then
-            echo "ERROR: Could not find flutter-pi bundle (expected app.so in build/flutter-pi/*/)"
-            find build -type f 2>/dev/null | head -20
+            echo "ERROR: Could not find flutter-pi bundle"
             exit 1
           fi
-          echo "Packaging bundle from: $BUNDLE_DIR"
           tar czf "hearth-bundle-${VERSION}.tar.gz" -C "$BUNDLE_DIR" .
 
-      - name: Upload bundle artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: hearth-bundle
-          path: hearth-bundle-*.tar.gz
-
-  build-image:
-    name: Build Buildroot SD card image
-    needs: build-bundle
-    runs-on: ubuntu-latest
-    timeout-minutes: 120
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Download bundle artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: hearth-bundle
-
+      # --- Buildroot image ---
       - name: Install Buildroot dependencies
         run: |
           sudo apt-get update
@@ -114,21 +96,12 @@ jobs:
           xz -3 -T0 sdcard.img
           mv sdcard.img.xz "hearth-${VERSION}-pi5.img.xz"
 
-      - name: Upload image artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: hearth-pi-image
-          path: hearth-*-pi5.img.xz
-
   release:
     name: Publish to Gitea Release
-    needs: [build-bundle, build-image]
+    needs: [build]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
     steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-
       - name: Create release and upload assets
         env:
           GITEA_TOKEN: ${{ secrets.TOKEN }}
@@ -137,7 +110,6 @@ jobs:
           SERVER="${GITHUB_SERVER_URL}"
           REPO="${GITHUB_REPOSITORY}"
 
-          # Create release
           RELEASE_ID=$(curl -s -X POST \
             -H "Authorization: token ${GITEA_TOKEN}" \
             -H "Content-Type: application/json" \
@@ -147,18 +119,12 @@ jobs:
 
           echo "Created release ID: ${RELEASE_ID}"
 
-          # Upload bundle
-          BUNDLE=$(ls hearth-bundle/hearth-bundle-*.tar.gz)
-          curl -s -X POST \
-            -H "Authorization: token ${GITEA_TOKEN}" \
-            -F "attachment=@${BUNDLE}" \
-            "${SERVER}/api/v1/repos/${REPO}/releases/${RELEASE_ID}/assets"
-
-          # Upload image
-          IMAGE=$(ls hearth-pi-image/hearth-*-pi5.img.xz)
-          curl -s -X POST \
-            -H "Authorization: token ${GITEA_TOKEN}" \
-            -F "attachment=@${IMAGE}" \
-            "${SERVER}/api/v1/repos/${REPO}/releases/${RELEASE_ID}/assets"
-
-          echo "Uploaded bundle and image to release ${TAG}"
+          for asset in hearth-bundle-*.tar.gz hearth-*-pi5.img.xz; do
+            if [ -f "$asset" ]; then
+              curl -s -X POST \
+                -H "Authorization: token ${GITEA_TOKEN}" \
+                -F "attachment=@${asset}" \
+                "${SERVER}/api/v1/repos/${REPO}/releases/${RELEASE_ID}/assets"
+              echo "Uploaded $asset"
+            fi
+          done
