@@ -44,7 +44,7 @@ BUNDLE_URL="${1:-}"
 if [ -z "$BUNDLE_URL" ]; then
     echo "Downloading latest bundle from GitHub..."
     RELEASE_JSON=$(wget -qO- https://api.github.com/repos/chrisuthe/Hearth-Home/releases/latest 2>/dev/null || true)
-    BUNDLE_URL=$(echo "$RELEASE_JSON" | grep -o '"browser_download_url":"[^"]*hearth-bundle-[^"]*\.tar\.gz"' | head -1 | cut -d'"' -f4)
+    BUNDLE_URL=$(echo "$RELEASE_JSON" | grep -o '"browser_download_url": *"[^"]*hearth-bundle-[^"]*\.tar\.gz"' | head -1 | cut -d'"' -f4)
 fi
 
 if [ -n "$BUNDLE_URL" ]; then
@@ -93,10 +93,10 @@ LOG_TAG="hearth-updater"
 log() { logger -t "$LOG_TAG" "$1"; }
 CURRENT=$(cat "$VERSION_FILE" 2>/dev/null || echo "")
 RELEASE_JSON=$(wget -qO- "$RELEASE_URL" 2>/dev/null) || { log "Failed to fetch"; exit 1; }
-LATEST_TAG=$(echo "$RELEASE_JSON" | grep -o '"tag_name":"[^"]*"' | head -1 | cut -d'"' -f4)
+LATEST_TAG=$(echo "$RELEASE_JSON" | grep -o '"tag_name": *"[^"]*"' | head -1 | cut -d'"' -f4)
 LATEST="${LATEST_TAG#v}"
 [ "$CURRENT" = "$LATEST" ] && { log "Up to date"; exit 0; }
-BUNDLE_URL=$(echo "$RELEASE_JSON" | grep -o '"browser_download_url":"[^"]*hearth-bundle-[^"]*\.tar\.gz"' | head -1 | cut -d'"' -f4)
+BUNDLE_URL=$(echo "$RELEASE_JSON" | grep -o '"browser_download_url": *"[^"]*hearth-bundle-[^"]*\.tar\.gz"' | head -1 | cut -d'"' -f4)
 [ -z "$BUNDLE_URL" ] && { log "No bundle asset"; exit 1; }
 log "Updating to $LATEST..."
 wget -qO /tmp/hearth-bundle.tar.gz "$BUNDLE_URL" || { log "Download failed"; exit 1; }

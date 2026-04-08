@@ -41,10 +41,10 @@ RELEASE_JSON=$(wget -q -O - "$RELEASE_URL" 2>/dev/null) || {
     exit 1
 }
 
-LATEST_TAG=$(echo "$RELEASE_JSON" | grep -o '"tag_name":"[^"]*"' | head -1 | cut -d'"' -f4)
+LATEST_TAG=$(echo "$RELEASE_JSON" | grep -o '"tag_name": *"[^"]*"' | head -1 | cut -d'"' -f4)
 LATEST_VERSION="${LATEST_TAG#v}"
 
-IS_PRERELEASE=$(echo "$RELEASE_JSON" | grep -o '"prerelease":[a-z]*' | head -1 | cut -d: -f2)
+IS_PRERELEASE=$(echo "$RELEASE_JSON" | grep -o '"prerelease": *[a-z]*' | head -1 | cut -d: -f2)
 if [ "$IS_PRERELEASE" = "true" ]; then
     log "Latest release is a pre-release, skipping"
     exit 0
@@ -63,7 +63,7 @@ if [ -z "$LATEST_VERSION" ]; then
     exit 1
 fi
 
-BUNDLE_URL=$(echo "$RELEASE_JSON" | grep -o '"browser_download_url":"[^"]*hearth-bundle-[^"]*\.tar\.gz"' | head -1 | cut -d'"' -f4)
+BUNDLE_URL=$(echo "$RELEASE_JSON" | grep -o '"browser_download_url": *"[^"]*hearth-bundle-[^"]*\.tar\.gz"' | head -1 | cut -d'"' -f4)
 
 if [ -z "$BUNDLE_URL" ]; then
     log "No bundle asset found in release $LATEST_TAG"
