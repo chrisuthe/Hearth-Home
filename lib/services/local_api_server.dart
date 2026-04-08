@@ -184,6 +184,12 @@ class LocalApiServer {
           use24HourClock: json['use24HourClock'] as bool?,
           pinnedEntityIds:
               (json['pinnedEntityIds'] as List<dynamic>?)?.cast<String>(),
+          displayProfile: json['displayProfile'] as String?,
+          autoUpdate: json['autoUpdate'] as bool?,
+          sendspinEnabled: json['sendspinEnabled'] as bool?,
+          sendspinPlayerName: json['sendspinPlayerName'] as String?,
+          sendspinBufferSeconds: json['sendspinBufferSeconds'] as int?,
+          sendspinServerUrl: json['sendspinServerUrl'] as String?,
         ));
 
     request.response.statusCode = 200;
@@ -354,6 +360,19 @@ const _configPageHtml = r'''
   .hint {
     font-size: 11px; color: #666; margin-bottom: 12px;
   }
+  select {
+    width: 100%; padding: 10px 12px; margin-bottom: 12px;
+    background: #1e1e1e; border: 1px solid #333; border-radius: 6px;
+    color: #e0e0e0; font-size: 14px; outline: none;
+  }
+  select:focus { border-color: #646cff; }
+  .checkbox-label {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 14px; color: #e0e0e0; margin-bottom: 12px; cursor: pointer;
+  }
+  .checkbox-label input[type="checkbox"] {
+    width: 18px; height: 18px; accent-color: #646cff;
+  }
 </style>
 </head>
 <body>
@@ -361,40 +380,37 @@ const _configPageHtml = r'''
   <h1>Hearth Setup</h1>
   <form id="configForm">
 
-    <h2>Immich</h2>
-    <label for="immichUrl">Server URL</label>
+    <h2>Connections</h2>
+    <label for="immichUrl">Immich URL</label>
     <input type="text" id="immichUrl" placeholder="http://192.168.1.x:2283">
-    <label for="immichApiKey">API Key</label>
+    <label for="immichApiKey">Immich API Key</label>
     <div class="secret-wrap">
       <input type="password" id="immichApiKey" placeholder="Paste your Immich API key">
       <button type="button" class="toggle-vis" onclick="toggleVis(this)">&#x1f441;</button>
     </div>
     <div class="hint" id="immichApiKey_hint"></div>
 
-    <h2>Home Assistant</h2>
-    <label for="haUrl">Server URL</label>
+    <label for="haUrl">Home Assistant URL</label>
     <input type="text" id="haUrl" placeholder="http://192.168.1.x:8123">
-    <label for="haToken">Long-Lived Access Token</label>
+    <label for="haToken">HA Long-Lived Access Token</label>
     <div class="secret-wrap">
       <input type="password" id="haToken" placeholder="Paste your HA token">
       <button type="button" class="toggle-vis" onclick="toggleVis(this)">&#x1f441;</button>
     </div>
     <div class="hint" id="haToken_hint"></div>
 
-    <h2>Music Assistant</h2>
-    <label for="musicAssistantUrl">Server URL</label>
+    <label for="musicAssistantUrl">Music Assistant URL</label>
     <input type="text" id="musicAssistantUrl" placeholder="http://192.168.1.x:8095">
-    <label for="musicAssistantToken">Token</label>
+    <label for="musicAssistantToken">Music Assistant Token</label>
     <div class="secret-wrap">
       <input type="password" id="musicAssistantToken" placeholder="Paste your MA long-lived token">
       <button type="button" class="toggle-vis" onclick="toggleVis(this)">&#x1f441;</button>
     </div>
     <div class="hint" id="musicAssistantToken_hint"></div>
-    <label for="defaultMusicZone">Default Zone</label>
+    <label for="defaultMusicZone">Default Music Zone</label>
     <input type="text" id="defaultMusicZone" placeholder="media_player.living_room">
 
-    <h2>Frigate</h2>
-    <label for="frigateUrl">Server URL</label>
+    <label for="frigateUrl">Frigate URL</label>
     <input type="text" id="frigateUrl" placeholder="http://192.168.1.x:5000">
 
     <h2>Weather</h2>
@@ -404,10 +420,55 @@ const _configPageHtml = r'''
     <h2>Display</h2>
     <label for="idleTimeoutSeconds">Idle Timeout (seconds)</label>
     <input type="number" id="idleTimeoutSeconds" min="30" max="600" step="10" placeholder="120">
+    <label for="use24HourClock" class="checkbox-label">
+      <input type="checkbox" id="use24HourClock"> Use 24-Hour Clock
+    </label>
+    <label for="displayProfile">Display Profile</label>
+    <select id="displayProfile">
+      <option value="auto">Auto-detect</option>
+      <option value="amoled-11">11" AMOLED (1184x864)</option>
+      <option value="rpi-7">RPi 7" Touchscreen (800x480)</option>
+      <option value="hdmi">HDMI Monitor (native)</option>
+    </select>
+
+    <h2>Night Mode</h2>
+    <label for="nightModeSource">Source</label>
+    <select id="nightModeSource">
+      <option value="none">Disabled</option>
+      <option value="clock">Clock Schedule</option>
+      <option value="ha_entity">HA Entity</option>
+      <option value="api">External API</option>
+    </select>
+    <label for="nightModeHaEntity">Night Mode HA Entity</label>
+    <input type="text" id="nightModeHaEntity" placeholder="binary_sensor.night_mode">
+    <label for="nightModeClockStart">Clock Start (HH:MM)</label>
+    <input type="text" id="nightModeClockStart" placeholder="22:00">
+    <label for="nightModeClockEnd">Clock End (HH:MM)</label>
+    <input type="text" id="nightModeClockEnd" placeholder="07:00">
 
     <h2>Pinned Devices</h2>
     <label for="pinnedEntityIds">Entity IDs (one per line)</label>
     <textarea id="pinnedEntityIds" rows="6" placeholder="light.kitchen&#10;climate.living_room&#10;switch.garage_door" style="width:100%;padding:10px 12px;margin-bottom:12px;background:#1e1e1e;border:1px solid #333;border-radius:6px;color:#e0e0e0;font-size:14px;outline:none;resize:vertical;font-family:monospace;"></textarea>
+
+    <h2>Sendspin Audio</h2>
+    <label for="sendspinEnabled" class="checkbox-label">
+      <input type="checkbox" id="sendspinEnabled"> Enable Sendspin Player
+    </label>
+    <label for="sendspinPlayerName">Player Name</label>
+    <input type="text" id="sendspinPlayerName" placeholder="Kitchen Display">
+    <label for="sendspinServerUrl">Server URL (blank for auto-discover)</label>
+    <input type="text" id="sendspinServerUrl" placeholder="ws://192.168.1.x:8095">
+    <label for="sendspinBufferSeconds">Buffer Size</label>
+    <select id="sendspinBufferSeconds">
+      <option value="5">5 seconds</option>
+      <option value="7">7 seconds</option>
+      <option value="10">10 seconds</option>
+    </select>
+
+    <h2>Updates</h2>
+    <label for="autoUpdate" class="checkbox-label">
+      <input type="checkbox" id="autoUpdate"> Auto-Update
+    </label>
 
     <button type="submit" class="save">Save</button>
   </form>
@@ -417,11 +478,15 @@ const _configPageHtml = r'''
 const API_KEY = '{{API_KEY}}';
 const headers = {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + API_KEY};
 
-const fields = [
+const textFields = [
   'immichUrl','immichApiKey','haUrl','haToken',
   'musicAssistantUrl','musicAssistantToken','defaultMusicZone','frigateUrl',
-  'weatherEntityId','idleTimeoutSeconds'
+  'weatherEntityId','nightModeHaEntity','nightModeClockStart','nightModeClockEnd',
+  'sendspinPlayerName','sendspinServerUrl'
 ];
+const intFields = ['idleTimeoutSeconds','sendspinBufferSeconds'];
+const boolFields = ['use24HourClock','sendspinEnabled','autoUpdate'];
+const selectFields = ['nightModeSource','displayProfile'];
 const secretFields = ['immichApiKey', 'haToken', 'musicAssistantToken'];
 const REDACTED = '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022';
 
@@ -429,17 +494,28 @@ async function load() {
   try {
     const r = await fetch('/api/config', {headers});
     const cfg = await r.json();
-    for (const f of fields) {
+    for (const f of textFields) {
       const el = document.getElementById(f);
       if (!el) continue;
       const val = cfg[f];
       if (secretFields.includes(f)) {
-        // Secret fields are redacted in the response. Show hint, don't fill.
         const hint = document.getElementById(f + '_hint');
         if (val === REDACTED && hint) hint.textContent = 'A value is saved. Leave blank to keep it.';
       } else if (val != null && val !== '') {
         el.value = val;
       }
+    }
+    for (const f of intFields) {
+      const el = document.getElementById(f);
+      if (el && cfg[f] != null) el.value = cfg[f];
+    }
+    for (const f of boolFields) {
+      const el = document.getElementById(f);
+      if (el) el.checked = cfg[f] === true;
+    }
+    for (const f of selectFields) {
+      const el = document.getElementById(f);
+      if (el && cfg[f]) el.value = cfg[f];
     }
     if (cfg.pinnedEntityIds && Array.isArray(cfg.pinnedEntityIds)) {
       document.getElementById('pinnedEntityIds').value = cfg.pinnedEntityIds.join('\n');
@@ -450,22 +526,31 @@ async function load() {
 document.getElementById('configForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const body = {};
-  for (const f of fields) {
+  for (const f of textFields) {
     const el = document.getElementById(f);
-    if (f === 'idleTimeoutSeconds') {
-      body[f] = parseInt(el.value) || 120;
-    } else if (secretFields.includes(f)) {
-      // Only send secret fields if user entered a new value
+    if (secretFields.includes(f)) {
       if (el.value.trim() !== '') body[f] = el.value;
     } else {
       body[f] = el.value;
     }
   }
+  for (const f of intFields) {
+    const el = document.getElementById(f);
+    body[f] = parseInt(el.value) || 0;
+  }
+  for (const f of boolFields) {
+    const el = document.getElementById(f);
+    body[f] = el.checked;
+  }
+  for (const f of selectFields) {
+    const el = document.getElementById(f);
+    body[f] = el.value;
+  }
   const pinnedText = document.getElementById('pinnedEntityIds').value;
   body.pinnedEntityIds = pinnedText.split('\n').map(s => s.trim()).filter(s => s.length > 0);
   try {
     const r = await fetch('/api/config', {method: 'POST', headers, body: JSON.stringify(body)});
-    if (r.ok) { showToast('Saved! Restart Hearth to apply.'); }
+    if (r.ok) { showToast('Saved!'); }
     else { showToast('Save failed', true); }
   } catch(e) { showToast('Save failed', true); }
 });
