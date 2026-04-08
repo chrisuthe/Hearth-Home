@@ -1,45 +1,57 @@
-# Architecture: ARM64 (Raspberry Pi 5 / BCM2712)
+# Hearth Pi 5 defconfig
+# Based on Buildroot's official raspberrypi5_defconfig with additions for
+# flutter-pi, NetworkManager, GStreamer, systemd, and Hearth services.
+
+# === Base: raspberrypi5_defconfig ===
 BR2_aarch64=y
 BR2_cortex_a76=y
-
-# Toolchain (glibc required by flutter-engine, kernel headers must match RPi kernel 6.12)
-BR2_TOOLCHAIN_BUILDROOT_GLIBC=y
 BR2_TOOLCHAIN_BUILDROOT_CXX=y
-BR2_USE_WCHAR=y
-BR2_INSTALL_LIBSTDCPP=y
-BR2_KERNEL_HEADERS_6_11=y
-
-# Kernel
+BR2_GLOBAL_PATCH_DIR="board/raspberrypi/patches"
+BR2_DOWNLOAD_FORCE_CHECK_HASHES=y
 BR2_LINUX_KERNEL=y
 BR2_LINUX_KERNEL_CUSTOM_TARBALL=y
-BR2_LINUX_KERNEL_CUSTOM_TARBALL_LOCATION="https://github.com/raspberrypi/linux/archive/refs/tags/stable_20250916.tar.gz"
+BR2_LINUX_KERNEL_CUSTOM_TARBALL_LOCATION="$(call github,raspberrypi,linux,576cc10e1ed50a9eacffc7a05c796051d7343ea4)/linux-576cc10e1ed50a9eacffc7a05c796051d7343ea4.tar.gz"
 BR2_LINUX_KERNEL_DEFCONFIG="bcm2712"
-BR2_LINUX_KERNEL_CONFIG_FRAGMENT_FILES="$(BR2_EXTERNAL_HEARTH_PATH)/board/hearth-pi5/linux.fragment"
 BR2_LINUX_KERNEL_DTS_SUPPORT=y
-BR2_LINUX_KERNEL_INTREE_DTS_NAME="broadcom/bcm2712-rpi-5-b"
-BR2_LINUX_KERNEL_INSTALL_TARGET=y
-
-# Bootloader: Pi 5 boots from EEPROM, but still needs firmware files
+BR2_LINUX_KERNEL_INTREE_DTS_NAME="broadcom/bcm2712-rpi-5-b broadcom/bcm2712d0-rpi-5-b"
+BR2_LINUX_KERNEL_NEEDS_HOST_OPENSSL=y
+BR2_PACKAGE_BUSYBOX_SHOW_OTHERS=y
 BR2_PACKAGE_RPI_FIRMWARE=y
-BR2_PACKAGE_RPI_FIRMWARE_VARIANT_PI4=y
-
-# Init system
-BR2_INIT_SYSTEMD=y
-BR2_PACKAGE_SYSTEMD_NETWORKD=n
-BR2_PACKAGE_SYSTEMD_RESOLVED=n
-BR2_PACKAGE_SYSTEMD_LOGIND=y
-
-# Filesystem
+BR2_PACKAGE_RPI_FIRMWARE_CONFIG_FILE="board/raspberrypi5/config_5.txt"
+BR2_PACKAGE_RPI_FIRMWARE_CMDLINE_FILE="board/raspberrypi5/cmdline_5.txt"
+BR2_PACKAGE_KMOD=y
+BR2_PACKAGE_KMOD_TOOLS=y
 BR2_TARGET_ROOTFS_EXT2=y
 BR2_TARGET_ROOTFS_EXT2_4=y
-BR2_TARGET_ROOTFS_EXT2_SIZE="1G"
+# BR2_TARGET_ROOTFS_TAR is not set
+BR2_PACKAGE_HOST_DOSFSTOOLS=y
+BR2_PACKAGE_HOST_GENIMAGE=y
+BR2_PACKAGE_HOST_MTOOLS=y
+
+# === Hearth additions ===
+
+# Toolchain: glibc required by flutter-engine (official defconfig uses uclibc)
+BR2_TOOLCHAIN_BUILDROOT_GLIBC=y
+BR2_USE_WCHAR=y
+BR2_INSTALL_LIBSTDCPP=y
+BR2_PACKAGE_HOST_LINUX_HEADERS_CUSTOM_6_6=y
+
+# Kernel: add USB audio, touchscreen, and WiFi driver fragments
+BR2_LINUX_KERNEL_CONFIG_FRAGMENT_FILES="board/raspberrypi/linux-4k-page-size.fragment $(BR2_EXTERNAL_HEARTH_PATH)/board/hearth-pi5/linux.fragment"
+
+# Rootfs: larger for flutter-pi + app bundle + GStreamer
+BR2_TARGET_ROOTFS_EXT2_SIZE="512M"
+
+# Init system: systemd (required by flutter-pi and NetworkManager)
+BR2_INIT_SYSTEMD=y
+BR2_PACKAGE_SYSTEMD_LOGIND=y
 
 # Network
 BR2_PACKAGE_NETWORK_MANAGER=y
 BR2_PACKAGE_AVAHI=y
 BR2_PACKAGE_AVAHI_DAEMON=y
 
-# Graphics / DRM
+# Graphics / DRM (required by flutter-pi)
 BR2_PACKAGE_MESA3D=y
 BR2_PACKAGE_MESA3D_GALLIUM_DRIVER_V3D=y
 BR2_PACKAGE_MESA3D_GALLIUM_DRIVER_VC4=y
@@ -47,16 +59,6 @@ BR2_PACKAGE_MESA3D_OPENGL_ES=y
 BR2_PACKAGE_MESA3D_OPENGL_EGL=y
 BR2_PACKAGE_LIBDRM=y
 BR2_PACKAGE_LIBINPUT=y
-
-# GStreamer (video/audio playback for flutter-pi)
-BR2_PACKAGE_GSTREAMER1=y
-BR2_PACKAGE_GST1_PLUGINS_BASE=y
-BR2_PACKAGE_GST1_PLUGINS_BASE_PLUGIN_ALSA=y
-BR2_PACKAGE_GST1_PLUGINS_BASE_PLUGIN_VIDEOCONVERTSCALE=y
-BR2_PACKAGE_GST1_PLUGINS_GOOD=y
-BR2_PACKAGE_GST1_PLUGINS_GOOD_PLUGIN_V4L2=y
-BR2_PACKAGE_GST1_PLUGINS_BAD=y
-BR2_PACKAGE_GST1_PLUGINS_BAD_PLUGIN_KMS=y
 
 # Audio
 BR2_PACKAGE_ALSA_LIB=y
@@ -67,15 +69,12 @@ BR2_PACKAGE_FLUTTER_PI=y
 BR2_PACKAGE_FLUTTER_PI_GSTREAMER_AUDIO_PLAYER_PLUGIN=y
 BR2_PACKAGE_FLUTTER_PI_GSTREAMER_VIDEO_PLAYER_PLUGIN=y
 
-# Hearth packages
+# Hearth OTA updater
 BR2_PACKAGE_HEARTH_UPDATER=y
 
 # Rootfs overlay and post-build scripts
+# Use official Pi 5 post-image script for correct genimage handling,
+# chain our post-build script after the official one for Hearth additions.
 BR2_ROOTFS_OVERLAY="$(BR2_EXTERNAL_HEARTH_PATH)/board/hearth-pi5/overlay"
-BR2_ROOTFS_POST_BUILD_SCRIPT="$(BR2_EXTERNAL_HEARTH_PATH)/board/hearth-pi5/post_build.sh"
-BR2_ROOTFS_POST_IMAGE_SCRIPT="$(BR2_EXTERNAL_HEARTH_PATH)/board/hearth-pi5/post_image.sh"
-
-# Image generation
-BR2_PACKAGE_HOST_GENIMAGE=y
-BR2_PACKAGE_HOST_DOSFSTOOLS=y
-BR2_PACKAGE_HOST_MTOOLS=y
+BR2_ROOTFS_POST_BUILD_SCRIPT="board/raspberrypi5/post-build.sh $(BR2_EXTERNAL_HEARTH_PATH)/board/hearth-pi5/post_build.sh"
+BR2_ROOTFS_POST_IMAGE_SCRIPT="board/raspberrypi5/post-image.sh"
