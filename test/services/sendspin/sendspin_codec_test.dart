@@ -49,6 +49,23 @@ void main() {
       expect(codec, isA<PcmCodec>());
     });
 
+    test('creates FlacCodec for flac codec string (requires native library)', () {
+      // FlacCodec loads a native shared library via FFI, so instantiation will
+      // throw in the test environment where the library isn't available.
+      // This test verifies the factory routes 'flac' to FlacCodec construction
+      // (which fails loading the DLL) rather than throwing 'Unsupported codec'.
+      expect(
+        () => createCodec(codec: 'flac', bitDepth: 16, channels: 2, sampleRate: 48000),
+        throwsA(
+          isA<ArgumentError>().having(
+            (e) => e.message,
+            'message',
+            contains('sendspin_flac'),
+          ),
+        ),
+      );
+    });
+
     test('throws for unsupported codec', () {
       expect(
         () => createCodec(codec: 'opus', bitDepth: 16, channels: 2, sampleRate: 48000),

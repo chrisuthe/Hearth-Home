@@ -55,6 +55,9 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(GTK REQUIRED IMPORTED_TARGET gtk+-3.0)
 pkg_check_modules(PULSE REQUIRED IMPORTED_TARGET libpulse-simple)
 
+# Sendspin FLAC native decoder.
+add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/../native/sendspin_flac" "${CMAKE_CURRENT_BINARY_DIR}/sendspin_flac")
+
 # Application build; see runner/CMakeLists.txt.
 add_subdirectory("runner")
 
@@ -94,6 +97,12 @@ set(INSTALL_BUNDLE_LIB_DIR "${CMAKE_INSTALL_PREFIX}/lib")
 
 install(TARGETS ${BINARY_NAME} RUNTIME DESTINATION "${CMAKE_INSTALL_PREFIX}"
   COMPONENT Runtime)
+
+get_target_property(_flac_type sendspin_flac TYPE)
+if(NOT _flac_type STREQUAL "INTERFACE_LIBRARY")
+  install(TARGETS sendspin_flac LIBRARY DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
+    COMPONENT Runtime)
+endif()
 
 install(FILES "${FLUTTER_ICU_DATA_FILE}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
   COMPONENT Runtime)
