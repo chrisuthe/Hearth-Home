@@ -42,11 +42,34 @@ jobs:
           export PATH="$PATH:$HOME/.pub-cache/bin"
           flutterpi_tool build --release --arch=arm64 --cpu=pi4
 
+      - name: Find bundle output
+        run: |
+          echo "=== build/ contents ==="
+          find build -type d 2>/dev/null || echo "No build/ directory"
+          echo "=== looking for flutter_assets ==="
+          find . -name "flutter_assets" -type d 2>/dev/null || echo "No flutter_assets found"
+          echo "=== looking for app.so ==="
+          find . -name "app.so" 2>/dev/null || echo "No app.so found"
+          echo "=== looking for *.flutterpi ==="
+          find . -name "*.flutterpi" -o -name "flutter-pi" 2>/dev/null | head -20
+
       - name: Package bundle
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           VERSION="${VERSION:-dev}"
-          tar czf "hearth-bundle-${VERSION}.tar.gz" -C build/flutter_assets .
+          # flutterpi_tool outputs to build/flutter_assets by default
+          BUNDLE_DIR="build/flutter_assets"
+          if [ ! -d "$BUNDLE_DIR" ]; then
+            # Try alternative path
+            BUNDLE_DIR=$(find build -name "flutter_assets" -type d 2>/dev/null | head -1)
+          fi
+          if [ -z "$BUNDLE_DIR" ] || [ ! -d "$BUNDLE_DIR" ]; then
+            echo "ERROR: Could not find flutter_assets bundle directory"
+            find build -type f 2>/dev/null | head -30
+            exit 1
+          fi
+          echo "Packaging bundle from: $BUNDLE_DIR"
+          tar czf "hearth-bundle-${VERSION}.tar.gz" -C "$BUNDLE_DIR" .
 
       - name: Upload bundle artifact
         uses: actions/upload-artifact@v4
