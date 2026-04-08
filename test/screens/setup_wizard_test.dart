@@ -6,7 +6,6 @@ import 'package:hearth/config/hub_config.dart';
 import 'package:hearth/screens/setup/setup_wizard.dart';
 import 'package:hearth/services/wifi_service.dart';
 
-/// Fake WiFi service that never calls Process.run — safe for CI.
 class FakeWifiService extends WifiService {
   @override
   Future<List<WifiNetwork>> scan() async => [];
@@ -22,115 +21,44 @@ class FakeWifiService extends WifiService {
 
 void main() {
   group('SetupWizard', () {
-    /// Common overrides for all setup wizard tests.
     final testOverrides = [
       hubConfigProvider.overrideWith((ref) => HubConfigNotifier()),
       wifiServiceProvider.overrideWithValue(FakeWifiService()),
     ];
 
-    testWidgets('shows WiFi step first', (tester) async {
+    testWidgets('shows welcome message', (tester) async {
       await tester.pumpWidget(
         ProviderScope(
           overrides: testOverrides,
           child: const MaterialApp(home: Scaffold(body: SetupWizard())),
         ),
       );
-      expect(find.text('Connect to WiFi'), findsOneWidget);
+      expect(find.text('Welcome to Hearth'), findsOneWidget);
     });
 
-    testWidgets('shows skip button on WiFi step', (tester) async {
+    testWidgets('shows skip button', (tester) async {
       await tester.pumpWidget(
         ProviderScope(
           overrides: testOverrides,
           child: const MaterialApp(home: Scaffold(body: SetupWizard())),
         ),
       );
-      expect(find.text('Skip (Using Ethernet)'), findsOneWidget);
+      expect(find.text('Skip'), findsOneWidget);
     });
 
-    testWidgets('shows progress bar with 4 steps', (tester) async {
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: testOverrides,
-          child: const MaterialApp(home: Scaffold(body: SetupWizard())),
-        ),
-      );
-      // Progress bar is rendered as a Row with 4 segments
-      expect(find.byType(SetupWizard), findsOneWidget);
-    });
-
-    testWidgets('skip button advances to services step', (tester) async {
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: testOverrides,
-          child: const MaterialApp(home: Scaffold(body: SetupWizard())),
-        ),
-      );
-      await tester.tap(find.text('Skip (Using Ethernet)'));
-      await tester.pumpAndSettle();
-      expect(find.text('Connect Services'), findsOneWidget);
-    });
-
-    testWidgets('services step shows HA URL field', (tester) async {
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: testOverrides,
-          child: const MaterialApp(home: Scaffold(body: SetupWizard())),
-        ),
-      );
-      // Navigate to services step
-      await tester.tap(find.text('Skip (Using Ethernet)'));
-      await tester.pumpAndSettle();
-      expect(find.text('Home Assistant URL'), findsOneWidget);
-    });
-
-    testWidgets('services step Next disabled when HA URL empty', (tester) async {
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: testOverrides,
-          child: const MaterialApp(home: Scaffold(body: SetupWizard())),
-        ),
-      );
-      // Navigate to services step
-      await tester.tap(find.text('Skip (Using Ethernet)'));
-      await tester.pumpAndSettle();
-      // Next button should be disabled (onPressed == null) when HA URL is empty
-      final nextButton = tester.widget<FilledButton>(
-        find.widgetWithText(FilledButton, 'Next'),
-      );
-      expect(nextButton.onPressed, isNull);
-    });
-
-    testWidgets('services step Back returns to WiFi step', (tester) async {
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: testOverrides,
-          child: const MaterialApp(home: Scaffold(body: SetupWizard())),
-        ),
-      );
-      // Navigate to services step
-      await tester.tap(find.text('Skip (Using Ethernet)'));
-      await tester.pumpAndSettle();
-      // Scroll to Back button in case it's off-screen
-      await tester.ensureVisible(find.text('Back'));
-      await tester.tap(find.text('Back'));
-      await tester.pumpAndSettle();
-      expect(find.text('Connect to WiFi'), findsOneWidget);
-    });
-
-    testWidgets('HearthApp shows setup wizard when haUrl is empty', (tester) async {
-      final notifier = HubConfigNotifier();
+    testWidgets('HearthApp shows setup wizard when haUrl is empty',
+        (tester) async {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            hubConfigProvider.overrideWith((ref) => notifier),
+            hubConfigProvider.overrideWith((ref) => HubConfigNotifier()),
             wifiServiceProvider.overrideWithValue(FakeWifiService()),
           ],
           child: const HearthApp(),
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.text('Connect to WiFi'), findsOneWidget);
+      expect(find.text('Welcome to Hearth'), findsOneWidget);
     });
   });
 }
