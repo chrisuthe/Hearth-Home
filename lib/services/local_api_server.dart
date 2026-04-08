@@ -56,6 +56,11 @@ class LocalApiServer {
 
       if (path == '/') {
         await _serveConfigPage(request);
+      } else if (path == '/logs') {
+        await _serveLogsPage(request);
+      } else if (path == '/api/logs' && request.method == 'GET') {
+        if (!_checkAuth(request)) return;
+        await _handleGetLogs(request);
       } else if (path.startsWith('/api/')) {
         if (!_checkAuth(request)) return;
         if (path == '/api/config') {
@@ -320,6 +325,39 @@ class LocalApiServer {
     await request.response.close();
   }
 
+  // --- Logs ---
+
+  Future<void> _handleGetLogs(HttpRequest request) async {
+    final lines = request.uri.queryParameters['lines'] ?? '100';
+    try {
+      final result = await Process.run('journalctl', [
+        '-u', 'hearth.service',
+        '--no-pager',
+        '-n', lines,
+        '--output', 'short-iso',
+      ]);
+      request.response
+        ..statusCode = 200
+        ..headers.contentType = ContentType.json
+        ..write(jsonEncode({'logs': result.stdout.toString()}));
+    } catch (e) {
+      request.response
+        ..statusCode = 500
+        ..headers.contentType = ContentType.json
+        ..write(jsonEncode({'error': e.toString()}));
+    }
+    await request.response.close();
+  }
+
+  Future<void> _serveLogsPage(HttpRequest request) async {
+    final apiKey = _configNotifier.current.apiKey;
+    request.response.statusCode = 200;
+    request.response.headers.contentType = ContentType.html;
+    request.response.write(_logsPageHtml.replaceFirst(
+        '{{API_KEY}}', apiKey.replaceAll(r'\', r'\\').replaceAll("'", r"\'")));
+    await request.response.close();
+  }
+
   // --- Config web page ---
 
   Future<void> _serveConfigPage(HttpRequest request) async {
@@ -427,7 +465,10 @@ const _configPageHtml = r'''
 </head>
 <body>
 <div class="container">
-  <h1>Hearth Setup</h1>
+  <div style="display:flex;justify-content:space-between;align-items:center;">
+    <h1>Hearth Setup</h1>
+    <a href="/logs" style="color:#646cff;font-size:13px;text-decoration:none;">View Logs</a>
+  </div>
   <form id="configForm">
 
     <h2>Connections</h2>
@@ -664,6 +705,105 @@ async function applyUpdate() {
 }
 
 load();
+</script>
+</body>
+</html>
+''';
+
+const _logsPageHtml = r'''
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hearth Logs</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #111; color: #e0e0e0;
+    display: flex; flex-direction: column; height: 100vh;
+    padding: 16px;
+  }
+  .header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 12px;
+  }
+  h1 { font-size: 20px; font-weight: 300; color: #fff; }
+  .controls { display: flex; gap: 8px; align-items: center; }
+  .controls a {
+    color: #646cff; text-decoration: none; font-size: 13px;
+  }
+  .controls button {
+    padding: 6px 14px; background: #333; color: #e0e0e0;
+    border: 1px solid #444; border-radius: 6px; cursor: pointer; font-size: 13px;
+  }
+  .controls select {
+    padding: 6px 8px; background: #1e1e1e; border: 1px solid #333;
+    border-radius: 6px; color: #e0e0e0; font-size: 13px;
+  }
+  #logOutput {
+    flex: 1; overflow-y: auto; padding: 12px;
+    background: #0a0a0a; border: 1px solid #222; border-radius: 6px;
+    font-family: "Cascadia Code", "Fira Code", monospace;
+    font-size: 12px; line-height: 1.5; white-space: pre-wrap;
+    word-break: break-all; color: #aaa;
+  }
+  .checkbox-label {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 13px; color: #aaa; cursor: pointer;
+  }
+  .checkbox-label input { accent-color: #646cff; }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>Hearth Logs</h1>
+  <div class="controls">
+    <a href="/">Settings</a>
+    <select id="lineCount">
+      <option value="50">50 lines</option>
+      <option value="100" selected>100 lines</option>
+      <option value="200">200 lines</option>
+      <option value="500">500 lines</option>
+    </select>
+    <label class="checkbox-label">
+      <input type="checkbox" id="autoRefresh" checked> Auto-refresh
+    </label>
+    <button onclick="fetchLogs()">Refresh</button>
+  </div>
+</div>
+<pre id="logOutput">Loading...</pre>
+<script>
+const API_KEY = '{{API_KEY}}';
+const headers = {'Authorization': 'Bearer ' + API_KEY};
+let refreshTimer = null;
+
+async function fetchLogs() {
+  const lines = document.getElementById('lineCount').value;
+  try {
+    const r = await fetch('/api/logs?lines=' + lines, {headers});
+    const d = await r.json();
+    const el = document.getElementById('logOutput');
+    el.textContent = d.logs || d.error || 'No logs';
+    el.scrollTop = el.scrollHeight;
+  } catch(e) {
+    document.getElementById('logOutput').textContent = 'Failed to fetch logs';
+  }
+}
+
+function toggleAutoRefresh() {
+  if (refreshTimer) { clearInterval(refreshTimer); refreshTimer = null; }
+  if (document.getElementById('autoRefresh').checked) {
+    refreshTimer = setInterval(fetchLogs, 3000);
+  }
+}
+
+document.getElementById('autoRefresh').addEventListener('change', toggleAutoRefresh);
+document.getElementById('lineCount').addEventListener('change', fetchLogs);
+
+fetchLogs();
+toggleAutoRefresh();
 </script>
 </body>
 </html>
