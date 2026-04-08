@@ -61,6 +61,9 @@ class LocalApiServer {
       } else if (path == '/api/logs' && request.method == 'GET') {
         if (!_checkAuth(request)) return;
         await _handleGetLogs(request);
+      } else if (path == '/api/system/stats' && request.method == 'GET') {
+        if (!_checkAuth(request)) return;
+        await _handleSystemStats(request);
       } else if (path.startsWith('/api/')) {
         if (!_checkAuth(request)) return;
         if (path == '/api/config') {
@@ -323,6 +326,84 @@ class LocalApiServer {
         ..write(jsonEncode({'success': false, 'error': e.toString()}));
     }
     await request.response.close();
+  }
+
+  // --- System stats ---
+
+  Future<void> _handleSystemStats(HttpRequest request) async {
+    try {
+      // CPU: parse /proc/stat for usage, /sys/class/thermal for temp
+      final cpuTemp = await _readFile('/sys/class/thermal/thermal_zone0/temp');
+      final tempC = cpuTemp.isNotEmpty ? (int.tryParse(cpuTemp.trim()) ?? 0) / 1000.0 : null;
+
+      final loadavg = await _readFile('/proc/loadavg');
+      final loads = loadavg.split(' ');
+
+      // Memory: parse /proc/meminfo
+      final meminfo = await _readFile('/proc/meminfo');
+      final memMap = <String, int>{};
+      for (final line in meminfo.split('\n')) {
+        final match = RegExp(r'(\w+):\s+(\d+)').firstMatch(line);
+        if (match != null) memMap[match.group(1)!] = int.parse(match.group(2)!);
+      }
+      final totalMb = (memMap['MemTotal'] ?? 0) ~/ 1024;
+      final availMb = (memMap['MemAvailable'] ?? 0) ~/ 1024;
+      final usedMb = totalMb - availMb;
+
+      // GPU: try vcgencmd (Pi-specific)
+      String? gpuTemp;
+      String? gpuMem;
+      try {
+        final gpuResult = await Process.run('vcgencmd', ['measure_temp']);
+        if (gpuResult.exitCode == 0) {
+          gpuTemp = RegExp(r'[\d.]+').firstMatch(gpuResult.stdout.toString())?.group(0);
+        }
+        final memResult = await Process.run('vcgencmd', ['get_mem', 'gpu']);
+        if (memResult.exitCode == 0) {
+          gpuMem = RegExp(r'\d+').firstMatch(memResult.stdout.toString())?.group(0);
+        }
+      } catch (_) {}
+
+      // Uptime
+      final uptime = await _readFile('/proc/uptime');
+      final uptimeSecs = double.tryParse(uptime.split(' ').first) ?? 0;
+
+      request.response
+        ..statusCode = 200
+        ..headers.contentType = ContentType.json
+        ..write(jsonEncode({
+          'cpu': {
+            'tempC': tempC,
+            'load1m': loads.isNotEmpty ? loads[0] : null,
+            'load5m': loads.length > 1 ? loads[1] : null,
+            'load15m': loads.length > 2 ? loads[2] : null,
+          },
+          'memory': {
+            'totalMb': totalMb,
+            'usedMb': usedMb,
+            'availableMb': availMb,
+          },
+          'gpu': {
+            'tempC': gpuTemp != null ? double.tryParse(gpuTemp) : null,
+            'memoryMb': gpuMem != null ? int.tryParse(gpuMem) : null,
+          },
+          'uptimeSeconds': uptimeSecs.round(),
+        }));
+    } catch (e) {
+      request.response
+        ..statusCode = 500
+        ..headers.contentType = ContentType.json
+        ..write(jsonEncode({'error': e.toString()}));
+    }
+    await request.response.close();
+  }
+
+  Future<String> _readFile(String path) async {
+    try {
+      return await File(path).readAsString();
+    } catch (_) {
+      return '';
+    }
   }
 
   // --- Logs ---
@@ -773,6 +854,7 @@ const _logsPageHtml = r'''
     <button onclick="fetchLogs()">Refresh</button>
   </div>
 </div>
+<div id="statsBar" style="display:flex;gap:16px;padding:8px 12px;margin-bottom:8px;background:#0a0a0a;border:1px solid #222;border-radius:6px;font-family:monospace;font-size:12px;color:#888;"></div>
 <pre id="logOutput">Loading...</pre>
 <script>
 const API_KEY = '{{API_KEY}}';
@@ -802,8 +884,34 @@ function toggleAutoRefresh() {
 document.getElementById('autoRefresh').addEventListener('change', toggleAutoRefresh);
 document.getElementById('lineCount').addEventListener('change', fetchLogs);
 
+async function fetchStats() {
+  try {
+    const r = await fetch('/api/system/stats', {headers});
+    const d = await r.json();
+    const bar = document.getElementById('statsBar');
+    bar.textContent = '';
+    const upH = Math.floor(d.uptimeSeconds / 3600);
+    const upM = Math.floor((d.uptimeSeconds % 3600) / 60);
+    const memPct = d.memory.totalMb > 0 ? Math.round(d.memory.usedMb / d.memory.totalMb * 100) : 0;
+    const items = [
+      'CPU: ' + (d.cpu.tempC != null ? d.cpu.tempC.toFixed(1) + '\u00B0C' : '?'),
+      'Load: ' + (d.cpu.load1m || '?'),
+      'Mem: ' + d.memory.usedMb + '/' + d.memory.totalMb + ' MB (' + memPct + '%)',
+      d.gpu.tempC != null ? 'GPU: ' + d.gpu.tempC.toFixed(1) + '\u00B0C' : null,
+      'Up: ' + upH + 'h ' + upM + 'm',
+    ];
+    items.filter(Boolean).forEach(function(text) {
+      const span = document.createElement('span');
+      span.textContent = text;
+      bar.appendChild(span);
+    });
+  } catch(e) {}
+}
+
 fetchLogs();
+fetchStats();
 toggleAutoRefresh();
+setInterval(fetchStats, 3000);
 </script>
 </body>
 </html>
