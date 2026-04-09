@@ -4,6 +4,7 @@ import 'package:weather_icons/weather_icons.dart';
 import '../../config/hub_config.dart';
 import '../../models/weather_state.dart';
 import '../../utils/weather_icon_mapping.dart';
+import '../../utils/weather_utils.dart';
 
 class ForecastOverlay extends ConsumerWidget {
   final WeatherState weather;
@@ -83,7 +84,7 @@ class _CurrentHero extends StatelessWidget {
         const SizedBox(height: 12),
         Text('${weather.temperature.round()}\u00B0',
             style: const TextStyle(fontSize: 64, fontWeight: FontWeight.w200, color: Colors.white)),
-        Text(_conditionLabel(weather.condition),
+        Text(conditionLabel(weather.condition),
             style: TextStyle(fontSize: 18, color: Colors.white.withValues(alpha: 0.7))),
         const SizedBox(height: 8),
         Row(
@@ -177,24 +178,4 @@ class _DailyRow extends StatelessWidget {
       ),
     );
   }
-}
-
-String _conditionLabel(String condition) {
-  return switch (condition) {
-    'sunny' => 'Sunny',
-    'clear-night' => 'Clear',
-    'partlycloudy' => 'Partly Cloudy',
-    'cloudy' => 'Cloudy',
-    'rainy' => 'Rainy',
-    'pouring' => 'Heavy Rain',
-    'snowy' => 'Snowy',
-    'snowy-rainy' => 'Sleet',
-    'lightning' => 'Thunderstorm',
-    'lightning-rainy' => 'Thunderstorm',
-    'hail' => 'Hail',
-    'fog' => 'Foggy',
-    'windy' => 'Windy',
-    'windy-variant' => 'Windy',
-    _ => condition,
-  };
 }

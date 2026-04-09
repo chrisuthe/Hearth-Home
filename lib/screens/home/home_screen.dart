@@ -7,6 +7,7 @@ import '../../models/music_state.dart';
 import '../../services/music_assistant_service.dart';
 import '../../services/weather_service.dart';
 import '../../utils/weather_icon_mapping.dart';
+import '../../utils/weather_utils.dart';
 import '../timer/timer_screen.dart';
 import '../weather/forecast_overlay.dart';
 import '../../services/timer_service.dart';
@@ -64,7 +65,7 @@ class HomeScreen extends ConsumerWidget {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(_conditionLabel(weather.condition),
+                      Text(conditionLabel(weather.condition),
                           style: const TextStyle(fontSize: 16)),
                       if (weather.dailyForecast.isNotEmpty)
                         Text(
@@ -238,22 +239,3 @@ class _SceneButton extends StatelessWidget {
   }
 }
 
-String _conditionLabel(String condition) {
-  return switch (condition) {
-    'sunny' => 'Sunny',
-    'clear-night' => 'Clear',
-    'partlycloudy' => 'Partly Cloudy',
-    'cloudy' => 'Cloudy',
-    'rainy' => 'Rainy',
-    'pouring' => 'Heavy Rain',
-    'snowy' => 'Snowy',
-    'snowy-rainy' => 'Sleet',
-    'lightning' => 'Thunderstorm',
-    'lightning-rainy' => 'Thunderstorm',
-    'hail' => 'Hail',
-    'fog' => 'Foggy',
-    'windy' => 'Windy',
-    'windy-variant' => 'Windy',
-    _ => condition,
-  };
-}

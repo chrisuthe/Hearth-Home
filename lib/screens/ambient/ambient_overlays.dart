@@ -7,6 +7,7 @@ import '../../models/music_state.dart';
 import '../../services/weather_service.dart';
 import '../../utils/time_format.dart';
 import '../../utils/weather_icon_mapping.dart';
+import '../../utils/weather_utils.dart';
 import '../weather/forecast_overlay.dart';
 
 /// Contextual overlays for the ambient photo display.
@@ -135,7 +136,7 @@ class _AmbientOverlaysState extends ConsumerState<AmbientOverlays> {
                     ],
                   ),
                   Text(
-                    _conditionLabel(weather.condition),
+                    conditionLabel(weather.condition),
                     style: TextStyle(fontSize: 14, color: Colors.white.withValues(alpha: 0.6)),
                   ),
                 ] else ...[
@@ -241,24 +242,4 @@ class _AmbientOverlaysState extends ConsumerState<AmbientOverlays> {
     );
   }
 
-}
-
-String _conditionLabel(String condition) {
-  return switch (condition) {
-    'sunny' => 'Sunny',
-    'clear-night' => 'Clear',
-    'partlycloudy' => 'Partly Cloudy',
-    'cloudy' => 'Cloudy',
-    'rainy' => 'Rainy',
-    'pouring' => 'Heavy Rain',
-    'snowy' => 'Snowy',
-    'snowy-rainy' => 'Sleet',
-    'lightning' => 'Thunderstorm',
-    'lightning-rainy' => 'Thunderstorm',
-    'hail' => 'Hail',
-    'fog' => 'Foggy',
-    'windy' => 'Windy',
-    'windy-variant' => 'Windy',
-    _ => condition,
-  };
 }
