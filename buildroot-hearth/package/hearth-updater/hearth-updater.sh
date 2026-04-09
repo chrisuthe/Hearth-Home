@@ -109,6 +109,9 @@ if [ -d "$BUNDLE_DIR" ]; then
 fi
 mv "$STAGING_DIR" "$BUNDLE_DIR"
 
+# Ensure bundle is owned by hearth user (service runs as non-root)
+chown -R hearth:hearth "$BUNDLE_DIR" 2>/dev/null || true
+
 cp /etc/hearth-version /etc/hearth-version.prev 2>/dev/null
 echo "$LATEST_VERSION" > "$VERSION_FILE"
 

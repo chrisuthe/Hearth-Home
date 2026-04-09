@@ -1,7 +1,9 @@
 #!/bin/bash
 # Hearth Pi Setup Script
-# Run on a fresh Raspberry Pi OS Lite (64-bit) installation.
-# Usage: curl -sL https://raw.githubusercontent.com/chrisuthe/Hearth-Home/main/scripts/setup-pi.sh | bash
+# Run on a fresh Raspberry Pi OS Lite (64-bit) installation, or re-run
+# to upgrade an existing installation (idempotent).
+#
+# Usage: curl -sL https://raw.githubusercontent.com/chrisuthe/Hearth-Home/main/scripts/setup-pi.sh | sudo bash
 #
 # Prerequisites:
 # - Raspberry Pi OS Lite 64-bit flashed and booted
@@ -12,10 +14,10 @@ set -e
 
 echo "=== Hearth Pi Setup ==="
 
-# Install dependencies
+# --- Dependencies ---
 echo "Installing dependencies..."
-sudo apt-get update
-sudo apt-get install -y \
+sudo apt-get update -qq
+sudo apt-get install -y -qq \
     cmake libgl1-mesa-dev libgles2-mesa-dev libegl1-mesa-dev \
     libdrm-dev libgbm-dev libinput-dev libudev-dev libsystemd-dev \
     libxkbcommon-dev libvulkan-dev \
@@ -24,54 +26,90 @@ sudo apt-get install -y \
     network-manager avahi-daemon \
     git wget
 
-# Create hearth system user with required group memberships
+# --- Hearth user ---
 if ! id hearth &>/dev/null; then
     sudo useradd -r -m -s /usr/sbin/nologin hearth
     echo "Created hearth user"
 fi
 sudo usermod -aG video,input,render,audio,netdev,systemd-journal hearth
 
-# Build and install flutter-pi
-echo "Building flutter-pi..."
-cd /tmp
-if [ ! -d flutter-pi ]; then
+# --- flutter-pi ---
+if ! command -v flutter-pi &>/dev/null; then
+    echo "Building flutter-pi..."
+    cd /tmp
+    rm -rf flutter-pi
     git clone https://github.com/ardera/flutter-pi.git
+    cd flutter-pi
+    mkdir -p build && cd build
+    cmake ..
+    make -j$(nproc)
+    sudo make install
+    cd /tmp && rm -rf flutter-pi
+    echo "flutter-pi installed."
+else
+    echo "flutter-pi already installed, skipping build."
 fi
-cd flutter-pi
-mkdir -p build && cd build
-cmake ..
-make -j$(nproc)
-sudo make install
 
-# Create bundle directory
+# --- Bundle directory ---
 sudo mkdir -p /opt/hearth/bundle
 sudo chown -R hearth:hearth /opt/hearth
 
-# Create config directory for hearth user
-sudo mkdir -p /home/hearth/.local/share/com.hearth.hearth
-sudo chown -R hearth:hearth /home/hearth/.local/share
-sudo chmod 700 /home/hearth/.local/share/com.hearth.hearth
+# --- Config directory ---
+# New installs use /home/hearth/.local/share/com.hearth.hearth/
+# Migrate from old root-based config if it exists
+OLD_CONFIG="/root/.local/share/com.hearth.hearth/hub_config.json"
+NEW_CONFIG_DIR="/home/hearth/.local/share/com.hearth.hearth"
+sudo mkdir -p "$NEW_CONFIG_DIR"
 
-# Download latest bundle from GitHub Releases (or use local if provided)
+if [ -f "$OLD_CONFIG" ] && [ ! -f "$NEW_CONFIG_DIR/hub_config.json" ]; then
+    echo "Migrating config from root to hearth user..."
+    sudo cp "$OLD_CONFIG" "$NEW_CONFIG_DIR/hub_config.json"
+    echo "Config migrated."
+fi
+
+sudo chown -R hearth:hearth /home/hearth/.local
+sudo chmod 700 "$NEW_CONFIG_DIR"
+
+# --- Hostname (set before service install to avoid sudo warnings) ---
+# Add to /etc/hosts first to prevent resolution failures
+if ! grep -q "127.0.0.1.*hearth" /etc/hosts; then
+    echo "127.0.0.1 hearth" | sudo tee -a /etc/hosts > /dev/null
+fi
+sudo hostnamectl set-hostname hearth 2>/dev/null || true
+
+# --- Download latest bundle ---
+# Stop service if running (safe to fail if not installed yet)
+sudo systemctl stop hearth.service 2>/dev/null || true
+
 BUNDLE_URL="${1:-}"
 if [ -z "$BUNDLE_URL" ]; then
     echo "Downloading latest bundle from GitHub..."
-    RELEASE_JSON=$(wget -qO- https://api.github.com/repos/chrisuthe/Hearth-Home/releases/latest 2>/dev/null || true)
+    RELEASE_JSON=$(wget -qO- "https://api.github.com/repos/chrisuthe/Hearth-Home/releases/latest" 2>/dev/null || true)
     BUNDLE_URL=$(echo "$RELEASE_JSON" | grep -o '"browser_download_url": *"[^"]*hearth-bundle-[^"]*\.tar\.gz"' | head -1 | cut -d'"' -f4)
 fi
 
 if [ -n "$BUNDLE_URL" ]; then
     echo "Downloading bundle from: $BUNDLE_URL"
     wget -qO /tmp/hearth-bundle.tar.gz "$BUNDLE_URL"
-    sudo tar xzf /tmp/hearth-bundle.tar.gz -C /opt/hearth/bundle/
-    sudo chmod +x /opt/hearth/bundle/flutter-pi 2>/dev/null || true
+    # Extract to staging dir, then swap (preserves running state if service restarts)
+    sudo rm -rf /opt/hearth/bundle.staging
+    sudo mkdir -p /opt/hearth/bundle.staging
+    sudo tar xzf /tmp/hearth-bundle.tar.gz -C /opt/hearth/bundle.staging/
+    sudo chmod +x /opt/hearth/bundle.staging/flutter-pi 2>/dev/null || true
+    # Atomic swap
+    sudo rm -rf /opt/hearth/bundle.prev
+    [ -d /opt/hearth/bundle ] && sudo mv /opt/hearth/bundle /opt/hearth/bundle.prev
+    sudo mv /opt/hearth/bundle.staging /opt/hearth/bundle
+    sudo chown -R hearth:hearth /opt/hearth
     rm -f /tmp/hearth-bundle.tar.gz
     echo "Bundle installed."
 else
     echo "No bundle found. Copy the bundle manually to /opt/hearth/bundle/"
 fi
 
-# Install systemd service
+# --- Systemd services ---
+
+# Main Hearth service (runs as hearth user)
 sudo tee /etc/systemd/system/hearth.service > /dev/null << 'EOF'
 [Unit]
 Description=Hearth Smart Home Kiosk
@@ -97,12 +135,33 @@ StartLimitBurst=3
 WantedBy=multi-user.target
 EOF
 
-# Install OTA updater
+# Rollback service (runs as root to swap bundles)
+sudo tee /etc/systemd/system/hearth-rollback.service > /dev/null << 'EOF'
+[Unit]
+Description=Hearth rollback on repeated failures
+After=hearth.service
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c '\
+  if [ -d /opt/hearth/bundle.prev ]; then \
+    rm -rf /opt/hearth/bundle && \
+    mv /opt/hearth/bundle.prev /opt/hearth/bundle && \
+    cp /etc/hearth-version.prev /etc/hearth-version 2>/dev/null; \
+    chown -R hearth:hearth /opt/hearth; \
+    logger -t hearth-rollback "Rolled back to previous bundle"; \
+    systemctl reset-failed hearth.service; \
+    systemctl start hearth.service; \
+  else \
+    logger -t hearth-rollback "No previous bundle to roll back to"; \
+  fi'
+EOF
+
+# OTA updater service (runs as root for privileged file operations)
 echo "Installing OTA updater..."
 sudo wget -qO /usr/bin/hearth-updater https://raw.githubusercontent.com/chrisuthe/Hearth-Home/main/buildroot-hearth/package/hearth-updater/hearth-updater.sh
 sudo chmod +x /usr/bin/hearth-updater
 
-# Install hearth-updater systemd service (runs as root for privileged operations)
 sudo tee /etc/systemd/system/hearth-updater.service > /dev/null << 'EOF'
 [Unit]
 Description=Hearth OTA App Updater
@@ -114,7 +173,6 @@ Type=oneshot
 ExecStart=/usr/bin/hearth-updater
 EOF
 
-# Install hearth-updater timer
 sudo tee /etc/systemd/system/hearth-updater.timer > /dev/null << 'EOF'
 [Unit]
 Description=Daily Hearth update check
@@ -128,10 +186,10 @@ Persistent=true
 WantedBy=timers.target
 EOF
 
-sudo systemctl enable hearth-updater.timer
+# --- Permissions ---
 
-# Allow hearth user to start the updater service without password
-echo "hearth ALL=(root) NOPASSWD: /usr/bin/systemctl start hearth-updater.service" | sudo tee /etc/sudoers.d/hearth-updater
+# Allow hearth user to trigger OTA updates without password
+echo "hearth ALL=(root) NOPASSWD: /usr/bin/systemctl start hearth-updater.service" | sudo tee /etc/sudoers.d/hearth-updater > /dev/null
 sudo chmod 440 /etc/sudoers.d/hearth-updater
 
 # Allow hearth user (netdev group) to manage WiFi via nmcli
@@ -145,14 +203,13 @@ polkit.addRule(function(action, subject) {
 });
 EOF
 
-# Make version file writable by hearth user
+# Version file writable by hearth user
 sudo touch /etc/hearth-version
 sudo chown hearth:hearth /etc/hearth-version
+sudo touch /etc/hearth-version.prev
+sudo chown hearth:hearth /etc/hearth-version.prev
 
-# Set hostname
-sudo hostnamectl set-hostname hearth
-
-# Configure Avahi for hearth.local mDNS
+# --- Avahi mDNS ---
 sudo tee /etc/avahi/avahi-daemon.conf > /dev/null << 'EOF'
 [server]
 host-name=hearth
@@ -167,13 +224,18 @@ publish-workstation=no
 [rlimits]
 EOF
 
-# Enable services
+# --- Enable and start ---
+sudo systemctl daemon-reload
 sudo systemctl enable hearth.service
+sudo systemctl enable hearth-updater.timer
 sudo systemctl enable avahi-daemon
 sudo systemctl restart avahi-daemon
 
 echo ""
 echo "=== Hearth setup complete ==="
-echo "Run: sudo systemctl start hearth.service"
+echo ""
+echo "Start now:  sudo systemctl start hearth.service"
 echo "Or reboot to start automatically."
-echo "Access settings at: http://hearth.local:8090"
+echo "Web portal: http://hearth.local:8090"
+echo ""
+echo "The PIN to access the web portal is shown on the kiosk display."
