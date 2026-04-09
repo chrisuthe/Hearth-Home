@@ -5,9 +5,9 @@ import 'hearth_video_player.dart';
 
 /// GStreamer-based video player for flutter-pi on Raspberry Pi.
 ///
-/// Uses the standard video_player package, which on flutter-pi is backed
-/// by flutterpi_gstreamer_video_player (GStreamer). Handles RTSP URLs
-/// natively via GStreamer's rtspsrc element.
+/// Uses flutterpi_gstreamer_video_player's custom pipeline API for
+/// low-latency RTSP playback. Falls back to standard networkUrl for
+/// non-RTSP URLs (HTTP, file).
 class GstreamerVideoPlayer implements HearthVideoPlayer {
   VideoPlayerController? _controller;
   bool _playing = false;
@@ -15,7 +15,16 @@ class GstreamerVideoPlayer implements HearthVideoPlayer {
   @override
   Future<void> play(String url) async {
     await stop();
-    _controller = VideoPlayerController.networkUrl(Uri.parse(url));
+
+    if (url.startsWith('rtsp://')) {
+      // Custom GStreamer pipeline for low-latency RTSP
+      _controller = FlutterpiVideoPlayerController.withGstreamerPipeline(
+        'rtspsrc location=$url latency=200 ! decodebin ! videoconvert ! video/x-raw,format=RGBA ! appsink name=sink sync=false drop=true',
+      );
+    } else {
+      _controller = VideoPlayerController.networkUrl(Uri.parse(url));
+    }
+
     await _controller!.initialize();
     await _controller!.play();
     _playing = true;
