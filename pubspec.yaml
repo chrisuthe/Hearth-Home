@@ -14,7 +14,6 @@ dependencies:
   web_socket_channel: ^3.0.1
   cached_network_image: ^3.4.1
   path_provider: ^2.1.4
-  shared_preferences: ^2.3.3
   intl: ^0.19.0
   # Video playback for live camera streams via RTSP.
   # media_kit wraps libmpv — works on Windows, Linux x64, and Linux ARM64.
