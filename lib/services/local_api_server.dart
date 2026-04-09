@@ -298,8 +298,19 @@ class LocalApiServer {
     await request.response.close();
   }
 
+  static const _redactedMarker = '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022';
+
   Future<void> _handlePostConfig(HttpRequest request) async {
     final json = await _readJsonBody(request);
+
+    // Filter out redacted markers so clients cannot overwrite real secrets
+    // with the placeholder value returned by GET /api/config.
+    const secretFields = ['haToken', 'immichApiKey', 'musicAssistantToken'];
+    for (final field in secretFields) {
+      if (json[field] == _redactedMarker) {
+        json.remove(field);
+      }
+    }
 
     await _configNotifier.update((c) => c.copyWith(
           immichUrl: json['immichUrl'] as String?,
