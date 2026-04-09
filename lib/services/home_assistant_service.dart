@@ -24,6 +24,7 @@ class HomeAssistantService {
   final Map<String, HaEntity> _entities = {};
   int _msgId = 0;
   bool _authenticated = false;
+  bool _authRejected = false;
   int? _getStatesId;
 
   final Map<int, Completer<Map<String, dynamic>?>> _pendingResponses = {};
@@ -90,6 +91,7 @@ class HomeAssistantService {
   /// Opens a WebSocket to the given HA URL and begins the auth flow.
   /// Accepts http(s):// URLs and converts to ws(s):// automatically.
   Future<void> connectToUrl(String url, String token) async {
+    _authRejected = false;
     _url = url;
     _token = token;
     final wsUri = buildWsUri(url);
@@ -100,6 +102,10 @@ class HomeAssistantService {
   }
 
   void _scheduleReconnect() {
+    if (_authRejected) {
+      Log.w('HA', 'Not reconnecting — auth was rejected. Check your HA token in Settings.');
+      return;
+    }
     if (_disposed || _url == null || _token == null) return;
     _reconnectTimer?.cancel();
     Log.w('HA', 'Reconnecting in ${_reconnectDelay}s...');
@@ -129,6 +135,8 @@ class HomeAssistantService {
       case 'auth_invalid':
         Log.e('HA', 'Auth failed: ${msg['message'] ?? 'invalid token'}');
         _authenticated = false;
+        _authRejected = true;
+        _channel?.sink.close();
         break;
       case 'event':
         _handleEvent(msg);
