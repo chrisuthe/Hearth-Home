@@ -10,6 +10,7 @@ import '../../models/sendspin_state.dart';
 import 'wifi_settings.dart';
 import 'display_settings.dart';
 import 'update_settings.dart';
+import '../../modules/module_registry.dart';
 
 /// Settings screen -- configure connections, display, night mode, and music.
 ///
@@ -49,6 +50,28 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           onTap: () {},
         ),
 
+        const SizedBox(height: 24),
+
+        // --- Modules section ---
+        _SectionHeader(title: 'Modules'),
+        const SizedBox(height: 8),
+        ...allModules.map((module) {
+          final isEnabled = config.enabledModules.contains(module.id);
+          return SwitchListTile(
+            secondary: Icon(module.icon, color: Colors.white54),
+            title: Text(module.name),
+            value: isEnabled,
+            onChanged: (v) {
+              final updated = List<String>.from(config.enabledModules);
+              if (v) {
+                updated.add(module.id);
+              } else {
+                updated.remove(module.id);
+              }
+              _updateConfig((c) => c.copyWith(enabledModules: updated));
+            },
+          );
+        }),
         const SizedBox(height: 24),
 
         // --- Connections section ---
@@ -428,6 +451,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         _SectionHeader(title: 'Updates'),
         const SizedBox(height: 8),
         const UpdateSettingsSection(),
+
+        // Per-module settings (only shown when module is enabled)
+        ...allModules
+            .where((m) => config.enabledModules.contains(m.id))
+            .map((m) => m.buildSettingsSection())
+            .whereType<Widget>(),
       ],
       ),
     );
