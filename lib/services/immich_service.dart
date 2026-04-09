@@ -56,13 +56,15 @@ class ImmichService {
       'for': today.toIso8601String(),
     });
     final memoriesJson = response.data as List<dynamic>;
-    _cachedMemories.clear();
-    _cachedMemories.addAll(parseMemories(
+    // Build the new list before replacing — preserves the old cache on failure.
+    final newMemories = parseMemories(
       memoriesJson: memoriesJson.cast<Map<String, dynamic>>(),
       baseUrl: _baseUrl,
       today: DateTime.now(),
-    ));
-    _cachedMemories.shuffle();
+    );
+    newMemories.shuffle();
+    _cachedMemories.clear();
+    _cachedMemories.addAll(newMemories);
     _currentIndex = 0;
   }
 

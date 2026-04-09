@@ -121,9 +121,8 @@ class _SetupWizardState extends ConsumerState<SetupWizard> {
 
   Future<void> _finishSetup() async {
     // Mark setup complete so the wizard doesn't show again.
-    // Setting a placeholder haUrl triggers HearthApp to show HubShell.
     await ref.read(hubConfigProvider.notifier).update(
-          (c) => c.copyWith(haUrl: 'pending-setup'),
+          (c) => c.copyWith(setupComplete: true),
         );
   }
 

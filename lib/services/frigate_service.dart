@@ -83,7 +83,12 @@ class FrigateService {
       if (entity.domain == 'binary_sensor' &&
           entity.entityId.contains('frigate') &&
           entity.isOn) {
-        final parts = entity.entityId.split('.').last.split('_');
+        var suffix = entity.entityId.split('.').last;
+        // Strip common Frigate entity prefixes (e.g. "frigate_front_yard_person")
+        if (suffix.startsWith('frigate_')) {
+          suffix = suffix.substring('frigate_'.length);
+        }
+        final parts = suffix.split('_');
         if (parts.length >= 2) {
           final label = parts.last;
           final camera = parts.sublist(0, parts.length - 1).join('_');

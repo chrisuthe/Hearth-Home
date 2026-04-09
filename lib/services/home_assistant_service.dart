@@ -230,6 +230,10 @@ class HomeAssistantService {
     required String entityId,
     Map<String, dynamic>? data,
   }) {
+    if (!_authenticated) {
+      Log.w('HA', 'callService dropped (not authenticated): $domain.$service');
+      return;
+    }
     _send({
       'id': _nextId,
       'type': 'call_service',
