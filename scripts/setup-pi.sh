@@ -100,6 +100,17 @@ BUNDLE_URL=$(echo "$RELEASE_JSON" | grep -o '"browser_download_url": *"[^"]*hear
 [ -z "$BUNDLE_URL" ] && { log "No bundle asset"; exit 1; }
 log "Updating to $LATEST..."
 wget -qO /tmp/hearth-bundle.tar.gz "$BUNDLE_URL" || { log "Download failed"; exit 1; }
+CHECKSUM_URL="${BUNDLE_URL%.tar.gz}.sha256"
+wget -q -O /tmp/hearth-bundle.sha256 "$CHECKSUM_URL" || {
+    log "Checksum file not found, skipping verification"
+}
+if [ -f /tmp/hearth-bundle.sha256 ]; then
+    cd /tmp && sha256sum -c hearth-bundle.sha256 || {
+        log "Checksum verification failed — aborting update"
+        rm -f /tmp/hearth-bundle.tar.gz /tmp/hearth-bundle.sha256
+        exit 1
+    }
+fi
 rm -rf /opt/hearth/bundle.staging && mkdir -p /opt/hearth/bundle.staging
 tar xzf /tmp/hearth-bundle.tar.gz -C /opt/hearth/bundle.staging/
 rm -f /tmp/hearth-bundle.tar.gz

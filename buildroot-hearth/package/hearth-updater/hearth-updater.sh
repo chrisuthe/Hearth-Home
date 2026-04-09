@@ -80,6 +80,21 @@ wget -q -O /tmp/hearth-bundle.tar.gz "$BUNDLE_URL" || {
     exit 1
 }
 
+# Download checksum
+CHECKSUM_URL="${BUNDLE_URL%.tar.gz}.sha256"
+wget -q -O /tmp/hearth-bundle.sha256 "$CHECKSUM_URL" || {
+    log "Checksum file not found, skipping verification"
+}
+
+# Verify if checksum was downloaded
+if [ -f /tmp/hearth-bundle.sha256 ]; then
+    cd /tmp && sha256sum -c hearth-bundle.sha256 || {
+        log "Checksum verification failed — aborting update"
+        rm -f /tmp/hearth-bundle.tar.gz /tmp/hearth-bundle.sha256
+        exit 1
+    }
+fi
+
 tar xzf /tmp/hearth-bundle.tar.gz -C "$STAGING_DIR" || {
     log "Extract failed"
     rm -rf "$STAGING_DIR"

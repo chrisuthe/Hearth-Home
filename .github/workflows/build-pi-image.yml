@@ -55,11 +55,17 @@ jobs:
           # Includes flutter-pi binary, libflutter_engine.so, app.so, and assets.
           tar czf "hearth-bundle-${VERSION}.tar.gz" -C "$SRC_DIR" .
 
+      - name: Generate checksum
+        run: |
+          sha256sum hearth-bundle-*.tar.gz > hearth-bundle-${VERSION:-dev}.sha256
+
       - name: Upload bundle artifact
         uses: actions/upload-artifact@v4
         with:
           name: hearth-bundle
-          path: hearth-bundle-*.tar.gz
+          path: |
+            hearth-bundle-*.tar.gz
+            hearth-bundle-*.sha256
 
   # Buildroot image build disabled — using Pi OS + setup script for now.
   # Re-enable when Buildroot defconfig is fully validated.
@@ -80,4 +86,5 @@ jobs:
         with:
           files: |
             hearth-bundle/hearth-bundle-*.tar.gz
+            hearth-bundle/hearth-bundle-*.sha256
           generate_release_notes: true
