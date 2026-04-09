@@ -8,9 +8,9 @@ import '../screens/ambient/ambient_overlays.dart';
 import '../screens/timer/timer_screen.dart';
 import '../services/timer_service.dart';
 import '../screens/home/home_screen.dart';
-import '../screens/media/media_screen.dart';
-import '../screens/controls/controls_screen.dart';
-import '../screens/cameras/cameras_screen.dart';
+import '../modules/media/media_screen.dart';
+import '../modules/controls/controls_screen.dart';
+import '../modules/cameras/cameras_screen.dart';
 import '../screens/settings/settings_screen.dart';
 
 /// The main shell that manages the two-layer navigation model.
