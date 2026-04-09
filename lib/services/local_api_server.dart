@@ -193,26 +193,53 @@ class LocalApiServer {
   }
 
   /// Reads and decodes a JSON request body with size limit enforcement.
+  /// Rejects early if Content-Length exceeds the limit, then streams with
+  /// a byte counter to guard against chunked transfers that lie about length.
   Future<Map<String, dynamic>> _readJsonBody(HttpRequest request) async {
-    final body = await utf8.decoder.bind(request).join();
-    if (body.length > _maxBodySize) {
+    if (request.contentLength > _maxBodySize) {
+      request.response.statusCode = 413;
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(jsonEncode({'error': 'request body too large'}));
+      await request.response.close();
       throw const FormatException('Request body too large');
     }
+    final chunks = <int>[];
+    await for (final chunk in request) {
+      chunks.addAll(chunk);
+      if (chunks.length > _maxBodySize) {
+        request.response.statusCode = 413;
+        request.response.headers.contentType = ContentType.json;
+        request.response.write(jsonEncode({'error': 'request body too large'}));
+        await request.response.close();
+        throw const FormatException('Request body too large');
+      }
+    }
+    final body = utf8.decode(chunks);
     return jsonDecode(body) as Map<String, dynamic>;
   }
 
   /// Reads raw request body as a string with size limit enforcement.
-  /// Returns null and sends a 400 response if the body is too large.
+  /// Returns null and sends a 413 response if the body is too large.
   Future<String?> _readBody(HttpRequest request) async {
-    final body = await utf8.decoder.bind(request).join();
-    if (body.length > _maxBodySize) {
-      request.response.statusCode = 400;
+    if (request.contentLength > _maxBodySize) {
+      request.response.statusCode = 413;
       request.response.headers.contentType = ContentType.json;
       request.response.write(jsonEncode({'error': 'request body too large'}));
       await request.response.close();
       return null;
     }
-    return body;
+    final chunks = <int>[];
+    await for (final chunk in request) {
+      chunks.addAll(chunk);
+      if (chunks.length > _maxBodySize) {
+        request.response.statusCode = 413;
+        request.response.headers.contentType = ContentType.json;
+        request.response.write(jsonEncode({'error': 'request body too large'}));
+        await request.response.close();
+        return null;
+      }
+    }
+    return utf8.decode(chunks);
   }
 
   // --- PIN auth ---
