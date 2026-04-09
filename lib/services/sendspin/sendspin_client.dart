@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 
 import '../../models/sendspin_state.dart';
+import '../../utils/logger.dart';
 import 'sendspin_buffer.dart';
 import 'sendspin_clock.dart';
 import 'sendspin_codec.dart';
@@ -105,7 +106,7 @@ class SendspinClient {
     try {
       msg = jsonDecode(text) as Map<String, dynamic>;
     } catch (e) {
-      debugPrint('SendspinClient: failed to parse text message: $e');
+      Log.w('Sendspin', 'Failed to parse text message: $e');
       return;
     }
 
@@ -126,13 +127,13 @@ class SendspinClient {
       case 'player/command':
         _handlePlayerCommand(payload);
       default:
-        debugPrint('SendspinClient: unknown message type: $type');
+        Log.d('Sendspin', 'Unknown message type: $type');
     }
   }
 
   void _handleServerHello(Map<String, dynamic> payload) {
     final serverName = payload['name'] as String? ?? 'Unknown';
-    debugPrint('SendspinClient: server hello from $serverName');
+    Log.i('Sendspin', 'Server hello from $serverName');
 
     _updateState(_state.copyWith(
       connectionState: SendspinConnectionState.syncing,
@@ -168,8 +169,9 @@ class SendspinClient {
     final sampleRate = audioFormat['sample_rate'] as int? ?? 48000;
     final bitDepth = audioFormat['bit_depth'] as int? ?? 16;
 
-    debugPrint(
-      'SendspinClient: stream/start codec=$codecName ch=$channels '
+    Log.i(
+      'Sendspin',
+      'stream/start codec=$codecName ch=$channels '
       'rate=$sampleRate bits=$bitDepth',
     );
 
@@ -196,13 +198,13 @@ class SendspinClient {
   }
 
   void _handleStreamClear() {
-    debugPrint('SendspinClient: stream/clear');
+    Log.d('Sendspin', 'stream/clear');
     _buffer?.flush();
     _codec?.reset();
   }
 
   void _handleStreamEnd() {
-    debugPrint('SendspinClient: stream/end');
+    Log.d('Sendspin', 'stream/end');
     _buffer?.flush();
     _codec?.reset();
     _codec = null;
@@ -225,7 +227,7 @@ class SendspinClient {
         final muted = (value is bool) ? value : _state.muted;
         _updateState(_state.copyWith(muted: muted));
       default:
-        debugPrint('SendspinClient: unknown player command: $command');
+        Log.d('Sendspin', 'Unknown player command: $command');
     }
   }
 
@@ -236,7 +238,7 @@ class SendspinClient {
   /// Handles an incoming binary audio frame.
   void handleBinaryMessage(Uint8List data) {
     if (data.length < 9) {
-      debugPrint('SendspinClient: binary frame too short (${data.length} bytes)');
+      Log.w('Sendspin', 'Binary frame too short (${data.length} bytes)');
       return;
     }
 

@@ -1,7 +1,7 @@
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../config/hub_config.dart';
+import '../utils/logger.dart';
 
 /// Describes a Hearth release available on GitHub.
 class UpdateInfo {
@@ -85,7 +85,7 @@ class UpdateService {
       if (data == null) return null;
       return UpdateInfo.fromGitHubRelease(data);
     } catch (e) {
-      debugPrint('UpdateService: failed to check for update: $e');
+      Log.e('Update', 'Check failed: $e');
       return null;
     }
   }
