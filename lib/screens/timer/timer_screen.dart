@@ -131,20 +131,20 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
             ),
           ),
           const SizedBox(height: 32),
-          GestureDetector(
-            onTap: _startTimer,
-            child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 48, vertical: 14),
-              decoration: BoxDecoration(
-                color: const Color(0xFF646CFF),
-                borderRadius: BorderRadius.circular(28),
+          Material(
+            color: const Color(0xFF646CFF),
+            borderRadius: BorderRadius.circular(28),
+            child: InkWell(
+              onTap: _startTimer,
+              borderRadius: BorderRadius.circular(28),
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 48, vertical: 14),
+                child: Text('Start',
+                    style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.white)),
               ),
-              child: const Text('Start',
-                  style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.white)),
             ),
           ),
           const SizedBox(height: 24),
@@ -410,16 +410,17 @@ class _PresetChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(20),
+    return Material(
+      color: Colors.white.withValues(alpha: 0.08),
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Text(label,
+              style: const TextStyle(fontSize: 13, color: Colors.white70)),
         ),
-        child: Text(label,
-            style: const TextStyle(fontSize: 13, color: Colors.white70)),
       ),
     );
   }
