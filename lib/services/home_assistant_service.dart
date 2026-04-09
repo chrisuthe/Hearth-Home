@@ -67,11 +67,19 @@ class HomeAssistantService {
       onError: (error) {
         Log.e('HA', 'WebSocket error: $error');
         _authenticated = false;
+        for (final completer in _pendingResponses.values) {
+          completer.complete(null);
+        }
+        _pendingResponses.clear();
         _scheduleReconnect();
       },
       onDone: () {
         Log.i('HA', 'WebSocket closed');
         _authenticated = false;
+        for (final completer in _pendingResponses.values) {
+          completer.complete(null);
+        }
+        _pendingResponses.clear();
         _scheduleReconnect();
       },
     );
