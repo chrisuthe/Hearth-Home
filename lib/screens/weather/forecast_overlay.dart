@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:weather_icons/weather_icons.dart';
+import '../../config/hub_config.dart';
 import '../../models/weather_state.dart';
 import '../../utils/weather_icon_mapping.dart';
 
-class ForecastOverlay extends StatelessWidget {
+class ForecastOverlay extends ConsumerWidget {
   final WeatherState weather;
   const ForecastOverlay({super.key, required this.weather});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final use24h = ref.watch(hubConfigProvider.select((c) => c.use24HourClock));
     return Dialog.fullscreen(
       backgroundColor: Colors.black.withValues(alpha: 0.95),
       child: GestureDetector(
@@ -39,7 +42,7 @@ class ForecastOverlay extends StatelessWidget {
                       scrollDirection: Axis.horizontal,
                       itemCount: weather.hourlyForecast.length,
                       separatorBuilder: (context, index) => const SizedBox(width: 16),
-                      itemBuilder: (_, i) => _HourlyItem(forecast: weather.hourlyForecast[i]),
+                      itemBuilder: (_, i) => _HourlyItem(forecast: weather.hourlyForecast[i], use24h: use24h),
                     ),
                   ),
                   const SizedBox(height: 24),
@@ -108,12 +111,15 @@ class _CurrentHero extends StatelessWidget {
 
 class _HourlyItem extends StatelessWidget {
   final HourlyForecast forecast;
-  const _HourlyItem({required this.forecast});
+  final bool use24h;
+  const _HourlyItem({required this.forecast, this.use24h = false});
 
   @override
   Widget build(BuildContext context) {
     final hour = forecast.time.hour;
-    final label = hour == 0 ? '12a' : hour < 12 ? '${hour}a' : hour == 12 ? '12p' : '${hour - 12}p';
+    final label = use24h
+        ? '${hour.toString().padLeft(2, '0')}:00'
+        : hour == 0 ? '12a' : hour < 12 ? '${hour}a' : hour == 12 ? '12p' : '${hour - 12}p';
     return SizedBox(
       width: 56,
       child: Column(
