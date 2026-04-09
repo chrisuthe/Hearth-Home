@@ -26,7 +26,7 @@ class MealieRecipeSummary {
       description: json['description'] as String?,
       image: json['image'] as String?,
       totalTime: _parseIsoDuration(json['totalTime'] as String?),
-      rating: json['rating'] as int?,
+      rating: (json['rating'] as num?)?.round(),
     );
   }
 }
