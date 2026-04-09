@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../utils/logger.dart';
-import '../models/frigate_event.dart';
-import '../config/hub_config.dart';
-import 'home_assistant_service.dart';
+import '../../utils/logger.dart';
+import '../../models/frigate_event.dart';
+import '../../config/hub_config.dart';
+import '../../services/home_assistant_service.dart';
 
 /// Provides Frigate NVR camera feeds and detection events.
 ///

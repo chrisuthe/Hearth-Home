@@ -6,7 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import '../../models/frigate_event.dart';
-import '../../services/frigate_service.dart';
+import 'frigate_service.dart';
 
 /// Whether media_kit (libmpv) is available for RTSP video.
 /// False on web and when HEARTH_NO_MEDIAKIT is set (Pi with flutter-pi).

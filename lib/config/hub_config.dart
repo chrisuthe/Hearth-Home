@@ -46,6 +46,9 @@ class HubConfig {
   final String displayProfile; // "auto" | "amoled-11" | "rpi-7" | "hdmi"
   final int displayWidth;      // 0 = use profile default
   final int displayHeight;     // 0 = use profile default
+  final List<String> enabledModules;
+  final String mealieUrl;
+  final String mealieToken;
   final bool setupComplete;
   final bool autoUpdate;
   final String currentVersion;
@@ -76,6 +79,9 @@ class HubConfig {
     this.displayProfile = 'auto',
     this.displayWidth = 0,
     this.displayHeight = 0,
+    this.enabledModules = const ['media', 'controls', 'cameras'],
+    this.mealieUrl = '',
+    this.mealieToken = '',
     this.setupComplete = false,
     this.autoUpdate = true,
     this.currentVersion = '',
@@ -113,6 +119,9 @@ class HubConfig {
     String? displayProfile,
     int? displayWidth,
     int? displayHeight,
+    List<String>? enabledModules,
+    String? mealieUrl,
+    String? mealieToken,
     bool? setupComplete,
     bool? autoUpdate,
     String? currentVersion,
@@ -143,6 +152,9 @@ class HubConfig {
       displayProfile: displayProfile ?? this.displayProfile,
       displayWidth: displayWidth ?? this.displayWidth,
       displayHeight: displayHeight ?? this.displayHeight,
+      enabledModules: enabledModules ?? this.enabledModules,
+      mealieUrl: mealieUrl ?? this.mealieUrl,
+      mealieToken: mealieToken ?? this.mealieToken,
       setupComplete: setupComplete ?? this.setupComplete,
       autoUpdate: autoUpdate ?? this.autoUpdate,
       currentVersion: currentVersion ?? this.currentVersion,
@@ -175,6 +187,9 @@ class HubConfig {
         'displayProfile': displayProfile,
         'displayWidth': displayWidth,
         'displayHeight': displayHeight,
+        'enabledModules': enabledModules,
+        'mealieUrl': mealieUrl,
+        'mealieToken': mealieToken,
         'setupComplete': setupComplete,
         'autoUpdate': autoUpdate,
         'currentVersion': currentVersion,
@@ -206,6 +221,9 @@ class HubConfig {
         displayProfile: json['displayProfile'] as String? ?? 'auto',
         displayWidth: json['displayWidth'] as int? ?? 0,
         displayHeight: json['displayHeight'] as int? ?? 0,
+        enabledModules: (json['enabledModules'] as List<dynamic>?)?.cast<String>() ?? const ['media', 'controls', 'cameras'],
+        mealieUrl: json['mealieUrl'] as String? ?? '',
+        mealieToken: json['mealieToken'] as String? ?? '',
         setupComplete: json['setupComplete'] as bool? ?? false,
         autoUpdate: json['autoUpdate'] as bool? ?? true,
         currentVersion: json['currentVersion'] as String? ?? '',
