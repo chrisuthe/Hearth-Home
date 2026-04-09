@@ -115,7 +115,7 @@ void main() {
       // Get first photo via nextPhoto (index 0, then increments to 1)
       final first = service.nextPhoto;
       // Get second photo via nextPhoto (index 1, then increments to 2)
-      final second = service.nextPhoto;
+      service.nextPhoto;
       // previousPhoto should go back to the first photo
       final prev = service.previousPhoto;
       expect(prev!.assetId, first!.assetId);
