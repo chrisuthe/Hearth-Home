@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../utils/logger.dart';
 import '../config/hub_config.dart';
@@ -34,15 +35,25 @@ class LocalApiServer {
 
   static const int _maxBodySize = 64 * 1024; // 64 KB
 
+  /// 4-digit PIN displayed on the kiosk Settings screen.
+  /// Users must enter this PIN in the web portal to gain access.
+  final String _webPin;
+  String get webPin => _webPin;
+
+  /// Active session tokens granted after successful PIN entry.
+  final Set<String> _activeSessions = {};
+
   LocalApiServer({
     required DisplayModeService displayModeService,
     required HubConfigNotifier configNotifier,
     WifiService? wifiService,
     UpdateService? updateService,
+    String? webPin,
   })  : _displayModeService = displayModeService,
         _configNotifier = configNotifier,
         _wifiService = wifiService ?? WifiService(),
-        _updateService = updateService ?? UpdateService();
+        _updateService = updateService ?? UpdateService(),
+        _webPin = webPin ?? (Random.secure().nextInt(9000) + 1000).toString();
 
   Future<int> start({int port = 8090}) async {
     _server = await HttpServer.bind(InternetAddress.anyIPv4, port);
@@ -50,14 +61,59 @@ class LocalApiServer {
     return _server!.port;
   }
 
+  /// Generates a random 32-character session token.
+  static String _generateSessionToken() {
+    final rng = Random.secure();
+    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    return List.generate(32, (_) => chars[rng.nextInt(chars.length)]).join();
+  }
+
+  /// Checks whether the request carries a valid session cookie.
+  bool _checkSession(HttpRequest request) {
+    final cookieHeader = request.headers.value('cookie');
+    if (cookieHeader == null) return false;
+    // Parse cookies: "name=value; name2=value2"
+    for (final part in cookieHeader.split(';')) {
+      final trimmed = part.trim();
+      if (trimmed.startsWith('hearth_session=')) {
+        final token = trimmed.substring('hearth_session='.length);
+        return _activeSessions.contains(token);
+      }
+    }
+    return false;
+  }
+
   Future<void> _handleRequest(HttpRequest request) async {
     try {
       final path = request.uri.path;
 
+      // --- PIN auth endpoint (unauthenticated) ---
+      if (path == '/auth/pin' && request.method == 'POST') {
+        await _handlePinAuth(request);
+        return;
+      }
+
       if (path == '/') {
-        await _serveConfigPage(request);
+        if (_checkSession(request)) {
+          await _serveConfigPage(request);
+        } else {
+          await _servePinPage(request);
+        }
       } else if (path == '/logs') {
-        await _serveLogsPage(request);
+        if (_checkSession(request)) {
+          await _serveLogsPage(request);
+        } else {
+          await _servePinPage(request);
+        }
+      } else if (path == '/api/session/key' && request.method == 'GET') {
+        if (!_checkSession(request)) {
+          request.response.statusCode = 401;
+          request.response.headers.contentType = ContentType.json;
+          request.response.write(jsonEncode({'error': 'unauthorized'}));
+          await request.response.close();
+          return;
+        }
+        await _handleSessionKey(request);
       } else if (path == '/api/logs' && request.method == 'GET') {
         if (!_checkAuth(request)) return;
         await _handleGetLogs(request);
@@ -157,6 +213,39 @@ class LocalApiServer {
       return null;
     }
     return body;
+  }
+
+  // --- PIN auth ---
+
+  Future<void> _handlePinAuth(HttpRequest request) async {
+    final json = await _readJsonBody(request);
+    final pin = json['pin'] as String?;
+    if (pin == _webPin) {
+      final token = _generateSessionToken();
+      _activeSessions.add(token);
+      request.response.statusCode = 200;
+      request.response.headers.contentType = ContentType.json;
+      request.response.headers.add(
+        'Set-Cookie',
+        'hearth_session=$token; HttpOnly; SameSite=Strict; Max-Age=86400; Path=/',
+      );
+      request.response.write(jsonEncode({'status': 'ok'}));
+      await request.response.close();
+    } else {
+      request.response.statusCode = 401;
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(jsonEncode({'error': 'wrong pin'}));
+      await request.response.close();
+    }
+  }
+
+  /// Returns the API key to authenticated web sessions so JS can call /api/*.
+  Future<void> _handleSessionKey(HttpRequest request) async {
+    final apiKey = _configNotifier.current.apiKey;
+    request.response.statusCode = 200;
+    request.response.headers.contentType = ContentType.json;
+    request.response.write(jsonEncode({'apiKey': apiKey}));
+    await request.response.close();
   }
 
   // --- Config endpoints ---
@@ -431,25 +520,29 @@ class LocalApiServer {
   }
 
   Future<void> _serveLogsPage(HttpRequest request) async {
-    final apiKey = _configNotifier.current.apiKey;
     request.response.statusCode = 200;
     request.response.headers.contentType = ContentType.html;
-    request.response.write(_logsPageHtml.replaceFirst(
-        '{{API_KEY}}', apiKey.replaceAll(r'\', r'\\').replaceAll("'", r"\'")));
+    request.response.write(_logsPageHtml);
     await request.response.close();
   }
 
   // --- Config web page ---
 
   Future<void> _serveConfigPage(HttpRequest request) async {
-    final apiKey = _configNotifier.current.apiKey;
     request.response.statusCode = 200;
     request.response.headers.contentType = ContentType.html;
     request.response.headers.add('X-Content-Type-Options', 'nosniff');
     request.response.headers.add('X-Frame-Options', 'DENY');
-    // Inject the API key into the page so JS can authenticate requests.
-    request.response.write(_configPageHtml.replaceFirst(
-        '{{API_KEY}}', apiKey.replaceAll(r'\', r'\\').replaceAll("'", r"\'")));
+    request.response.write(_configPageHtml);
+    await request.response.close();
+  }
+
+  // --- PIN entry page ---
+
+  Future<void> _servePinPage(HttpRequest request) async {
+    request.response.statusCode = 200;
+    request.response.headers.contentType = ContentType.html;
+    request.response.write(_pinPageHtml);
     await request.response.close();
   }
 
@@ -471,6 +564,10 @@ final localApiServerProvider = Provider<LocalApiServer>((ref) {
     wifiService: wifiService,
     updateService: updateService,
   );
+});
+
+final webPinProvider = Provider<String>((ref) {
+  return ref.read(localApiServerProvider).webPin;
 });
 
 // ---------------------------------------------------------------------------
@@ -654,8 +751,17 @@ const _configPageHtml = r'''
   <div class="toast" id="toast"></div>
 </div>
 <script>
-const API_KEY = '{{API_KEY}}';
-const headers = {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + API_KEY};
+let API_KEY = '';
+function getHeaders() {
+  return {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + API_KEY};
+}
+async function initAuth() {
+  const r = await fetch('/api/session/key');
+  if (r.ok) {
+    const d = await r.json();
+    API_KEY = d.apiKey;
+  }
+}
 
 const textFields = [
   'immichUrl','immichApiKey','haUrl','haToken',
@@ -671,7 +777,7 @@ const REDACTED = '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022';
 
 async function load() {
   try {
-    const r = await fetch('/api/config', {headers});
+    const r = await fetch('/api/config', {headers: getHeaders()});
     const cfg = await r.json();
     for (const f of textFields) {
       const el = document.getElementById(f);
@@ -728,7 +834,7 @@ document.getElementById('configForm').addEventListener('submit', async (e) => {
   const pinnedText = document.getElementById('pinnedEntityIds').value;
   body.pinnedEntityIds = pinnedText.split('\n').map(s => s.trim()).filter(s => s.length > 0);
   try {
-    const r = await fetch('/api/config', {method: 'POST', headers, body: JSON.stringify(body)});
+    const r = await fetch('/api/config', {method: 'POST', headers: getHeaders(), body: JSON.stringify(body)});
     if (r.ok) { showToast('Saved!'); }
     else { showToast('Save failed', true); }
   } catch(e) { showToast('Save failed', true); }
@@ -753,7 +859,7 @@ async function checkUpdate() {
   txt.style.color = '#888';
   btn.style.display = 'none';
   try {
-    const r = await fetch('/api/update/check', {method:'POST', headers});
+    const r = await fetch('/api/update/check', {method:'POST', headers: getHeaders()});
     const d = await r.json();
     if (d.updateAvailable) {
       txt.textContent = 'Update available: v' + d.latestVersion + ' (current: v' + (d.currentVersion || 'unknown') + ')';
@@ -773,7 +879,7 @@ async function applyUpdate() {
   txt.style.color = '#888';
   btn.style.display = 'none';
   try {
-    const r = await fetch('/api/update/apply', {method:'POST', headers});
+    const r = await fetch('/api/update/apply', {method:'POST', headers: getHeaders()});
     const d = await r.json();
     if (d.success) {
       txt.textContent = 'Update installed! Hearth is restarting...';
@@ -785,7 +891,7 @@ async function applyUpdate() {
   } catch(e) { txt.textContent = 'Update failed'; txt.style.color = '#f87171'; }
 }
 
-load();
+initAuth().then(() => load());
 </script>
 </body>
 </html>
@@ -857,14 +963,23 @@ const _logsPageHtml = r'''
 <div id="statsBar" style="display:flex;gap:16px;padding:8px 12px;margin-bottom:8px;background:#0a0a0a;border:1px solid #222;border-radius:6px;font-family:monospace;font-size:12px;color:#888;"></div>
 <pre id="logOutput">Loading...</pre>
 <script>
-const API_KEY = '{{API_KEY}}';
-const headers = {'Authorization': 'Bearer ' + API_KEY};
+let API_KEY = '';
+function getHeaders() {
+  return {'Authorization': 'Bearer ' + API_KEY};
+}
+async function initAuth() {
+  const r = await fetch('/api/session/key');
+  if (r.ok) {
+    const d = await r.json();
+    API_KEY = d.apiKey;
+  }
+}
 let refreshTimer = null;
 
 async function fetchLogs() {
   const lines = document.getElementById('lineCount').value;
   try {
-    const r = await fetch('/api/logs?lines=' + lines, {headers});
+    const r = await fetch('/api/logs?lines=' + lines, {headers: getHeaders()});
     const d = await r.json();
     const el = document.getElementById('logOutput');
     el.textContent = d.logs || d.error || 'No logs';
@@ -886,7 +1001,7 @@ document.getElementById('lineCount').addEventListener('change', fetchLogs);
 
 async function fetchStats() {
   try {
-    const r = await fetch('/api/system/stats', {headers});
+    const r = await fetch('/api/system/stats', {headers: getHeaders()});
     const d = await r.json();
     const bar = document.getElementById('statsBar');
     bar.textContent = '';
@@ -908,10 +1023,90 @@ async function fetchStats() {
   } catch(e) {}
 }
 
-fetchLogs();
-fetchStats();
-toggleAutoRefresh();
-setInterval(fetchStats, 3000);
+initAuth().then(() => { fetchLogs(); fetchStats(); toggleAutoRefresh(); setInterval(fetchStats, 3000); });
+</script>
+</body>
+</html>
+''';
+
+// ---------------------------------------------------------------------------
+// PIN entry page — shown when a web session is not yet authenticated.
+// ---------------------------------------------------------------------------
+
+const _pinPageHtml = r'''
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hearth — Unlock</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #111; color: #e0e0e0;
+    display: flex; justify-content: center; align-items: center;
+    min-height: 100vh; padding: 24px;
+  }
+  .card {
+    text-align: center; width: 100%; max-width: 340px;
+  }
+  h1 { font-size: 28px; font-weight: 300; margin-bottom: 8px; color: #fff; }
+  p { font-size: 14px; color: #888; margin-bottom: 24px; }
+  input#pin {
+    width: 160px; padding: 14px; text-align: center;
+    font-size: 28px; letter-spacing: 12px;
+    background: #1e1e1e; border: 1px solid #333; border-radius: 8px;
+    color: #e0e0e0; outline: none;
+  }
+  input#pin:focus { border-color: #646cff; }
+  button {
+    display: block; width: 160px; margin: 16px auto 0;
+    padding: 12px; background: #646cff; color: #fff;
+    border: none; border-radius: 6px; font-size: 15px; cursor: pointer;
+  }
+  button:hover { background: #535bf2; }
+  .error {
+    margin-top: 12px; font-size: 13px; color: #f87171;
+    min-height: 20px;
+  }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>Hearth</h1>
+  <p>Enter the PIN shown on the kiosk display</p>
+  <input type="text" id="pin" inputmode="numeric" maxlength="4" autofocus pattern="[0-9]*">
+  <button onclick="unlock()">Unlock</button>
+  <div class="error" id="error"></div>
+</div>
+<script>
+document.getElementById('pin').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') unlock();
+});
+
+async function unlock() {
+  const pin = document.getElementById('pin').value;
+  const err = document.getElementById('error');
+  err.textContent = '';
+  if (pin.length !== 4) { err.textContent = 'Enter a 4-digit PIN'; return; }
+  try {
+    const r = await fetch('/auth/pin', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({pin: pin})
+    });
+    if (r.ok) {
+      window.location.reload();
+    } else {
+      err.textContent = 'Wrong PIN';
+      document.getElementById('pin').value = '';
+      document.getElementById('pin').focus();
+    }
+  } catch(e) {
+    err.textContent = 'Connection error';
+  }
+}
 </script>
 </body>
 </html>

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../config/hub_config.dart';
 import '../../models/ha_entity.dart';
 import '../../services/home_assistant_service.dart';
+import '../../services/local_api_server.dart';
 import '../../app/app.dart' show kDialogBackground;
 import '../../services/sendspin/sendspin_service.dart';
 import '../../models/sendspin_state.dart';
@@ -36,6 +37,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         _SectionHeader(title: 'Network'),
         const SizedBox(height: 8),
         const WifiSettingsSection(),
+        const SizedBox(height: 24),
+
+        // --- Web Access section ---
+        _SectionHeader(title: 'Web Access'),
+        const SizedBox(height: 8),
+        _SettingsTile(
+          icon: Icons.pin,
+          title: 'Web Portal PIN',
+          subtitle: ref.watch(webPinProvider),
+          onTap: () {},
+        ),
+
         const SizedBox(height: 24),
 
         // --- Connections section ---
