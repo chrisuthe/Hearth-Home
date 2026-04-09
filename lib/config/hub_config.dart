@@ -46,6 +46,7 @@ class HubConfig {
   final String displayProfile; // "auto" | "amoled-11" | "rpi-7" | "hdmi"
   final int displayWidth;      // 0 = use profile default
   final int displayHeight;     // 0 = use profile default
+  final List<String> enabledModules;
   final bool setupComplete;
   final bool autoUpdate;
   final String currentVersion;
@@ -76,6 +77,7 @@ class HubConfig {
     this.displayProfile = 'auto',
     this.displayWidth = 0,
     this.displayHeight = 0,
+    this.enabledModules = const [],
     this.setupComplete = false,
     this.autoUpdate = true,
     this.currentVersion = '',
@@ -113,6 +115,7 @@ class HubConfig {
     String? displayProfile,
     int? displayWidth,
     int? displayHeight,
+    List<String>? enabledModules,
     bool? setupComplete,
     bool? autoUpdate,
     String? currentVersion,
@@ -143,6 +146,7 @@ class HubConfig {
       displayProfile: displayProfile ?? this.displayProfile,
       displayWidth: displayWidth ?? this.displayWidth,
       displayHeight: displayHeight ?? this.displayHeight,
+      enabledModules: enabledModules ?? this.enabledModules,
       setupComplete: setupComplete ?? this.setupComplete,
       autoUpdate: autoUpdate ?? this.autoUpdate,
       currentVersion: currentVersion ?? this.currentVersion,
@@ -175,6 +179,7 @@ class HubConfig {
         'displayProfile': displayProfile,
         'displayWidth': displayWidth,
         'displayHeight': displayHeight,
+        'enabledModules': enabledModules,
         'setupComplete': setupComplete,
         'autoUpdate': autoUpdate,
         'currentVersion': currentVersion,
@@ -206,6 +211,7 @@ class HubConfig {
         displayProfile: json['displayProfile'] as String? ?? 'auto',
         displayWidth: json['displayWidth'] as int? ?? 0,
         displayHeight: json['displayHeight'] as int? ?? 0,
+        enabledModules: (json['enabledModules'] as List<dynamic>?)?.cast<String>() ?? const [],
         setupComplete: json['setupComplete'] as bool? ?? false,
         autoUpdate: json['autoUpdate'] as bool? ?? true,
         currentVersion: json['currentVersion'] as String? ?? '',
