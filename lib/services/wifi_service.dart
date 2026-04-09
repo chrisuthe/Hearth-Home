@@ -80,6 +80,10 @@ class WifiService {
   ///
   /// Runs: `nmcli device wifi connect <ssid> password <password>`
   /// Returns false on non-Linux platforms.
+  // Note: WiFi password is passed as a CLI argument, which makes it briefly
+  // visible in /proc/<pid>/cmdline. nmcli does not support reading passwords
+  // from stdin in non-interactive mode. For a LAN-only kiosk this is an
+  // accepted risk. See https://registry.home.chrisuthe.com/chris/Hearth/issues/13
   Future<bool> connect(String ssid, String password) async {
     if (!Platform.isLinux) return false;
     try {
