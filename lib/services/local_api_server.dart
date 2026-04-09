@@ -287,7 +287,7 @@ class LocalApiServer {
   Future<void> _handleGetConfig(HttpRequest request) async {
     final json = _configNotifier.current.toJson();
     // Redact secrets — tokens are write-only from the API's perspective.
-    const secretFields = ['apiKey', 'haToken', 'immichApiKey', 'musicAssistantToken'];
+    const secretFields = ['apiKey', 'haToken', 'immichApiKey', 'musicAssistantToken', 'mealieToken'];
     for (final field in secretFields) {
       final value = json[field] as String? ?? '';
       json[field] = value.isEmpty ? '' : '••••••••';
@@ -305,7 +305,7 @@ class LocalApiServer {
 
     // Filter out redacted markers so clients cannot overwrite real secrets
     // with the placeholder value returned by GET /api/config.
-    const secretFields = ['haToken', 'immichApiKey', 'musicAssistantToken'];
+    const secretFields = ['haToken', 'immichApiKey', 'musicAssistantToken', 'mealieToken'];
     for (final field in secretFields) {
       if (json[field] == _redactedMarker) {
         json.remove(field);
@@ -336,6 +336,8 @@ class LocalApiServer {
           sendspinPlayerName: json['sendspinPlayerName'] as String?,
           sendspinBufferSeconds: json['sendspinBufferSeconds'] as int?,
           sendspinServerUrl: json['sendspinServerUrl'] as String?,
+          mealieUrl: json['mealieUrl'] as String?,
+          mealieToken: json['mealieToken'] as String?,
         ));
 
     request.response.statusCode = 200;
@@ -731,6 +733,16 @@ const _configPageHtml = r'''
     <label for="frigateUrl">Frigate URL</label>
     <input type="text" id="frigateUrl" placeholder="http://192.168.1.x:5000">
 
+    <h2>Mealie</h2>
+    <label for="mealieUrl">Mealie URL</label>
+    <input type="text" id="mealieUrl" placeholder="http://192.168.1.x:9925">
+    <label for="mealieToken">Mealie API Token</label>
+    <div class="secret-wrap">
+      <input type="password" id="mealieToken" placeholder="Paste your Mealie API token">
+      <button type="button" class="toggle-vis" onclick="toggleVis(this)">&#x1f441;</button>
+    </div>
+    <div class="hint" id="mealieToken_hint"></div>
+
     <h2>Weather</h2>
     <label for="weatherEntityId">Weather Entity ID</label>
     <input type="text" id="weatherEntityId" placeholder="weather.pirateweather">
@@ -819,13 +831,14 @@ async function initAuth() {
 const textFields = [
   'immichUrl','immichApiKey','haUrl','haToken',
   'musicAssistantUrl','musicAssistantToken','defaultMusicZone','frigateUrl',
+  'mealieUrl','mealieToken',
   'weatherEntityId','nightModeHaEntity','nightModeClockStart','nightModeClockEnd',
   'sendspinPlayerName','sendspinServerUrl'
 ];
 const intFields = ['idleTimeoutSeconds','sendspinBufferSeconds'];
 const boolFields = ['use24HourClock','sendspinEnabled','autoUpdate'];
 const selectFields = ['nightModeSource','displayProfile'];
-const secretFields = ['immichApiKey', 'haToken', 'musicAssistantToken'];
+const secretFields = ['immichApiKey', 'haToken', 'musicAssistantToken', 'mealieToken'];
 const REDACTED = '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022';
 
 async function load() {
