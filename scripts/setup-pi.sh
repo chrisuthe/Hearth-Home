@@ -86,45 +86,8 @@ WantedBy=multi-user.target
 EOF
 
 # Install OTA updater
-sudo tee /usr/bin/hearth-updater > /dev/null << 'UPDATER'
-#!/bin/sh
-set -e
-BUNDLE_DIR="/opt/hearth/bundle"
-PREV_DIR="/opt/hearth/bundle.prev"
-VERSION_FILE="/etc/hearth-version"
-RELEASE_URL="https://api.github.com/repos/chrisuthe/Hearth-Home/releases/latest"
-LOG_TAG="hearth-updater"
-log() { logger -t "$LOG_TAG" "$1"; }
-CURRENT=$(cat "$VERSION_FILE" 2>/dev/null || echo "")
-RELEASE_JSON=$(wget -qO- "$RELEASE_URL" 2>/dev/null) || { log "Failed to fetch"; exit 1; }
-LATEST_TAG=$(echo "$RELEASE_JSON" | grep -o '"tag_name": *"[^"]*"' | head -1 | cut -d'"' -f4)
-LATEST="${LATEST_TAG#v}"
-[ "$CURRENT" = "$LATEST" ] && { log "Up to date"; exit 0; }
-BUNDLE_URL=$(echo "$RELEASE_JSON" | grep -o '"browser_download_url": *"[^"]*hearth-bundle-[^"]*\.tar\.gz"' | head -1 | cut -d'"' -f4)
-[ -z "$BUNDLE_URL" ] && { log "No bundle asset"; exit 1; }
-log "Updating to $LATEST..."
-wget -qO /tmp/hearth-bundle.tar.gz "$BUNDLE_URL" || { log "Download failed"; exit 1; }
-CHECKSUM_URL="${BUNDLE_URL%.tar.gz}.sha256"
-wget -q -O /tmp/hearth-bundle.sha256 "$CHECKSUM_URL" || {
-    log "Checksum file not found, skipping verification"
-}
-if [ -f /tmp/hearth-bundle.sha256 ]; then
-    cd /tmp && sha256sum -c hearth-bundle.sha256 || {
-        log "Checksum verification failed — aborting update"
-        rm -f /tmp/hearth-bundle.tar.gz /tmp/hearth-bundle.sha256
-        exit 1
-    }
-fi
-rm -rf /opt/hearth/bundle.staging && mkdir -p /opt/hearth/bundle.staging
-tar xzf /tmp/hearth-bundle.tar.gz -C /opt/hearth/bundle.staging/
-rm -f /tmp/hearth-bundle.tar.gz
-rm -rf "$PREV_DIR" && [ -d "$BUNDLE_DIR" ] && mv "$BUNDLE_DIR" "$PREV_DIR"
-mv /opt/hearth/bundle.staging "$BUNDLE_DIR"
-cp /etc/hearth-version /etc/hearth-version.prev 2>/dev/null
-echo "$LATEST" > "$VERSION_FILE"
-log "Updated to $LATEST, restarting"
-systemctl restart hearth.service
-UPDATER
+echo "Installing OTA updater..."
+sudo wget -qO /usr/bin/hearth-updater https://raw.githubusercontent.com/chrisuthe/Hearth-Home/main/buildroot-hearth/package/hearth-updater/hearth-updater.sh
 sudo chmod +x /usr/bin/hearth-updater
 
 # Set hostname
