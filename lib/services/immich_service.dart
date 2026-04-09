@@ -66,6 +66,22 @@ class ImmichService {
     _cachedMemories.clear();
     _cachedMemories.addAll(newMemories);
     _currentIndex = 0;
+    if (!kIsWeb) _evictOldCache();
+  }
+
+  /// Evicts cached photos beyond the 200 most recent by modification time.
+  Future<void> _evictOldCache() async {
+    try {
+      final dir = await getApplicationSupportDirectory();
+      final cacheDir = Directory('${dir.path}/photo_cache');
+      if (!cacheDir.existsSync()) return;
+      final files = cacheDir.listSync().whereType<File>().toList();
+      if (files.length <= 200) return;
+      files.sort((a, b) => b.lastModifiedSync().compareTo(a.lastModifiedSync()));
+      for (final file in files.skip(200)) {
+        file.deleteSync();
+      }
+    } catch (_) {}
   }
 
   /// Parses the memories API response into flat photo list.
