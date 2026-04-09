@@ -4,18 +4,15 @@ import '../models/music_state.dart';
 /// Compact now-playing bar for the Home screen and ambient display.
 ///
 /// Shows album art, track title, artist, and a play/pause toggle.
-/// Tapping the bar (not the button) navigates to the full Media screen.
 /// Renders as an empty SizedBox when no track is loaded, so it can be
 /// placed unconditionally in layouts without null checks.
 class NowPlayingBar extends StatelessWidget {
   final MusicPlayerState musicState;
-  final VoidCallback? onTap;
   final VoidCallback? onPlayPause;
 
   const NowPlayingBar({
     super.key,
     required this.musicState,
-    this.onTap,
     this.onPlayPause,
   });
 
@@ -23,9 +20,7 @@ class NowPlayingBar extends StatelessWidget {
   Widget build(BuildContext context) {
     if (!musicState.hasTrack) return const SizedBox.shrink();
 
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
+    return Container(
         margin: const EdgeInsets.symmetric(horizontal: 24),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
@@ -86,7 +81,6 @@ class NowPlayingBar extends StatelessWidget {
             ),
           ],
         ),
-      ),
     );
   }
 }
