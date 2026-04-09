@@ -104,10 +104,6 @@ class HomeScreen extends ConsumerWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
-              _SceneButton(label: 'Goodnight', icon: Icons.bedtime),
-              const SizedBox(width: 12),
-              _SceneButton(label: 'All Off', icon: Icons.power_settings_new),
             ],
           ),
 
