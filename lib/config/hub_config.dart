@@ -7,6 +7,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:io' if (dart.library.html) 'dart:io';
 import 'package:path_provider/path_provider.dart';
 
+/// Sentinel value for copyWith to distinguish "not provided" from "set to null".
+const _undefined = Object();
+
 /// Central configuration for a single Home Hub device.
 ///
 /// Each hub stores its own config locally — there's no shared backend.
@@ -38,6 +41,7 @@ class HubConfig {
   final String displayProfile; // "auto" | "amoled-11" | "rpi-7" | "hdmi"
   final int displayWidth;      // 0 = use profile default
   final int displayHeight;     // 0 = use profile default
+  final bool setupComplete;
   final bool autoUpdate;
   final String currentVersion;
 
@@ -67,6 +71,7 @@ class HubConfig {
     this.displayProfile = 'auto',
     this.displayWidth = 0,
     this.displayHeight = 0,
+    this.setupComplete = false,
     this.autoUpdate = true,
     this.currentVersion = '',
   });
@@ -88,10 +93,10 @@ class HubConfig {
     String? frigateUrl,
     int? idleTimeoutSeconds,
     String? nightModeSource,
-    String? nightModeHaEntity,
-    String? nightModeClockStart,
-    String? nightModeClockEnd,
-    String? defaultMusicZone,
+    Object? nightModeHaEntity = _undefined,
+    Object? nightModeClockStart = _undefined,
+    Object? nightModeClockEnd = _undefined,
+    Object? defaultMusicZone = _undefined,
     bool? use24HourClock,
     List<String>? pinnedEntityIds,
     String? weatherEntityId,
@@ -103,6 +108,7 @@ class HubConfig {
     String? displayProfile,
     int? displayWidth,
     int? displayHeight,
+    bool? setupComplete,
     bool? autoUpdate,
     String? currentVersion,
   }) {
@@ -117,10 +123,10 @@ class HubConfig {
       frigateUrl: frigateUrl ?? this.frigateUrl,
       idleTimeoutSeconds: idleTimeoutSeconds ?? this.idleTimeoutSeconds,
       nightModeSource: nightModeSource ?? this.nightModeSource,
-      nightModeHaEntity: nightModeHaEntity ?? this.nightModeHaEntity,
-      nightModeClockStart: nightModeClockStart ?? this.nightModeClockStart,
-      nightModeClockEnd: nightModeClockEnd ?? this.nightModeClockEnd,
-      defaultMusicZone: defaultMusicZone ?? this.defaultMusicZone,
+      nightModeHaEntity: nightModeHaEntity == _undefined ? this.nightModeHaEntity : nightModeHaEntity as String?,
+      nightModeClockStart: nightModeClockStart == _undefined ? this.nightModeClockStart : nightModeClockStart as String?,
+      nightModeClockEnd: nightModeClockEnd == _undefined ? this.nightModeClockEnd : nightModeClockEnd as String?,
+      defaultMusicZone: defaultMusicZone == _undefined ? this.defaultMusicZone : defaultMusicZone as String?,
       use24HourClock: use24HourClock ?? this.use24HourClock,
       pinnedEntityIds: pinnedEntityIds ?? this.pinnedEntityIds,
       weatherEntityId: weatherEntityId ?? this.weatherEntityId,
@@ -132,6 +138,7 @@ class HubConfig {
       displayProfile: displayProfile ?? this.displayProfile,
       displayWidth: displayWidth ?? this.displayWidth,
       displayHeight: displayHeight ?? this.displayHeight,
+      setupComplete: setupComplete ?? this.setupComplete,
       autoUpdate: autoUpdate ?? this.autoUpdate,
       currentVersion: currentVersion ?? this.currentVersion,
     );
@@ -163,6 +170,7 @@ class HubConfig {
         'displayProfile': displayProfile,
         'displayWidth': displayWidth,
         'displayHeight': displayHeight,
+        'setupComplete': setupComplete,
         'autoUpdate': autoUpdate,
         'currentVersion': currentVersion,
       };
@@ -193,6 +201,7 @@ class HubConfig {
         displayProfile: json['displayProfile'] as String? ?? 'auto',
         displayWidth: json['displayWidth'] as int? ?? 0,
         displayHeight: json['displayHeight'] as int? ?? 0,
+        setupComplete: json['setupComplete'] as bool? ?? false,
         autoUpdate: json['autoUpdate'] as bool? ?? true,
         currentVersion: json['currentVersion'] as String? ?? '',
       );
