@@ -70,11 +70,68 @@ void main() {
       expect(response.statusCode, 200);
     });
 
-    test('config page at / is accessible without auth', () async {
+    test('config page at / shows PIN page without session', () async {
       final response = await get('/');
       expect(response.statusCode, 200);
       final body = await readBody(response);
+      expect(body, contains('Enter the PIN'));
+    });
+
+    // --- PIN auth tests ---
+
+    test('POST /auth/pin with correct PIN returns session cookie', () async {
+      final pin = server.webPin;
+      final response = await post('/auth/pin',
+          body: jsonEncode({'pin': pin}));
+      expect(response.statusCode, 200);
+      final setCookie = response.headers['set-cookie'];
+      expect(setCookie, isNotNull);
+      final cookieStr = setCookie!.first;
+      expect(cookieStr, contains('hearth_session='));
+      expect(cookieStr, contains('HttpOnly'));
+    });
+
+    test('POST /auth/pin with wrong PIN returns 401', () async {
+      final response = await post('/auth/pin',
+          body: jsonEncode({'pin': '0000'}));
+      expect(response.statusCode, 401);
+    });
+
+    test('config page at / is accessible with valid session', () async {
+      // First, authenticate
+      final pin = server.webPin;
+      final authResponse = await post('/auth/pin',
+          body: jsonEncode({'pin': pin}));
+      final setCookie = authResponse.headers['set-cookie']!.first;
+      final cookieMatch = RegExp(r'hearth_session=(\w+)').firstMatch(setCookie);
+      final sessionCookie = 'hearth_session=${cookieMatch!.group(1)}';
+
+      // Now access the config page with the session cookie
+      final response = await get('/',
+          headers: {'Cookie': sessionCookie});
+      expect(response.statusCode, 200);
+      final body = await readBody(response);
       expect(body, contains('Hearth Setup'));
+    });
+
+    test('GET /api/session/key returns API key with valid session', () async {
+      final pin = server.webPin;
+      final authResponse = await post('/auth/pin',
+          body: jsonEncode({'pin': pin}));
+      final setCookie = authResponse.headers['set-cookie']!.first;
+      final cookieMatch = RegExp(r'hearth_session=(\w+)').firstMatch(setCookie);
+      final sessionCookie = 'hearth_session=${cookieMatch!.group(1)}';
+
+      final response = await get('/api/session/key',
+          headers: {'Cookie': sessionCookie});
+      expect(response.statusCode, 200);
+      final json = jsonDecode(await readBody(response)) as Map<String, dynamic>;
+      expect(json['apiKey'], testApiKey);
+    });
+
+    test('GET /api/session/key returns 401 without session', () async {
+      final response = await get('/api/session/key');
+      expect(response.statusCode, 401);
     });
 
     // --- Secret redaction ---
