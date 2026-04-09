@@ -7,6 +7,8 @@ import 'app/app.dart';
 import 'config/hub_config.dart';
 import 'services/local_api_server.dart';
 import 'services/sendspin/sendspin_service.dart';
+import 'services/video/media_kit_player.dart';
+import 'services/video/gstreamer_player.dart';
 
 // media_kit uses native libmpv — not available on web.
 import 'package:media_kit/media_kit.dart';
@@ -25,6 +27,15 @@ Future<void> main() async {
   // dart:io Platform.environment check avoids calling into FFI on unsupported platforms.
   if (!kIsWeb && !Platform.environment.containsKey('HEARTH_NO_MEDIAKIT')) {
     MediaKit.ensureInitialized();
+  }
+
+  // Register platform video player
+  if (!kIsWeb) {
+    if (!Platform.environment.containsKey('HEARTH_NO_MEDIAKIT')) {
+      registerMediaKitPlayer();
+    } else {
+      registerGstreamerPlayer();
+    }
   }
 
   final container = ProviderContainer();
