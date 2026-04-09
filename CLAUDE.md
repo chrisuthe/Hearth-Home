@@ -32,7 +32,7 @@ The app has a permanent three-layer stack, NOT traditional screen navigation:
 
 The active/ambient layers crossfade via a single `AnimationController`. The app starts idle (ambient visible) and wakes on touch.
 
-**Screen order in PageView:** `Media(0) ← Home(1) → Controls(2) → Cameras(3) → Settings(4)`
+**Screen order in PageView:** Dynamic — modules with negative `defaultOrder` appear left of Home, positive right. Settings is always last. Default: `Media(-10) ← Home → Controls(10) → Cameras(20) → Recipes(30) → Settings`
 
 Home is the default page (index 1).
 
@@ -65,6 +65,12 @@ Night mode has four mutually exclusive sources: `none`, `clock`, `ha_entity`, `a
 ### Display Constants
 
 Render resolution is 1184x864 (half the panel's native 2368x1728). The Pi upscales for performance. These constants are in `main.dart` as `kWindowWidth`/`kWindowHeight`.
+
+### Module System
+
+Optional screens implement `HearthModule` (in `lib/modules/hearth_module.dart`). Each module provides an `id`, `name`, `icon`, `defaultOrder`, `isConfigured()`, `buildScreen()`, and `buildSettingsSection()`. Modules live in `lib/modules/<name>/` with their screen, service, and data models. The registry is a static list in `lib/modules/module_registry.dart`. HubShell builds the PageView dynamically from enabled modules (configured in Settings).
+
+Current modules: Media (music), Controls (HA entities), Cameras (Frigate), Recipes (Mealie).
 
 ## Git
 
