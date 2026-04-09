@@ -57,14 +57,17 @@ sudo chown -R hearth:hearth /opt/hearth
 # --- Config directory ---
 # New installs use /home/hearth/.local/share/com.hearth.hearth/
 # Migrate from old root-based config if it exists
-OLD_CONFIG="/root/.local/share/com.hearth.hearth/hub_config.json"
 NEW_CONFIG_DIR="/home/hearth/.local/share/com.hearth.hearth"
 sudo mkdir -p "$NEW_CONFIG_DIR"
 
-if [ -f "$OLD_CONFIG" ] && [ ! -f "$NEW_CONFIG_DIR/hub_config.json" ]; then
-    echo "Migrating config from root to hearth user..."
-    sudo cp "$OLD_CONFIG" "$NEW_CONFIG_DIR/hub_config.json"
-    echo "Config migrated."
+# Migrate existing config from any previous location
+if [ ! -f "$NEW_CONFIG_DIR/hub_config.json" ]; then
+    FOUND_CONFIG=$(sudo find /root /home -name hub_config.json -path "*/com.hearth.hearth/*" -type f 2>/dev/null | head -1)
+    if [ -n "$FOUND_CONFIG" ]; then
+        echo "Migrating config from $FOUND_CONFIG..."
+        sudo cp "$FOUND_CONFIG" "$NEW_CONFIG_DIR/hub_config.json"
+        echo "Config migrated."
+    fi
 fi
 
 sudo chown -R hearth:hearth /home/hearth/.local
