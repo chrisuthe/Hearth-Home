@@ -2,6 +2,7 @@
 Description=Hearth Smart Home Kiosk
 After=network-online.target systemd-modules-load.service depmod-firstboot.service
 Wants=network-online.target
+OnFailure=hearth-rollback.service
 
 [Service]
 Type=simple
