@@ -20,7 +20,7 @@ class HearthApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final config = ref.watch(hubConfigProvider);
-    final needsSetup = config.haUrl.isEmpty;
+    final needsSetup = !config.setupComplete;
 
     return MaterialApp(
       title: 'Hearth',

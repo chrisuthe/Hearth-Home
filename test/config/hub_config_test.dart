@@ -129,6 +129,31 @@ void main() {
       expect(updated.sendspinEnabled, true);
     });
 
+    test('copyWith can clear nullable fields to null', () {
+      const config = HubConfig(
+        nightModeHaEntity: 'binary_sensor.night',
+        defaultMusicZone: 'media_player.kitchen',
+      );
+      final cleared = config.copyWith(
+        nightModeHaEntity: null,
+        defaultMusicZone: null,
+      );
+      expect(cleared.nightModeHaEntity, isNull);
+      expect(cleared.defaultMusicZone, isNull);
+    });
+
+    test('setupComplete defaults to false', () {
+      const config = HubConfig();
+      expect(config.setupComplete, false);
+    });
+
+    test('setupComplete round-trips through JSON', () {
+      const config = HubConfig(setupComplete: true);
+      final json = config.toJson();
+      final restored = HubConfig.fromJson(json);
+      expect(restored.setupComplete, true);
+    });
+
     test('new display fields have sensible defaults', () {
       const config = HubConfig();
       expect(config.displayProfile, 'auto');
