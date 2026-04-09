@@ -3,14 +3,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'idle_controller.dart';
 import '../models/photo_memory.dart';
+import '../modules/module_registry.dart';
 import '../screens/ambient/ambient_screen.dart';
 import '../screens/ambient/ambient_overlays.dart';
 import '../screens/timer/timer_screen.dart';
 import '../services/timer_service.dart';
 import '../screens/home/home_screen.dart';
-import '../modules/media/media_screen.dart';
-import '../modules/controls/controls_screen.dart';
-import '../modules/cameras/cameras_screen.dart';
 import '../screens/settings/settings_screen.dart';
 
 /// The main shell that manages the two-layer navigation model.
@@ -33,16 +31,15 @@ class HubShell extends ConsumerStatefulWidget {
 
 class _HubShellState extends ConsumerState<HubShell>
     with SingleTickerProviderStateMixin {
-  late final PageController _pageController;
+  PageController? _pageController;
   late final AnimationController _fadeController;
 
-  /// Home sits at index 1. Media is left (0), Controls+ are right (2-4).
-  static const int _homeIndex = 1;
-  static const int _pageCount = 5;
+  int _homeIndex = 0;
+  int _pageCount = 0;
   late final FocusNode _focusNode;
   final _ambientKey = GlobalKey<AmbientScreenState>();
   PhotoMemory? _currentMemory;
-  int _currentPage = _homeIndex;
+  int _currentPage = 0;
   bool _quickTrayOpen = false;
 
   static const double _edgeZoneHeight = 80;
@@ -51,11 +48,6 @@ class _HubShellState extends ConsumerState<HubShell>
   void initState() {
     super.initState();
     _focusNode = FocusNode();
-    _pageController = PageController(initialPage: _homeIndex);
-    _pageController.addListener(() {
-      final page = _pageController.page?.round() ?? _homeIndex;
-      if (page != _currentPage) setState(() => _currentPage = page);
-    });
     // Controls the active/ambient crossfade:
     // 0.0 = idle (ambient overlays visible, active screens hidden)
     // 1.0 = active (screens visible, ambient overlays hidden)
@@ -70,7 +62,7 @@ class _HubShellState extends ConsumerState<HubShell>
   @override
   void dispose() {
     _focusNode.dispose();
-    _pageController.dispose();
+    _pageController?.dispose();
     _fadeController.dispose();
     super.dispose();
   }
@@ -97,7 +89,7 @@ class _HubShellState extends ConsumerState<HubShell>
           final v = details.primaryVelocity ?? 0;
           if ((swipeDown && v > 200) || (!swipeDown && v < -200)) {
             _onUserActivity();
-            _pageController.animateToPage(
+            _pageController!.animateToPage(
               targetPage,
               duration: const Duration(milliseconds: 300),
               curve: Curves.easeInOut,
@@ -120,15 +112,15 @@ class _HubShellState extends ConsumerState<HubShell>
 
     final idle = ref.read(idleControllerProvider);
     if (idle.isIdle) {
-      _pageController.jumpToPage(_homeIndex);
+      _pageController!.jumpToPage(_homeIndex);
       return;
     }
 
-    final currentPage = _pageController.page?.round() ?? _homeIndex;
+    final currentPage = _pageController!.page?.round() ?? _homeIndex;
 
     if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
       if (currentPage > 0) {
-        _pageController.animateToPage(
+        _pageController!.animateToPage(
           currentPage - 1,
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeInOut,
@@ -136,21 +128,21 @@ class _HubShellState extends ConsumerState<HubShell>
       }
     } else if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
       if (currentPage < _pageCount - 1) {
-        _pageController.animateToPage(
+        _pageController!.animateToPage(
           currentPage + 1,
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeInOut,
         );
       }
     } else if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
-      _pageController.animateToPage(
+      _pageController!.animateToPage(
         _pageCount - 1,
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
       );
     } else if (event.logicalKey == LogicalKeyboardKey.arrowUp ||
         event.logicalKey == LogicalKeyboardKey.home) {
-      _pageController.animateToPage(
+      _pageController!.animateToPage(
         _homeIndex,
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
@@ -279,6 +271,32 @@ class _HubShellState extends ConsumerState<HubShell>
   @override
   Widget build(BuildContext context) {
     final idle = ref.watch(idleControllerProvider);
+    final modules = ref.watch(enabledModulesProvider);
+    final leftModules = modules.where((m) => m.defaultOrder < 0).toList();
+    final rightModules = modules.where((m) => m.defaultOrder >= 0).toList();
+    final homeIndex = leftModules.length;
+    _pageCount = leftModules.length + 1 + rightModules.length + 1; // +Home +Settings
+
+    // Recreate PageController when the module layout changes.
+    if (_pageController == null || _homeIndex != homeIndex) {
+      _homeIndex = homeIndex;
+      _pageController?.dispose();
+      _pageController = PageController(initialPage: homeIndex);
+      _currentPage = homeIndex;
+      _pageController!.addListener(() {
+        final page = _pageController!.page?.round() ?? _homeIndex;
+        if (page != _currentPage) setState(() => _currentPage = page);
+      });
+    }
+
+    final pages = <Widget>[
+      ...leftModules.map((m) => m.buildScreen(
+          isActive: _currentPage == leftModules.indexOf(m))),
+      const HomeScreen(),
+      ...rightModules.map((m) => m.buildScreen(
+          isActive: _currentPage == homeIndex + 1 + rightModules.indexOf(m))),
+      const SettingsScreen(),
+    ];
 
     // Drive the crossfade: forward = show active screens, reverse = show ambient
     if (idle.isIdle) {
@@ -324,13 +342,7 @@ class _HubShellState extends ConsumerState<HubShell>
                   physics: idle.isIdle
                       ? const NeverScrollableScrollPhysics()
                       : const BouncingScrollPhysics(),
-                  children: [
-                    const MediaScreen(),
-                    const HomeScreen(),
-                    const ControlsScreen(),
-                    CamerasScreen(isActive: _currentPage == 3),
-                    const SettingsScreen(),
-                  ],
+                  children: pages,
                 ),
               ),
             ),
@@ -351,7 +363,7 @@ class _HubShellState extends ConsumerState<HubShell>
                     onTap: idle.isIdle
                         ? () {
                             _onUserActivity();
-                            _pageController.jumpToPage(_homeIndex);
+                            _pageController!.jumpToPage(_homeIndex);
                           }
                         : null,
                     child: const SizedBox.expand(),
