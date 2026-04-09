@@ -28,8 +28,32 @@ ln -sf /etc/systemd/system/hearth.service \
 ln -sf /etc/systemd/system/hearth-updater.timer \
     "$TARGET_DIR/etc/systemd/system/timers.target.wants/hearth-updater.timer"
 
+# Create hearth system user (Buildroot doesn't have useradd in post-build,
+# so we edit passwd/shadow/group directly)
+if ! grep -q '^hearth:' "$TARGET_DIR/etc/passwd"; then
+    echo 'hearth:x:1000:1000:Hearth Service:/home/hearth:/usr/sbin/nologin' >> "$TARGET_DIR/etc/passwd"
+    echo 'hearth:!:0:::::' >> "$TARGET_DIR/etc/shadow"
+    echo 'hearth:x:1000:' >> "$TARGET_DIR/etc/group"
+    mkdir -p "$TARGET_DIR/home/hearth"
+fi
+
+# Add hearth to required groups
+for grp in video input render audio netdev; do
+    if grep -q "^${grp}:" "$TARGET_DIR/etc/group"; then
+        sed -i "s/^${grp}:.*$/&,hearth/" "$TARGET_DIR/etc/group"
+    fi
+done
+
 # Create bundle directory
 mkdir -p "$TARGET_DIR/opt/hearth/bundle"
+
+# Set ownership (will take effect in the final image)
+chown -R 1000:1000 "$TARGET_DIR/opt/hearth" 2>/dev/null || true
+chown -R 1000:1000 "$TARGET_DIR/home/hearth" 2>/dev/null || true
+
+# Create config directory for hearth user
+mkdir -p "$TARGET_DIR/home/hearth/.local/share/com.hearth.hearth"
+chown -R 1000:1000 "$TARGET_DIR/home/hearth/.local/share" 2>/dev/null || true
 
 # Inject version from environment (set by CI)
 if [ -n "$HEARTH_VERSION" ]; then

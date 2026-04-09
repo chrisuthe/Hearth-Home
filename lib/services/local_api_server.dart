@@ -442,9 +442,11 @@ class LocalApiServer {
   }
 
   Future<void> _handleUpdateApply(HttpRequest request) async {
-    // Run hearth-updater as a subprocess
     try {
-      final result = await Process.run('/usr/bin/hearth-updater', []);
+      // Trigger the updater via systemd (runs as root with proper privileges)
+      final result = await Process.run('sudo', [
+        'systemctl', 'start', 'hearth-updater.service',
+      ]).timeout(const Duration(seconds: 30));
       request.response
         ..statusCode = result.exitCode == 0 ? 200 : 500
         ..headers.contentType = ContentType.json
