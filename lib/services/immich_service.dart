@@ -35,6 +35,15 @@ class ImmichService {
   List<PhotoMemory> get memories => List.unmodifiable(_cachedMemories);
   int get currentIndex => _currentIndex;
 
+  /// Replaces cached memories for testing without a live Immich server.
+  @visibleForTesting
+  void setMemoriesForTesting(List<PhotoMemory> photos) {
+    _cachedMemories
+      ..clear()
+      ..addAll(photos);
+    _currentIndex = 0;
+  }
+
   /// Immich uses x-api-key header authentication (not Bearer tokens).
   static Map<String, String> buildAuthHeaders(String apiKey) => {
         'x-api-key': apiKey,
@@ -93,7 +102,8 @@ class ImmichService {
     if (_cachedMemories.isEmpty) return null;
     // Step back 2 (undo the post-increment from nextPhoto, then one more)
     // and wrap around to the end of the list if needed.
-    _currentIndex = ((_currentIndex - 2) % _cachedMemories.length);
+    final len = _cachedMemories.length;
+    _currentIndex = ((_currentIndex - 2) % len + len) % len;
     final photo = _cachedMemories[_currentIndex];
     _currentIndex++;
     return photo;

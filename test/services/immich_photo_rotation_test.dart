@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hearth/models/photo_memory.dart';
 import 'package:hearth/services/immich_service.dart';
 
 void main() {
@@ -60,6 +61,64 @@ void main() {
       expect(memories.length, 3);
       expect(memories[0].yearsAgo, 3);
       expect(memories[2].yearsAgo, 2);
+    });
+
+    test('previousPhoto works when index is 0', () {
+      final photos = List.generate(
+        5,
+        (i) => PhotoMemory(
+          assetId: 'a$i',
+          imageUrl: 'http://immich.local/api/assets/a$i/original',
+          memoryDate: DateTime(2023, 4, 5),
+          yearsAgo: 3,
+        ),
+      );
+      service.setMemoriesForTesting(photos);
+
+      // index starts at 0; calling previousPhoto should wrap to end
+      final photo = service.previousPhoto;
+      expect(photo, isNotNull);
+      expect(photo!.assetId, isNotEmpty);
+    });
+
+    test('previousPhoto works when index is 1', () {
+      final photos = List.generate(
+        5,
+        (i) => PhotoMemory(
+          assetId: 'a$i',
+          imageUrl: 'http://immich.local/api/assets/a$i/original',
+          memoryDate: DateTime(2023, 4, 5),
+          yearsAgo: 3,
+        ),
+      );
+      service.setMemoriesForTesting(photos);
+
+      // Advance to index 1 via nextPhoto
+      service.nextPhoto; // index becomes 1
+      final photo = service.previousPhoto;
+      expect(photo, isNotNull);
+      expect(photo!.assetId, isNotEmpty);
+    });
+
+    test('previousPhoto after nextPhoto returns correct photo', () {
+      final photos = List.generate(
+        5,
+        (i) => PhotoMemory(
+          assetId: 'a$i',
+          imageUrl: 'http://immich.local/api/assets/a$i/original',
+          memoryDate: DateTime(2023, 4, 5),
+          yearsAgo: 3,
+        ),
+      );
+      service.setMemoriesForTesting(photos);
+
+      // Get first photo via nextPhoto (index 0, then increments to 1)
+      final first = service.nextPhoto;
+      // Get second photo via nextPhoto (index 1, then increments to 2)
+      final second = service.nextPhoto;
+      // previousPhoto should go back to the first photo
+      final prev = service.previousPhoto;
+      expect(prev!.assetId, first!.assetId);
     });
 
     test('parseMemories handles memory with missing year', () {
