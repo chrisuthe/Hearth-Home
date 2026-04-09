@@ -24,6 +24,13 @@ sudo apt-get install -y \
     network-manager avahi-daemon \
     git wget
 
+# Create hearth system user with required group memberships
+if ! id hearth &>/dev/null; then
+    sudo useradd -r -m -s /usr/sbin/nologin hearth
+    echo "Created hearth user"
+fi
+sudo usermod -aG video,input,render,audio,netdev,systemd-journal hearth
+
 # Build and install flutter-pi
 echo "Building flutter-pi..."
 cd /tmp
@@ -38,10 +45,12 @@ sudo make install
 
 # Create bundle directory
 sudo mkdir -p /opt/hearth/bundle
+sudo chown -R hearth:hearth /opt/hearth
 
-# Restrict config file permissions (contains API keys/tokens in plaintext)
-sudo mkdir -p /root/.local/share/com.hearth.hearth
-sudo chmod 700 /root/.local/share/com.hearth.hearth
+# Create config directory for hearth user
+sudo mkdir -p /home/hearth/.local/share/com.hearth.hearth
+sudo chown -R hearth:hearth /home/hearth/.local/share
+sudo chmod 700 /home/hearth/.local/share/com.hearth.hearth
 
 # Download latest bundle from GitHub Releases (or use local if provided)
 BUNDLE_URL="${1:-}"
@@ -72,14 +81,13 @@ OnFailure=hearth-rollback.service
 
 [Service]
 Type=simple
-# TODO: Create dedicated 'hearth' user with appropriate group memberships
-# (video, render, netdev, systemd-journal) instead of running as root.
-# See https://registry.home.chrisuthe.com/chris/Hearth/issues/10
-User=root
+User=hearth
+Group=hearth
+RuntimeDirectory=hearth
+Environment=XDG_RUNTIME_DIR=/run/hearth
 ExecStart=/opt/hearth/bundle/flutter-pi --release /opt/hearth/bundle
 Environment=LD_LIBRARY_PATH=/opt/hearth/bundle
 Environment=HEARTH_NO_MEDIAKIT=1
-Environment=XDG_RUNTIME_DIR=/run/user/0
 Restart=on-failure
 RestartSec=5
 StartLimitIntervalSec=60
@@ -93,6 +101,53 @@ EOF
 echo "Installing OTA updater..."
 sudo wget -qO /usr/bin/hearth-updater https://raw.githubusercontent.com/chrisuthe/Hearth-Home/main/buildroot-hearth/package/hearth-updater/hearth-updater.sh
 sudo chmod +x /usr/bin/hearth-updater
+
+# Install hearth-updater systemd service (runs as root for privileged operations)
+sudo tee /etc/systemd/system/hearth-updater.service > /dev/null << 'EOF'
+[Unit]
+Description=Hearth OTA App Updater
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/hearth-updater
+EOF
+
+# Install hearth-updater timer
+sudo tee /etc/systemd/system/hearth-updater.timer > /dev/null << 'EOF'
+[Unit]
+Description=Daily Hearth update check
+
+[Timer]
+OnBootSec=2min
+OnCalendar=daily
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+EOF
+
+sudo systemctl enable hearth-updater.timer
+
+# Allow hearth user to start the updater service without password
+echo "hearth ALL=(root) NOPASSWD: /usr/bin/systemctl start hearth-updater.service" | sudo tee /etc/sudoers.d/hearth-updater
+sudo chmod 440 /etc/sudoers.d/hearth-updater
+
+# Allow hearth user (netdev group) to manage WiFi via nmcli
+sudo mkdir -p /etc/polkit-1/rules.d
+sudo tee /etc/polkit-1/rules.d/50-hearth-network.rules > /dev/null << 'EOF'
+polkit.addRule(function(action, subject) {
+    if (action.id.indexOf("org.freedesktop.NetworkManager.") == 0 &&
+        subject.isInGroup("netdev")) {
+        return polkit.Result.YES;
+    }
+});
+EOF
+
+# Make version file writable by hearth user
+sudo touch /etc/hearth-version
+sudo chown hearth:hearth /etc/hearth-version
 
 # Set hostname
 sudo hostnamectl set-hostname hearth

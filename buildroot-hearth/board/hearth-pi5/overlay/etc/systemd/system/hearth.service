@@ -6,10 +6,10 @@ OnFailure=hearth-rollback.service
 
 [Service]
 Type=simple
-# TODO: Create dedicated 'hearth' user with appropriate group memberships
-# (video, render, netdev, systemd-journal) instead of running as root.
-# See https://registry.home.chrisuthe.com/chris/Hearth/issues/10
-User=root
+User=hearth
+Group=hearth
+RuntimeDirectory=hearth
+Environment=XDG_RUNTIME_DIR=/run/hearth
 ExecStart=/opt/hearth/bundle/flutter-pi --release /opt/hearth/bundle
 Environment=LD_LIBRARY_PATH=/opt/hearth/bundle
 Environment=HEARTH_NO_MEDIAKIT=1
@@ -17,7 +17,6 @@ Restart=on-failure
 RestartSec=5
 StartLimitIntervalSec=60
 StartLimitBurst=3
-Environment=XDG_RUNTIME_DIR=/run/user/0
 
 [Install]
 WantedBy=multi-user.target
