@@ -1,17 +1,9 @@
 import 'dart:async';
-import 'dart:io' show Platform;
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:media_kit/media_kit.dart';
-import 'package:media_kit_video/media_kit_video.dart';
 import '../../models/frigate_event.dart';
+import '../../services/video/hearth_video_player.dart';
 import 'frigate_service.dart';
-
-/// Whether media_kit (libmpv) is available for RTSP video.
-/// False on web and when HEARTH_NO_MEDIAKIT is set (Pi with flutter-pi).
-bool get _hasMediaKit =>
-    !kIsWeb && !Platform.environment.containsKey('HEARTH_NO_MEDIAKIT');
 
 /// Camera grid screen with live video expansion.
 ///
@@ -32,11 +24,7 @@ class _CamerasScreenState extends ConsumerState<CamerasScreen> {
   /// Which camera is currently expanded for full-screen video, or null for grid.
   FrigateCamera? _expandedCamera;
 
-  /// media_kit player and controller — created when a camera is expanded,
-  /// disposed when returning to grid. Keeping these instance-level avoids
-  /// creating a new player on every rebuild.
-  Player? _player;
-  VideoController? _videoController;
+  HearthVideoPlayer? _videoPlayer;
 
   @override
   void dispose() {
@@ -44,22 +32,18 @@ class _CamerasScreenState extends ConsumerState<CamerasScreen> {
     super.dispose();
   }
 
-  /// Opens full-screen view for the given camera.
-  /// Uses RTSP video via media_kit on desktop, or a full-screen snapshot on Pi/web.
+  /// Opens full-screen view for the given camera with RTSP video.
   void _expandCamera(FrigateCamera camera) {
     _disposePlayer();
-
-    if (_hasMediaKit) {
-      final player = Player();
-      final controller = VideoController(player);
-      player.open(Media(camera.rtspUrl));
+    try {
+      final player = HearthVideoPlayer.create();
+      player.play(camera.rtspUrl);
       setState(() {
         _expandedCamera = camera;
-        _player = player;
-        _videoController = controller;
+        _videoPlayer = player;
       });
-    } else {
-      // No libmpv — show full-screen auto-refreshing snapshot
+    } catch (e) {
+      // Player not available — fall back to snapshot
       setState(() {
         _expandedCamera = camera;
       });
@@ -73,9 +57,8 @@ class _CamerasScreenState extends ConsumerState<CamerasScreen> {
   }
 
   void _disposePlayer() {
-    _player?.dispose();
-    _player = null;
-    _videoController = null;
+    _videoPlayer?.dispose();
+    _videoPlayer = null;
   }
 
   @override
@@ -118,11 +101,8 @@ class _CamerasScreenState extends ConsumerState<CamerasScreen> {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              if (_videoController != null)
-                Video(
-                  controller: _videoController!,
-                  fit: BoxFit.contain,
-                )
+              if (_videoPlayer != null)
+                _videoPlayer!.buildView(fit: BoxFit.contain)
               else
                 _CameraSnapshotTile(
                   camera: _expandedCamera!,
