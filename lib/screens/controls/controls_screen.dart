@@ -185,14 +185,14 @@ class _ToggleCard extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: entity.isOn
-            ? Colors.blue.withValues(alpha: 0.12)
+            ? const Color(0xFF646CFF).withValues(alpha: 0.12)
             : Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
         children: [
           Icon(Icons.power_settings_new,
-              color: entity.isOn ? Colors.blue : Colors.white38, size: 20),
+              color: entity.isOn ? const Color(0xFF646CFF) : Colors.white38, size: 20),
           const SizedBox(width: 8),
           Expanded(
             child: Text(entity.name,
