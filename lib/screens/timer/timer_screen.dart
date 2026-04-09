@@ -340,10 +340,12 @@ class _ScrollWheel extends StatefulWidget {
 
 class _ScrollWheelState extends State<_ScrollWheel> {
   late final FixedExtentScrollController _controller;
+  late int _selectedIndex;
 
   @override
   void initState() {
     super.initState();
+    _selectedIndex = widget.initialValue;
     _controller =
         FixedExtentScrollController(initialItem: widget.initialValue);
   }
@@ -371,7 +373,10 @@ class _ScrollWheelState extends State<_ScrollWheel> {
             perspective: 0.005,
             diameterRatio: 1.2,
             physics: const FixedExtentScrollPhysics(),
-            onSelectedItemChanged: widget.onChanged,
+            onSelectedItemChanged: (index) {
+              setState(() => _selectedIndex = index);
+              widget.onChanged(index);
+            },
             childDelegate: ListWheelChildBuilderDelegate(
               childCount: widget.maxValue + 1,
               builder: (context, index) {
@@ -381,7 +386,7 @@ class _ScrollWheelState extends State<_ScrollWheel> {
                     style: TextStyle(
                       fontSize: 36,
                       fontWeight: FontWeight.w200,
-                      color: index == _controller.selectedItem
+                      color: index == _selectedIndex
                           ? Colors.white
                           : Colors.white38,
                     ),
