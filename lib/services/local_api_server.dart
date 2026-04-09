@@ -603,12 +603,14 @@ final localApiServerProvider = Provider<LocalApiServer>((ref) {
   final configNotifier = ref.read(hubConfigProvider.notifier);
   final wifiService = ref.read(wifiServiceProvider);
   final updateService = ref.read(updateServiceProvider);
-  return LocalApiServer(
+  final server = LocalApiServer(
     displayModeService: displayService,
     configNotifier: configNotifier,
     wifiService: wifiService,
     updateService: updateService,
   );
+  ref.onDispose(() => server.stop());
+  return server;
 });
 
 final webPinProvider = Provider<String>((ref) {

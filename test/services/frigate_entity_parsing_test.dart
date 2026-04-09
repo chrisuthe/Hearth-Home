@@ -95,7 +95,7 @@ void main() {
       final eventFuture = frigate.eventStream.first;
       simulateEntity('binary_sensor.frigate_front_door_person', 'on');
       final event = await eventFuture.timeout(const Duration(seconds: 5));
-      expect(event.camera, 'frigate_front_door');
+      expect(event.camera, 'front_door');
       expect(event.label, 'person');
     });
 
@@ -103,7 +103,7 @@ void main() {
       final eventFuture = frigate.eventStream.first;
       simulateEntity('binary_sensor.frigate_back_yard_person', 'on');
       final event = await eventFuture.timeout(const Duration(seconds: 5));
-      expect(event.camera, 'frigate_back_yard');
+      expect(event.camera, 'back_yard');
       expect(event.label, 'person');
     });
 
@@ -112,7 +112,7 @@ void main() {
       simulateEntity('binary_sensor.frigate_front_door_doorbell', 'on');
       final event = await eventFuture.timeout(const Duration(seconds: 5));
       expect(event.label, 'doorbell');
-      expect(event.camera, 'frigate_front_door');
+      expect(event.camera, 'front_door');
     });
 
     test('ignores non-frigate binary sensors', () async {
