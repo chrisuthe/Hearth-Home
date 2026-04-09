@@ -15,6 +15,11 @@ const _undefined = Object();
 /// Each hub stores its own config locally — there's no shared backend.
 /// On native platforms, values persist as JSON in the app support directory.
 /// On web, config lives only in memory (session-only "try before you buy").
+///
+/// Note: All configuration including API keys and tokens is stored as
+/// plaintext JSON in the app support directory. On the Pi, restrict
+/// file permissions: `chmod 600 hub_config.json`.
+/// See https://registry.home.chrisuthe.com/chris/Hearth/issues/47
 class HubConfig {
   final String apiKey;
   final String immichUrl;

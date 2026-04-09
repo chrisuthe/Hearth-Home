@@ -39,6 +39,10 @@ sudo make install
 # Create bundle directory
 sudo mkdir -p /opt/hearth/bundle
 
+# Restrict config file permissions (contains API keys/tokens in plaintext)
+sudo mkdir -p /root/.local/share/com.hearth.hearth
+sudo chmod 700 /root/.local/share/com.hearth.hearth
+
 # Download latest bundle from GitHub Releases (or use local if provided)
 BUNDLE_URL="${1:-}"
 if [ -z "$BUNDLE_URL" ]; then
