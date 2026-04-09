@@ -44,8 +44,8 @@ RELEASE_JSON=$(wget -q -O - "$RELEASE_URL" 2>/dev/null) || {
 LATEST_TAG=$(echo "$RELEASE_JSON" | grep -o '"tag_name": *"[^"]*"' | head -1 | cut -d'"' -f4)
 LATEST_VERSION="${LATEST_TAG#v}"
 
-IS_PRERELEASE=$(echo "$RELEASE_JSON" | grep -o '"prerelease": *[a-z]*' | head -1 | cut -d: -f2)
-if [ "$IS_PRERELEASE" = "true" ]; then
+IS_PRERELEASE=$(echo "$RELEASE_JSON" | grep -o '"prerelease": *true' | head -1)
+if [ -n "$IS_PRERELEASE" ]; then
     log "Latest release is a pre-release, skipping"
     exit 0
 fi

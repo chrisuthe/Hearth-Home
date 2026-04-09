@@ -67,11 +67,19 @@ class HomeAssistantService {
       onError: (error) {
         Log.e('HA', 'WebSocket error: $error');
         _authenticated = false;
+        for (final completer in _pendingResponses.values) {
+          completer.complete(null);
+        }
+        _pendingResponses.clear();
         _scheduleReconnect();
       },
       onDone: () {
         Log.i('HA', 'WebSocket closed');
         _authenticated = false;
+        for (final completer in _pendingResponses.values) {
+          completer.complete(null);
+        }
+        _pendingResponses.clear();
         _scheduleReconnect();
       },
     );
@@ -120,7 +128,6 @@ class HomeAssistantService {
         _scheduleReconnect();
       }
     });
-    _reconnectDelay = (_reconnectDelay * 2).clamp(1, _maxReconnectDelay);
   }
 
   void _handleMessage(Map<String, dynamic> msg, String token) {

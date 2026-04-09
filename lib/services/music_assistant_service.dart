@@ -161,7 +161,6 @@ class MusicAssistantService {
         _scheduleReconnect();
       }
     });
-    _reconnectDelay = (_reconnectDelay * 2).clamp(1, _maxReconnectDelay);
   }
 
   void _fetchInitialState() {

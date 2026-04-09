@@ -20,6 +20,13 @@ void main() {
       expect(network.isOpen, true);
     });
 
+    test('parses SSID with escaped colon', () {
+      const line = r'My\:Network:75:WPA2';
+      final network = WifiNetwork.fromNmcliLine(line);
+      expect(network.ssid, 'My:Network');
+      expect(network.signalStrength, 75);
+    });
+
     test('skips blank SSID lines', () {
       const line = ':30:WPA2';
       final network = WifiNetwork.fromNmcliLine(line);

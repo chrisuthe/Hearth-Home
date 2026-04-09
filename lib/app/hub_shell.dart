@@ -283,7 +283,11 @@ class _HubShellState extends ConsumerState<HubShell>
     // Drive the crossfade: forward = show active screens, reverse = show ambient
     if (idle.isIdle) {
       _fadeController.reverse();
-      _quickTrayOpen = false;
+      if (_quickTrayOpen) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) setState(() => _quickTrayOpen = false);
+        });
+      }
     } else {
       _fadeController.forward();
     }
