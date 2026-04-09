@@ -85,6 +85,13 @@ class LocalApiServer {
 
   Future<void> _handleRequest(HttpRequest request) async {
     try {
+      // Reject CORS preflight requests — the kiosk API is same-origin only.
+      if (request.method == 'OPTIONS') {
+        request.response.statusCode = 403;
+        await request.response.close();
+        return;
+      }
+
       final path = request.uri.path;
 
       // --- PIN auth endpoint (unauthenticated) ---
