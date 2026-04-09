@@ -67,14 +67,17 @@ class UpdateInfo {
 
 /// Checks GitHub Releases for the latest Hearth update.
 class UpdateService {
-  static const _releaseUrl =
+  static const _defaultReleaseUrl =
       'https://api.github.com/repos/chrisuthe/Hearth-Home/releases/latest';
 
+  final String _releaseUrl;
   final Dio _dio;
 
-  UpdateService({Dio? dio}) : _dio = dio ?? Dio(BaseOptions(
-    headers: {'User-Agent': 'Hearth-Home-Updater'},
-  ));
+  UpdateService({Dio? dio, String? releaseUrl})
+      : _dio = dio ?? Dio(BaseOptions(
+          headers: {'User-Agent': 'Hearth-Home-Updater'},
+        )),
+        _releaseUrl = releaseUrl ?? _defaultReleaseUrl;
 
   /// Fetches the latest release and returns an [UpdateInfo] if available,
   /// or null on error or if the release doesn't meet criteria.

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/music_state.dart';
@@ -148,14 +149,15 @@ class _NowPlaying extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final track = state.currentTrack!;
+    final artSize = min(280.0, MediaQuery.sizeOf(context).height * 0.35);
     return Column(
       children: [
         const Spacer(),
 
         // Large album art -- the visual anchor of the media screen
         Container(
-          width: 280,
-          height: 280,
+          width: artSize,
+          height: artSize,
           decoration: BoxDecoration(
             color: Colors.white.withValues(alpha: 0.05),
             borderRadius: BorderRadius.circular(12),

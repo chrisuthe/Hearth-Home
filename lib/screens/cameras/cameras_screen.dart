@@ -209,6 +209,12 @@ class _CamerasScreenState extends ConsumerState<CamerasScreen> {
                     camera: camera,
                     isActive: widget.isActive,
                   ),
+                  // Play icon hint
+                  Center(
+                    child: Icon(Icons.play_circle_outline,
+                      size: 40,
+                      color: Colors.white.withValues(alpha: 0.5)),
+                  ),
                   // Camera name label with gradient background
                   Positioned(
                     bottom: 0,

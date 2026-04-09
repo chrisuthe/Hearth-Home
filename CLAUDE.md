@@ -50,7 +50,7 @@ Home Assistant is the backbone. Services initialize in order in `main.dart`:
 
 1. **HubConfig** loads from disk (must complete before anything else)
 2. **HomeAssistantService** connects via WebSocket
-3. **MusicAssistantService** listens to HA entity stream (depends on HA connection)
+3. **MusicAssistantService** connects directly to Music Assistant via its own WebSocket (independent of HA)
 4. **FrigateService** listens to HA events + loads cameras from Frigate API (depends on HA connection)
 5. **DisplayModeService** optionally watches an HA entity for night mode
 6. **ImmichService** loads independently (no HA dependency)
@@ -65,6 +65,10 @@ Night mode has four mutually exclusive sources: `none`, `clock`, `ha_entity`, `a
 ### Display Constants
 
 Render resolution is 1184x864 (half the panel's native 2368x1728). The Pi upscales for performance. These constants are in `main.dart` as `kWindowWidth`/`kWindowHeight`.
+
+## Git
+
+The default branch is `main`. All PRs target `main`.
 
 ## Conventions
 
