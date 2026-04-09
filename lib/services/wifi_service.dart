@@ -19,13 +19,27 @@ class WifiNetwork {
   bool get isSecured => security.isNotEmpty;
 
   /// Parses a colon-separated nmcli output line: `SSID:SIGNAL:SECURITY`
+  /// Handles `\:` escape sequences that nmcli uses for literal colons in SSIDs.
   factory WifiNetwork.fromNmcliLine(String line) {
-    final parts = line.split(':');
-    final ssid = parts.isNotEmpty ? parts[0] : '';
-    final signal =
-        parts.length > 1 ? (int.tryParse(parts[1]) ?? 0) : 0;
-    final security = parts.length > 2 ? parts[2] : '';
-    return WifiNetwork(ssid: ssid, signalStrength: signal, security: security);
+    final fields = <String>[];
+    final buf = StringBuffer();
+    for (int i = 0; i < line.length; i++) {
+      if (line[i] == '\\' && i + 1 < line.length && line[i + 1] == ':') {
+        buf.write(':');
+        i++;
+      } else if (line[i] == ':') {
+        fields.add(buf.toString());
+        buf.clear();
+      } else {
+        buf.write(line[i]);
+      }
+    }
+    fields.add(buf.toString());
+    return WifiNetwork(
+      ssid: fields.isNotEmpty ? fields[0] : '',
+      signalStrength: fields.length > 1 ? int.tryParse(fields[1]) ?? 0 : 0,
+      security: fields.length > 2 ? fields[2] : '',
+    );
   }
 }
 
