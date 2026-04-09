@@ -17,9 +17,11 @@ class GstreamerVideoPlayer implements HearthVideoPlayer {
     await stop();
 
     if (url.startsWith('rtsp://')) {
-      // Custom GStreamer pipeline for low-latency RTSP
+      // Custom GStreamer pipeline for low-latency RTSP.
+      // protocols=4 forces UDP (avoids TCP interleaved mode which flutter-pi
+      // struggles with). decodebin auto-selects the H.264 decoder.
       _controller = FlutterpiVideoPlayerController.withGstreamerPipeline(
-        'rtspsrc location=$url latency=200 ! decodebin ! videoconvert ! video/x-raw,format=RGBA ! appsink name=sink sync=false drop=true',
+        'rtspsrc location=$url latency=200 protocols=4 ! decodebin ! videoconvert ! appsink name=sink',
       );
     } else {
       _controller = VideoPlayerController.networkUrl(Uri.parse(url));
