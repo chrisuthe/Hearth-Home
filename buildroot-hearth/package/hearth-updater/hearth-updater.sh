@@ -109,6 +109,7 @@ if [ -d "$BUNDLE_DIR" ]; then
 fi
 mv "$STAGING_DIR" "$BUNDLE_DIR"
 
+cp /etc/hearth-version /etc/hearth-version.prev 2>/dev/null
 echo "$LATEST_VERSION" > "$VERSION_FILE"
 
 log "Updated to $LATEST_VERSION, restarting hearth.service"

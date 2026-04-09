@@ -64,6 +64,7 @@ sudo tee /etc/systemd/system/hearth.service > /dev/null << 'EOF'
 Description=Hearth Smart Home Kiosk
 After=network-online.target systemd-modules-load.service
 Wants=network-online.target
+OnFailure=hearth-rollback.service
 
 [Service]
 Type=simple
@@ -116,6 +117,7 @@ tar xzf /tmp/hearth-bundle.tar.gz -C /opt/hearth/bundle.staging/
 rm -f /tmp/hearth-bundle.tar.gz
 rm -rf "$PREV_DIR" && [ -d "$BUNDLE_DIR" ] && mv "$BUNDLE_DIR" "$PREV_DIR"
 mv /opt/hearth/bundle.staging "$BUNDLE_DIR"
+cp /etc/hearth-version /etc/hearth-version.prev 2>/dev/null
 echo "$LATEST" > "$VERSION_FILE"
 log "Updated to $LATEST, restarting"
 systemctl restart hearth.service
