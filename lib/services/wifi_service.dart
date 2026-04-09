@@ -132,7 +132,7 @@ class WifiService {
 
   /// Returns the SSID of the currently active WiFi connection, or null.
   ///
-  /// Runs: `nmcli -t -f DEVICE,CONNECTION device status`
+  /// Runs: `nmcli -t -f active,ssid device wifi list`
   /// Returns null on non-Linux platforms.
   Future<String?> activeConnection() async {
     if (!Platform.isLinux) return null;
@@ -140,9 +140,10 @@ class WifiService {
       final result = await Process.run('nmcli', [
         '-t',
         '-f',
-        'DEVICE,CONNECTION',
+        'active,ssid',
         'device',
-        'status',
+        'wifi',
+        'list',
       ]);
       if (result.exitCode != 0) {
         Log.e('WiFi', 'ActiveConnection nmcli error: ${result.stderr}');
@@ -155,17 +156,18 @@ class WifiService {
     }
   }
 
-  /// Disconnects the wlan0 interface.
+  /// Disconnects the active WiFi interface.
   ///
-  /// Runs: `nmcli device disconnect wlan0`
+  /// Detects the WiFi device name via nmcli instead of hardcoding wlan0.
   /// Returns false on non-Linux platforms.
   Future<bool> disconnect() async {
     if (!Platform.isLinux) return false;
     try {
+      final iface = await _findWifiInterface();
       final result = await Process.run('nmcli', [
         'device',
         'disconnect',
-        'wlan0',
+        iface,
       ]);
       if (result.exitCode != 0) {
         Log.e('WiFi', 'Disconnect nmcli error: ${result.stderr}');
@@ -173,9 +175,23 @@ class WifiService {
       }
       return true;
     } catch (e) {
-      Log.e('WiFi', 'Disconnect exception: $e');
+      Log.e('WiFi', 'Disconnect error: $e');
       return false;
     }
+  }
+
+  /// Finds the first WiFi device name, falling back to wlan0.
+  Future<String> _findWifiInterface() async {
+    try {
+      final devResult = await Process.run(
+          'nmcli', ['-t', '-f', 'DEVICE,TYPE', 'device', 'status']);
+      for (final line in (devResult.stdout as String).split('\n')) {
+        if (line.contains(':wifi')) {
+          return line.split(':').first;
+        }
+      }
+    } catch (_) {}
+    return 'wlan0';
   }
 
   /// Parses raw nmcli scan output into a deduplicated, sorted list.
@@ -203,18 +219,17 @@ class WifiService {
     return sorted;
   }
 
-  /// Parses nmcli device status output for the wlan0 connection name.
+  /// Parses `nmcli -t -f active,ssid device wifi list` output.
   ///
-  /// Returns the connection name (SSID) if wlan0 is active, null otherwise.
+  /// Returns the SSID of the first active connection, or null.
   static String? parseActiveConnection(String output) {
     final lines = output.trim().split('\n');
     for (final line in lines) {
       final trimmed = line.trim();
-      if (!trimmed.startsWith('wlan0:')) continue;
-      final colonIndex = trimmed.indexOf(':');
-      if (colonIndex == -1) continue;
-      final connection = trimmed.substring(colonIndex + 1).trim();
-      return connection.isEmpty ? null : connection;
+      if (trimmed.startsWith('yes:')) {
+        final ssid = trimmed.substring(4);
+        return ssid.isEmpty ? null : ssid;
+      }
     }
     return null;
   }

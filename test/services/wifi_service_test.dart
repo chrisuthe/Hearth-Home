@@ -47,13 +47,19 @@ void main() {
     });
 
     test('parseActiveConnection extracts active SSID', () {
-      const output = 'wlan0:MyNetwork';
+      const output = 'yes:MyNetwork\nno:OtherNet';
       final ssid = WifiService.parseActiveConnection(output);
       expect(ssid, 'MyNetwork');
     });
 
-    test('parseActiveConnection returns null when disconnected', () {
-      const output = 'wlan0:';
+    test('parseActiveConnection returns null when no active connection', () {
+      const output = 'no:SomeNet\nno:OtherNet';
+      final ssid = WifiService.parseActiveConnection(output);
+      expect(ssid, isNull);
+    });
+
+    test('parseActiveConnection returns null for empty SSID', () {
+      const output = 'yes:';
       final ssid = WifiService.parseActiveConnection(output);
       expect(ssid, isNull);
     });
