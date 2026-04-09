@@ -189,5 +189,30 @@ void main() {
       expect(updated.displayProfile, 'amoled-11');
       expect(updated.autoUpdate, false);
     });
+
+    test('enabledModules defaults include existing screens', () {
+      const config = HubConfig();
+      expect(config.enabledModules, contains('media'));
+      expect(config.enabledModules, contains('controls'));
+      expect(config.enabledModules, contains('cameras'));
+    });
+
+    test('mealie fields round-trip through JSON', () {
+      const config = HubConfig(
+        mealieUrl: 'http://mealie.local:9925',
+        mealieToken: 'test-token',
+      );
+      final json = config.toJson();
+      final restored = HubConfig.fromJson(json);
+      expect(restored.mealieUrl, 'http://mealie.local:9925');
+      expect(restored.mealieToken, 'test-token');
+    });
+
+    test('enabledModules round-trips through JSON', () {
+      const config = HubConfig(enabledModules: ['cameras', 'mealie']);
+      final json = config.toJson();
+      final restored = HubConfig.fromJson(json);
+      expect(restored.enabledModules, ['cameras', 'mealie']);
+    });
   });
 }
