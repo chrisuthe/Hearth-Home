@@ -120,7 +120,6 @@ class HomeAssistantService {
         _scheduleReconnect();
       }
     });
-    _reconnectDelay = (_reconnectDelay * 2).clamp(1, _maxReconnectDelay);
   }
 
   void _handleMessage(Map<String, dynamic> msg, String token) {
