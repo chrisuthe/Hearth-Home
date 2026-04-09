@@ -66,6 +66,10 @@ Night mode has four mutually exclusive sources: `none`, `clock`, `ha_entity`, `a
 
 Render resolution is 1184x864 (half the panel's native 2368x1728). The Pi upscales for performance. These constants are in `main.dart` as `kWindowWidth`/`kWindowHeight`.
 
+## Git
+
+The default branch is `main`. All PRs target `main`.
+
 ## Conventions
 
 - Linting enforces `prefer_const_constructors`, `prefer_const_declarations`, and `avoid_print` (use `debugPrint` instead)
