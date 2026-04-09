@@ -27,6 +27,7 @@ dependencies:
   weather_icons: ^3.0.0
   bonsoir: ^6.0.2
   ffi: ^2.2.0
+  flutterpi_gstreamer_video_player: ^0.2.0
 
 dev_dependencies:
   flutter_test:

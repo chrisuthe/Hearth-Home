@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutterpi_gstreamer_video_player/flutterpi_gstreamer_video_player.dart';
 import 'package:video_player/video_player.dart';
 import 'hearth_video_player.dart';
 
@@ -50,5 +51,6 @@ class GstreamerVideoPlayer implements HearthVideoPlayer {
 }
 
 void registerGstreamerPlayer() {
+  FlutterpiVideoPlayer.registerWith();
   registerVideoPlayerFactory(gstreamer: () => GstreamerVideoPlayer());
 }

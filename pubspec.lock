@@ -312,6 +312,14 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
+  flutterpi_gstreamer_video_player:
+    dependency: "direct main"
+    description:
+      name: flutterpi_gstreamer_video_player
+      sha256: "63140112b5f21118103960ba8677db63d30c753b1701c85b6aebfd6a2509cf5c"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.2.0"
   glob:
     dependency: transitive
     description:
