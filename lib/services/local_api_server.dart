@@ -735,12 +735,16 @@ const _configPageHtml = r'''
       <option value="ha_entity">HA Entity</option>
       <option value="api">External API</option>
     </select>
-    <label for="nightModeHaEntity">Night Mode HA Entity</label>
-    <input type="text" id="nightModeHaEntity" placeholder="binary_sensor.night_mode">
-    <label for="nightModeClockStart">Clock Start (HH:MM)</label>
-    <input type="text" id="nightModeClockStart" placeholder="22:00">
-    <label for="nightModeClockEnd">Clock End (HH:MM)</label>
-    <input type="text" id="nightModeClockEnd" placeholder="07:00">
+    <div id="nightModeHaFields" style="display:none;">
+      <label for="nightModeHaEntity">Night Mode HA Entity</label>
+      <input type="text" id="nightModeHaEntity" placeholder="binary_sensor.night_mode">
+    </div>
+    <div id="nightModeClockFields" style="display:none;">
+      <label for="nightModeClockStart">Clock Start (HH:MM)</label>
+      <input type="text" id="nightModeClockStart" placeholder="22:00">
+      <label for="nightModeClockEnd">Clock End (HH:MM)</label>
+      <input type="text" id="nightModeClockEnd" placeholder="07:00">
+    </div>
 
     <h2>Pinned Devices</h2>
     <label for="pinnedEntityIds">Entity IDs (one per line)</label>
@@ -918,7 +922,14 @@ async function applyUpdate() {
   } catch(e) { txt.textContent = 'Update failed'; txt.style.color = '#f87171'; }
 }
 
-initAuth().then(() => load());
+function updateNightModeFields() {
+  const src = document.getElementById('nightModeSource').value;
+  document.getElementById('nightModeHaFields').style.display = src === 'ha_entity' ? '' : 'none';
+  document.getElementById('nightModeClockFields').style.display = src === 'clock' ? '' : 'none';
+}
+document.getElementById('nightModeSource').addEventListener('change', updateNightModeFields);
+
+initAuth().then(() => load().then(() => updateNightModeFields()));
 </script>
 </body>
 </html>
