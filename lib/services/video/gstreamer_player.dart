@@ -23,17 +23,18 @@ class GstreamerVideoPlayer implements HearthVideoPlayer {
         _controller = FlutterpiVideoPlayerController.withGstreamerPipeline(
           'rtspsrc location=$url latency=200 '
           '! rtph264depay ! h264parse ! avdec_h264 '
-          '! videoconvert ! video/x-raw,format=RGBA '
+          '! videoconvert '
           '! appsink name=sink',
         );
       } else if (url.contains('/api/stream.mp4')) {
         // go2rtc fMP4 progressive stream over HTTP — uses souphttpsrc
         // instead of rtspsrc, avoiding the RTSP keepalive timeout issue.
+        // No explicit caps filter — player.c sets appsink caps from EGL formats.
         _controller = FlutterpiVideoPlayerController.withGstreamerPipeline(
           'souphttpsrc location=$url is-live=true '
           '! qtdemux name=demux demux.video_0 '
           '! h264parse ! avdec_h264 '
-          '! videoconvert ! video/x-raw,format=RGBA '
+          '! videoconvert '
           '! appsink name=sink',
         );
       } else {

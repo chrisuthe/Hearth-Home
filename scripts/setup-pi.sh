@@ -41,30 +41,18 @@ rm -rf flutter-pi
 git clone https://github.com/ardera/flutter-pi.git
 cd flutter-pi
 
-# Apply live pipeline fix: live sources (RTSP, HTTP live) deadlock during
-# init because NO_PREROLL pipelines don't produce data in PAUSED state.
-# This patch transitions live pipelines to PLAYING immediately and enables
-# frame dropping so appsink doesn't block the source.
-PLAYER_C="src/plugins/gstreamer_video_player/player.c"
-
-# 1. Remove the premature drop=false (drop is set after is_live detection)
-sed -i '/gst_app_sink_set_drop(GST_APP_SINK(sink), FALSE);/d' "$PLAYER_C"
-
-# 2. Replace hardcoded sync=TRUE with live-aware sync, drop, and PLAYING
-sed -i '/gst_base_sink_set_sync(GST_BASE_SINK(sink), TRUE);/c\
-    gst_base_sink_set_sync(GST_BASE_SINK(sink), !player->is_live);\
-    gst_app_sink_set_drop(GST_APP_SINK(sink), player->is_live);\
-\
-    if (player->is_live) {\
-        gst_element_set_state(GST_ELEMENT(pipeline), GST_STATE_PLAYING);\
-    }' "$PLAYER_C"
-
-# Verify patch applied
-if grep -q '!player->is_live' "$PLAYER_C"; then
-    echo "Live pipeline patch applied successfully."
-else
-    echo "ERROR: Live pipeline patch failed to apply!"
-    exit 1
+# Apply live pipeline fix: custom pipelines (RTSP, HTTP live) deadlock
+# during init because live sources don't produce data in PAUSED state.
+# This patch goes straight to PLAYING for custom pipelines, skips the
+# appsink caps override, and enables frame dropping.
+PATCH_URL="https://raw.githubusercontent.com/chrisuthe/Hearth-Home/main/scripts/apply_patch.py"
+wget -qO /tmp/apply_patch.py "$PATCH_URL" 2>/dev/null || {
+    echo "Warning: Could not download patch script from GitHub."
+    echo "Continuing without live pipeline patch."
+}
+if [ -f /tmp/apply_patch.py ]; then
+    python3 /tmp/apply_patch.py || exit 1
+    rm -f /tmp/apply_patch.py
 fi
 
 mkdir -p build && cd build
