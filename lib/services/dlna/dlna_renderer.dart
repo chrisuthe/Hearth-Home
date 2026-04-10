@@ -57,6 +57,7 @@ class DlnaRenderer {
   final int httpPort;
 
   RawDatagramSocket? _ssdpSocket;
+  Timer? _pollTimer;
   Timer? _notifyTimer;
   String? _cachedLocalIp;
 
@@ -111,14 +112,11 @@ class DlnaRenderer {
       debugPrint('DLNA: failed to join multicast group: $e');
     }
 
-    socket.listen((event) {
-      if (event != RawSocketEvent.read) return;
-      final datagram = socket.receive();
-      if (datagram == null) return;
-      final message = String.fromCharCodes(datagram.data);
-      if (message.startsWith('M-SEARCH')) {
-        _handleMSearch(message, datagram.address, datagram.port);
-      }
+    // Poll the socket for incoming datagrams. Dart's stream-based
+    // socket.listen() doesn't fire reliably on flutter-pi (sd_event
+    // loop doesn't poll the UDP fd), so we poll manually.
+    _pollTimer = Timer.periodic(const Duration(milliseconds: 250), (_) {
+      _pollSsdpSocket();
     });
 
     // Send initial alive and schedule periodic repeats.
@@ -133,6 +131,8 @@ class DlnaRenderer {
 
   /// Stop SSDP announcements and close the socket.
   Future<void> stop() async {
+    _pollTimer?.cancel();
+    _pollTimer = null;
     _notifyTimer?.cancel();
     _notifyTimer = null;
     _sendNotifyByebye();
@@ -315,6 +315,20 @@ class DlnaRenderer {
   // ---------------------------------------------------------------------------
   // SSDP
   // ---------------------------------------------------------------------------
+
+  void _pollSsdpSocket() {
+    final socket = _ssdpSocket;
+    if (socket == null) return;
+    // Drain all pending datagrams
+    while (true) {
+      final datagram = socket.receive();
+      if (datagram == null) break;
+      final message = String.fromCharCodes(datagram.data);
+      if (message.startsWith('M-SEARCH')) {
+        _handleMSearch(message, datagram.address, datagram.port);
+      }
+    }
+  }
 
   void _handleMSearch(String message, InternetAddress address, int port) {
     // Only respond to searches for MediaRenderer or ssdp:all.
