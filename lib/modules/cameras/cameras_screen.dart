@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/frigate_event.dart';
@@ -33,17 +32,12 @@ class _CamerasScreenState extends ConsumerState<CamerasScreen> {
     super.dispose();
   }
 
-  /// Opens full-screen view for the given camera with live video.
-  /// Uses go2rtc's HTTP MP4 stream on Pi (avoids RTSP timeout issues),
-  /// RTSP on desktop (where media_kit handles it natively).
+  /// Opens full-screen view for the given camera with live RTSP video.
   void _expandCamera(FrigateCamera camera) {
     _disposePlayer();
     try {
       final player = HearthVideoPlayer.create();
-      final url = Platform.environment.containsKey('HEARTH_NO_MEDIAKIT')
-          ? camera.httpStreamUrl
-          : camera.rtspUrl;
-      player.play(url);
+      player.play(camera.rtspUrl);
       setState(() {
         _expandedCamera = camera;
         _videoPlayer = player;
