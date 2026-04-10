@@ -52,6 +52,8 @@ class HubConfig {
   final bool setupComplete;
   final bool autoUpdate;
   final String currentVersion;
+  final String topSwipeAction;    // "menu1" | "menu2" | "settings" | "nextScreen" | "previousScreen"
+  final String bottomSwipeAction; // "menu1" | "menu2" | "settings" | "nextScreen" | "previousScreen"
 
   const HubConfig({
     this.apiKey = '',
@@ -85,6 +87,8 @@ class HubConfig {
     this.setupComplete = false,
     this.autoUpdate = true,
     this.currentVersion = '',
+    this.topSwipeAction = 'menu2',
+    this.bottomSwipeAction = 'menu1',
   });
 
   static String generateApiKey() {
@@ -125,6 +129,8 @@ class HubConfig {
     bool? setupComplete,
     bool? autoUpdate,
     String? currentVersion,
+    String? topSwipeAction,
+    String? bottomSwipeAction,
   }) {
     return HubConfig(
       apiKey: apiKey ?? this.apiKey,
@@ -158,6 +164,8 @@ class HubConfig {
       setupComplete: setupComplete ?? this.setupComplete,
       autoUpdate: autoUpdate ?? this.autoUpdate,
       currentVersion: currentVersion ?? this.currentVersion,
+      topSwipeAction: topSwipeAction ?? this.topSwipeAction,
+      bottomSwipeAction: bottomSwipeAction ?? this.bottomSwipeAction,
     );
   }
 
@@ -193,6 +201,8 @@ class HubConfig {
         'setupComplete': setupComplete,
         'autoUpdate': autoUpdate,
         'currentVersion': currentVersion,
+        'topSwipeAction': topSwipeAction,
+        'bottomSwipeAction': bottomSwipeAction,
       };
 
   factory HubConfig.fromJson(Map<String, dynamic> json) => HubConfig(
@@ -227,6 +237,8 @@ class HubConfig {
         setupComplete: json['setupComplete'] as bool? ?? false,
         autoUpdate: json['autoUpdate'] as bool? ?? true,
         currentVersion: json['currentVersion'] as String? ?? '',
+        topSwipeAction: json['topSwipeAction'] as String? ?? 'menu2',
+        bottomSwipeAction: json['bottomSwipeAction'] as String? ?? 'menu1',
       );
 }
 
