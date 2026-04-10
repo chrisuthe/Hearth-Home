@@ -101,13 +101,14 @@ class _CamerasScreenState extends ConsumerState<CamerasScreen> {
           child: Stack(
             fit: StackFit.expand,
             children: [
+              // Show snapshot as placeholder while video loads
+              _CameraSnapshotTile(
+                camera: _expandedCamera!,
+                isActive: true,
+              ),
+              // Video layers on top once playing
               if (_videoPlayer != null)
-                _videoPlayer!.buildView(fit: BoxFit.contain)
-              else
-                _CameraSnapshotTile(
-                  camera: _expandedCamera!,
-                  isActive: true,
-                ),
+                _videoPlayer!.buildView(fit: BoxFit.contain),
               // Camera name + back hint overlay
               Positioned(
                 top: 16,

@@ -21,7 +21,7 @@ class GstreamerVideoPlayer implements HearthVideoPlayer {
       if (url.startsWith('rtsp://')) {
         // Explicit H.264 pipeline for RTSP — avoids decodebin audio issues.
         _controller = FlutterpiVideoPlayerController.withGstreamerPipeline(
-          'rtspsrc location=$url latency=200 '
+          'rtspsrc location=$url latency=0 protocols=4 '
           '! rtph264depay ! h264parse ! avdec_h264 '
           '! videoconvert '
           '! appsink name=sink',
