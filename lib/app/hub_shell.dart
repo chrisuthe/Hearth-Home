@@ -306,6 +306,18 @@ class _HubShellState extends ConsumerState<HubShell> {
         onSkipPhoto: () => _ambientKey.currentState?.skipForward(),
         onSkipPhotoBack: () => _ambientKey.currentState?.skipBack(),
         onChevronTap: () => _onUserActivity(),
+        onNowPlayingTap: () {
+          // Navigate to Media screen (first left module)
+          final mediaIndex = leftModules.indexWhere((m) => m.id == 'media');
+          if (mediaIndex >= 0) {
+            _onUserActivity();
+            _pageController!.animateToPage(
+              mediaIndex,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeInOut,
+            );
+          }
+        },
       ),
       ...rightModules.map((m) => m.buildScreen(
           isActive: _currentPage == homeIndex + 1 + rightModules.indexOf(m))),

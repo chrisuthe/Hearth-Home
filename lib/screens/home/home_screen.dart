@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../config/hub_config.dart';
-import '../../models/music_state.dart';
 import '../../services/music_assistant_service.dart';
 import '../../services/weather_service.dart';
 import '../../utils/weather_icon_mapping.dart';
@@ -26,6 +25,7 @@ class HomeScreen extends ConsumerWidget {
   final VoidCallback? onSkipPhoto;
   final VoidCallback? onSkipPhotoBack;
   final VoidCallback? onChevronTap;
+  final VoidCallback? onNowPlayingTap;
 
   const HomeScreen({
     super.key,
@@ -33,6 +33,7 @@ class HomeScreen extends ConsumerWidget {
     this.onSkipPhoto,
     this.onSkipPhotoBack,
     this.onChevronTap,
+    this.onNowPlayingTap,
   });
 
   @override
@@ -48,7 +49,7 @@ class HomeScreen extends ConsumerWidget {
         Positioned(
           top: 16,
           right: 16,
-          child: _NowPlayingPill(ref: ref),
+          child: _NowPlayingPill(onTap: onNowPlayingTap),
         ),
 
         // Bottom content — single Column so elements don't overlap
@@ -267,24 +268,47 @@ class _TimerPill extends StatelessWidget {
   }
 }
 
-class _NowPlayingPill extends StatelessWidget {
-  final WidgetRef ref;
-  const _NowPlayingPill({required this.ref});
+class _NowPlayingPill extends ConsumerStatefulWidget {
+  final VoidCallback? onTap;
+  const _NowPlayingPill({this.onTap});
+
+  @override
+  ConsumerState<_NowPlayingPill> createState() => _NowPlayingPillState();
+}
+
+class _NowPlayingPillState extends ConsumerState<_NowPlayingPill> {
+  int _playerIndex = 0;
 
   @override
   Widget build(BuildContext context) {
     final music = ref.watch(musicAssistantServiceProvider);
     ref.watch(maPlayerStateProvider);
     final players = music.playerStates;
-    final activeEntry = players.entries
-        .where((e) => e.value.isPlaying)
-        .firstOrNull;
-    final state = activeEntry?.value ?? const MusicPlayerState();
+    final entries = players.entries.where((e) => e.value.hasTrack).toList();
 
-    if (!state.hasTrack) return const SizedBox.shrink();
+    if (entries.isEmpty) return const SizedBox.shrink();
 
+    // Clamp index to valid range
+    if (_playerIndex >= entries.length) _playerIndex = 0;
+    final entry = entries[_playerIndex];
+    final state = entry.value;
     final track = state.currentTrack!;
-    return Container(
+
+    return GestureDetector(
+      onTap: widget.onTap,
+      onHorizontalDragEnd: entries.length > 1
+          ? (details) {
+              final v = details.primaryVelocity ?? 0;
+              if (v < -200) {
+                // Swipe left → next player
+                setState(() => _playerIndex = (_playerIndex + 1) % entries.length);
+              } else if (v > 200) {
+                // Swipe right → previous player
+                setState(() => _playerIndex = (_playerIndex - 1 + entries.length) % entries.length);
+              }
+            }
+          : null,
+      child: Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.black.withValues(alpha: 0.5),
@@ -348,6 +372,7 @@ class _NowPlayingPill extends StatelessWidget {
           ),
         ],
       ),
+    ),
     );
   }
 }
