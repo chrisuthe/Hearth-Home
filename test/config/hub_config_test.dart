@@ -263,5 +263,19 @@ void main() {
       final config = HubConfig.fromJson({});
       expect(config.moduleOrder, isEmpty);
     });
+
+    test('dlnaDeviceUuid defaults to empty string', () {
+      const config = HubConfig();
+      expect(config.dlnaDeviceUuid, '');
+    });
+
+    test('dlnaDeviceUuid round-trips through JSON', () {
+      const config = HubConfig(
+        dlnaDeviceUuid: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
+      );
+      final json = config.toJson();
+      final restored = HubConfig.fromJson(json);
+      expect(restored.dlnaDeviceUuid, 'f47ac10b-58cc-4372-a567-0e02b2c3d479');
+    });
   });
 }

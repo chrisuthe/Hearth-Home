@@ -55,6 +55,7 @@ class HubConfig {
   final List<String> moduleOrder;  // custom screen order (module IDs); empty = use defaultOrder
   final String topSwipeAction;    // "menu1" | "menu2" | "settings" | "nextScreen" | "previousScreen"
   final String bottomSwipeAction; // "menu1" | "menu2" | "settings" | "nextScreen" | "previousScreen"
+  final String dlnaDeviceUuid;
 
   const HubConfig({
     this.apiKey = '',
@@ -91,6 +92,7 @@ class HubConfig {
     this.moduleOrder = const [],
     this.topSwipeAction = 'menu2',
     this.bottomSwipeAction = 'menu1',
+    this.dlnaDeviceUuid = '',
   });
 
   static String generateApiKey() {
@@ -134,6 +136,7 @@ class HubConfig {
     List<String>? moduleOrder,
     String? topSwipeAction,
     String? bottomSwipeAction,
+    String? dlnaDeviceUuid,
   }) {
     return HubConfig(
       apiKey: apiKey ?? this.apiKey,
@@ -170,6 +173,7 @@ class HubConfig {
       moduleOrder: moduleOrder ?? this.moduleOrder,
       topSwipeAction: topSwipeAction ?? this.topSwipeAction,
       bottomSwipeAction: bottomSwipeAction ?? this.bottomSwipeAction,
+      dlnaDeviceUuid: dlnaDeviceUuid ?? this.dlnaDeviceUuid,
     );
   }
 
@@ -208,6 +212,7 @@ class HubConfig {
         'moduleOrder': moduleOrder,
         'topSwipeAction': topSwipeAction,
         'bottomSwipeAction': bottomSwipeAction,
+        'dlnaDeviceUuid': dlnaDeviceUuid,
       };
 
   factory HubConfig.fromJson(Map<String, dynamic> json) => HubConfig(
@@ -245,6 +250,7 @@ class HubConfig {
         moduleOrder: (json['moduleOrder'] as List<dynamic>?)?.cast<String>() ?? const [],
         topSwipeAction: json['topSwipeAction'] as String? ?? 'menu2',
         bottomSwipeAction: json['bottomSwipeAction'] as String? ?? 'menu1',
+        dlnaDeviceUuid: json['dlnaDeviceUuid'] as String? ?? '',
       );
 }
 
