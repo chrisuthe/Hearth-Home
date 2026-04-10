@@ -260,8 +260,8 @@ sudo systemctl restart avahi-daemon
 echo ""
 echo "=== Hearth setup complete ==="
 echo ""
-echo "Start now:  sudo systemctl start hearth.service"
-echo "Or reboot to start automatically."
+sudo systemctl start hearth.service
+echo "Hearth service started."
 echo "Web portal: http://hearth.local:8090"
 echo ""
 echo "The PIN to access the web portal is shown on the kiosk display."
