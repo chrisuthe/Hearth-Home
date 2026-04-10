@@ -288,6 +288,52 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
         const SizedBox(height: 24),
 
+        // --- Gestures section ---
+        _SectionHeader(title: 'Gestures'),
+        const SizedBox(height: 8),
+
+        _SettingsTile(
+          icon: Icons.swipe_down,
+          title: 'Swipe Down (Top Edge)',
+          subtitle: _swipeActionLabel(config.topSwipeAction),
+          onTap: () => _showChoiceDialog(
+            title: 'Top Edge Swipe Action',
+            options: const {
+              'menu1': 'Menu 1',
+              'menu2': 'Menu 2',
+              'settings': 'Settings',
+              'nextScreen': 'Next Screen',
+              'previousScreen': 'Previous Screen',
+            },
+            currentValue: config.topSwipeAction,
+            onSave: (value) => _updateConfig(
+              (c) => c.copyWith(topSwipeAction: value),
+            ),
+          ),
+        ),
+
+        _SettingsTile(
+          icon: Icons.swipe_up,
+          title: 'Swipe Up (Bottom Edge)',
+          subtitle: _swipeActionLabel(config.bottomSwipeAction),
+          onTap: () => _showChoiceDialog(
+            title: 'Bottom Edge Swipe Action',
+            options: const {
+              'menu1': 'Menu 1',
+              'menu2': 'Menu 2',
+              'settings': 'Settings',
+              'nextScreen': 'Next Screen',
+              'previousScreen': 'Previous Screen',
+            },
+            currentValue: config.bottomSwipeAction,
+            onSave: (value) => _updateConfig(
+              (c) => c.copyWith(bottomSwipeAction: value),
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 24),
+
         // --- Music section ---
         _SectionHeader(title: 'Music'),
         const SizedBox(height: 8),
@@ -460,6 +506,23 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       ],
       ),
     );
+  }
+
+  String _swipeActionLabel(String action) {
+    switch (action) {
+      case 'menu1':
+        return 'Menu 1';
+      case 'menu2':
+        return 'Menu 2';
+      case 'settings':
+        return 'Settings';
+      case 'nextScreen':
+        return 'Next Screen';
+      case 'previousScreen':
+        return 'Previous Screen';
+      default:
+        return action;
+    }
   }
 
   String _nightModeLabel(String source) {
