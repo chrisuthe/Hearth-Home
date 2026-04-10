@@ -123,6 +123,20 @@ class MealieMealPlanEntry {
   }
 }
 
+class MealieCategory {
+  final String name;
+  final String slug;
+
+  const MealieCategory({required this.name, required this.slug});
+
+  factory MealieCategory.fromJson(Map<String, dynamic> json) {
+    return MealieCategory(
+      name: json['name'] as String? ?? '',
+      slug: json['slug'] as String? ?? '',
+    );
+  }
+}
+
 /// Parses ISO 8601 duration (e.g., "PT30M", "PT1H15M") to minutes.
 int? _parseIsoDuration(String? iso) {
   if (iso == null || iso.isEmpty) return null;
