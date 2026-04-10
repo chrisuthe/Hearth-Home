@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/frigate_event.dart';
+import '../../app/idle_controller.dart';
 import '../../services/video/hearth_video_player.dart';
 import 'frigate_service.dart';
 
@@ -29,6 +30,7 @@ class _CamerasScreenState extends ConsumerState<CamerasScreen> {
   @override
   void dispose() {
     _disposePlayer();
+    ref.read(idleControllerProvider).unsuppress();
     super.dispose();
   }
 
@@ -36,6 +38,7 @@ class _CamerasScreenState extends ConsumerState<CamerasScreen> {
   void _expandCamera(FrigateCamera camera) {
     _disposePlayer();
     try {
+      ref.read(idleControllerProvider).suppress();
       final player = HearthVideoPlayer.create();
       player.play(camera.rtspUrl);
       setState(() {
@@ -43,7 +46,7 @@ class _CamerasScreenState extends ConsumerState<CamerasScreen> {
         _videoPlayer = player;
       });
     } catch (e) {
-      // Player not available — fall back to snapshot
+      ref.read(idleControllerProvider).unsuppress();
       setState(() {
         _expandedCamera = camera;
       });
@@ -53,6 +56,7 @@ class _CamerasScreenState extends ConsumerState<CamerasScreen> {
   /// Returns to the grid view and cleans up the video player.
   void _collapseCamera() {
     _disposePlayer();
+    ref.read(idleControllerProvider).unsuppress();
     setState(() => _expandedCamera = null);
   }
 
@@ -105,6 +109,7 @@ class _CamerasScreenState extends ConsumerState<CamerasScreen> {
               _CameraSnapshotTile(
                 camera: _expandedCamera!,
                 isActive: true,
+                fit: BoxFit.contain,
               ),
               // Video layers on top once playing
               if (_videoPlayer != null)
@@ -238,7 +243,8 @@ class _CamerasScreenState extends ConsumerState<CamerasScreen> {
 class _CameraSnapshotTile extends StatefulWidget {
   final FrigateCamera camera;
   final bool isActive;
-  const _CameraSnapshotTile({required this.camera, this.isActive = false});
+  final BoxFit fit;
+  const _CameraSnapshotTile({required this.camera, this.isActive = false, this.fit = BoxFit.cover});
 
   @override
   State<_CameraSnapshotTile> createState() => _CameraSnapshotTileState();
@@ -290,7 +296,7 @@ class _CameraSnapshotTileState extends State<_CameraSnapshotTile> {
     return Image.network(
       // Append timestamp to bust the HTTP cache and get a fresh frame
       '${widget.camera.snapshotUrl}?t=$_tick',
-      fit: BoxFit.cover,
+      fit: widget.fit,
       // Keep the previous frame visible while the new one loads
       gaplessPlayback: true,
       errorBuilder: (_, __, ___) => Container(
