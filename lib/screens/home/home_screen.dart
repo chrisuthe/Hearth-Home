@@ -44,6 +44,13 @@ class HomeScreen extends ConsumerWidget {
     return Stack(
       fit: StackFit.expand,
       children: [
+        // Now playing — top right with album art
+        Positioned(
+          top: 16,
+          right: 16,
+          child: _NowPlayingPill(ref: ref),
+        ),
+
         // Bottom content — single Column so elements don't overlap
         Positioned(
           left: 24,
@@ -53,18 +60,12 @@ class HomeScreen extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Timer + Now Playing row
-              Row(
-                children: [
-                  _TimerPill(
-                    timerService: timerService,
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const TimerScreen()),
-                    ),
-                  ),
-                  const Spacer(),
-                  _NowPlayingPill(ref: ref),
-                ],
+              // Timer pill
+              _TimerPill(
+                timerService: timerService,
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const TimerScreen()),
+                ),
               ),
               const SizedBox(height: 16),
               // Clock + date + memory label | Weather
@@ -282,49 +283,71 @@ class _NowPlayingPill extends StatelessWidget {
 
     if (!state.hasTrack) return const SizedBox.shrink();
 
+    final track = state.currentTrack!;
     return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.4),
-            borderRadius: BorderRadius.circular(8),
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Album art
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: track.imageUrl != null
+                ? Image.network(
+                    track.imageUrl!,
+                    width: 48,
+                    height: 48,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(
+                      width: 48,
+                      height: 48,
+                      color: Colors.white.withValues(alpha: 0.1),
+                      child: const Icon(Icons.music_note,
+                          color: Colors.white38, size: 24),
+                    ),
+                  )
+                : Container(
+                    width: 48,
+                    height: 48,
+                    color: Colors.white.withValues(alpha: 0.1),
+                    child: const Icon(Icons.music_note,
+                        color: Colors.white38, size: 24),
+                  ),
           ),
-          child: Row(
+          const SizedBox(width: 10),
+          // Track info
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                width: 28,
-                height: 28,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1DB954),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Icon(
-                  state.isPlaying ? Icons.pause : Icons.play_arrow,
-                  color: Colors.white,
-                  size: 18,
+              Text(
+                state.activeZoneName ?? '',
+                style: TextStyle(
+                  fontSize: 10,
+                  color: Colors.white.withValues(alpha: 0.5),
                 ),
               ),
-              const SizedBox(width: 8),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    state.currentTrack!.title,
-                    style: const TextStyle(
-                        fontSize: 13, fontWeight: FontWeight.w500),
-                  ),
-                  Text(
-                    '${state.currentTrack!.artist} \u00B7 ${state.activeZoneName ?? ""}',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Colors.white.withValues(alpha: 0.5),
-                    ),
-                  ),
-                ],
+              const SizedBox(height: 2),
+              Text(
+                track.title,
+                style: const TextStyle(
+                    fontSize: 13, fontWeight: FontWeight.w500),
+              ),
+              Text(
+                track.artist,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Colors.white.withValues(alpha: 0.6),
+                ),
               ),
             ],
           ),
+        ],
+      ),
     );
   }
 }
