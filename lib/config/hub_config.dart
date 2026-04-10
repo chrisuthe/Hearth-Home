@@ -56,6 +56,7 @@ class HubConfig {
   final String topSwipeAction;    // "menu1" | "menu2" | "settings" | "nextScreen" | "previousScreen"
   final String bottomSwipeAction; // "menu1" | "menu2" | "settings" | "nextScreen" | "previousScreen"
   final String dlnaDeviceUuid;
+  final bool dlnaEnabled;
 
   const HubConfig({
     this.apiKey = '',
@@ -93,6 +94,7 @@ class HubConfig {
     this.topSwipeAction = 'menu2',
     this.bottomSwipeAction = 'menu1',
     this.dlnaDeviceUuid = '',
+    this.dlnaEnabled = false,
   });
 
   static String generateApiKey() {
@@ -137,6 +139,7 @@ class HubConfig {
     String? topSwipeAction,
     String? bottomSwipeAction,
     String? dlnaDeviceUuid,
+    bool? dlnaEnabled,
   }) {
     return HubConfig(
       apiKey: apiKey ?? this.apiKey,
@@ -174,6 +177,7 @@ class HubConfig {
       topSwipeAction: topSwipeAction ?? this.topSwipeAction,
       bottomSwipeAction: bottomSwipeAction ?? this.bottomSwipeAction,
       dlnaDeviceUuid: dlnaDeviceUuid ?? this.dlnaDeviceUuid,
+      dlnaEnabled: dlnaEnabled ?? this.dlnaEnabled,
     );
   }
 
@@ -213,6 +217,7 @@ class HubConfig {
         'topSwipeAction': topSwipeAction,
         'bottomSwipeAction': bottomSwipeAction,
         'dlnaDeviceUuid': dlnaDeviceUuid,
+        'dlnaEnabled': dlnaEnabled,
       };
 
   factory HubConfig.fromJson(Map<String, dynamic> json) => HubConfig(
@@ -251,6 +256,7 @@ class HubConfig {
         topSwipeAction: json['topSwipeAction'] as String? ?? 'menu2',
         bottomSwipeAction: json['bottomSwipeAction'] as String? ?? 'menu1',
         dlnaDeviceUuid: json['dlnaDeviceUuid'] as String? ?? '',
+        dlnaEnabled: json['dlnaEnabled'] as bool? ?? false,
       );
 }
 

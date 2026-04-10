@@ -54,11 +54,14 @@ Future<void> main() async {
       Log.e('App', 'API server start failed: $e');
     }
 
-    // Start DLNA renderer for cast-to-screen functionality.
-    final dlna = container.read(dlnaRendererProvider);
-    apiServer.setDlnaRenderer(dlna);
-    await dlna.start();
-    Log.i('App', 'DLNA renderer started');
+    // Start DLNA renderer for cast-to-screen functionality (if enabled).
+    final config = container.read(hubConfigProvider);
+    if (config.dlnaEnabled) {
+      final dlna = container.read(dlnaRendererProvider);
+      apiServer.setDlnaRenderer(dlna);
+      await dlna.start();
+      Log.i('App', 'DLNA renderer started');
+    }
   }
 
   // All other services (HA, MA, Immich, Frigate, DisplayMode) are
