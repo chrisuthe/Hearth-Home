@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -256,12 +258,13 @@ class _HubShellState extends ConsumerState<HubShell> {
     return _MenuTray(
       fromTop: fromTop,
       onDismiss: () => setState(() => _menu2Open = false),
-      child: const Padding(
-        padding: EdgeInsets.symmetric(vertical: 8),
-        child: Text(
-          'No actions configured',
-          style: TextStyle(fontSize: 13, color: Colors.white38),
-        ),
+      child: const Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text('Volume', style: TextStyle(fontSize: 12, color: Colors.white54)),
+          SizedBox(height: 4),
+          _SystemVolumeSlider(),
+        ],
       ),
     );
   }
@@ -488,6 +491,70 @@ class _MenuTray extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// System volume slider using amixer (ALSA) on Linux/Pi.
+class _SystemVolumeSlider extends StatefulWidget {
+  const _SystemVolumeSlider();
+
+  @override
+  State<_SystemVolumeSlider> createState() => _SystemVolumeSliderState();
+}
+
+class _SystemVolumeSliderState extends State<_SystemVolumeSlider> {
+  double _volume = 0.5;
+  Timer? _debounce;
+
+  @override
+  void initState() {
+    super.initState();
+    _readVolume();
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _readVolume() async {
+    try {
+      final result = await Process.run('amixer', ['get', 'Master']);
+      final match = RegExp(r'\[(\d+)%\]').firstMatch(result.stdout as String);
+      if (match != null && mounted) {
+        setState(() => _volume = int.parse(match.group(1)!) / 100.0);
+      }
+    } catch (_) {
+      // amixer not available (e.g., Windows dev)
+    }
+  }
+
+  void _onChanged(double value) {
+    setState(() => _volume = value);
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 100), () {
+      final percent = (value * 100).round();
+      Process.run('amixer', ['set', 'Master', '$percent%']);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        const Icon(Icons.volume_down, color: Colors.white54, size: 20),
+        Expanded(
+          child: Slider(
+            value: _volume,
+            onChanged: _onChanged,
+            activeColor: Colors.white70,
+            inactiveColor: Colors.white.withValues(alpha: 0.1),
+          ),
+        ),
+        const Icon(Icons.volume_up, color: Colors.white54, size: 20),
+      ],
     );
   }
 }
