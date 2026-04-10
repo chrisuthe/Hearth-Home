@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
@@ -56,9 +57,9 @@ class DlnaRenderer {
   final String friendlyName;
   final int httpPort;
 
-  RawDatagramSocket? _ssdpSocket;
-  Timer? _pollTimer;
-  Timer? _notifyTimer;
+  Isolate? _ssdpIsolate;
+  ReceivePort? _ssdpReceivePort;
+  SendPort? _ssdpSendPort;
   String? _cachedLocalIp;
 
   DlnaCastState _state = const DlnaCastState();
@@ -80,50 +81,34 @@ class DlnaRenderer {
   /// Current cast state snapshot.
   DlnaCastState get currentState => _state;
 
-  /// Start SSDP listener and periodic NOTIFY announcements.
+  /// Start SSDP listener in a separate isolate and periodic NOTIFY announcements.
   Future<void> start() async {
     _cachedLocalIp = await _getLocalIp();
 
-    try {
-      _ssdpSocket = await RawDatagramSocket.bind(
-        InternetAddress.anyIPv4,
-        1900,
-        reuseAddress: true,
-        reusePort: true,
-      );
-    } on SocketException catch (e) {
-      debugPrint('DLNA: failed to bind SSDP socket: $e');
-      return;
-    }
-
-    final socket = _ssdpSocket!;
-    final mcast = InternetAddress('239.255.255.250');
-    try {
-      // Join on the specific interface to ensure multicast works on Linux
-      final iface = await _getLocalInterface();
-      if (iface != null) {
-        socket.joinMulticast(mcast, iface);
-        debugPrint('DLNA: joined multicast on ${iface.name}');
-      } else {
-        socket.joinMulticast(mcast);
-        debugPrint('DLNA: joined multicast on default interface');
+    // Run SSDP in a separate isolate — flutter-pi's sd_event loop
+    // doesn't dispatch Dart Timer or socket stream events reliably.
+    _ssdpReceivePort = ReceivePort();
+    _ssdpReceivePort!.listen((message) {
+      if (message is SendPort) {
+        _ssdpSendPort = message;
+      } else if (message is Map) {
+        // M-SEARCH received — send response from main isolate context
+        final address = message['address'] as String;
+        final port = message['port'] as int;
+        final st = message['st'] as String;
+        _sendMSearchResponse(address, port, st);
       }
-    } on OSError catch (e) {
-      debugPrint('DLNA: failed to join multicast group: $e');
-    }
-
-    // Poll the socket for incoming datagrams. Dart's stream-based
-    // socket.listen() doesn't fire reliably on flutter-pi (sd_event
-    // loop doesn't poll the UDP fd), so we poll manually.
-    _pollTimer = Timer.periodic(const Duration(milliseconds: 250), (_) {
-      _pollSsdpSocket();
     });
 
-    // Send initial alive and schedule periodic repeats.
-    _sendNotifyAlive();
-    _notifyTimer = Timer.periodic(
-      const Duration(seconds: 60),
-      (_) => _sendNotifyAlive(),
+    _ssdpIsolate = await Isolate.spawn(
+      _ssdpIsolateEntry,
+      _SsdpConfig(
+        sendPort: _ssdpReceivePort!.sendPort,
+        uuid: uuid,
+        friendlyName: friendlyName,
+        httpPort: httpPort,
+        localIp: _cachedLocalIp,
+      ),
     );
 
     debugPrint('DLNA: renderer started (uuid=$uuid)');
@@ -131,13 +116,12 @@ class DlnaRenderer {
 
   /// Stop SSDP announcements and close the socket.
   Future<void> stop() async {
-    _pollTimer?.cancel();
-    _pollTimer = null;
-    _notifyTimer?.cancel();
-    _notifyTimer = null;
-    _sendNotifyByebye();
-    _ssdpSocket?.close();
-    _ssdpSocket = null;
+    _ssdpSendPort?.send('stop');
+    _ssdpIsolate?.kill();
+    _ssdpIsolate = null;
+    _ssdpReceivePort?.close();
+    _ssdpReceivePort = null;
+    _ssdpSendPort = null;
     await _castController.close();
     debugPrint('DLNA: renderer stopped');
   }
@@ -316,36 +300,8 @@ class DlnaRenderer {
   // SSDP
   // ---------------------------------------------------------------------------
 
-  void _pollSsdpSocket() {
-    final socket = _ssdpSocket;
-    if (socket == null) return;
-    // Drain all pending datagrams
-    while (true) {
-      final datagram = socket.receive();
-      if (datagram == null) break;
-      final message = String.fromCharCodes(datagram.data);
-      if (message.startsWith('M-SEARCH')) {
-        _handleMSearch(message, datagram.address, datagram.port);
-      }
-    }
-  }
-
-  void _handleMSearch(String message, InternetAddress address, int port) {
-    // Only respond to searches for MediaRenderer or ssdp:all.
-    final stLine = RegExp(r'ST:\s*(.+)', caseSensitive: false)
-        .firstMatch(message)
-        ?.group(1)
-        ?.trim();
-    if (stLine == null) return;
-
-    final isRelevant = stLine == 'ssdp:all' ||
-        stLine == 'upnp:rootdevice' ||
-        stLine.contains('MediaRenderer') ||
-        stLine.contains('AVTransport') ||
-        stLine.contains('RenderingControl') ||
-        stLine.contains('ConnectionManager');
-    if (!isRelevant) return;
-
+  /// Send M-SEARCH response back via the SSDP isolate.
+  void _sendMSearchResponse(String address, int port, String st) {
     final localIp = _cachedLocalIp;
     if (localIp == null) return;
 
@@ -354,55 +310,17 @@ class DlnaRenderer {
         'CACHE-CONTROL: max-age=1800\r\n'
         'LOCATION: $location\r\n'
         'SERVER: Hearth/1.0 UPnP/1.0\r\n'
-        'ST: $stLine\r\n'
-        'USN: uuid:$uuid::$stLine\r\n'
+        'ST: $st\r\n'
+        'USN: uuid:$uuid::$st\r\n'
         'EXT:\r\n'
         '\r\n';
 
-    _ssdpSocket?.send(
-      response.codeUnits,
-      address,
-      port,
-    );
-  }
-
-  void _sendNotifyAlive() {
-    final localIp = _cachedLocalIp;
-    if (localIp == null) return;
-    final location = 'http://$localIp:$httpPort/dlna/device.xml';
-
-    const nt = 'urn:schemas-upnp-org:device:MediaRenderer:1';
-    final message = 'NOTIFY * HTTP/1.1\r\n'
-        'HOST: 239.255.255.250:1900\r\n'
-        'CACHE-CONTROL: max-age=1800\r\n'
-        'LOCATION: $location\r\n'
-        'NT: $nt\r\n'
-        'NTS: ssdp:alive\r\n'
-        'SERVER: Hearth/1.0 UPnP/1.0\r\n'
-        'USN: uuid:$uuid::$nt\r\n'
-        '\r\n';
-
-    _ssdpSocket?.send(
-      message.codeUnits,
-      InternetAddress('239.255.255.250'),
-      1900,
-    );
-  }
-
-  void _sendNotifyByebye() {
-    const nt = 'urn:schemas-upnp-org:device:MediaRenderer:1';
-    final message = 'NOTIFY * HTTP/1.1\r\n'
-        'HOST: 239.255.255.250:1900\r\n'
-        'NT: $nt\r\n'
-        'NTS: ssdp:byebye\r\n'
-        'USN: uuid:$uuid::$nt\r\n'
-        '\r\n';
-
-    _ssdpSocket?.send(
-      message.codeUnits,
-      InternetAddress('239.255.255.250'),
-      1900,
-    );
+    _ssdpSendPort?.send({
+      'type': 'reply',
+      'data': response,
+      'address': address,
+      'port': port,
+    });
   }
 
   // ---------------------------------------------------------------------------
@@ -427,19 +345,6 @@ class DlnaRenderer {
     }
   }
 
-  static Future<NetworkInterface?> _getLocalInterface() async {
-    try {
-      final interfaces = await NetworkInterface.list(
-        type: InternetAddressType.IPv4,
-      );
-      for (final iface in interfaces) {
-        for (final addr in iface.addresses) {
-          if (!addr.isLoopback) return iface;
-        }
-      }
-    } catch (_) {}
-    return null;
-  }
 
   static Future<String?> _getLocalIp() async {
     try {
@@ -536,3 +441,128 @@ final dlnaRendererProvider = Provider<DlnaRenderer>((ref) {
 
   return renderer;
 });
+
+/// Config passed to the SSDP isolate.
+class _SsdpConfig {
+  final SendPort sendPort;
+  final String uuid;
+  final String friendlyName;
+  final int httpPort;
+  final String? localIp;
+
+  _SsdpConfig({
+    required this.sendPort,
+    required this.uuid,
+    required this.friendlyName,
+    required this.httpPort,
+    required this.localIp,
+  });
+}
+
+/// Isolate entry point for SSDP multicast listener.
+/// Runs its own event loop so socket events fire independently of flutter-pi.
+void _ssdpIsolateEntry(_SsdpConfig config) async {
+  final mainPort = config.sendPort;
+  final receivePort = ReceivePort();
+  mainPort.send(receivePort.sendPort);
+
+  RawDatagramSocket? socket;
+  try {
+    socket = await RawDatagramSocket.bind(
+      InternetAddress.anyIPv4,
+      1900,
+      reuseAddress: true,
+      reusePort: true,
+    );
+
+    final mcast = InternetAddress('239.255.255.250');
+    if (config.localIp != null) {
+      try {
+        final interfaces = await NetworkInterface.list(type: InternetAddressType.IPv4);
+        for (final iface in interfaces) {
+          for (final addr in iface.addresses) {
+            if (addr.address == config.localIp) {
+              socket.joinMulticast(mcast, iface);
+            }
+          }
+        }
+      } catch (_) {
+        socket.joinMulticast(mcast);
+      }
+    } else {
+      socket.joinMulticast(mcast);
+    }
+  } catch (e) {
+    return;
+  }
+
+  // Listen for incoming M-SEARCH datagrams
+  socket.listen((event) {
+    if (event != RawSocketEvent.read) return;
+    final datagram = socket!.receive();
+    if (datagram == null) return;
+    final message = String.fromCharCodes(datagram.data);
+    if (!message.startsWith('M-SEARCH')) return;
+
+    final stLine = RegExp(r'ST:\s*(.+)', caseSensitive: false)
+        .firstMatch(message)
+        ?.group(1)
+        ?.trim();
+    if (stLine == null) return;
+
+    final isRelevant = stLine == 'ssdp:all' ||
+        stLine == 'upnp:rootdevice' ||
+        stLine.contains('MediaRenderer') ||
+        stLine.contains('AVTransport') ||
+        stLine.contains('RenderingControl') ||
+        stLine.contains('ConnectionManager');
+    if (!isRelevant) return;
+
+    // Forward to main isolate for response
+    mainPort.send({
+      'address': datagram.address.address,
+      'port': datagram.port,
+      'st': stLine,
+    });
+  });
+
+  // Listen for commands from main isolate (replies + multicast sends)
+  receivePort.listen((message) {
+    if (message == 'stop') {
+      socket?.close();
+      receivePort.close();
+      return;
+    }
+    if (message is Map) {
+      final type = message['type'] as String;
+      final data = message['data'] as String;
+      if (type == 'reply') {
+        final address = message['address'] as String;
+        final port = message['port'] as int;
+        socket?.send(data.codeUnits, InternetAddress(address), port);
+      } else if (type == 'multicast') {
+        socket?.send(data.codeUnits, InternetAddress('239.255.255.250'), 1900);
+      }
+    }
+  });
+
+  // Send initial alive notify
+  final localIp = config.localIp ?? '127.0.0.1';
+  final location = 'http://$localIp:${config.httpPort}/dlna/device.xml';
+  const nt = 'urn:schemas-upnp-org:device:MediaRenderer:1';
+  final alive = 'NOTIFY * HTTP/1.1\r\n'
+      'HOST: 239.255.255.250:1900\r\n'
+      'CACHE-CONTROL: max-age=1800\r\n'
+      'LOCATION: $location\r\n'
+      'NT: $nt\r\n'
+      'NTS: ssdp:alive\r\n'
+      'SERVER: Hearth/1.0 UPnP/1.0\r\n'
+      'USN: uuid:${config.uuid}::$nt\r\n'
+      '\r\n';
+  socket.send(alive.codeUnits, InternetAddress('239.255.255.250'), 1900);
+
+  // Periodic alive every 60s
+  Timer.periodic(const Duration(seconds: 60), (_) {
+    socket?.send(alive.codeUnits, InternetAddress('239.255.255.250'), 1900);
+  });
+}
