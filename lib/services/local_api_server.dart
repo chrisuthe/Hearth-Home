@@ -6,9 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../utils/logger.dart';
 import '../config/hub_config.dart';
 import 'display_mode_service.dart';
-import 'dlna/dlna_renderer.dart';
-import 'dlna/dlna_xml.dart';
-import 'dlna/soap_handler.dart';
 import 'wifi_service.dart';
 import 'update_service.dart';
 
@@ -45,12 +42,6 @@ class LocalApiServer {
 
   /// Active session tokens granted after successful PIN entry.
   final Set<String> _activeSessions = {};
-
-  DlnaRenderer? _dlnaRenderer;
-
-  void setDlnaRenderer(DlnaRenderer renderer) {
-    _dlnaRenderer = renderer;
-  }
 
   LocalApiServer({
     required DisplayModeService displayModeService,
@@ -106,12 +97,6 @@ class LocalApiServer {
       // --- PIN auth endpoint (unauthenticated) ---
       if (path == '/auth/pin' && request.method == 'POST') {
         await _handlePinAuth(request);
-        return;
-      }
-
-      // --- DLNA endpoints (unauthenticated per UPnP spec) ---
-      if (path.startsWith('/dlna/')) {
-        await _handleDlnaRequest(request, path);
         return;
       }
 
@@ -212,79 +197,6 @@ class LocalApiServer {
       return false;
     }
     return true;
-  }
-
-  /// Handles all DLNA/UPnP requests under /dlna/.
-  Future<void> _handleDlnaRequest(HttpRequest request, String path) async {
-    final renderer = _dlnaRenderer;
-    if (renderer == null) {
-      request.response.statusCode = 503;
-      request.response.headers.contentType = ContentType.json;
-      request.response.write(jsonEncode({'error': 'DLNA renderer not ready'}));
-      await request.response.close();
-      return;
-    }
-
-    final xmlContentType = ContentType('text', 'xml', charset: 'utf-8');
-
-    // SUBSCRIBE / UNSUBSCRIBE — acknowledge event subscriptions
-    if (request.method == 'SUBSCRIBE' || request.method == 'UNSUBSCRIBE') {
-      request.response.statusCode = 200;
-      request.response.headers.set('SID', 'uuid:${renderer.uuid}');
-      request.response.headers.set('TIMEOUT', 'Second-300');
-      await request.response.close();
-      return;
-    }
-
-    // GET — XML description documents
-    if (request.method == 'GET') {
-      String? xml;
-      switch (path) {
-        case '/dlna/device.xml':
-          final host = request.headers.host ?? 'localhost:8090';
-          xml = deviceDescriptionXml(
-            uuid: renderer.uuid,
-            friendlyName: renderer.friendlyName,
-            baseUrl: 'http://$host',
-          );
-        case '/dlna/AVTransport.xml':
-          xml = avTransportScpd();
-        case '/dlna/RenderingControl.xml':
-          xml = renderingControlScpd();
-        case '/dlna/ConnectionManager.xml':
-          xml = connectionManagerScpd();
-      }
-      if (xml != null) {
-        request.response.headers.contentType = xmlContentType;
-        request.response.write(xml);
-        await request.response.close();
-        return;
-      }
-    }
-
-    // POST — SOAP control actions
-    if (request.method == 'POST' && path.endsWith('/control')) {
-      final body = await utf8.decoder.bind(request).join();
-      final action = parseSoapAction(request, body);
-      if (action == null) {
-        request.response.statusCode = 400;
-        request.response.headers.contentType = xmlContentType;
-        request.response.write(soapFault(401, 'Invalid Action'));
-        await request.response.close();
-        return;
-      }
-      final response = renderer.handleSoapAction(action);
-      request.response.headers.contentType = xmlContentType;
-      request.response.write(response);
-      await request.response.close();
-      return;
-    }
-
-    // Unknown DLNA path
-    request.response.statusCode = 404;
-    request.response.headers.contentType = ContentType.json;
-    request.response.write(jsonEncode({'error': 'not found'}));
-    await request.response.close();
   }
 
   /// Reads and decodes a JSON request body with size limit enforcement.

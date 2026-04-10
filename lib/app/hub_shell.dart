@@ -10,8 +10,6 @@ import '../modules/module_registry.dart';
 import '../screens/ambient/ambient_screen.dart';
 import '../screens/timer/timer_screen.dart';
 import '../services/timer_service.dart';
-import '../services/dlna/dlna_renderer.dart';
-import 'cast_overlay.dart';
 import '../screens/home/home_screen.dart';
 import '../screens/settings/settings_screen.dart';
 
@@ -42,9 +40,6 @@ class _HubShellState extends ConsumerState<HubShell> {
   int _currentPage = 0;
   bool _menu1Open = false;
   bool _menu2Open = false;
-  DlnaCastState? _castState;
-  StreamSubscription? _castSub;
-
   static const double _edgeZoneHeight = 80;
 
   @override
@@ -55,7 +50,6 @@ class _HubShellState extends ConsumerState<HubShell> {
 
   @override
   void dispose() {
-    _castSub?.cancel();
     _focusNode.dispose();
     _pageController?.dispose();
     super.dispose();
@@ -279,18 +273,6 @@ class _HubShellState extends ConsumerState<HubShell> {
     final config = ref.watch(hubConfigProvider);
     final idleController = ref.read(idleControllerProvider);
 
-    if (_castSub == null) {
-      final dlna = ref.read(dlnaRendererProvider);
-      _castSub = dlna.castStream.listen((state) {
-        setState(() => _castState = state);
-        if (state.isActive) {
-          ref.read(idleControllerProvider).suppress();
-        } else {
-          ref.read(idleControllerProvider).unsuppress();
-        }
-      });
-    }
-
     final modules = ref.watch(enabledModulesProvider);
     final hasCustomOrder = config.moduleOrder.isNotEmpty;
     // With custom ordering, all modules go right of Home.
@@ -390,17 +372,6 @@ class _HubShellState extends ConsumerState<HubShell> {
             // Menu overlays — slide in from their assigned edge
             if (_menu1Open) _buildMenu1(fromTop: _edgeFor('menu1') == 'top'),
             if (_menu2Open) _buildMenu2(fromTop: _edgeFor('menu2') == 'top'),
-
-            // Cast overlay — DLNA video playback (full-screen or PiP)
-            if (_castState != null && _castState!.isActive)
-              CastOverlay(
-                castState: _castState!,
-                renderer: ref.read(dlnaRendererProvider),
-                onStopped: () {
-                  setState(() => _castState = null);
-                  ref.read(idleControllerProvider).unsuppress();
-                },
-              ),
 
             // Timer alert — full-screen overlay when a timer fires.
             _buildTimerAlert(),

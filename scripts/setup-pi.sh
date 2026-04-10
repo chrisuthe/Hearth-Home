@@ -131,13 +131,6 @@ else
     echo "No bundle found. Copy the bundle manually to /opt/hearth/bundle/"
 fi
 
-# --- DLNA SSDP responder script ---
-SSDP_URL="https://raw.githubusercontent.com/chrisuthe/Hearth-Home/main/scripts/ssdp-responder.py"
-wget -qO /opt/hearth/ssdp-responder.py "$SSDP_URL" 2>/dev/null && \
-    chmod +x /opt/hearth/ssdp-responder.py && \
-    echo "SSDP responder installed." || \
-    echo "Warning: Could not download SSDP responder."
-
 # --- Systemd services ---
 
 # Main Hearth service (runs as hearth user)

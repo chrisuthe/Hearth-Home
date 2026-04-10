@@ -521,39 +521,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
         const SizedBox(height: 24),
 
-        // ── 6. Cast ─────────────────────────────────────────────────
-        _SectionHeader(
-          title: 'Cast',
-          description: 'DLNA renderer — cast video from Plex, Jellyfin, etc.',
-        ),
-        const SizedBox(height: 8),
-        SwitchListTile(
-          secondary: const Icon(Icons.cast, color: Colors.white54),
-          title: const Text('Enable DLNA Renderer'),
-          subtitle: Text(
-            config.dlnaEnabled
-                ? 'Discoverable on your network'
-                : 'Disabled — not visible to cast apps',
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
-          ),
-          value: config.dlnaEnabled,
-          onChanged: (v) => _updateConfig((c) => c.copyWith(dlnaEnabled: v)),
-        ),
-        if (config.dlnaEnabled)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Text(
-              'Restart Hearth after enabling for the renderer to start. Cast apps will see this device as "Hearth".',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.white.withValues(alpha: 0.3),
-              ),
-            ),
-          ),
-
-        const SizedBox(height: 24),
-
-        // ── 7. Network & Access ─────────────────────────────────────
+        // ── 6. Network & Access ─────────────────────────────────────
         const _SectionHeader(
           title: 'Network & Access',
           description: 'WiFi and web portal',
