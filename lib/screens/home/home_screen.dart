@@ -45,40 +45,42 @@ class HomeScreen extends ConsumerWidget {
     return Stack(
       fit: StackFit.expand,
       children: [
-        // Bottom info row
+        // Bottom content — single Column so elements don't overlap
         Positioned(
           left: 24,
           right: 24,
           bottom: 20,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Expanded(child: _ClockDisplay(memoryLabel: memoryLabel)),
-              _WeatherDisplay(weather: weather),
-            ],
-          ),
-        ),
-
-        // Timer + Now Playing row above bottom info
-        Positioned(
-          left: 24,
-          right: 24,
-          bottom: 100,
-          child: Row(
-            children: [
-              _TimerPill(
-                timerService: timerService,
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const TimerScreen()),
-                ),
+              // Timer + Now Playing row
+              Row(
+                children: [
+                  _TimerPill(
+                    timerService: timerService,
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const TimerScreen()),
+                    ),
+                  ),
+                  const Spacer(),
+                  _NowPlayingPill(ref: ref),
+                ],
               ),
-              const Spacer(),
-              _NowPlayingPill(ref: ref),
+              const SizedBox(height: 16),
+              // Clock + date + memory label | Weather
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Expanded(child: _ClockDisplay(memoryLabel: memoryLabel)),
+                  _WeatherDisplay(weather: weather),
+                ],
+              ),
             ],
           ),
         ),
 
-        // Photo chevrons
+        // Photo chevrons — pass through taps when hidden
         _ChevronOverlay(
           onSkipForward: () {
             onChevronTap?.call();
@@ -375,9 +377,8 @@ class _ChevronOverlayState extends State<_ChevronOverlay> {
 
   @override
   Widget build(BuildContext context) {
-    return Listener(
-      behavior: HitTestBehavior.translucent,
-      onPointerDown: (_) => _resetTimer(),
+    return IgnorePointer(
+      ignoring: !_visible,
       child: Stack(
         children: [
           Positioned(
@@ -389,7 +390,7 @@ class _ChevronOverlayState extends State<_ChevronOverlay> {
                 opacity: _visible ? 1.0 : 0.0,
                 duration: const Duration(milliseconds: 300),
                 child: GestureDetector(
-                  onTap: _visible ? widget.onSkipBack : null,
+                  onTap: widget.onSkipBack,
                   child: Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
@@ -412,7 +413,7 @@ class _ChevronOverlayState extends State<_ChevronOverlay> {
                 opacity: _visible ? 1.0 : 0.0,
                 duration: const Duration(milliseconds: 300),
                 child: GestureDetector(
-                  onTap: _visible ? widget.onSkipForward : null,
+                  onTap: widget.onSkipForward,
                   child: Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
