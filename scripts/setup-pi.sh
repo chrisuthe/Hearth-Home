@@ -194,7 +194,8 @@ EOF
 
 # Allow hearth user to trigger OTA updates without password
 echo "hearth ALL=(root) NOPASSWD: /usr/bin/systemctl start hearth-updater.service" | sudo tee /etc/sudoers.d/hearth-updater > /dev/null
-sudo chmod 440 /etc/sudoers.d/hearth-updater
+echo "hearth ALL=(root) NOPASSWD: /usr/bin/gst-launch-1.0" | sudo tee /etc/sudoers.d/hearth-gstreamer > /dev/null
+sudo chmod 440 /etc/sudoers.d/hearth-updater /etc/sudoers.d/hearth-gstreamer
 
 # Allow hearth user (netdev group) to manage WiFi via nmcli
 sudo mkdir -p /etc/polkit-1/rules.d
