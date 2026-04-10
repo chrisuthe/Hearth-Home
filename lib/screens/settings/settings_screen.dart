@@ -34,26 +34,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       child: ListView(
         padding: const EdgeInsets.all(24),
       children: [
-        // --- Network section ---
-        _SectionHeader(title: 'Network'),
-        const SizedBox(height: 8),
-        const WifiSettingsSection(),
-        const SizedBox(height: 24),
-
-        // --- Web Access section ---
-        _SectionHeader(title: 'Web Access'),
-        const SizedBox(height: 8),
-        _SettingsTile(
-          icon: Icons.pin,
-          title: 'Web Portal PIN',
-          subtitle: ref.watch(webPinProvider),
-          onTap: () {},
+        // ── 1. Screens ──────────────────────────────────────────────
+        const _SectionHeader(
+          title: 'Screens',
+          description: 'Manage screens and their order',
         ),
-
-        const SizedBox(height: 24),
-
-        // --- Modules section ---
-        _SectionHeader(title: 'Modules'),
         const SizedBox(height: 8),
         ...allModules.map((module) {
           final isEnabled = config.enabledModules.contains(module.id);
@@ -72,40 +57,29 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             },
           );
         }),
+        const SizedBox(height: 12),
+        _ModuleReorderList(
+          config: config,
+          onReorder: (newOrder) =>
+              _updateConfig((c) => c.copyWith(moduleOrder: newOrder)),
+          onReset: () =>
+              _updateConfig((c) => c.copyWith(moduleOrder: const [])),
+        ),
+
         const SizedBox(height: 24),
 
-        // --- Connections section ---
-        _SectionHeader(title: 'Connections'),
+        // ── 2. Services ─────────────────────────────────────────────
+        const _SectionHeader(
+          title: 'Services',
+          description: 'Connect to your smart home services',
+        ),
         const SizedBox(height: 8),
 
-        _SettingsTile(
-          icon: Icons.photo_library,
-          title: 'Immich URL',
-          subtitle: config.immichUrl.isEmpty ? 'Not configured' : config.immichUrl,
-          onTap: () => _showTextInputDialog(
-            title: 'Immich URL',
-            currentValue: config.immichUrl,
-            hint: 'http://192.168.1.x:2283',
-            onSave: (value) => _updateConfig((c) => c.copyWith(immichUrl: value)),
-          ),
-        ),
-        _SettingsTile(
-          icon: Icons.key,
-          title: 'Immich API Key',
-          subtitle: config.immichApiKey.isEmpty
-              ? 'Not configured'
-              : '\u2022' * 8, // Mask the key for security
-          onTap: () => _showTextInputDialog(
-            title: 'Immich API Key',
-            currentValue: config.immichApiKey,
-            hint: 'Paste your Immich API key',
-            obscure: true,
-            onSave: (value) => _updateConfig((c) => c.copyWith(immichApiKey: value)),
-          ),
-        ),
+        // -- Home Assistant --
+        const _ServiceSubHeader(title: 'Home Assistant'),
         _SettingsTile(
           icon: Icons.home,
-          title: 'Home Assistant URL',
+          title: 'URL',
           subtitle: config.haUrl.isEmpty ? 'Not configured' : config.haUrl,
           onTap: () => _showTextInputDialog(
             title: 'Home Assistant URL',
@@ -116,7 +90,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ),
         _SettingsTile(
           icon: Icons.token,
-          title: 'Home Assistant Token',
+          title: 'Token',
           subtitle: config.haToken.isEmpty
               ? 'Not configured'
               : '\u2022' * 8,
@@ -128,9 +102,87 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             onSave: (value) => _updateConfig((c) => c.copyWith(haToken: value)),
           ),
         ),
+
+        // -- Immich --
+        const _ServiceSubHeader(title: 'Immich'),
+        _SettingsTile(
+          icon: Icons.photo_library,
+          title: 'URL',
+          subtitle: config.immichUrl.isEmpty ? 'Not configured' : config.immichUrl,
+          onTap: () => _showTextInputDialog(
+            title: 'Immich URL',
+            currentValue: config.immichUrl,
+            hint: 'http://192.168.1.x:2283',
+            onSave: (value) => _updateConfig((c) => c.copyWith(immichUrl: value)),
+          ),
+        ),
+        _SettingsTile(
+          icon: Icons.key,
+          title: 'API Key',
+          subtitle: config.immichApiKey.isEmpty
+              ? 'Not configured'
+              : '\u2022' * 8,
+          onTap: () => _showTextInputDialog(
+            title: 'Immich API Key',
+            currentValue: config.immichApiKey,
+            hint: 'Paste your Immich API key',
+            obscure: true,
+            onSave: (value) => _updateConfig((c) => c.copyWith(immichApiKey: value)),
+          ),
+        ),
+
+        // -- Music Assistant --
+        const _ServiceSubHeader(title: 'Music Assistant'),
+        _SettingsTile(
+          icon: Icons.music_note,
+          title: 'URL',
+          subtitle: config.musicAssistantUrl.isEmpty
+              ? 'Not configured'
+              : config.musicAssistantUrl,
+          onTap: () => _showTextInputDialog(
+            title: 'Music Assistant URL',
+            currentValue: config.musicAssistantUrl,
+            hint: 'http://192.168.1.x:8095',
+            onSave: (value) => _updateConfig(
+              (c) => c.copyWith(musicAssistantUrl: value),
+            ),
+          ),
+        ),
+        _SettingsTile(
+          icon: Icons.key,
+          title: 'Token',
+          subtitle: config.musicAssistantToken.isEmpty
+              ? 'Not configured'
+              : '\u2022' * 8,
+          onTap: () => _showTextInputDialog(
+            title: 'Music Assistant Token',
+            currentValue: config.musicAssistantToken,
+            hint: 'Paste your MA long-lived token',
+            obscure: true,
+            onSave: (value) => _updateConfig(
+              (c) => c.copyWith(musicAssistantToken: value),
+            ),
+          ),
+        ),
+        _SettingsTile(
+          icon: Icons.speaker_group,
+          title: 'Default Zone',
+          subtitle: config.defaultMusicZone ?? 'Not set',
+          onTap: () => _showTextInputDialog(
+            title: 'Default Music Zone',
+            currentValue: config.defaultMusicZone ?? '',
+            hint: 'media_player.living_room',
+            onSave: (value) => _updateConfig(
+              (c) => c.copyWith(defaultMusicZone: value),
+            ),
+          ),
+        ),
+
+        // -- Frigate --
+        const _ServiceSubHeader(title: 'Frigate'),
         _SettingsTile(
           icon: Icons.videocam,
-          title: 'Frigate URL',
+          title: 'URL',
           subtitle: config.frigateUrl.isEmpty ? 'Not configured' : config.frigateUrl,
           onTap: () => _showTextInputDialog(
             title: 'Frigate URL',
@@ -140,57 +192,41 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
         ),
 
-        const SizedBox(height: 24),
-
-        // --- Display section ---
-        _SectionHeader(title: 'Display'),
-        const SizedBox(height: 8),
-
-        _SettingsTile(
-          icon: Icons.timer,
-          title: 'Idle Timeout',
-          subtitle: '${config.idleTimeoutSeconds}s before ambient mode',
-          onTap: () => _showSliderDialog(
-            title: 'Idle Timeout (seconds)',
-            currentValue: config.idleTimeoutSeconds.toDouble(),
-            min: 30,
-            max: 600,
-            divisions: 57, // 30 to 600 in 10-second steps
-            labelBuilder: (v) => '${v.round()}s',
-            onSave: (value) => _updateConfig(
-              (c) => c.copyWith(idleTimeoutSeconds: value.round()),
+        // -- Mealie (only when enabled) --
+        if (config.enabledModules.contains('mealie')) ...[
+          const _ServiceSubHeader(title: 'Mealie'),
+          _SettingsTile(
+            icon: Icons.restaurant_menu,
+            title: 'URL',
+            subtitle: config.mealieUrl.isEmpty ? 'Not configured' : config.mealieUrl,
+            onTap: () => _showTextInputDialog(
+              title: 'Mealie URL',
+              currentValue: config.mealieUrl,
+              hint: 'http://192.168.1.x:9925',
+              onSave: (value) => _updateConfig((c) => c.copyWith(mealieUrl: value)),
             ),
           ),
-        ),
-        SwitchListTile(
-          secondary: const Icon(Icons.schedule, color: Colors.white54),
-          title: const Text('24-Hour Clock'),
-          subtitle: Text(
-            config.use24HourClock ? '14:30' : '2:30 PM',
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
+          _SettingsTile(
+            icon: Icons.key,
+            title: 'API Token',
+            subtitle: config.mealieToken.isEmpty
+                ? 'Not configured'
+                : '\u2022' * 8,
+            onTap: () => _showTextInputDialog(
+              title: 'Mealie API Token',
+              currentValue: config.mealieToken,
+              hint: 'Paste your Mealie API token',
+              obscure: true,
+              onSave: (value) => _updateConfig((c) => c.copyWith(mealieToken: value)),
+            ),
           ),
-          value: config.use24HourClock,
-          onChanged: (v) => _updateConfig((c) => c.copyWith(use24HourClock: v)),
-        ),
-        const DisplaySettingsSection(),
-        _SettingsTile(
-          icon: Icons.devices,
-          title: 'Pinned Devices',
-          subtitle: config.pinnedEntityIds.isEmpty
-              ? 'No devices selected'
-              : '${config.pinnedEntityIds.length} devices',
-          onTap: () => _showEntityPicker(context, ref),
-        ),
+        ],
 
-        const SizedBox(height: 24),
-
-        // --- Weather section ---
-        _SectionHeader(title: 'Weather'),
-        const SizedBox(height: 8),
-
+        // -- Weather --
+        const _ServiceSubHeader(title: 'Weather'),
         _SettingsTile(
           icon: Icons.thermostat,
-          title: 'Weather Entity',
+          title: 'Entity ID',
           subtitle: config.weatherEntityId.isEmpty
               ? 'Not configured'
               : config.weatherEntityId,
@@ -206,10 +242,42 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
         const SizedBox(height: 24),
 
-        // --- Night Mode section ---
-        _SectionHeader(title: 'Night Mode'),
+        // ── 3. Display & Behavior ────────────────────────────────────
+        const _SectionHeader(
+          title: 'Display & Behavior',
+          description: 'Appearance and interaction settings',
+        ),
         const SizedBox(height: 8),
 
+        SwitchListTile(
+          secondary: const Icon(Icons.schedule, color: Colors.white54),
+          title: const Text('24-Hour Clock'),
+          subtitle: Text(
+            config.use24HourClock ? '14:30' : '2:30 PM',
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
+          ),
+          value: config.use24HourClock,
+          onChanged: (v) => _updateConfig((c) => c.copyWith(use24HourClock: v)),
+        ),
+        _SettingsTile(
+          icon: Icons.timer,
+          title: 'Idle Timeout',
+          subtitle: '${config.idleTimeoutSeconds}s before ambient mode',
+          onTap: () => _showSliderDialog(
+            title: 'Idle Timeout (seconds)',
+            currentValue: config.idleTimeoutSeconds.toDouble(),
+            min: 30,
+            max: 600,
+            divisions: 57,
+            labelBuilder: (v) => '${v.round()}s',
+            onSave: (value) => _updateConfig(
+              (c) => c.copyWith(idleTimeoutSeconds: value.round()),
+            ),
+          ),
+        ),
+        const DisplaySettingsSection(),
+
+        // -- Night Mode --
         _SettingsTile(
           icon: Icons.nightlight_round,
           title: 'Night Mode Source',
@@ -228,8 +296,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
           ),
         ),
-
-        // Conditional fields based on night mode source selection
         if (config.nightModeSource == 'ha_entity')
           _SettingsTile(
             icon: Icons.developer_board,
@@ -244,7 +310,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
             ),
           ),
-
         if (config.nightModeSource == 'clock') ...[
           _SettingsTile(
             icon: Icons.schedule,
@@ -286,12 +351,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
         ],
 
-        const SizedBox(height: 24),
-
-        // --- Gestures section ---
-        _SectionHeader(title: 'Gestures'),
-        const SizedBox(height: 8),
-
+        // -- Gestures --
         _SettingsTile(
           icon: Icons.swipe_down,
           title: 'Swipe Down (Top Edge)',
@@ -311,7 +371,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
           ),
         ),
-
         _SettingsTile(
           icon: Icons.swipe_up,
           title: 'Swipe Up (Bottom Edge)',
@@ -334,59 +393,28 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
         const SizedBox(height: 24),
 
-        // --- Music section ---
-        _SectionHeader(title: 'Music'),
+        // ── 4. Devices ──────────────────────────────────────────────
+        const _SectionHeader(
+          title: 'Devices',
+          description: 'Pinned devices for the Controls screen',
+        ),
         const SizedBox(height: 8),
-
         _SettingsTile(
-          icon: Icons.music_note,
-          title: 'Music Assistant URL',
-          subtitle: config.musicAssistantUrl.isEmpty
-              ? 'Not configured'
-              : config.musicAssistantUrl,
-          onTap: () => _showTextInputDialog(
-            title: 'Music Assistant URL',
-            currentValue: config.musicAssistantUrl,
-            hint: 'http://192.168.1.x:8095',
-            onSave: (value) => _updateConfig(
-              (c) => c.copyWith(musicAssistantUrl: value),
-            ),
-          ),
-        ),
-        _SettingsTile(
-          icon: Icons.key,
-          title: 'Music Assistant Token',
-          subtitle: config.musicAssistantToken.isEmpty
-              ? 'Not configured'
-              : '\u2022' * 8,
-          onTap: () => _showTextInputDialog(
-            title: 'Music Assistant Token',
-            currentValue: config.musicAssistantToken,
-            hint: 'Paste your MA long-lived token',
-            obscure: true,
-            onSave: (value) => _updateConfig(
-              (c) => c.copyWith(musicAssistantToken: value),
-            ),
-          ),
-        ),
-        _SettingsTile(
-          icon: Icons.speaker_group,
-          title: 'Default Zone',
-          subtitle: config.defaultMusicZone ?? 'Not set',
-          onTap: () => _showTextInputDialog(
-            title: 'Default Music Zone',
-            currentValue: config.defaultMusicZone ?? '',
-            hint: 'media_player.living_room',
-            onSave: (value) => _updateConfig(
-              (c) => c.copyWith(defaultMusicZone: value),
-            ),
-          ),
+          icon: Icons.devices,
+          title: 'Pinned Devices',
+          subtitle: config.pinnedEntityIds.isEmpty
+              ? 'No devices selected'
+              : '${config.pinnedEntityIds.length} devices',
+          onTap: () => _showEntityPicker(context, ref),
         ),
 
         const SizedBox(height: 24),
 
-        // --- Sendspin section ---
-        const _SectionHeader(title: 'Sendspin Audio'),
+        // ── 5. Audio ────────────────────────────────────────────────
+        const _SectionHeader(
+          title: 'Audio',
+          description: 'Sendspin audio streaming',
+        ),
         const SizedBox(height: 8),
 
         SwitchListTile(
@@ -493,14 +521,34 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
         const SizedBox(height: 24),
 
-        // --- Updates section ---
-        _SectionHeader(title: 'Updates'),
+        // ── 6. Network & Access ─────────────────────────────────────
+        const _SectionHeader(
+          title: 'Network & Access',
+          description: 'WiFi and web portal',
+        ),
+        const SizedBox(height: 8),
+        const WifiSettingsSection(),
+        _SettingsTile(
+          icon: Icons.pin,
+          title: 'Web Portal PIN',
+          subtitle: ref.watch(webPinProvider),
+          onTap: () {},
+        ),
+
+        const SizedBox(height: 24),
+
+        // ── 7. System ───────────────────────────────────────────────
+        const _SectionHeader(
+          title: 'System',
+          description: 'Updates and maintenance',
+        ),
         const SizedBox(height: 8),
         const UpdateSettingsSection(),
 
-        // Per-module settings (only shown when module is enabled)
+        // Per-module settings (only shown when module is enabled),
+        // but skip mealie since we moved its settings into Services.
         ...allModules
-            .where((m) => config.enabledModules.contains(m.id))
+            .where((m) => config.enabledModules.contains(m.id) && m.id != 'mealie')
             .map((m) => m.buildSettingsSection())
             .whereType<Widget>(),
       ],
@@ -695,17 +743,54 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 /// Section header used to visually group related settings.
 class _SectionHeader extends StatelessWidget {
   final String title;
-  const _SectionHeader({required this.title});
+  final String? description;
+  const _SectionHeader({required this.title, this.description});
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      title,
-      style: TextStyle(
-        fontSize: 13,
-        fontWeight: FontWeight.w600,
-        color: Colors.white.withValues(alpha: 0.4),
-        letterSpacing: 1.2,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: Colors.white.withValues(alpha: 0.4),
+            letterSpacing: 1.2,
+          ),
+        ),
+        if (description != null) ...[
+          const SizedBox(height: 2),
+          Text(
+            description!,
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.white.withValues(alpha: 0.25),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+/// Sub-header for grouping settings within a section (e.g., per-service).
+class _ServiceSubHeader extends StatelessWidget {
+  final String title;
+  const _ServiceSubHeader({required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 8, top: 12, bottom: 4),
+      child: Text(
+        title,
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+          color: Colors.white.withValues(alpha: 0.3),
+        ),
       ),
     );
   }
@@ -740,6 +825,152 @@ class _SettingsTile extends StatelessWidget {
       trailing: const Icon(Icons.chevron_right, color: Colors.white24),
       onTap: onTap,
       contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+    );
+  }
+}
+
+/// Reorderable list for customizing screen order in the PageView.
+class _ModuleReorderList extends StatefulWidget {
+  final HubConfig config;
+  final ValueChanged<List<String>> onReorder;
+  final VoidCallback onReset;
+
+  const _ModuleReorderList({
+    required this.config,
+    required this.onReorder,
+    required this.onReset,
+  });
+
+  @override
+  State<_ModuleReorderList> createState() => _ModuleReorderListState();
+}
+
+class _ModuleReorderListState extends State<_ModuleReorderList> {
+  late List<String> _order;
+
+  @override
+  void initState() {
+    super.initState();
+    _order = _buildOrder();
+  }
+
+  @override
+  void didUpdateWidget(_ModuleReorderList old) {
+    super.didUpdateWidget(old);
+    if (old.config.enabledModules != widget.config.enabledModules ||
+        old.config.moduleOrder != widget.config.moduleOrder) {
+      _order = _buildOrder();
+    }
+  }
+
+  /// Build the display order list from config.
+  /// If moduleOrder is set, use it (filtered to enabled modules).
+  /// Otherwise, sort enabled modules by defaultOrder.
+  List<String> _buildOrder() {
+    final enabledIds = widget.config.enabledModules;
+    final enabled = allModules.where((m) => enabledIds.contains(m.id)).toList();
+
+    if (widget.config.moduleOrder.isNotEmpty) {
+      // Start with modules in the custom order that are still enabled.
+      final ordered = widget.config.moduleOrder
+          .where((id) => enabledIds.contains(id))
+          .toList();
+      // Add any newly enabled modules not yet in the order.
+      for (final m in enabled) {
+        if (!ordered.contains(m.id)) ordered.add(m.id);
+      }
+      return ordered;
+    }
+
+    // Default order: sort by defaultOrder, left-of-home first.
+    enabled.sort((a, b) => a.defaultOrder.compareTo(b.defaultOrder));
+    return enabled.map((m) => m.id).toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_order.isEmpty) return const SizedBox.shrink();
+
+    final hasCustomOrder = widget.config.moduleOrder.isNotEmpty;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 8, bottom: 4),
+          child: Row(
+            children: [
+              Text(
+                'Screen Order',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.white.withValues(alpha: 0.3),
+                ),
+              ),
+              const Spacer(),
+              if (hasCustomOrder)
+                GestureDetector(
+                  onTap: widget.onReset,
+                  child: Text(
+                    'Reset to Default',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.white.withValues(alpha: 0.3),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.04),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: ReorderableListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            buildDefaultDragHandles: false,
+            itemCount: _order.length,
+            proxyDecorator: (child, index, animation) {
+              return Material(
+                color: Colors.white.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(8),
+                elevation: 4,
+                child: child,
+              );
+            },
+            onReorder: (oldIndex, newIndex) {
+              setState(() {
+                if (newIndex > oldIndex) newIndex--;
+                final item = _order.removeAt(oldIndex);
+                _order.insert(newIndex, item);
+              });
+              widget.onReorder(List<String>.from(_order));
+            },
+            itemBuilder: (context, index) {
+              final moduleId = _order[index];
+              final module = allModules.firstWhere((m) => m.id == moduleId);
+              return ListTile(
+                key: ValueKey(moduleId),
+                dense: true,
+                leading: Icon(module.icon, color: Colors.white38, size: 20),
+                title: Text(
+                  module.name,
+                  style: const TextStyle(fontSize: 14),
+                ),
+                trailing: ReorderableDragStartListener(
+                  index: index,
+                  child: const Icon(Icons.drag_handle, color: Colors.white24),
+                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }

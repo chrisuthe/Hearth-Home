@@ -238,5 +238,30 @@ void main() {
       expect(updated.topSwipeAction, 'menu1');
       expect(updated.bottomSwipeAction, 'settings');
     });
+
+    test('moduleOrder defaults to empty list', () {
+      const config = HubConfig();
+      expect(config.moduleOrder, isEmpty);
+    });
+
+    test('moduleOrder round-trips through JSON', () {
+      const config = HubConfig(
+        moduleOrder: ['controls', 'cameras', 'media'],
+      );
+      final json = config.toJson();
+      final restored = HubConfig.fromJson(json);
+      expect(restored.moduleOrder, ['controls', 'cameras', 'media']);
+    });
+
+    test('moduleOrder copyWith preserves unchanged fields', () {
+      const config = HubConfig(moduleOrder: ['media', 'controls']);
+      final updated = config.copyWith(immichUrl: 'http://test');
+      expect(updated.moduleOrder, ['media', 'controls']);
+    });
+
+    test('moduleOrder fromJson handles missing field', () {
+      final config = HubConfig.fromJson({});
+      expect(config.moduleOrder, isEmpty);
+    });
   });
 }

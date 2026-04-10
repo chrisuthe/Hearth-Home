@@ -274,8 +274,15 @@ class _HubShellState extends ConsumerState<HubShell> {
     final config = ref.watch(hubConfigProvider);
     final idleController = ref.read(idleControllerProvider);
     final modules = ref.watch(enabledModulesProvider);
-    final leftModules = modules.where((m) => m.defaultOrder < 0).toList();
-    final rightModules = modules.where((m) => m.defaultOrder >= 0).toList();
+    final hasCustomOrder = config.moduleOrder.isNotEmpty;
+    // With custom ordering, all modules go right of Home.
+    // With default ordering, negative defaultOrder goes left.
+    final leftModules = hasCustomOrder
+        ? <dynamic>[]
+        : modules.where((m) => m.defaultOrder < 0).toList();
+    final rightModules = hasCustomOrder
+        ? modules
+        : modules.where((m) => m.defaultOrder >= 0).toList();
     final homeIndex = leftModules.length;
     _pageCount = leftModules.length + 1 + rightModules.length + 1; // +Home +Settings
 
