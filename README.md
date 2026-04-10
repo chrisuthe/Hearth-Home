@@ -4,6 +4,7 @@ Open-source Flutter smart home kiosk — a Google Nest Hub replacement designed 
 
 ![hearth](https://github.com/user-attachments/assets/8d2dcddf-fbf3-49e4-9453-9b92bd47c9ea)
 
+https://youtube.com/watch?v=pPN4-EoO-Nc&feature=youtu.be 
 ## Features
 
 - **Full-Bleed Photo Display** — Immich "on this day" memories rotate behind a transparent home screen with clock, weather, and memory labels. No screensaver mode — photos are always visible on Home.
