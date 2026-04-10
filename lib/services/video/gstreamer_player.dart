@@ -1,63 +1,56 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
-import '../../utils/logger.dart';
+import 'package:flutterpi_gstreamer_video_player/flutterpi_gstreamer_video_player.dart';
+import 'package:video_player/video_player.dart';
 import 'hearth_video_player.dart';
+import '../../utils/logger.dart';
 
 /// GStreamer-based video player for flutter-pi on Raspberry Pi.
 ///
-/// Launches gst-launch-1.0 as a subprocess that renders directly to the
-/// display via DRM/KMS. The flutter-pi video player plugin has RTSP
-/// compatibility issues with go2rtc, so we bypass it entirely and use
-/// raw GStreamer which works reliably.
-///
-/// The video renders on top of the Flutter UI (GStreamer uses a separate
-/// DRM plane). The Flutter UI shows a black container as a placeholder.
+/// Uses flutterpi_gstreamer_video_player's custom pipeline API with an
+/// explicit H.264 decode chain. Avoids decodebin (which has audio track
+/// linking issues with RTSP) and renders into Flutter's texture system
+/// via appsink.
 class GstreamerVideoPlayer implements HearthVideoPlayer {
-  Process? _process;
+  VideoPlayerController? _controller;
   bool _playing = false;
 
   @override
   Future<void> play(String url) async {
     await stop();
     try {
-      // Launch gst-launch-1.0 as a subprocess rendering to the display
-      _process = await Process.start('gst-launch-1.0', [
-        'rtspsrc', 'location=$url', 'latency=200',
-        '!', 'decodebin',
-        '!', 'videoconvert',
-        '!', 'autovideosink',
-      ]);
+      if (url.startsWith('rtsp://')) {
+        // Explicit H.264 pipeline — avoids decodebin audio track linking issues.
+        // Requires gstreamer1.0-libav for avdec_h264.
+        _controller = FlutterpiVideoPlayerController.withGstreamerPipeline(
+          'rtspsrc location=$url latency=200 '
+          '! rtph264depay ! h264parse ! avdec_h264 '
+          '! videoconvert ! video/x-raw,format=RGBA '
+          '! appsink name=sink',
+        );
+      } else {
+        _controller = VideoPlayerController.networkUrl(Uri.parse(url));
+      }
+      await _controller!.initialize();
+      await _controller!.play();
       _playing = true;
-      Log.i('Video', 'GStreamer subprocess started for $url');
-
-      // Log stderr for debugging
-      _process!.stderr.transform(const SystemEncoding().decoder).listen((line) {
-        if (line.trim().isNotEmpty) Log.d('Video', 'gst: $line');
-      });
-
-      // Detect process exit
-      _process!.exitCode.then((code) {
-        Log.i('Video', 'GStreamer subprocess exited with code $code');
-        _playing = false;
-      });
+      Log.i('Video', 'Playing: $url');
     } catch (e) {
-      Log.e('Video', 'Failed to start GStreamer: $e');
+      Log.e('Video', 'Failed to play $url: $e');
       _playing = false;
+      _controller?.dispose();
+      _controller = null;
     }
   }
 
   @override
   Future<void> stop() async {
-    if (_process != null) {
-      _process!.kill(ProcessSignal.sigterm);
-      // Give it a moment to clean up DRM resources
-      await Future.delayed(const Duration(milliseconds: 200));
-      try {
-        _process!.kill(ProcessSignal.sigkill);
-      } catch (_) {}
-      _process = null;
-    }
     _playing = false;
+    try {
+      await _controller?.dispose();
+    } catch (e) {
+      Log.w('Video', 'Error disposing controller: $e');
+    }
+    _controller = null;
   }
 
   @override
@@ -68,12 +61,23 @@ class GstreamerVideoPlayer implements HearthVideoPlayer {
 
   @override
   Widget buildView({BoxFit fit = BoxFit.contain}) {
-    // GStreamer renders on a separate DRM plane on top of Flutter.
-    // Return a black placeholder that the video overlays.
-    return Container(color: Colors.black);
+    if (_controller == null || !_controller!.value.isInitialized) {
+      return const Center(
+        child: CircularProgressIndicator(color: Color(0xFF646CFF)),
+      );
+    }
+    return FittedBox(
+      fit: fit,
+      child: SizedBox(
+        width: _controller!.value.size.width,
+        height: _controller!.value.size.height,
+        child: VideoPlayer(_controller!),
+      ),
+    );
   }
 }
 
 void registerGstreamerPlayer() {
+  FlutterpiVideoPlayer.registerWith();
   registerVideoPlayerFactory(gstreamer: () => GstreamerVideoPlayer());
 }
