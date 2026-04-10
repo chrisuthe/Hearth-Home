@@ -105,6 +105,9 @@ class UpdateSettingsSection extends ConsumerWidget {
           contentPadding: const EdgeInsets.symmetric(horizontal: 8),
         ),
 
+        // Force update button.
+        _ForceUpdateTile(),
+
         // Auto-update toggle.
         SwitchListTile(
           secondary: const Icon(Icons.autorenew, color: Colors.white54, size: 22),
@@ -123,6 +126,62 @@ class UpdateSettingsSection extends ConsumerWidget {
           contentPadding: const EdgeInsets.symmetric(horizontal: 8),
         ),
       ],
+    );
+  }
+}
+
+class _ForceUpdateTile extends StatefulWidget {
+  @override
+  State<_ForceUpdateTile> createState() => _ForceUpdateTileState();
+}
+
+class _ForceUpdateTileState extends State<_ForceUpdateTile> {
+  bool _updating = false;
+
+  Future<void> _triggerUpdate() async {
+    if (_updating || kIsWeb) return;
+    setState(() => _updating = true);
+    try {
+      final result = await Process.run(
+        'sudo', ['systemctl', 'start', 'hearth-updater.service'],
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result.exitCode == 0
+              ? 'Update triggered — the app will restart if a new version is found'
+              : 'Failed to trigger update'),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _updating = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: _updating
+          ? const SizedBox(
+              width: 22, height: 22,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : const Icon(Icons.download, color: Colors.white54, size: 22),
+      title: const Text('Force Update', style: TextStyle(fontSize: 15)),
+      subtitle: Text(
+        'Download and install the latest bundle',
+        style: TextStyle(
+          fontSize: 13,
+          color: Colors.white.withValues(alpha: 0.4),
+        ),
+      ),
+      onTap: _updating ? null : _triggerUpdate,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 8),
     );
   }
 }
