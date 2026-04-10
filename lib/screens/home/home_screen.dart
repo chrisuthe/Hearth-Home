@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../config/hub_config.dart';
@@ -235,16 +234,12 @@ class _TimerPill extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-          child: Container(
+      child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: BoxDecoration(
               color: timerService.hasActiveTimers
                   ? const Color(0xFF646CFF).withValues(alpha: 0.3)
-                  : Colors.white.withValues(alpha: 0.1),
+                  : Colors.black.withValues(alpha: 0.4),
               borderRadius: BorderRadius.circular(12),
               border: timerService.hasActiveTimers
                   ? Border.all(color: const Color(0xFF646CFF).withValues(alpha: 0.5))
@@ -266,8 +261,6 @@ class _TimerPill extends StatelessWidget {
                 ),
               ],
             ),
-          ),
-        ),
       ),
     );
   }
@@ -289,11 +282,7 @@ class _NowPlayingPill extends StatelessWidget {
 
     if (!state.hasTrack) return const SizedBox.shrink();
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-        child: Container(
+    return Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
             color: Colors.black.withValues(alpha: 0.4),
@@ -336,8 +325,6 @@ class _NowPlayingPill extends StatelessWidget {
               ),
             ],
           ),
-        ),
-      ),
     );
   }
 }
