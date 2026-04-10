@@ -23,6 +23,7 @@ sudo apt-get install -y -qq \
     libxkbcommon-dev libvulkan-dev \
     gstreamer1.0-plugins-base gstreamer1.0-plugins-good \
     gstreamer1.0-plugins-bad gstreamer1.0-alsa \
+    gstreamer1.0-libav gstreamer1.0-tools \
     network-manager avahi-daemon \
     git wget
 
