@@ -213,6 +213,88 @@ class MaQueueItem {
   }
 }
 
+/// A media item from the Music Assistant library (track, album, artist, playlist).
+class MaMediaItem {
+  final String itemId;
+  final String provider;
+  final String name;
+  final String mediaType; // "track", "album", "artist", "playlist", "radio"
+  final String? imageUrl;
+  final String? artist;
+  final String? albumName;
+  final Duration? duration;
+  final String? uri;
+
+  const MaMediaItem({
+    required this.itemId,
+    required this.provider,
+    required this.name,
+    required this.mediaType,
+    this.imageUrl,
+    this.artist,
+    this.albumName,
+    this.duration,
+    this.uri,
+  });
+
+  factory MaMediaItem.fromMaJson(Map<String, dynamic> json) {
+    final image = json['image'] as Map<String, dynamic>?;
+    final artists = json['artists'] as List<dynamic>?;
+    final artistName = artists != null && artists.isNotEmpty
+        ? (artists[0] as Map<String, dynamic>)['name'] as String? ?? ''
+        : '';
+    final album = json['album'] as Map<String, dynamic>?;
+
+    return MaMediaItem(
+      itemId: json['item_id'] as String? ?? '',
+      provider: json['provider'] as String? ?? '',
+      name: json['name'] as String? ?? 'Unknown',
+      mediaType: json['media_type'] as String? ?? 'track',
+      imageUrl: image?['url'] as String?,
+      artist: artistName.isNotEmpty ? artistName : null,
+      albumName: album?['name'] as String?,
+      duration: json['duration'] != null
+          ? Duration(seconds: (json['duration'] as num).toInt())
+          : null,
+      uri: json['uri'] as String?,
+    );
+  }
+}
+
+/// Search results from Music Assistant, grouped by media type.
+class MaSearchResults {
+  final List<MaMediaItem> tracks;
+  final List<MaMediaItem> albums;
+  final List<MaMediaItem> artists;
+  final List<MaMediaItem> playlists;
+
+  const MaSearchResults({
+    this.tracks = const [],
+    this.albums = const [],
+    this.artists = const [],
+    this.playlists = const [],
+  });
+
+  bool get isEmpty =>
+      tracks.isEmpty && albums.isEmpty && artists.isEmpty && playlists.isEmpty;
+
+  factory MaSearchResults.fromMaJson(Map<String, dynamic> json) {
+    return MaSearchResults(
+      tracks: _parseItemList(json['tracks'] as List<dynamic>?),
+      albums: _parseItemList(json['albums'] as List<dynamic>?),
+      artists: _parseItemList(json['artists'] as List<dynamic>?),
+      playlists: _parseItemList(json['playlists'] as List<dynamic>?),
+    );
+  }
+
+  static List<MaMediaItem> _parseItemList(List<dynamic>? items) {
+    if (items == null) return const [];
+    return items
+        .map((e) => MaMediaItem.fromMaJson(e as Map<String, dynamic>))
+        .toList();
+  }
+}
+
 /// A Music Assistant player zone (speaker or speaker group).
 ///
 /// Each zone corresponds to an HA media_player entity. The kiosk UI lists
