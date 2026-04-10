@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:isolate';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
@@ -57,9 +56,7 @@ class DlnaRenderer {
   final String friendlyName;
   final int httpPort;
 
-  Isolate? _ssdpIsolate;
-  ReceivePort? _ssdpReceivePort;
-  SendPort? _ssdpSendPort;
+  Process? _ssdpProcess;
   String? _cachedLocalIp;
 
   DlnaCastState _state = const DlnaCastState();
@@ -81,47 +78,56 @@ class DlnaRenderer {
   /// Current cast state snapshot.
   DlnaCastState get currentState => _state;
 
-  /// Start SSDP listener in a separate isolate and periodic NOTIFY announcements.
+  /// Start SSDP responder as a Python subprocess.
+  /// flutter-pi's sd_event loop doesn't dispatch Dart socket/timer events,
+  /// so SSDP runs as an external process with its own event loop.
   Future<void> start() async {
     _cachedLocalIp = await _getLocalIp();
 
-    // Run SSDP in a separate isolate — flutter-pi's sd_event loop
-    // doesn't dispatch Dart Timer or socket stream events reliably.
-    _ssdpReceivePort = ReceivePort();
-    _ssdpReceivePort!.listen((message) {
-      if (message is SendPort) {
-        _ssdpSendPort = message;
-      } else if (message is Map) {
-        // M-SEARCH received — send response from main isolate context
-        final address = message['address'] as String;
-        final port = message['port'] as int;
-        final st = message['st'] as String;
-        _sendMSearchResponse(address, port, st);
-      }
-    });
+    // Find the ssdp-responder.py script
+    final scriptPaths = [
+      '/opt/hearth/ssdp-responder.py',  // installed by setup script
+      'scripts/ssdp-responder.py',       // dev mode
+    ];
 
-    _ssdpIsolate = await Isolate.spawn(
-      _ssdpIsolateEntry,
-      _SsdpConfig(
-        sendPort: _ssdpReceivePort!.sendPort,
-        uuid: uuid,
-        friendlyName: friendlyName,
-        httpPort: httpPort,
-        localIp: _cachedLocalIp,
-      ),
-    );
+    String? scriptPath;
+    for (final p in scriptPaths) {
+      if (await File(p).exists()) {
+        scriptPath = p;
+        break;
+      }
+    }
+
+    if (scriptPath != null) {
+      try {
+        _ssdpProcess = await Process.start('python3', [
+          scriptPath,
+          uuid,
+          friendlyName,
+          httpPort.toString(),
+          if (_cachedLocalIp != null) _cachedLocalIp!,
+        ]);
+        _ssdpProcess!.stdout.transform(const SystemEncoding().decoder).listen(
+          (line) => debugPrint('SSDP: $line'),
+        );
+        _ssdpProcess!.stderr.transform(const SystemEncoding().decoder).listen(
+          (line) => debugPrint('SSDP err: $line'),
+        );
+        debugPrint('DLNA: SSDP responder started (pid=${_ssdpProcess!.pid})');
+      } catch (e) {
+        debugPrint('DLNA: failed to start SSDP responder: $e');
+      }
+    } else {
+      debugPrint('DLNA: ssdp-responder.py not found, SSDP discovery disabled');
+    }
 
     debugPrint('DLNA: renderer started (uuid=$uuid)');
   }
 
   /// Stop SSDP announcements and close the socket.
   Future<void> stop() async {
-    _ssdpSendPort?.send('stop');
-    _ssdpIsolate?.kill();
-    _ssdpIsolate = null;
-    _ssdpReceivePort?.close();
-    _ssdpReceivePort = null;
-    _ssdpSendPort = null;
+    _ssdpProcess?.kill();
+    _ssdpProcess = null;
     await _castController.close();
     debugPrint('DLNA: renderer stopped');
   }
@@ -301,28 +307,6 @@ class DlnaRenderer {
   // ---------------------------------------------------------------------------
 
   /// Send M-SEARCH response back via the SSDP isolate.
-  void _sendMSearchResponse(String address, int port, String st) {
-    final localIp = _cachedLocalIp;
-    if (localIp == null) return;
-
-    final location = 'http://$localIp:$httpPort/dlna/device.xml';
-    final response = 'HTTP/1.1 200 OK\r\n'
-        'CACHE-CONTROL: max-age=1800\r\n'
-        'LOCATION: $location\r\n'
-        'SERVER: Hearth/1.0 UPnP/1.0\r\n'
-        'ST: $st\r\n'
-        'USN: uuid:$uuid::$st\r\n'
-        'EXT:\r\n'
-        '\r\n';
-
-    _ssdpSendPort?.send({
-      'type': 'reply',
-      'data': response,
-      'address': address,
-      'port': port,
-    });
-  }
-
   // ---------------------------------------------------------------------------
   // Helpers
   // ---------------------------------------------------------------------------
@@ -442,7 +426,7 @@ final dlnaRendererProvider = Provider<DlnaRenderer>((ref) {
   return renderer;
 });
 
-/// Config passed to the SSDP isolate.
+/*
 class _SsdpConfig {
   final SendPort sendPort;
   final String uuid;
@@ -566,3 +550,4 @@ void _ssdpIsolateEntry(_SsdpConfig config) async {
     socket?.send(alive.codeUnits, InternetAddress('239.255.255.250'), 1900);
   });
 }
+*/
