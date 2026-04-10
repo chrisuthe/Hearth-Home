@@ -106,6 +106,72 @@ class MusicAssistantService {
       'player_queues/seek',
       {'queue_id': queueId, 'seek_position': positionSeconds});
 
+  // --- Queue & Library ---
+
+  Future<List<MaQueueItem>> getQueueItems(String queueId,
+      {int limit = 100, int offset = 0}) {
+    return _sendWithResult(
+      'player_queues/items',
+      {'queue_id': queueId, 'limit': limit, 'offset': offset},
+      (result) {
+        if (result is! List) return <MaQueueItem>[];
+        return result
+            .map((e) => MaQueueItem.fromMaJson(e as Map<String, dynamic>))
+            .toList();
+      },
+    );
+  }
+
+  Future<List<MaMediaItem>> getLibraryItems(String mediaType,
+      {int limit = 50, int offset = 0, bool favorite = false}) {
+    return _sendWithResult(
+      'music/$mediaType/library_items',
+      {
+        'limit': limit,
+        'offset': offset,
+        'favorite': favorite,
+        'order_by': 'name',
+      },
+      (result) {
+        if (result is! List) return <MaMediaItem>[];
+        return result
+            .map((e) => MaMediaItem.fromMaJson(e as Map<String, dynamic>))
+            .toList();
+      },
+    );
+  }
+
+  Future<MaSearchResults> searchLibrary(String query, {int limit = 25}) {
+    return _sendWithResult(
+      'music/search',
+      {
+        'search_query': query,
+        'media_types': ['track', 'artist', 'album', 'playlist'],
+        'limit': limit,
+      },
+      (result) {
+        if (result is! Map<String, dynamic>) return const MaSearchResults();
+        return MaSearchResults.fromMaJson(result);
+      },
+    );
+  }
+
+  void playMedia(String queueId, MaMediaItem item,
+      {String option = 'play'}) {
+    sendCommand('player_queues/play_media', {
+      'queue_id': queueId,
+      'media': [
+        {
+          'item_id': item.itemId,
+          'provider': item.provider,
+          'media_type': item.mediaType,
+          'uri': item.uri,
+        },
+      ],
+      'option': option,
+    });
+  }
+
   /// Generic command sender. Responses are handled internally.
   void sendCommand(String command, Map<String, dynamic> args) {
     final msgId = _nextMsgId();
@@ -326,6 +392,25 @@ class MusicAssistantService {
       return;
     }
     _channel!.sink.add(jsonEncode(msg));
+  }
+
+  Future<T> _sendWithResult<T>(
+    String command,
+    Map<String, dynamic> args,
+    T Function(dynamic result) parser,
+  ) {
+    final completer = Completer<T>();
+    final msgId = _nextMsgId();
+    _pendingCommands[msgId] = (result) {
+      try {
+        completer.complete(parser(result));
+      } catch (e) {
+        Log.e('MA', 'Parse error for $command: $e');
+        completer.completeError(e);
+      }
+    };
+    _send({'message_id': msgId, 'command': command, 'args': args});
+    return completer.future;
   }
 
   String _nextMsgId() => 'msg_${++_messageCounter}';
