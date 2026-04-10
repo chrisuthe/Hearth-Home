@@ -3,41 +3,60 @@ import 'package:hearth/app/idle_controller.dart';
 
 void main() {
   group('IdleController', () {
-    test('starts idle by default (ambient-first for kiosk)', () {
+    test('fires onTimeout callback after timeout period', () async {
+      bool fired = false;
       final controller = IdleController(timeoutSeconds: 1);
-      expect(controller.isIdle, true);
-      controller.dispose();
-    });
-
-    test('starts active when startIdle is false', () {
-      final controller = IdleController(timeoutSeconds: 1, startIdle: false);
-      expect(controller.isIdle, false);
-      controller.dispose();
-    });
-
-    test('transitions to idle after timeout', () async {
-      final controller = IdleController(timeoutSeconds: 1, startIdle: false);
+      controller.onTimeout = () => fired = true;
+      controller.onUserActivity(); // start the timer
       await Future.delayed(const Duration(seconds: 2));
-      expect(controller.isIdle, true);
+      expect(fired, true);
       controller.dispose();
     });
 
-    test('activity resets idle timer', () async {
-      final controller = IdleController(timeoutSeconds: 1, startIdle: false);
-      await Future.delayed(const Duration(milliseconds: 800));
+    test('activity resets timeout timer', () async {
+      bool fired = false;
+      final controller = IdleController(timeoutSeconds: 1);
+      controller.onTimeout = () => fired = true;
       controller.onUserActivity();
       await Future.delayed(const Duration(milliseconds: 800));
-      // Still within timeout window after reset
-      expect(controller.isIdle, false);
+      controller.onUserActivity(); // reset
+      await Future.delayed(const Duration(milliseconds: 800));
+      expect(fired, false); // still within window after reset
       controller.dispose();
     });
 
-    test('wakes from idle on activity', () async {
+    test('suppress prevents timeout from firing', () async {
+      bool fired = false;
       final controller = IdleController(timeoutSeconds: 1);
-      await Future.delayed(const Duration(seconds: 2));
-      expect(controller.isIdle, true);
+      controller.onTimeout = () => fired = true;
       controller.onUserActivity();
-      expect(controller.isIdle, false);
+      controller.suppress();
+      await Future.delayed(const Duration(seconds: 2));
+      expect(fired, false);
+      controller.dispose();
+    });
+
+    test('unsuppress restarts timeout timer', () async {
+      bool fired = false;
+      final controller = IdleController(timeoutSeconds: 1);
+      controller.onTimeout = () => fired = true;
+      controller.onUserActivity();
+      controller.suppress();
+      await Future.delayed(const Duration(seconds: 2));
+      expect(fired, false);
+      controller.unsuppress();
+      await Future.delayed(const Duration(seconds: 2));
+      expect(fired, true);
+      controller.dispose();
+    });
+
+    test('isSuppressed reflects suppress state', () {
+      final controller = IdleController(timeoutSeconds: 1);
+      expect(controller.isSuppressed, false);
+      controller.suppress();
+      expect(controller.isSuppressed, true);
+      controller.unsuppress();
+      expect(controller.isSuppressed, false);
       controller.dispose();
     });
   });
