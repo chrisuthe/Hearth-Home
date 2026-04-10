@@ -34,22 +34,43 @@ if ! id hearth &>/dev/null; then
 fi
 sudo usermod -aG video,input,render,audio,netdev,systemd-journal hearth
 
-# --- flutter-pi ---
-if ! command -v flutter-pi &>/dev/null; then
-    echo "Building flutter-pi..."
-    cd /tmp
-    rm -rf flutter-pi
-    git clone https://github.com/ardera/flutter-pi.git
-    cd flutter-pi
-    mkdir -p build && cd build
-    cmake ..
-    make -j$(nproc)
-    sudo make install
-    cd /tmp && rm -rf flutter-pi
-    echo "flutter-pi installed."
-else
-    echo "flutter-pi already installed, skipping build."
-fi
+# --- flutter-pi (patched for live pipeline support) ---
+echo "Building flutter-pi with live pipeline patch..."
+cd /tmp
+rm -rf flutter-pi
+git clone https://github.com/ardera/flutter-pi.git
+cd flutter-pi
+
+# Apply live pipeline fix: live sources (RTSP, HTTP live) deadlock during
+# init because NO_PREROLL pipelines don't produce data in PAUSED state.
+# This patch transitions live pipelines to PLAYING immediately and enables
+# frame dropping so appsink doesn't block the source.
+PLAYER_C="src/plugins/gstreamer_video_player/player.c"
+
+# 1. Remove the premature drop=false (drop is set after is_live detection)
+sed -i '/gst_app_sink_set_drop(GST_APP_SINK(sink), FALSE);/d' "$PLAYER_C"
+
+# 2. After gst_base_sink_set_sync line, add drop + PLAYING for live sources
+sed -i '/gst_base_sink_set_sync(GST_BASE_SINK(sink), !player->is_live);/a\
+    gst_app_sink_set_drop(GST_APP_SINK(sink), player->is_live);\
+\
+    // Live pipelines (NO_PREROLL) do not produce data in PAUSED state.\
+    // Transition to PLAYING immediately so caps negotiate and the pad probe\
+    // can fire — otherwise initialize() deadlocks waiting for video info\
+    // that only arrives when data flows.\
+    if (player->is_live) {\
+        LOG_DEBUG("Live pipeline — going straight to PLAYING for init.\\n");\
+        gst_element_set_state(GST_ELEMENT(pipeline), GST_STATE_PLAYING);\
+    }' "$PLAYER_C"
+
+echo "Applied live pipeline patch to player.c"
+
+mkdir -p build && cd build
+cmake ..
+make -j$(nproc)
+sudo make install
+cd /tmp && rm -rf flutter-pi
+echo "flutter-pi installed to /usr/local/bin/flutter-pi"
 
 # --- Bundle directory ---
 sudo mkdir -p /opt/hearth/bundle
@@ -127,7 +148,7 @@ User=hearth
 Group=hearth
 RuntimeDirectory=hearth
 Environment=XDG_RUNTIME_DIR=/run/hearth
-ExecStart=/opt/hearth/bundle/flutter-pi --release /opt/hearth/bundle
+ExecStart=/usr/local/bin/flutter-pi --release /opt/hearth/bundle
 Environment=LD_LIBRARY_PATH=/opt/hearth/bundle
 Environment=HEARTH_NO_MEDIAKIT=1
 Restart=on-failure
