@@ -30,7 +30,6 @@ class _CamerasScreenState extends ConsumerState<CamerasScreen> {
   @override
   void dispose() {
     _disposePlayer();
-    ref.read(idleControllerProvider).unsuppress();
     super.dispose();
   }
 

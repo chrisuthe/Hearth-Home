@@ -96,8 +96,17 @@ class DlnaRenderer {
     }
 
     final socket = _ssdpSocket!;
+    final mcast = InternetAddress('239.255.255.250');
     try {
-      socket.joinMulticast(InternetAddress('239.255.255.250'));
+      // Join on the specific interface to ensure multicast works on Linux
+      final iface = await _getLocalInterface();
+      if (iface != null) {
+        socket.joinMulticast(mcast, iface);
+        debugPrint('DLNA: joined multicast on ${iface.name}');
+      } else {
+        socket.joinMulticast(mcast);
+        debugPrint('DLNA: joined multicast on default interface');
+      }
     } on OSError catch (e) {
       debugPrint('DLNA: failed to join multicast group: $e');
     }
@@ -402,6 +411,20 @@ class DlnaRenderer {
       case DlnaTransportState.paused:
         return 'PAUSED_PLAYBACK';
     }
+  }
+
+  static Future<NetworkInterface?> _getLocalInterface() async {
+    try {
+      final interfaces = await NetworkInterface.list(
+        type: InternetAddressType.IPv4,
+      );
+      for (final iface in interfaces) {
+        for (final addr in iface.addresses) {
+          if (!addr.isLoopback) return iface;
+        }
+      }
+    } catch (_) {}
+    return null;
   }
 
   static Future<String?> _getLocalIp() async {
