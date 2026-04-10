@@ -5,20 +5,17 @@ import 'idle_controller.dart';
 import '../models/photo_memory.dart';
 import '../modules/module_registry.dart';
 import '../screens/ambient/ambient_screen.dart';
-import '../screens/ambient/ambient_overlays.dart';
 import '../screens/timer/timer_screen.dart';
 import '../services/timer_service.dart';
 import '../screens/home/home_screen.dart';
 import '../screens/settings/settings_screen.dart';
 
-/// The main shell that manages the two-layer navigation model.
+/// The main shell that manages the layered navigation model.
 ///
-/// Three visual layers, bottom to top:
-/// 1. Photo background — always visible, provides the ambient photo behind
-///    every screen. Continuously rotates Immich memories.
-/// 2. Active layer — PageView with screens. Has a dark scrim so content
-///    is readable over the photo. Fades OUT when idle.
-/// 3. Ambient overlays — clock, weather, memory label. Fades IN when idle.
+/// Two visual layers, bottom to top:
+/// 1. Photo background — always visible, continuously rotates Immich memories.
+/// 2. Active layer — PageView with screens over the photo background.
+///    Home screen is transparent; other screens use a dark scrim.
 ///
 /// Screen order (horizontal swipe):
 ///   Media ← Home → Controls → Cameras → Settings
@@ -29,10 +26,8 @@ class HubShell extends ConsumerStatefulWidget {
   ConsumerState<HubShell> createState() => _HubShellState();
 }
 
-class _HubShellState extends ConsumerState<HubShell>
-    with SingleTickerProviderStateMixin {
+class _HubShellState extends ConsumerState<HubShell> {
   PageController? _pageController;
-  late final AnimationController _fadeController;
 
   int _homeIndex = 0;
   int _pageCount = 0;
@@ -48,22 +43,12 @@ class _HubShellState extends ConsumerState<HubShell>
   void initState() {
     super.initState();
     _focusNode = FocusNode();
-    // Controls the active/ambient crossfade:
-    // 0.0 = idle (ambient overlays visible, active screens hidden)
-    // 1.0 = active (screens visible, ambient overlays hidden)
-    // Starts at 0.0 so the photo display is the first thing visible.
-    _fadeController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 800),
-      value: 0.0,
-    );
   }
 
   @override
   void dispose() {
     _focusNode.dispose();
     _pageController?.dispose();
-    _fadeController.dispose();
     super.dispose();
   }
 
@@ -96,7 +81,7 @@ class _HubShellState extends ConsumerState<HubShell>
             );
           }
         },
-        child: SizedBox(
+        child: const SizedBox(
           width: double.infinity,
           height: _edgeZoneHeight,
         ),
@@ -109,12 +94,6 @@ class _HubShellState extends ConsumerState<HubShell>
   void _handleKeyEvent(KeyEvent event) {
     if (event is! KeyDownEvent) return;
     _onUserActivity();
-
-    final idle = ref.read(idleControllerProvider);
-    if (idle.isIdle) {
-      _pageController!.jumpToPage(_homeIndex);
-      return;
-    }
 
     final currentPage = _pageController!.page?.round() ?? _homeIndex;
 
@@ -270,7 +249,7 @@ class _HubShellState extends ConsumerState<HubShell>
 
   @override
   Widget build(BuildContext context) {
-    final idle = ref.watch(idleControllerProvider);
+    final idleController = ref.read(idleControllerProvider);
     final modules = ref.watch(enabledModulesProvider);
     final leftModules = modules.where((m) => m.defaultOrder < 0).toList();
     final rightModules = modules.where((m) => m.defaultOrder >= 0).toList();
@@ -287,28 +266,28 @@ class _HubShellState extends ConsumerState<HubShell>
         final page = _pageController!.page?.round() ?? _homeIndex;
         if (page != _currentPage) setState(() => _currentPage = page);
       });
+      idleController.onTimeout = () {
+        _pageController?.animateToPage(
+          _homeIndex,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+        );
+      };
     }
 
     final pages = <Widget>[
       ...leftModules.map((m) => m.buildScreen(
           isActive: _currentPage == leftModules.indexOf(m))),
-      const HomeScreen(),
+      HomeScreen(
+        memoryLabel: _currentMemory?.memoryLabel,
+        onSkipPhoto: () => _ambientKey.currentState?.skipForward(),
+        onSkipPhotoBack: () => _ambientKey.currentState?.skipBack(),
+        onChevronTap: () => _onUserActivity(),
+      ),
       ...rightModules.map((m) => m.buildScreen(
           isActive: _currentPage == homeIndex + 1 + rightModules.indexOf(m))),
       const SettingsScreen(),
     ];
-
-    // Drive the crossfade: forward = show active screens, reverse = show ambient
-    if (idle.isIdle) {
-      _fadeController.reverse();
-      if (_quickTrayOpen) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) setState(() => _quickTrayOpen = false);
-        });
-      }
-    } else {
-      _fadeController.forward();
-    }
 
     return KeyboardListener(
       focusNode: _focusNode,
@@ -316,10 +295,7 @@ class _HubShellState extends ConsumerState<HubShell>
       onKeyEvent: _handleKeyEvent,
       child: GestureDetector(
         behavior: HitTestBehavior.translucent,
-        // Only track activity when not idle — during idle, taps are handled
-        // by the ambient overlay (wake) and chevron buttons (skip photo).
-        // This prevents the skip buttons from accidentally waking the screen.
-        onTapDown: idle.isIdle ? null : (_) => _onUserActivity(),
+        onTapDown: (_) => _onUserActivity(),
         child: Stack(
           children: [
             // Layer 1: Photo background — always visible behind everything.
@@ -331,132 +307,44 @@ class _HubShellState extends ConsumerState<HubShell>
               },
             ),
 
-            // Layer 2: Active screens with dark scrim — fades in on activity.
-            // The scrim ensures text/controls are readable over the photo.
-            FadeTransition(
-              opacity: _fadeController,
-              child: IgnorePointer(
-                ignoring: idle.isIdle,
-                child: PageView(
-                  controller: _pageController,
-                  physics: idle.isIdle
-                      ? const NeverScrollableScrollPhysics()
-                      : const BouncingScrollPhysics(),
-                  children: pages,
-                ),
-              ),
-            ),
-
-            // Layer 3: Ambient overlays + photo skip buttons —
-            // only visible when idle. Uses a reversed animation so they
-            // fade OUT when active screens fade IN.
-            FadeTransition(
-              opacity: ReverseAnimation(_fadeController),
-              child: IgnorePointer(
-                ignoring: !idle.isIdle,
-                child: Stack(
-                children: [
-                  // Tap anywhere on the ambient display to wake — but the
-                  // chevron buttons sit on top and absorb their own taps.
-                  GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: idle.isIdle
-                        ? () {
-                            _onUserActivity();
-                            _pageController!.jumpToPage(_homeIndex);
-                          }
-                        : null,
-                    child: const SizedBox.expand(),
-                  ),
-                  IgnorePointer(
-                    child: AmbientOverlays(
-                      memoryLabel: _currentMemory?.memoryLabel,
-                    ),
-                  ),
-                  // Skip buttons — subtle arrows on the left/right edges.
-                  // Tapping these advances photos without waking the display.
-                  if (idle.isIdle) ...[
-                    Positioned(
-                      left: 8,
-                      top: 0,
-                      bottom: 0,
-                      child: Center(
-                        child: GestureDetector(
-                          onTap: () => _ambientKey.currentState?.skipBack(),
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: 0.25),
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(Icons.chevron_left,
-                                color: Colors.white.withValues(alpha: 0.4),
-                                size: 28),
-                          ),
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      right: 8,
-                      top: 0,
-                      bottom: 0,
-                      child: Center(
-                        child: GestureDetector(
-                          onTap: () => _ambientKey.currentState?.skipForward(),
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: 0.25),
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(Icons.chevron_right,
-                                color: Colors.white.withValues(alpha: 0.4),
-                                size: 28),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-              ),
+            // Layer 2: Active screens — PageView over the photo background.
+            PageView(
+              controller: _pageController,
+              physics: const BouncingScrollPhysics(),
+              children: pages,
             ),
 
             // Edge-swipe zones — invisible strips at top/bottom that navigate
             // on vertical drag. Sit above content so they always win the
             // gesture arena over inner scrollables.
-            if (!idle.isIdle) ...[
-              _edgeSwipeZone(
-                alignment: Alignment.topCenter,
-                targetPage: _pageCount - 1,
-                swipeDown: true,
-              ),
-              // Bottom edge: swipe up to open quick actions tray
-              Align(
-                alignment: Alignment.bottomCenter,
-                child: GestureDetector(
-                  behavior: HitTestBehavior.translucent,
-                  onVerticalDragUpdate: (_) {},
-                  onVerticalDragEnd: (details) {
-                    if ((details.primaryVelocity ?? 0) < -200) {
-                      _onUserActivity();
-                      setState(() => _quickTrayOpen = true);
-                    }
-                  },
-                  child: SizedBox(
-                    width: double.infinity,
-                    height: _edgeZoneHeight,
-                  ),
+            _edgeSwipeZone(
+              alignment: Alignment.topCenter,
+              targetPage: _pageCount - 1,
+              swipeDown: true,
+            ),
+            // Bottom edge: swipe up to open quick actions tray
+            Align(
+              alignment: Alignment.bottomCenter,
+              child: GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onVerticalDragUpdate: (_) {},
+                onVerticalDragEnd: (details) {
+                  if ((details.primaryVelocity ?? 0) < -200) {
+                    _onUserActivity();
+                    setState(() => _quickTrayOpen = true);
+                  }
+                },
+                child: const SizedBox(
+                  width: double.infinity,
+                  height: _edgeZoneHeight,
                 ),
               ),
-            ],
+            ),
 
             // Quick actions tray — slides up from bottom
-            if (_quickTrayOpen && !idle.isIdle) _buildQuickTray(),
+            if (_quickTrayOpen) _buildQuickTray(),
 
-            // Layer 4: Timer alert — full-screen overlay when a timer fires.
-            // Shows on top of everything (including ambient) so you never
-            // miss a timer, even if the display is idle showing photos.
+            // Timer alert — full-screen overlay when a timer fires.
             _buildTimerAlert(),
 
             // Event overlay layer (doorbell, alerts)
