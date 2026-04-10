@@ -234,6 +234,19 @@ class _HubShellState extends ConsumerState<HubShell> {
               );
             },
           ),
+          const SizedBox(width: 12),
+          _QuickAction(
+            icon: Icons.settings,
+            label: 'Settings',
+            onTap: () {
+              setState(() => _menu1Open = false);
+              _pageController!.animateToPage(
+                _pageCount - 1,
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeInOut,
+              );
+            },
+          ),
         ],
       ),
     );
