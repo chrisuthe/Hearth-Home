@@ -104,6 +104,10 @@ if [ -z "$BUNDLE_URL" ]; then
 fi
 
 if [ -n "$BUNDLE_URL" ]; then
+    # Extract version from release JSON (same as OTA updater)
+    LATEST_TAG=$(echo "$RELEASE_JSON" | grep -o '"tag_name": *"[^"]*"' | head -1 | cut -d'"' -f4)
+    LATEST_VERSION="${LATEST_TAG#v}"
+
     echo "Downloading bundle from: $BUNDLE_URL"
     wget -qO /tmp/hearth-bundle.tar.gz "$BUNDLE_URL"
     # Extract to staging dir, then swap (preserves running state if service restarts)
@@ -117,7 +121,12 @@ if [ -n "$BUNDLE_URL" ]; then
     sudo mv /opt/hearth/bundle.staging /opt/hearth/bundle
     sudo chown -R hearth:hearth /opt/hearth
     rm -f /tmp/hearth-bundle.tar.gz
-    echo "Bundle installed."
+    # Write version so OTA updater knows what's installed
+    if [ -n "$LATEST_VERSION" ]; then
+        cp /etc/hearth-version /etc/hearth-version.prev 2>/dev/null
+        echo "$LATEST_VERSION" > /etc/hearth-version
+    fi
+    echo "Bundle installed (${LATEST_VERSION:-unknown})."
 else
     echo "No bundle found. Copy the bundle manually to /opt/hearth/bundle/"
 fi
