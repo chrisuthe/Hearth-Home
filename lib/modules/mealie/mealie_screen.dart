@@ -16,7 +16,11 @@ class MealieScreen extends ConsumerStatefulWidget {
   ConsumerState<MealieScreen> createState() => _MealieScreenState();
 }
 
-class _MealieScreenState extends ConsumerState<MealieScreen> {
+class _MealieScreenState extends ConsumerState<MealieScreen>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   MealieRecipe? _selectedRecipe;
   List<MealieMealPlanEntry> _mealPlan = [];
   List<MealieRecipeSummary> _searchResults = [];
@@ -89,6 +93,7 @@ class _MealieScreenState extends ConsumerState<MealieScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final service = ref.watch(mealieServiceProvider);
 
     return Container(
