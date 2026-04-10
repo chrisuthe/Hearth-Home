@@ -285,40 +285,40 @@ class _NowPlayingPill extends StatelessWidget {
 
     final track = state.currentTrack!;
     return Container(
-      padding: const EdgeInsets.all(8),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.black.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           // Album art
           ClipRRect(
-            borderRadius: BorderRadius.circular(6),
+            borderRadius: BorderRadius.circular(10),
             child: track.imageUrl != null
                 ? Image.network(
                     track.imageUrl!,
-                    width: 48,
-                    height: 48,
+                    width: 96,
+                    height: 96,
                     fit: BoxFit.cover,
                     errorBuilder: (_, __, ___) => Container(
-                      width: 48,
-                      height: 48,
+                      width: 96,
+                      height: 96,
                       color: Colors.white.withValues(alpha: 0.1),
                       child: const Icon(Icons.music_note,
-                          color: Colors.white38, size: 24),
+                          color: Colors.white38, size: 40),
                     ),
                   )
                 : Container(
-                    width: 48,
-                    height: 48,
+                    width: 96,
+                    height: 96,
                     color: Colors.white.withValues(alpha: 0.1),
                     child: const Icon(Icons.music_note,
-                        color: Colors.white38, size: 24),
+                        color: Colors.white38, size: 40),
                   ),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 16),
           // Track info
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -327,20 +327,20 @@ class _NowPlayingPill extends StatelessWidget {
               Text(
                 state.activeZoneName ?? '',
                 style: TextStyle(
-                  fontSize: 10,
+                  fontSize: 14,
                   color: Colors.white.withValues(alpha: 0.5),
                 ),
               ),
-              const SizedBox(height: 2),
+              const SizedBox(height: 4),
               Text(
                 track.title,
                 style: const TextStyle(
-                    fontSize: 13, fontWeight: FontWeight.w500),
+                    fontSize: 20, fontWeight: FontWeight.w500),
               ),
               Text(
                 track.artist,
                 style: TextStyle(
-                  fontSize: 11,
+                  fontSize: 16,
                   color: Colors.white.withValues(alpha: 0.6),
                 ),
               ),
