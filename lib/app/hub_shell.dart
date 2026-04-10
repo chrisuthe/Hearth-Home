@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../config/hub_config.dart';
 import 'idle_controller.dart';
 import '../models/photo_memory.dart';
 import '../modules/module_registry.dart';
@@ -35,7 +36,8 @@ class _HubShellState extends ConsumerState<HubShell> {
   final _ambientKey = GlobalKey<AmbientScreenState>();
   PhotoMemory? _currentMemory;
   int _currentPage = 0;
-  bool _quickTrayOpen = false;
+  bool _menu1Open = false;
+  bool _menu2Open = false;
 
   static const double _edgeZoneHeight = 80;
 
@@ -56,29 +58,28 @@ class _HubShellState extends ConsumerState<HubShell> {
     ref.read(idleControllerProvider).onUserActivity();
   }
 
-  /// Builds an invisible edge-swipe zone that navigates to [targetPage]
-  /// when dragged in [direction] (positive = down, negative = up).
-  Widget _edgeSwipeZone({
+  String? _edgeFor(String action) {
+    final config = ref.read(hubConfigProvider);
+    if (config.topSwipeAction == action) return 'top';
+    if (config.bottomSwipeAction == action) return 'bottom';
+    return null;
+  }
+
+  Widget _configEdgeSwipeZone({
     required AlignmentGeometry alignment,
-    required int targetPage,
+    required String action,
     required bool swipeDown,
   }) {
     return Align(
       alignment: alignment,
       child: GestureDetector(
-        // Translucent so taps pass through to content below (e.g., zone
-        // picker) while vertical drags are still captured by this zone.
         behavior: HitTestBehavior.translucent,
         onVerticalDragUpdate: (_) {},
         onVerticalDragEnd: (details) {
           final v = details.primaryVelocity ?? 0;
           if ((swipeDown && v > 200) || (!swipeDown && v < -200)) {
             _onUserActivity();
-            _pageController!.animateToPage(
-              targetPage,
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeInOut,
-            );
+            _dispatchSwipeAction(action);
           }
         },
         child: const SizedBox(
@@ -87,6 +88,33 @@ class _HubShellState extends ConsumerState<HubShell> {
         ),
       ),
     );
+  }
+
+  void _dispatchSwipeAction(String action) {
+    switch (action) {
+      case 'menu1':
+        setState(() { _menu1Open = true; _menu2Open = false; });
+      case 'menu2':
+        setState(() { _menu2Open = true; _menu1Open = false; });
+      case 'settings':
+        _pageController!.animateToPage(
+          _pageCount - 1,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+        );
+      case 'nextScreen':
+        final current = _pageController!.page?.round() ?? _homeIndex;
+        if (current < _pageCount - 1) {
+          _pageController!.animateToPage(current + 1,
+            duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
+        }
+      case 'previousScreen':
+        final current = _pageController!.page?.round() ?? _homeIndex;
+        if (current > 0) {
+          _pageController!.animateToPage(current - 1,
+            duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
+        }
+    }
   }
 
   /// Handles arrow key navigation for desktop testing.
@@ -185,63 +213,41 @@ class _HubShellState extends ConsumerState<HubShell> {
     );
   }
 
-  Widget _buildQuickTray() {
+  Widget _buildMenu1({required bool fromTop}) {
     final timerService = ref.watch(timerServiceProvider);
-    return GestureDetector(
-      // Tap scrim to dismiss
-      onTap: () => setState(() => _quickTrayOpen = false),
-      child: Container(
-        color: Colors.black.withValues(alpha: 0.6),
-        child: Column(
-          children: [
-            const Spacer(),
-            // Swipe down on the tray to dismiss
-            GestureDetector(
-              onVerticalDragEnd: (details) {
-                if ((details.primaryVelocity ?? 0) > 200) {
-                  setState(() => _quickTrayOpen = false);
-                }
-              },
-              onTap: () {}, // absorb taps on tray so scrim dismiss doesn't fire
-              child: Container(
-                margin: const EdgeInsets.only(bottom: 32, left: 24, right: 24),
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1A1A1A),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    _QuickAction(
-                      icon: Icons.timer,
-                      label: timerService.hasActiveTimers
-                          ? timerService.statusLabel
-                          : 'Timer',
-                      active: timerService.hasActiveTimers,
-                      onTap: () {
-                        setState(() => _quickTrayOpen = false);
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                              builder: (_) => const TimerScreen()),
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            // Small handle indicator
-            Container(
-              width: 40,
-              height: 4,
-              margin: const EdgeInsets.only(bottom: 12),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ],
+    return _MenuTray(
+      fromTop: fromTop,
+      onDismiss: () => setState(() => _menu1Open = false),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          _QuickAction(
+            icon: Icons.timer,
+            label: timerService.hasActiveTimers
+                ? timerService.statusLabel
+                : 'Timer',
+            active: timerService.hasActiveTimers,
+            onTap: () {
+              setState(() => _menu1Open = false);
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const TimerScreen()),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMenu2({required bool fromTop}) {
+    return _MenuTray(
+      fromTop: fromTop,
+      onDismiss: () => setState(() => _menu2Open = false),
+      child: const Padding(
+        padding: EdgeInsets.symmetric(vertical: 8),
+        child: Text(
+          'No actions configured',
+          style: TextStyle(fontSize: 13, color: Colors.white38),
         ),
       ),
     );
@@ -249,6 +255,7 @@ class _HubShellState extends ConsumerState<HubShell> {
 
   @override
   Widget build(BuildContext context) {
+    final config = ref.watch(hubConfigProvider);
     final idleController = ref.read(idleControllerProvider);
     final modules = ref.watch(enabledModulesProvider);
     final leftModules = modules.where((m) => m.defaultOrder < 0).toList();
@@ -314,35 +321,22 @@ class _HubShellState extends ConsumerState<HubShell> {
               children: pages,
             ),
 
-            // Edge-swipe zones — invisible strips at top/bottom that navigate
-            // on vertical drag. Sit above content so they always win the
-            // gesture arena over inner scrollables.
-            _edgeSwipeZone(
+            // Edge-swipe zones — invisible strips at top/bottom that
+            // dispatch configurable actions on vertical drag.
+            _configEdgeSwipeZone(
               alignment: Alignment.topCenter,
-              targetPage: _pageCount - 1,
+              action: config.topSwipeAction,
               swipeDown: true,
             ),
-            // Bottom edge: swipe up to open quick actions tray
-            Align(
+            _configEdgeSwipeZone(
               alignment: Alignment.bottomCenter,
-              child: GestureDetector(
-                behavior: HitTestBehavior.translucent,
-                onVerticalDragUpdate: (_) {},
-                onVerticalDragEnd: (details) {
-                  if ((details.primaryVelocity ?? 0) < -200) {
-                    _onUserActivity();
-                    setState(() => _quickTrayOpen = true);
-                  }
-                },
-                child: const SizedBox(
-                  width: double.infinity,
-                  height: _edgeZoneHeight,
-                ),
-              ),
+              action: config.bottomSwipeAction,
+              swipeDown: false,
             ),
 
-            // Quick actions tray — slides up from bottom
-            if (_quickTrayOpen) _buildQuickTray(),
+            // Menu overlays — slide in from their assigned edge
+            if (_menu1Open) _buildMenu1(fromTop: _edgeFor('menu1') == 'top'),
+            if (_menu2Open) _buildMenu2(fromTop: _edgeFor('menu2') == 'top'),
 
             // Timer alert — full-screen overlay when a timer fires.
             _buildTimerAlert(),
@@ -397,6 +391,86 @@ class _QuickAction extends StatelessWidget {
               label,
               style: const TextStyle(fontSize: 11, color: Colors.white70),
               overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MenuTray extends StatelessWidget {
+  final bool fromTop;
+  final VoidCallback onDismiss;
+  final Widget child;
+
+  const _MenuTray({
+    required this.fromTop,
+    required this.onDismiss,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onDismiss,
+      child: SizedBox.expand(
+        child: Stack(
+          children: [
+            Positioned(
+              top: fromTop ? 0 : null,
+              bottom: fromTop ? null : 0,
+              left: 0,
+              right: 0,
+              child: GestureDetector(
+                onVerticalDragEnd: (details) {
+                  final v = details.primaryVelocity ?? 0;
+                  if ((fromTop && v < -200) || (!fromTop && v > 200)) {
+                    onDismiss();
+                  }
+                },
+                onTap: () {},
+                child: Container(
+                  margin: EdgeInsets.only(
+                    top: fromTop ? 12 : 0,
+                    bottom: fromTop ? 0 : 12,
+                    left: 24,
+                    right: 24,
+                  ),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1A1A1A),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (fromTop) ...[
+                        child,
+                        const SizedBox(height: 8),
+                        Container(
+                          width: 40, height: 4,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.3),
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                      ] else ...[
+                        Container(
+                          width: 40, height: 4,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.3),
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        child,
+                      ],
+                    ],
+                  ),
+                ),
+              ),
             ),
           ],
         ),
