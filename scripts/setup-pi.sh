@@ -50,20 +50,22 @@ PLAYER_C="src/plugins/gstreamer_video_player/player.c"
 # 1. Remove the premature drop=false (drop is set after is_live detection)
 sed -i '/gst_app_sink_set_drop(GST_APP_SINK(sink), FALSE);/d' "$PLAYER_C"
 
-# 2. After gst_base_sink_set_sync line, add drop + PLAYING for live sources
-sed -i '/gst_base_sink_set_sync(GST_BASE_SINK(sink), !player->is_live);/a\
+# 2. Replace hardcoded sync=TRUE with live-aware sync, drop, and PLAYING
+sed -i '/gst_base_sink_set_sync(GST_BASE_SINK(sink), TRUE);/c\
+    gst_base_sink_set_sync(GST_BASE_SINK(sink), !player->is_live);\
     gst_app_sink_set_drop(GST_APP_SINK(sink), player->is_live);\
 \
-    // Live pipelines (NO_PREROLL) do not produce data in PAUSED state.\
-    // Transition to PLAYING immediately so caps negotiate and the pad probe\
-    // can fire — otherwise initialize() deadlocks waiting for video info\
-    // that only arrives when data flows.\
     if (player->is_live) {\
-        LOG_DEBUG("Live pipeline — going straight to PLAYING for init.\\n");\
         gst_element_set_state(GST_ELEMENT(pipeline), GST_STATE_PLAYING);\
     }' "$PLAYER_C"
 
-echo "Applied live pipeline patch to player.c"
+# Verify patch applied
+if grep -q '!player->is_live' "$PLAYER_C"; then
+    echo "Live pipeline patch applied successfully."
+else
+    echo "ERROR: Live pipeline patch failed to apply!"
+    exit 1
+fi
 
 mkdir -p build && cd build
 cmake ..
