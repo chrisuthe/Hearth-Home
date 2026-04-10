@@ -9,6 +9,7 @@ import 'services/local_api_server.dart';
 import 'services/sendspin/sendspin_service.dart';
 import 'services/video/media_kit_player.dart';
 import 'services/video/gstreamer_player.dart';
+import 'services/dlna/dlna_renderer.dart';
 
 // media_kit uses native libmpv — not available on web.
 import 'package:media_kit/media_kit.dart';
@@ -52,6 +53,12 @@ Future<void> main() async {
     } catch (e) {
       Log.e('App', 'API server start failed: $e');
     }
+
+    // Start DLNA renderer for cast-to-screen functionality.
+    final dlna = container.read(dlnaRendererProvider);
+    apiServer.setDlnaRenderer(dlna);
+    await dlna.start();
+    Log.i('App', 'DLNA renderer started');
   }
 
   // All other services (HA, MA, Immich, Frigate, DisplayMode) are
