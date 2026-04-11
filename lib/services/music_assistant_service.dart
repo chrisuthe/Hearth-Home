@@ -358,7 +358,8 @@ class MusicAssistantService {
           ? queueState
           : existing.copyWith(
               playbackState: queueState.playbackState,
-              currentTrack: queueState.currentTrack ?? existing.currentTrack,
+              currentTrack: _preferTrackWithImage(
+                  queueState.currentTrack, existing.currentTrack),
               position: queueState.position,
               shuffle: queueState.shuffle,
               repeatMode: queueState.repeatMode,
@@ -376,12 +377,18 @@ class MusicAssistantService {
 
   /// When merging player and queue events, prefer whichever track has
   /// an image URL so album art doesn't flicker to blank.
+  ///
+  /// Only carries over the existing image when the incoming track is the
+  /// same song (matching title). This prevents stale artwork from a
+  /// previous song bleeding into a newly started track.
   MusicTrack? _preferTrackWithImage(MusicTrack? incoming, MusicTrack? existing) {
     if (incoming == null) return existing;
     if (existing == null) return incoming;
-    // If incoming has an image, use it. Otherwise keep existing image.
+    // If incoming already has an image, use it as-is.
     if (incoming.imageUrl != null) return incoming;
-    if (existing.imageUrl != null) {
+    // Carry over existing image only when the track title matches —
+    // a different song should not inherit the old song's artwork.
+    if (existing.imageUrl != null && incoming.title == existing.title) {
       return MusicTrack(
         title: incoming.title,
         artist: incoming.artist,

@@ -198,7 +198,7 @@ void main() {
       expect(service.playerStates['bedroom']?.activeZoneName, 'Bedroom');
     });
 
-    test('player_updated preserves existing album art when incoming has none',
+    test('player_updated preserves album art for same track without image',
         () async {
       service.connect('test-token');
       final authMsgId = channel.sentMessages[0]['message_id'] as String;
@@ -229,7 +229,61 @@ void main() {
       expect(service.playerStates['kitchen']?.currentTrack?.imageUrl,
           'http://art.example.com/cover.jpg');
 
-      // Second: player_updated with NO image — should preserve existing art
+      // Second: same track arrives without image — should preserve existing art
+      final statesFuture = service.playerStateStream.first;
+      channel.simulateServerMessage({
+        'event': 'player_updated',
+        'object_id': 'kitchen',
+        'data': {
+          'player_id': 'kitchen',
+          'display_name': 'Kitchen',
+          'state': 'playing',
+          'volume_level': 50,
+          'volume_muted': false,
+          'current_media': {
+            'title': 'Song A',
+            'artist': 'Artist A',
+            'album': 'Album A',
+            'duration': 200,
+          },
+        },
+      });
+
+      final state = await statesFuture;
+      expect(state.currentTrack?.title, 'Song A');
+      expect(state.currentTrack?.imageUrl, 'http://art.example.com/cover.jpg');
+    });
+
+    test('player_updated does not carry old art to a different track',
+        () async {
+      service.connect('test-token');
+      final authMsgId = channel.sentMessages[0]['message_id'] as String;
+      channel.simulateServerMessage(
+          {'message_id': authMsgId, 'result': true});
+
+      // Establish a player with album art
+      channel.simulateServerMessage({
+        'event': 'player_updated',
+        'object_id': 'kitchen',
+        'data': {
+          'player_id': 'kitchen',
+          'display_name': 'Kitchen',
+          'state': 'playing',
+          'volume_level': 50,
+          'volume_muted': false,
+          'current_media': {
+            'title': 'Song A',
+            'artist': 'Artist A',
+            'album': 'Album A',
+            'image_url': 'http://art.example.com/cover.jpg',
+            'duration': 200,
+          },
+        },
+      });
+
+      await Future.delayed(const Duration(milliseconds: 50));
+
+      // Different track with no image — should NOT inherit Song A's art
       final statesFuture = service.playerStateStream.first;
       channel.simulateServerMessage({
         'event': 'player_updated',
@@ -250,8 +304,71 @@ void main() {
       });
 
       final state = await statesFuture;
-      // Title should update but image should be preserved from Song A
       expect(state.currentTrack?.title, 'Song B');
+      expect(state.currentTrack?.imageUrl, isNull);
+    });
+
+    test('queue_updated preserves album art for same track without image',
+        () async {
+      service.connect('test-token');
+      final authMsgId = channel.sentMessages[0]['message_id'] as String;
+      channel.simulateServerMessage(
+          {'message_id': authMsgId, 'result': true});
+
+      // Establish player with art via queue_updated
+      channel.simulateServerMessage({
+        'event': 'queue_updated',
+        'object_id': 'kitchen',
+        'data': {
+          'queue_id': 'kitchen',
+          'state': 'playing',
+          'shuffle_enabled': false,
+          'repeat_mode': 'off',
+          'elapsed_time': 10,
+          'items': 5,
+          'current_item': {
+            'name': 'Song A',
+            'duration': 200,
+            'media_item': {
+              'name': 'Song A',
+              'artists': [{'name': 'Artist A'}],
+              'album': {'name': 'Album A'},
+              'image': {'url': 'http://art.example.com/cover.jpg'},
+            },
+          },
+        },
+      });
+
+      await Future.delayed(const Duration(milliseconds: 50));
+      expect(service.playerStates['kitchen']?.currentTrack?.imageUrl,
+          'http://art.example.com/cover.jpg');
+
+      // Same track arrives via queue_updated without image
+      final statesFuture = service.playerStateStream.first;
+      channel.simulateServerMessage({
+        'event': 'queue_updated',
+        'object_id': 'kitchen',
+        'data': {
+          'queue_id': 'kitchen',
+          'state': 'playing',
+          'shuffle_enabled': false,
+          'repeat_mode': 'off',
+          'elapsed_time': 30,
+          'items': 5,
+          'current_item': {
+            'name': 'Song A',
+            'duration': 200,
+            'media_item': {
+              'name': 'Song A',
+              'artists': [{'name': 'Artist A'}],
+              'album': {'name': 'Album A'},
+            },
+          },
+        },
+      });
+
+      final state = await statesFuture;
+      expect(state.currentTrack?.title, 'Song A');
       expect(state.currentTrack?.imageUrl, 'http://art.example.com/cover.jpg');
     });
 

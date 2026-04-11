@@ -155,7 +155,7 @@ class MusicPlayerState {
         title: currentMedia['title'] as String,
         artist: currentMedia['artist'] as String? ?? 'Unknown',
         album: currentMedia['album'] as String? ?? '',
-        imageUrl: currentMedia['image_url'] as String?,
+        imageUrl: _extractImageUrl(currentMedia),
         duration: Duration(seconds: (currentMedia['duration'] as num?)?.toInt() ?? 0),
       );
     }
