@@ -6,6 +6,12 @@ export 'sendspin_codec_native.dart'
 abstract class SendspinCodec {
   List<int> decode(Uint8List encodedData);
   void reset();
+
+  /// Release any native resources held by this codec.
+  ///
+  /// Subclasses that allocate native memory (e.g. FlacCodec) must override
+  /// this to free those resources. The default implementation is a no-op.
+  void dispose() {}
 }
 
 class PcmCodec implements SendspinCodec {
@@ -52,4 +58,7 @@ class PcmCodec implements SendspinCodec {
 
   @override
   void reset() {}
+
+  @override
+  void dispose() {}
 }

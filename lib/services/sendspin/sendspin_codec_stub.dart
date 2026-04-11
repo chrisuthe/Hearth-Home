@@ -14,6 +14,7 @@ class FlacCodec implements SendspinCodec {
   @override
   void reset() {}
 
+  @override
   void dispose() {}
 }
 

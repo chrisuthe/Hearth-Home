@@ -235,6 +235,7 @@ class SendspinClient {
       'rate=$sampleRate bits=$bitDepth${wasStreaming ? " (track switch)" : ""}',
     );
 
+    _codec?.dispose();
     _codec = createCodec(
       codec: codecName,
       bitDepth: bitDepth,
@@ -290,7 +291,7 @@ class SendspinClient {
     _stopStateReporting();
     onStreamStop?.call();
     _buffer?.flush();
-    _codec?.reset();
+    _codec?.dispose();
     _codec = null;
     _buffer = null;
 
@@ -440,16 +441,18 @@ class SendspinClient {
   void resetForNewConnection() {
     stopClockSync();
     _stopStateReporting();
-    _codec?.reset();
+    _codec?.dispose();
     _codec = null;
     _buffer?.flush();
     _buffer = null;
   }
 
-  /// Cleans up timers and stream controller.
+  /// Cleans up timers, stream controller, and any active codec.
   void dispose() {
     stopClockSync();
     _stopStateReporting();
+    _codec?.dispose();
+    _codec = null;
     _stateController.close();
   }
 }
