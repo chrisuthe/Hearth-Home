@@ -4,17 +4,20 @@ Open-source Flutter smart home kiosk — a Google Nest Hub replacement designed 
 
 ![hearth](https://github.com/user-attachments/assets/8d2dcddf-fbf3-49e4-9453-9b92bd47c9ea)
 
-
+https://youtube.com/watch?v=pPN4-EoO-Nc&feature=youtu.be 
 ## Features
 
-- **Ambient Photo Display** — Cycles through Immich "on this day" memories with clock and weather overlays. Tap to wake, auto-returns to photos after idle timeout.
-- **Home Assistant Controls** — Lights and climate cards powered by HA WebSocket connection.
-- **Music Assistant** — Media playback controls via HA media_player entities.
-- **Frigate Cameras** — Live RTSP streams and real-time event alerts through HA.
-- **Timers** — Full-screen alerts that show over any screen, including ambient mode.
+- **Full-Bleed Photo Display** — Immich "on this day" memories rotate behind a transparent home screen with clock, weather, and memory labels. No screensaver mode — photos are always visible on Home.
+- **Home Assistant Controls** — Lights and climate cards via HA WebSocket. Pin your most-used entities for quick access.
+- **Music Assistant** — Media playback with album art, transport controls, volume slider, and multi-zone support.
+- **Frigate Cameras** — Live RTSP video streams from go2rtc with snapshot grid view. Tap a camera for full-screen live video. Video playback suppresses the idle timeout so streams aren't interrupted.
+- **Recipes** — Browse and view recipes from Mealie with category filtering.
+- **Timers** — Countdown timers with full-screen alerts that show over any screen.
+- **System Volume** — Quick-access volume slider via configurable swipe menu.
+- **Configurable Gestures** — Top and bottom edge swipes can be mapped to menus, settings, or screen navigation.
 - **Night Mode** — Triggered by clock schedule, HA entity state, or external API call.
-- **Web Configuration** — Configure all settings from any browser at `http://<pi-ip>:8090`.
-- **OTA Updates** — Automatic app bundle updates from GitHub Releases.
+- **Web Configuration** — Configure all settings from any browser at `http://hearth.local:8090`.
+- **OTA Updates** — Automatic app bundle updates from GitHub Releases with rollback on failure.
 
 ## Install on Raspberry Pi
 
@@ -29,64 +32,81 @@ Open-source Flutter smart home kiosk — a Google Nest Hub replacement designed 
 
 Download and flash **Raspberry Pi OS Lite (64-bit)** using [Raspberry Pi Imager](https://www.raspberrypi.com/software/).
 
-In the imager settings (gear icon), configure:
+In the imager settings, configure:
 - **Enable SSH** (so you can connect remotely)
 - **Set username and password**
 - **Configure WiFi** (if not using ethernet)
 
-### Step 2: Boot and SSH In
+### Step 2: Run the Setup Script
 
-Insert the SD card, power on the Pi, and SSH in from your computer:
-
-```bash
-ssh <username>@<pi-ip-address>
-```
-
-### Step 3: Run the Setup Script
+SSH into the Pi and run:
 
 ```bash
 curl -sL https://raw.githubusercontent.com/chrisuthe/Hearth-Home/main/scripts/setup-pi.sh | sudo bash
 ```
 
-This installs flutter-pi, downloads the latest app bundle from GitHub Releases, and configures systemd services. Takes about 5-10 minutes.
+This does everything automatically:
+- Installs dependencies (GStreamer, Mesa, etc.)
+- Builds flutter-pi from source with a [live video pipeline patch](scripts/apply_patch.py)
+- Downloads the latest app bundle from GitHub Releases
+- Configures systemd services and starts Hearth
 
-### Step 4: Start Hearth
+The kiosk starts automatically after setup completes.
 
-```bash
-sudo systemctl start hearth.service
-```
-
-On first launch, the setup wizard helps you connect to WiFi (if not already connected) and displays the URL for web configuration.
-
-### Step 5: Configure Services
+### Step 3: Configure Services
 
 Open a browser on any device on your network and go to:
 
 ```
-http://<pi-ip-address>:8090
+http://hearth.local:8090
 ```
 
-Enter your service URLs and API keys:
-- **Home Assistant** — Server URL + long-lived access token
-- **Immich** — Server URL + API key
-- **Frigate** — Server URL (optional)
+Enter the PIN shown on the kiosk display, then configure your services:
+- **Home Assistant** — WebSocket URL + long-lived access token
+- **Immich** — Server URL + API key (for photo memories)
+- **Frigate** — Server URL (for camera streams, optional)
 - **Music Assistant** — Server URL + token (optional)
-
-Save and restart Hearth to apply:
-
-```bash
-sudo systemctl restart hearth.service
-```
+- **Mealie** — Server URL + token (for recipes, optional)
 
 ### Updating
 
-Hearth checks for updates automatically. You can also trigger a manual update:
+Hearth checks for updates daily and on boot. Manual update:
 
 ```bash
-sudo /usr/bin/hearth-updater
+sudo systemctl start hearth-updater.service
 ```
 
-Or use the "Check for Updates" button on the web configuration page.
+Re-running the setup script also updates everything:
+
+```bash
+curl -sL https://raw.githubusercontent.com/chrisuthe/Hearth-Home/main/scripts/setup-pi.sh | sudo bash
+```
+
+## Architecture
+
+### Navigation
+
+Swipe-based horizontal navigation: **Media <- Home -> Controls -> Cameras -> Recipes -> Settings**
+
+Home screen is transparent over the photo carousel — photos are always visible. Other screens use a dark background for readability.
+
+Configurable edge swipe menus slide in from top/bottom without dimming the background.
+
+### Module System
+
+Optional screens implement the `HearthModule` interface. Each module provides a screen, settings section, and enable/disable support. Current modules: Media, Controls, Cameras, Recipes.
+
+### Video on Pi
+
+Live camera streams use GStreamer via flutter-pi's video player plugin. The setup script patches flutter-pi's `player.c` to fix a [live pipeline initialization deadlock](scripts/apply_patch.py) — custom pipelines go straight to PLAYING state instead of stalling in PAUSED.
+
+### Key Technologies
+
+- **Flutter** + **Riverpod** for UI and state management
+- **flutter-pi** for Raspberry Pi rendering (DRM/KMS + EGL)
+- **GStreamer** for RTSP video playback on Pi
+- **media_kit** (libmpv) for video on desktop
+- **Home Assistant WebSocket API** for device control and events
 
 ## Development
 
@@ -104,16 +124,10 @@ flutter test
 flutter analyze
 ```
 
-### Architecture
-
-Swipe-based navigation across five screens: **Media <- Home -> Controls -> Cameras -> Settings**
-
-The display is a crossfade between an always-on photo background and the active UI layer — not traditional screen navigation. The app starts in ambient mode and wakes on touch.
-
 ### Target Hardware
 
 - Raspberry Pi 5
-- 11" AMOLED (2368x1728, rendered at half resolution for performance)
+- 11" AMOLED (2368x1728, rendered at 1184x864 for performance)
 - Also supports: Official RPi 7" touchscreen, generic HDMI monitors
 
 ## License

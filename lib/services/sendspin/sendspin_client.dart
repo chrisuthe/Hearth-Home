@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 
 import '../../models/sendspin_state.dart';
@@ -39,6 +40,12 @@ class SendspinClient {
   /// Callback for sending text messages back through the WebSocket.
   void Function(String message)? onSendText;
 
+  /// Called when stream/start is received with the negotiated audio format.
+  void Function(int sampleRate, int channels, int bitDepth)? onStreamStart;
+
+  /// Called when stream/end or stream/clear resets the pipeline.
+  void Function()? onStreamStop;
+
   SendspinClient({
     required this.playerName,
     required this.clientId,
@@ -60,26 +67,40 @@ class SendspinClient {
   // Message builders
   // ---------------------------------------------------------------------------
 
-  /// Builds the client/hello handshake message.
+  /// Builds the client/hello handshake message per the Sendspin spec.
   String buildClientHello() {
     return jsonEncode({
       'type': 'client/hello',
       'payload': {
         'client_id': clientId,
         'name': playerName,
-        'product_name': 'Hearth',
-        'roles': ['player@v1'],
-        'supported_codecs': ['pcm', 'flac'],
+        'version': 1,
+        'supported_roles': ['player@v1'],
+        'device_info': {
+          'product_name': 'Hearth',
+          'manufacturer': 'Hearth',
+          'software_version': '0.6.0',
+        },
+        'player@v1_support': {
+          'supported_formats': [
+            {'codec': 'pcm', 'channels': 2, 'sample_rate': 48000, 'bit_depth': 16},
+            {'codec': 'pcm', 'channels': 2, 'sample_rate': 44100, 'bit_depth': 16},
+            {'codec': 'flac', 'channels': 2, 'sample_rate': 48000, 'bit_depth': 16},
+            {'codec': 'flac', 'channels': 2, 'sample_rate': 44100, 'bit_depth': 16},
+          ],
+          'buffer_capacity': bufferSeconds * 48000 * 2 * 2, // bytes
+          'supported_commands': ['volume', 'mute'],
+        },
       },
     });
   }
 
-  /// Builds a client/time response for clock synchronization.
+  /// Builds a client/time message for clock synchronization.
   String buildClientTime(int clientTransmittedUs) {
     return jsonEncode({
       'type': 'client/time',
       'payload': {
-        'client_transmitted_us': clientTransmittedUs,
+        'client_transmitted': clientTransmittedUs,
       },
     });
   }
@@ -89,9 +110,13 @@ class SendspinClient {
     return jsonEncode({
       'type': 'client/state',
       'payload': {
-        'volume': _state.volume,
-        'muted': _state.muted,
-        'buffer_depth_ms': _state.bufferDepthMs,
+        'state': 'synchronized',
+        'player': {
+          'volume': (_state.volume * 100).round(),
+          'muted': _state.muted,
+          'static_delay_ms': 0,
+          'supported_commands': ['volume', 'mute'],
+        },
       },
     });
   }
@@ -124,8 +149,12 @@ class SendspinClient {
         _handleStreamClear();
       case 'stream/end':
         _handleStreamEnd();
-      case 'player/command':
-        _handlePlayerCommand(payload);
+      case 'server/command':
+        _handleServerCommand(payload);
+      case 'server/state':
+        _handleServerState(payload);
+      case 'group/update':
+        Log.d('Sendspin', 'group/update: ${payload['playback_state']}');
       default:
         Log.d('Sendspin', 'Unknown message type: $type');
     }
@@ -140,39 +169,44 @@ class SendspinClient {
       serverName: serverName,
     ));
 
-    // Send our hello back and start clock sync.
-    onSendText?.call(buildClientHello());
+    // Send initial state report, then start clock sync.
+    onSendText?.call(buildClientState());
     startClockSync();
   }
 
   void _handleServerTime(Map<String, dynamic> payload) {
-    final serverReceivedUs = payload['server_received_us'] as int? ?? 0;
-    final serverTransmittedUs = payload['server_transmitted_us'] as int? ?? 0;
-    final clientReceivedUs = DateTime.now().microsecondsSinceEpoch;
+    final serverReceived = payload['server_received'] as int? ?? 0;
+    final serverTransmitted = payload['server_transmitted'] as int? ?? 0;
+    final clientReceived = DateTime.now().microsecondsSinceEpoch;
+    final clientTransmitted = payload['client_transmitted'] as int? ?? 0;
 
     // NTP-style offset calculation.
     final offset =
-        ((serverReceivedUs - (payload['client_transmitted_us'] as int? ?? 0)) +
-                (serverTransmittedUs - clientReceivedUs)) ~/
+        ((serverReceived - clientTransmitted) +
+                (serverTransmitted - clientReceived)) ~/
             2;
-    final delay = (clientReceivedUs -
-            (payload['client_transmitted_us'] as int? ?? 0)) -
-        (serverTransmittedUs - serverReceivedUs);
+    final delay =
+        (clientReceived - clientTransmitted) -
+        (serverTransmitted - serverReceived);
 
-    _clock.update(offset, delay ~/ 2, clientReceivedUs);
+    _clock.update(offset, delay ~/ 2, clientReceived);
   }
 
   void _handleStreamStart(Map<String, dynamic> payload) {
-    final audioFormat = payload['audio_format'] as Map<String, dynamic>? ?? {};
+    // Spec nests format under "player"; fall back to top-level for compat.
+    final playerFormat = payload['player'] as Map<String, dynamic>?;
+    final audioFormat = playerFormat ?? payload['audio_format'] as Map<String, dynamic>? ?? {};
     final codecName = audioFormat['codec'] as String? ?? 'pcm';
     final channels = audioFormat['channels'] as int? ?? 2;
     final sampleRate = audioFormat['sample_rate'] as int? ?? 48000;
     final bitDepth = audioFormat['bit_depth'] as int? ?? 16;
 
+    final wasStreaming = _state.connectionState == SendspinConnectionState.streaming;
+
     Log.i(
       'Sendspin',
       'stream/start codec=$codecName ch=$channels '
-      'rate=$sampleRate bits=$bitDepth',
+      'rate=$sampleRate bits=$bitDepth${wasStreaming ? " (track switch)" : ""}',
     );
 
     _codec = createCodec(
@@ -182,12 +216,31 @@ class SendspinClient {
       sampleRate: sampleRate,
     );
 
-    _buffer = SendspinBuffer(
-      sampleRate: sampleRate,
-      channels: channels,
-      startupBufferMs: bufferSeconds * 1000 ~/ 2,
-      maxBufferMs: bufferSeconds * 1000,
-    );
+    // Feed codec header (e.g. FLAC STREAMINFO) to the decoder if provided.
+    final codecHeader = audioFormat['codec_header'] as String?;
+    if (codecHeader != null && codecHeader.isNotEmpty) {
+      try {
+        final headerBytes = base64Decode(codecHeader);
+        _codec!.decode(Uint8List.fromList(headerBytes));
+        Log.d('Sendspin', 'Fed ${headerBytes.length} byte codec header');
+      } catch (e) {
+        Log.w('Sendspin', 'Failed to decode codec header: $e');
+      }
+    }
+
+    // On track switch, flush the existing buffer instead of creating a new
+    // one with a startup delay. This avoids the 5-second startup buffer
+    // that causes overflow when audio arrives immediately.
+    if (wasStreaming && _buffer != null) {
+      _buffer!.flush();
+    } else {
+      _buffer = SendspinBuffer(
+        sampleRate: sampleRate,
+        channels: channels,
+        startupBufferMs: 200, // Match reference impl: 200ms before releasing
+        maxBufferMs: bufferSeconds * 1000,
+      );
+    }
 
     _updateState(_state.copyWith(
       connectionState: SendspinConnectionState.streaming,
@@ -195,6 +248,8 @@ class SendspinClient {
       sampleRate: sampleRate,
       channels: channels,
     ));
+
+    onStreamStart?.call(sampleRate, channels, bitDepth);
   }
 
   void _handleStreamClear() {
@@ -205,6 +260,7 @@ class SendspinClient {
 
   void _handleStreamEnd() {
     Log.d('Sendspin', 'stream/end');
+    onStreamStop?.call();
     _buffer?.flush();
     _codec?.reset();
     _codec = null;
@@ -215,20 +271,28 @@ class SendspinClient {
     ));
   }
 
-  void _handlePlayerCommand(Map<String, dynamic> payload) {
-    final command = payload['command'] as String?;
-    final value = payload['value'];
+  void _handleServerCommand(Map<String, dynamic> payload) {
+    final player = payload['player'] as Map<String, dynamic>?;
+    if (player == null) return;
 
+    final command = player['command'] as String?;
     switch (command) {
       case 'volume':
-        final vol = (value is num) ? value.toDouble() : _state.volume;
-        _updateState(_state.copyWith(volume: vol));
+        final vol = player['volume'];
+        if (vol is num) {
+          _updateState(_state.copyWith(volume: vol.toDouble() / 100));
+        }
       case 'mute':
-        final muted = (value is bool) ? value : _state.muted;
-        _updateState(_state.copyWith(muted: muted));
+        final muted = player['mute'] as bool?;
+        if (muted != null) _updateState(_state.copyWith(muted: muted));
       default:
-        Log.d('Sendspin', 'Unknown player command: $command');
+        Log.d('Sendspin', 'Unknown server command: $command');
     }
+  }
+
+  void _handleServerState(Map<String, dynamic> payload) {
+    // Server state carries metadata, controller info — log for now.
+    Log.d('Sendspin', 'server/state received');
   }
 
   // ---------------------------------------------------------------------------
@@ -275,13 +339,25 @@ class SendspinClient {
   // Clock sync
   // ---------------------------------------------------------------------------
 
-  /// Starts periodic clock synchronization (every 2 seconds).
+  /// Starts periodic clock synchronization (every 2 seconds, burst of 5).
+  ///
+  /// The reference implementation sends 5 rapid time samples per burst for
+  /// better jitter rejection in the Kalman filter.
   void startClockSync() {
     stopClockSync();
     _clockSyncTimer = Timer.periodic(const Duration(seconds: 2), (_) {
-      final clientTransmittedUs = DateTime.now().microsecondsSinceEpoch;
-      onSendText?.call(buildClientTime(clientTransmittedUs));
+      _sendTimeBurst();
     });
+  }
+
+  void _sendTimeBurst() {
+    for (int i = 0; i < 5; i++) {
+      Future.delayed(Duration(milliseconds: i * 20), () {
+        if (_clockSyncTimer == null) return; // cancelled
+        final clientTransmittedUs = DateTime.now().microsecondsSinceEpoch;
+        onSendText?.call(buildClientTime(clientTransmittedUs));
+      });
+    }
   }
 
   /// Stops clock synchronization.

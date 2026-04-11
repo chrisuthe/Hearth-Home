@@ -214,5 +214,55 @@ void main() {
       final restored = HubConfig.fromJson(json);
       expect(restored.enabledModules, ['cameras', 'mealie']);
     });
+
+    test('swipe action fields have correct defaults', () {
+      const config = HubConfig();
+      expect(config.topSwipeAction, 'menu2');
+      expect(config.bottomSwipeAction, 'menu1');
+    });
+
+    test('swipe action fields round-trip through JSON', () {
+      const config = HubConfig(
+        topSwipeAction: 'settings',
+        bottomSwipeAction: 'nextScreen',
+      );
+      final json = config.toJson();
+      final restored = HubConfig.fromJson(json);
+      expect(restored.topSwipeAction, 'settings');
+      expect(restored.bottomSwipeAction, 'nextScreen');
+    });
+
+    test('swipe action copyWith preserves unchanged fields', () {
+      const config = HubConfig(topSwipeAction: 'menu1');
+      final updated = config.copyWith(bottomSwipeAction: 'settings');
+      expect(updated.topSwipeAction, 'menu1');
+      expect(updated.bottomSwipeAction, 'settings');
+    });
+
+    test('moduleOrder defaults to empty list', () {
+      const config = HubConfig();
+      expect(config.moduleOrder, isEmpty);
+    });
+
+    test('moduleOrder round-trips through JSON', () {
+      const config = HubConfig(
+        moduleOrder: ['controls', 'cameras', 'media'],
+      );
+      final json = config.toJson();
+      final restored = HubConfig.fromJson(json);
+      expect(restored.moduleOrder, ['controls', 'cameras', 'media']);
+    });
+
+    test('moduleOrder copyWith preserves unchanged fields', () {
+      const config = HubConfig(moduleOrder: ['media', 'controls']);
+      final updated = config.copyWith(immichUrl: 'http://test');
+      expect(updated.moduleOrder, ['media', 'controls']);
+    });
+
+    test('moduleOrder fromJson handles missing field', () {
+      final config = HubConfig.fromJson({});
+      expect(config.moduleOrder, isEmpty);
+    });
+
   });
 }

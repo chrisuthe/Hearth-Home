@@ -21,6 +21,7 @@ sudo apt-get install -y -qq \
     cmake libgl1-mesa-dev libgles2-mesa-dev libegl1-mesa-dev \
     libdrm-dev libgbm-dev libinput-dev libudev-dev libsystemd-dev \
     libxkbcommon-dev libvulkan-dev \
+    libasound2 \
     gstreamer1.0-plugins-base gstreamer1.0-plugins-good \
     gstreamer1.0-plugins-bad gstreamer1.0-alsa \
     gstreamer1.0-libav gstreamer1.0-tools \
@@ -34,22 +35,33 @@ if ! id hearth &>/dev/null; then
 fi
 sudo usermod -aG video,input,render,audio,netdev,systemd-journal hearth
 
-# --- flutter-pi ---
-if ! command -v flutter-pi &>/dev/null; then
-    echo "Building flutter-pi..."
-    cd /tmp
-    rm -rf flutter-pi
-    git clone https://github.com/ardera/flutter-pi.git
-    cd flutter-pi
-    mkdir -p build && cd build
-    cmake ..
-    make -j$(nproc)
-    sudo make install
-    cd /tmp && rm -rf flutter-pi
-    echo "flutter-pi installed."
-else
-    echo "flutter-pi already installed, skipping build."
+# --- flutter-pi (patched for live pipeline support) ---
+echo "Building flutter-pi with live pipeline patch..."
+cd /tmp
+rm -rf flutter-pi
+git clone https://github.com/ardera/flutter-pi.git
+cd flutter-pi
+
+# Apply live pipeline fix: custom pipelines (RTSP, HTTP live) deadlock
+# during init because live sources don't produce data in PAUSED state.
+# This patch goes straight to PLAYING for custom pipelines, skips the
+# appsink caps override, and enables frame dropping.
+PATCH_URL="https://raw.githubusercontent.com/chrisuthe/Hearth-Home/main/scripts/apply_patch.py"
+wget -qO /tmp/apply_patch.py "$PATCH_URL" 2>/dev/null || {
+    echo "Warning: Could not download patch script from GitHub."
+    echo "Continuing without live pipeline patch."
+}
+if [ -f /tmp/apply_patch.py ]; then
+    python3 /tmp/apply_patch.py || exit 1
+    rm -f /tmp/apply_patch.py
 fi
+
+mkdir -p build && cd build
+cmake ..
+make -j$(nproc)
+sudo make install
+cd /tmp && rm -rf flutter-pi
+echo "flutter-pi installed to /usr/local/bin/flutter-pi"
 
 # --- Bundle directory ---
 sudo mkdir -p /opt/hearth/bundle
@@ -93,6 +105,10 @@ if [ -z "$BUNDLE_URL" ]; then
 fi
 
 if [ -n "$BUNDLE_URL" ]; then
+    # Extract version from release JSON (same as OTA updater)
+    LATEST_TAG=$(echo "$RELEASE_JSON" | grep -o '"tag_name": *"[^"]*"' | head -1 | cut -d'"' -f4)
+    LATEST_VERSION="${LATEST_TAG#v}"
+
     echo "Downloading bundle from: $BUNDLE_URL"
     wget -qO /tmp/hearth-bundle.tar.gz "$BUNDLE_URL"
     # Extract to staging dir, then swap (preserves running state if service restarts)
@@ -106,7 +122,12 @@ if [ -n "$BUNDLE_URL" ]; then
     sudo mv /opt/hearth/bundle.staging /opt/hearth/bundle
     sudo chown -R hearth:hearth /opt/hearth
     rm -f /tmp/hearth-bundle.tar.gz
-    echo "Bundle installed."
+    # Write version so OTA updater knows what's installed
+    if [ -n "$LATEST_VERSION" ]; then
+        cp /etc/hearth-version /etc/hearth-version.prev 2>/dev/null
+        echo "$LATEST_VERSION" > /etc/hearth-version
+    fi
+    echo "Bundle installed (${LATEST_VERSION:-unknown})."
 else
     echo "No bundle found. Copy the bundle manually to /opt/hearth/bundle/"
 fi
@@ -127,7 +148,7 @@ User=hearth
 Group=hearth
 RuntimeDirectory=hearth
 Environment=XDG_RUNTIME_DIR=/run/hearth
-ExecStart=/opt/hearth/bundle/flutter-pi --release /opt/hearth/bundle
+ExecStart=/usr/local/bin/flutter-pi --release /opt/hearth/bundle
 Environment=LD_LIBRARY_PATH=/opt/hearth/bundle
 Environment=HEARTH_NO_MEDIAKIT=1
 Restart=on-failure
@@ -194,7 +215,8 @@ EOF
 
 # Allow hearth user to trigger OTA updates without password
 echo "hearth ALL=(root) NOPASSWD: /usr/bin/systemctl start hearth-updater.service" | sudo tee /etc/sudoers.d/hearth-updater > /dev/null
-sudo chmod 440 /etc/sudoers.d/hearth-updater
+echo "hearth ALL=(root) NOPASSWD: /usr/bin/gst-launch-1.0" | sudo tee /etc/sudoers.d/hearth-gstreamer > /dev/null
+sudo chmod 440 /etc/sudoers.d/hearth-updater /etc/sudoers.d/hearth-gstreamer
 
 # Allow hearth user (netdev group) to manage WiFi via nmcli
 sudo mkdir -p /etc/polkit-1/rules.d
@@ -238,8 +260,8 @@ sudo systemctl restart avahi-daemon
 echo ""
 echo "=== Hearth setup complete ==="
 echo ""
-echo "Start now:  sudo systemctl start hearth.service"
-echo "Or reboot to start automatically."
+sudo systemctl start hearth.service
+echo "Hearth service started."
 echo "Web portal: http://hearth.local:8090"
 echo ""
 echo "The PIN to access the web portal is shown on the kiosk display."

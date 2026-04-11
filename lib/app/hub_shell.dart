@@ -1,24 +1,24 @@
+import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../config/hub_config.dart';
 import 'idle_controller.dart';
 import '../models/photo_memory.dart';
 import '../modules/module_registry.dart';
 import '../screens/ambient/ambient_screen.dart';
-import '../screens/ambient/ambient_overlays.dart';
 import '../screens/timer/timer_screen.dart';
 import '../services/timer_service.dart';
 import '../screens/home/home_screen.dart';
 import '../screens/settings/settings_screen.dart';
 
-/// The main shell that manages the two-layer navigation model.
+/// The main shell that manages the layered navigation model.
 ///
-/// Three visual layers, bottom to top:
-/// 1. Photo background — always visible, provides the ambient photo behind
-///    every screen. Continuously rotates Immich memories.
-/// 2. Active layer — PageView with screens. Has a dark scrim so content
-///    is readable over the photo. Fades OUT when idle.
-/// 3. Ambient overlays — clock, weather, memory label. Fades IN when idle.
+/// Two visual layers, bottom to top:
+/// 1. Photo background — always visible, continuously rotates Immich memories.
+/// 2. Active layer — PageView with screens over the photo background.
+///    Home screen is transparent; other screens use a dark scrim.
 ///
 /// Screen order (horizontal swipe):
 ///   Media ← Home → Controls → Cameras → Settings
@@ -29,10 +29,8 @@ class HubShell extends ConsumerStatefulWidget {
   ConsumerState<HubShell> createState() => _HubShellState();
 }
 
-class _HubShellState extends ConsumerState<HubShell>
-    with SingleTickerProviderStateMixin {
+class _HubShellState extends ConsumerState<HubShell> {
   PageController? _pageController;
-  late final AnimationController _fadeController;
 
   int _homeIndex = 0;
   int _pageCount = 0;
@@ -40,30 +38,20 @@ class _HubShellState extends ConsumerState<HubShell>
   final _ambientKey = GlobalKey<AmbientScreenState>();
   PhotoMemory? _currentMemory;
   int _currentPage = 0;
-  bool _quickTrayOpen = false;
-
+  bool _menu1Open = false;
+  bool _menu2Open = false;
   static const double _edgeZoneHeight = 80;
 
   @override
   void initState() {
     super.initState();
     _focusNode = FocusNode();
-    // Controls the active/ambient crossfade:
-    // 0.0 = idle (ambient overlays visible, active screens hidden)
-    // 1.0 = active (screens visible, ambient overlays hidden)
-    // Starts at 0.0 so the photo display is the first thing visible.
-    _fadeController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 800),
-      value: 0.0,
-    );
   }
 
   @override
   void dispose() {
     _focusNode.dispose();
     _pageController?.dispose();
-    _fadeController.dispose();
     super.dispose();
   }
 
@@ -71,32 +59,31 @@ class _HubShellState extends ConsumerState<HubShell>
     ref.read(idleControllerProvider).onUserActivity();
   }
 
-  /// Builds an invisible edge-swipe zone that navigates to [targetPage]
-  /// when dragged in [direction] (positive = down, negative = up).
-  Widget _edgeSwipeZone({
+  String? _edgeFor(String action) {
+    final config = ref.read(hubConfigProvider);
+    if (config.topSwipeAction == action) return 'top';
+    if (config.bottomSwipeAction == action) return 'bottom';
+    return null;
+  }
+
+  Widget _configEdgeSwipeZone({
     required AlignmentGeometry alignment,
-    required int targetPage,
+    required String action,
     required bool swipeDown,
   }) {
     return Align(
       alignment: alignment,
       child: GestureDetector(
-        // Translucent so taps pass through to content below (e.g., zone
-        // picker) while vertical drags are still captured by this zone.
         behavior: HitTestBehavior.translucent,
         onVerticalDragUpdate: (_) {},
         onVerticalDragEnd: (details) {
           final v = details.primaryVelocity ?? 0;
           if ((swipeDown && v > 200) || (!swipeDown && v < -200)) {
             _onUserActivity();
-            _pageController!.animateToPage(
-              targetPage,
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeInOut,
-            );
+            _dispatchSwipeAction(action);
           }
         },
-        child: SizedBox(
+        child: const SizedBox(
           width: double.infinity,
           height: _edgeZoneHeight,
         ),
@@ -104,17 +91,38 @@ class _HubShellState extends ConsumerState<HubShell>
     );
   }
 
+  void _dispatchSwipeAction(String action) {
+    switch (action) {
+      case 'menu1':
+        setState(() { _menu1Open = true; _menu2Open = false; });
+      case 'menu2':
+        setState(() { _menu2Open = true; _menu1Open = false; });
+      case 'settings':
+        _pageController!.animateToPage(
+          _pageCount - 1,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+        );
+      case 'nextScreen':
+        final current = _pageController!.page?.round() ?? _homeIndex;
+        if (current < _pageCount - 1) {
+          _pageController!.animateToPage(current + 1,
+            duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
+        }
+      case 'previousScreen':
+        final current = _pageController!.page?.round() ?? _homeIndex;
+        if (current > 0) {
+          _pageController!.animateToPage(current - 1,
+            duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
+        }
+    }
+  }
+
   /// Handles arrow key navigation for desktop testing.
   /// Left/Right move between screens, Up = Home, Down = Settings.
   void _handleKeyEvent(KeyEvent event) {
     if (event is! KeyDownEvent) return;
     _onUserActivity();
-
-    final idle = ref.read(idleControllerProvider);
-    if (idle.isIdle) {
-      _pageController!.jumpToPage(_homeIndex);
-      return;
-    }
 
     final currentPage = _pageController!.page?.round() ?? _homeIndex;
 
@@ -206,74 +214,75 @@ class _HubShellState extends ConsumerState<HubShell>
     );
   }
 
-  Widget _buildQuickTray() {
+  Widget _buildMenu1({required bool fromTop}) {
     final timerService = ref.watch(timerServiceProvider);
-    return GestureDetector(
-      // Tap scrim to dismiss
-      onTap: () => setState(() => _quickTrayOpen = false),
-      child: Container(
-        color: Colors.black.withValues(alpha: 0.6),
-        child: Column(
-          children: [
-            const Spacer(),
-            // Swipe down on the tray to dismiss
-            GestureDetector(
-              onVerticalDragEnd: (details) {
-                if ((details.primaryVelocity ?? 0) > 200) {
-                  setState(() => _quickTrayOpen = false);
-                }
-              },
-              onTap: () {}, // absorb taps on tray so scrim dismiss doesn't fire
-              child: Container(
-                margin: const EdgeInsets.only(bottom: 32, left: 24, right: 24),
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1A1A1A),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    _QuickAction(
-                      icon: Icons.timer,
-                      label: timerService.hasActiveTimers
-                          ? timerService.statusLabel
-                          : 'Timer',
-                      active: timerService.hasActiveTimers,
-                      onTap: () {
-                        setState(() => _quickTrayOpen = false);
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                              builder: (_) => const TimerScreen()),
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            // Small handle indicator
-            Container(
-              width: 40,
-              height: 4,
-              margin: const EdgeInsets.only(bottom: 12),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ],
-        ),
+    return _MenuTray(
+      fromTop: fromTop,
+      onDismiss: () => setState(() => _menu1Open = false),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          _QuickAction(
+            icon: Icons.timer,
+            label: timerService.hasActiveTimers
+                ? timerService.statusLabel
+                : 'Timer',
+            active: timerService.hasActiveTimers,
+            onTap: () {
+              setState(() => _menu1Open = false);
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const TimerScreen()),
+              );
+            },
+          ),
+          const SizedBox(width: 12),
+          _QuickAction(
+            icon: Icons.settings,
+            label: 'Settings',
+            onTap: () {
+              setState(() => _menu1Open = false);
+              _pageController!.animateToPage(
+                _pageCount - 1,
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeInOut,
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMenu2({required bool fromTop}) {
+    return _MenuTray(
+      fromTop: fromTop,
+      onDismiss: () => setState(() => _menu2Open = false),
+      child: const Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text('Volume', style: TextStyle(fontSize: 12, color: Colors.white54)),
+          SizedBox(height: 4),
+          _SystemVolumeSlider(),
+        ],
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final idle = ref.watch(idleControllerProvider);
+    final config = ref.watch(hubConfigProvider);
+    final idleController = ref.read(idleControllerProvider);
+
     final modules = ref.watch(enabledModulesProvider);
-    final leftModules = modules.where((m) => m.defaultOrder < 0).toList();
-    final rightModules = modules.where((m) => m.defaultOrder >= 0).toList();
+    final hasCustomOrder = config.moduleOrder.isNotEmpty;
+    // With custom ordering, all modules go right of Home.
+    // With default ordering, negative defaultOrder goes left.
+    final leftModules = hasCustomOrder
+        ? <dynamic>[]
+        : modules.where((m) => m.defaultOrder < 0).toList();
+    final rightModules = hasCustomOrder
+        ? modules
+        : modules.where((m) => m.defaultOrder >= 0).toList();
     final homeIndex = leftModules.length;
     _pageCount = leftModules.length + 1 + rightModules.length + 1; // +Home +Settings
 
@@ -287,28 +296,40 @@ class _HubShellState extends ConsumerState<HubShell>
         final page = _pageController!.page?.round() ?? _homeIndex;
         if (page != _currentPage) setState(() => _currentPage = page);
       });
+      idleController.onTimeout = () {
+        _pageController?.animateToPage(
+          _homeIndex,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+        );
+      };
     }
 
     final pages = <Widget>[
       ...leftModules.map((m) => m.buildScreen(
           isActive: _currentPage == leftModules.indexOf(m))),
-      const HomeScreen(),
+      HomeScreen(
+        memoryLabel: _currentMemory?.memoryLabel,
+        onSkipPhoto: () => _ambientKey.currentState?.skipForward(),
+        onSkipPhotoBack: () => _ambientKey.currentState?.skipBack(),
+        onChevronTap: () => _onUserActivity(),
+        onNowPlayingTap: () {
+          // Navigate to Media screen (first left module)
+          final mediaIndex = leftModules.indexWhere((m) => m.id == 'media');
+          if (mediaIndex >= 0) {
+            _onUserActivity();
+            _pageController!.animateToPage(
+              mediaIndex,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeInOut,
+            );
+          }
+        },
+      ),
       ...rightModules.map((m) => m.buildScreen(
           isActive: _currentPage == homeIndex + 1 + rightModules.indexOf(m))),
       const SettingsScreen(),
     ];
-
-    // Drive the crossfade: forward = show active screens, reverse = show ambient
-    if (idle.isIdle) {
-      _fadeController.reverse();
-      if (_quickTrayOpen) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) setState(() => _quickTrayOpen = false);
-        });
-      }
-    } else {
-      _fadeController.forward();
-    }
 
     return KeyboardListener(
       focusNode: _focusNode,
@@ -316,10 +337,7 @@ class _HubShellState extends ConsumerState<HubShell>
       onKeyEvent: _handleKeyEvent,
       child: GestureDetector(
         behavior: HitTestBehavior.translucent,
-        // Only track activity when not idle — during idle, taps are handled
-        // by the ambient overlay (wake) and chevron buttons (skip photo).
-        // This prevents the skip buttons from accidentally waking the screen.
-        onTapDown: idle.isIdle ? null : (_) => _onUserActivity(),
+        onTapDown: (_) => _onUserActivity(),
         child: Stack(
           children: [
             // Layer 1: Photo background — always visible behind everything.
@@ -331,132 +349,31 @@ class _HubShellState extends ConsumerState<HubShell>
               },
             ),
 
-            // Layer 2: Active screens with dark scrim — fades in on activity.
-            // The scrim ensures text/controls are readable over the photo.
-            FadeTransition(
-              opacity: _fadeController,
-              child: IgnorePointer(
-                ignoring: idle.isIdle,
-                child: PageView(
-                  controller: _pageController,
-                  physics: idle.isIdle
-                      ? const NeverScrollableScrollPhysics()
-                      : const BouncingScrollPhysics(),
-                  children: pages,
-                ),
-              ),
+            // Layer 2: Active screens — PageView over the photo background.
+            PageView(
+              controller: _pageController,
+              physics: const BouncingScrollPhysics(),
+              children: pages,
             ),
 
-            // Layer 3: Ambient overlays + photo skip buttons —
-            // only visible when idle. Uses a reversed animation so they
-            // fade OUT when active screens fade IN.
-            FadeTransition(
-              opacity: ReverseAnimation(_fadeController),
-              child: IgnorePointer(
-                ignoring: !idle.isIdle,
-                child: Stack(
-                children: [
-                  // Tap anywhere on the ambient display to wake — but the
-                  // chevron buttons sit on top and absorb their own taps.
-                  GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: idle.isIdle
-                        ? () {
-                            _onUserActivity();
-                            _pageController!.jumpToPage(_homeIndex);
-                          }
-                        : null,
-                    child: const SizedBox.expand(),
-                  ),
-                  IgnorePointer(
-                    child: AmbientOverlays(
-                      memoryLabel: _currentMemory?.memoryLabel,
-                    ),
-                  ),
-                  // Skip buttons — subtle arrows on the left/right edges.
-                  // Tapping these advances photos without waking the display.
-                  if (idle.isIdle) ...[
-                    Positioned(
-                      left: 8,
-                      top: 0,
-                      bottom: 0,
-                      child: Center(
-                        child: GestureDetector(
-                          onTap: () => _ambientKey.currentState?.skipBack(),
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: 0.25),
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(Icons.chevron_left,
-                                color: Colors.white.withValues(alpha: 0.4),
-                                size: 28),
-                          ),
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      right: 8,
-                      top: 0,
-                      bottom: 0,
-                      child: Center(
-                        child: GestureDetector(
-                          onTap: () => _ambientKey.currentState?.skipForward(),
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: 0.25),
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(Icons.chevron_right,
-                                color: Colors.white.withValues(alpha: 0.4),
-                                size: 28),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-              ),
+            // Edge-swipe zones — invisible strips at top/bottom that
+            // dispatch configurable actions on vertical drag.
+            _configEdgeSwipeZone(
+              alignment: Alignment.topCenter,
+              action: config.topSwipeAction,
+              swipeDown: true,
+            ),
+            _configEdgeSwipeZone(
+              alignment: Alignment.bottomCenter,
+              action: config.bottomSwipeAction,
+              swipeDown: false,
             ),
 
-            // Edge-swipe zones — invisible strips at top/bottom that navigate
-            // on vertical drag. Sit above content so they always win the
-            // gesture arena over inner scrollables.
-            if (!idle.isIdle) ...[
-              _edgeSwipeZone(
-                alignment: Alignment.topCenter,
-                targetPage: _pageCount - 1,
-                swipeDown: true,
-              ),
-              // Bottom edge: swipe up to open quick actions tray
-              Align(
-                alignment: Alignment.bottomCenter,
-                child: GestureDetector(
-                  behavior: HitTestBehavior.translucent,
-                  onVerticalDragUpdate: (_) {},
-                  onVerticalDragEnd: (details) {
-                    if ((details.primaryVelocity ?? 0) < -200) {
-                      _onUserActivity();
-                      setState(() => _quickTrayOpen = true);
-                    }
-                  },
-                  child: SizedBox(
-                    width: double.infinity,
-                    height: _edgeZoneHeight,
-                  ),
-                ),
-              ),
-            ],
+            // Menu overlays — slide in from their assigned edge
+            if (_menu1Open) _buildMenu1(fromTop: _edgeFor('menu1') == 'top'),
+            if (_menu2Open) _buildMenu2(fromTop: _edgeFor('menu2') == 'top'),
 
-            // Quick actions tray — slides up from bottom
-            if (_quickTrayOpen && !idle.isIdle) _buildQuickTray(),
-
-            // Layer 4: Timer alert — full-screen overlay when a timer fires.
-            // Shows on top of everything (including ambient) so you never
-            // miss a timer, even if the display is idle showing photos.
+            // Timer alert — full-screen overlay when a timer fires.
             _buildTimerAlert(),
 
             // Event overlay layer (doorbell, alerts)
@@ -513,6 +430,150 @@ class _QuickAction extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _MenuTray extends StatelessWidget {
+  final bool fromTop;
+  final VoidCallback onDismiss;
+  final Widget child;
+
+  const _MenuTray({
+    required this.fromTop,
+    required this.onDismiss,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onDismiss,
+      child: SizedBox.expand(
+        child: Stack(
+          children: [
+            Positioned(
+              top: fromTop ? 0 : null,
+              bottom: fromTop ? null : 0,
+              left: 0,
+              right: 0,
+              child: GestureDetector(
+                onVerticalDragEnd: (details) {
+                  final v = details.primaryVelocity ?? 0;
+                  if ((fromTop && v < -200) || (!fromTop && v > 200)) {
+                    onDismiss();
+                  }
+                },
+                onTap: () {},
+                child: Container(
+                  margin: EdgeInsets.only(
+                    top: fromTop ? 12 : 0,
+                    bottom: fromTop ? 0 : 12,
+                    left: 24,
+                    right: 24,
+                  ),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1A1A1A),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (fromTop) ...[
+                        child,
+                        const SizedBox(height: 8),
+                        Container(
+                          width: 40, height: 4,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.3),
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                      ] else ...[
+                        Container(
+                          width: 40, height: 4,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.3),
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        child,
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// System volume slider using amixer (ALSA) on Linux/Pi.
+class _SystemVolumeSlider extends StatefulWidget {
+  const _SystemVolumeSlider();
+
+  @override
+  State<_SystemVolumeSlider> createState() => _SystemVolumeSliderState();
+}
+
+class _SystemVolumeSliderState extends State<_SystemVolumeSlider> {
+  double _volume = 0.5;
+  Timer? _debounce;
+
+  @override
+  void initState() {
+    super.initState();
+    _readVolume();
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _readVolume() async {
+    try {
+      final result = await Process.run('amixer', ['get', 'Master']);
+      final match = RegExp(r'\[(\d+)%\]').firstMatch(result.stdout as String);
+      if (match != null && mounted) {
+        setState(() => _volume = int.parse(match.group(1)!) / 100.0);
+      }
+    } catch (_) {
+      // amixer not available (e.g., Windows dev)
+    }
+  }
+
+  void _onChanged(double value) {
+    setState(() => _volume = value);
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 100), () {
+      final percent = (value * 100).round();
+      Process.run('amixer', ['set', 'Master', '$percent%']);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        const Icon(Icons.volume_down, color: Colors.white54, size: 20),
+        Expanded(
+          child: Slider(
+            value: _volume,
+            onChanged: _onChanged,
+            activeColor: Colors.white70,
+            inactiveColor: Colors.white.withValues(alpha: 0.1),
+          ),
+        ),
+        const Icon(Icons.volume_up, color: Colors.white54, size: 20),
+      ],
     );
   }
 }

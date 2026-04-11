@@ -52,6 +52,9 @@ class HubConfig {
   final bool setupComplete;
   final bool autoUpdate;
   final String currentVersion;
+  final List<String> moduleOrder;  // custom screen order (module IDs); empty = use defaultOrder
+  final String topSwipeAction;    // "menu1" | "menu2" | "settings" | "nextScreen" | "previousScreen"
+  final String bottomSwipeAction; // "menu1" | "menu2" | "settings" | "nextScreen" | "previousScreen"
 
   const HubConfig({
     this.apiKey = '',
@@ -85,6 +88,9 @@ class HubConfig {
     this.setupComplete = false,
     this.autoUpdate = true,
     this.currentVersion = '',
+    this.moduleOrder = const [],
+    this.topSwipeAction = 'menu2',
+    this.bottomSwipeAction = 'menu1',
   });
 
   static String generateApiKey() {
@@ -125,6 +131,9 @@ class HubConfig {
     bool? setupComplete,
     bool? autoUpdate,
     String? currentVersion,
+    List<String>? moduleOrder,
+    String? topSwipeAction,
+    String? bottomSwipeAction,
   }) {
     return HubConfig(
       apiKey: apiKey ?? this.apiKey,
@@ -158,6 +167,9 @@ class HubConfig {
       setupComplete: setupComplete ?? this.setupComplete,
       autoUpdate: autoUpdate ?? this.autoUpdate,
       currentVersion: currentVersion ?? this.currentVersion,
+      moduleOrder: moduleOrder ?? this.moduleOrder,
+      topSwipeAction: topSwipeAction ?? this.topSwipeAction,
+      bottomSwipeAction: bottomSwipeAction ?? this.bottomSwipeAction,
     );
   }
 
@@ -193,6 +205,9 @@ class HubConfig {
         'setupComplete': setupComplete,
         'autoUpdate': autoUpdate,
         'currentVersion': currentVersion,
+        'moduleOrder': moduleOrder,
+        'topSwipeAction': topSwipeAction,
+        'bottomSwipeAction': bottomSwipeAction,
       };
 
   factory HubConfig.fromJson(Map<String, dynamic> json) => HubConfig(
@@ -227,6 +242,9 @@ class HubConfig {
         setupComplete: json['setupComplete'] as bool? ?? false,
         autoUpdate: json['autoUpdate'] as bool? ?? true,
         currentVersion: json['currentVersion'] as String? ?? '',
+        moduleOrder: (json['moduleOrder'] as List<dynamic>?)?.cast<String>() ?? const [],
+        topSwipeAction: json['topSwipeAction'] as String? ?? 'menu2',
+        bottomSwipeAction: json['bottomSwipeAction'] as String? ?? 'menu1',
       );
 }
 

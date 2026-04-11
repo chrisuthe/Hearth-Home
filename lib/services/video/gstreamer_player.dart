@@ -6,10 +6,10 @@ import '../../utils/logger.dart';
 
 /// GStreamer-based video player for flutter-pi on Raspberry Pi.
 ///
-/// Uses flutterpi_gstreamer_video_player's custom pipeline API with an
-/// explicit H.264 decode chain. Avoids decodebin (which has audio track
-/// linking issues with RTSP) and renders into Flutter's texture system
-/// via appsink.
+/// Uses flutterpi_gstreamer_video_player's custom pipeline API with
+/// explicit decode chains. Avoids decodebin (which has audio track
+/// linking issues with RTSP/MP4 streams) and renders into Flutter's
+/// texture system via appsink.
 class GstreamerVideoPlayer implements HearthVideoPlayer {
   VideoPlayerController? _controller;
   bool _playing = false;
@@ -19,12 +19,22 @@ class GstreamerVideoPlayer implements HearthVideoPlayer {
     await stop();
     try {
       if (url.startsWith('rtsp://')) {
-        // Explicit H.264 pipeline — avoids decodebin audio track linking issues.
-        // Requires gstreamer1.0-libav for avdec_h264.
+        // Explicit H.264 pipeline for RTSP — avoids decodebin audio issues.
         _controller = FlutterpiVideoPlayerController.withGstreamerPipeline(
-          'rtspsrc location=$url latency=200 '
+          'rtspsrc location=$url latency=0 protocols=4 '
           '! rtph264depay ! h264parse ! avdec_h264 '
-          '! videoconvert ! video/x-raw,format=RGBA '
+          '! videoconvert '
+          '! appsink name=sink',
+        );
+      } else if (url.contains('/api/stream.mp4')) {
+        // go2rtc fMP4 progressive stream over HTTP — uses souphttpsrc
+        // instead of rtspsrc, avoiding the RTSP keepalive timeout issue.
+        // No explicit caps filter — player.c sets appsink caps from EGL formats.
+        _controller = FlutterpiVideoPlayerController.withGstreamerPipeline(
+          'souphttpsrc location=$url is-live=true '
+          '! qtdemux name=demux demux.video_0 '
+          '! h264parse ! avdec_h264 '
+          '! videoconvert '
           '! appsink name=sink',
         );
       } else {

@@ -1,67 +1,67 @@
 import 'dart:async';
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../config/hub_config.dart';
 
-/// Tracks user touch activity and triggers ambient mode after idle timeout.
+/// Inactivity timer that fires a callback after a configurable timeout.
 ///
-/// The kiosk spends ~90% of its time in ambient mode showing photos.
-/// When the user touches the screen, we switch to the active layer
-/// (PageView with Home/Media/Controls etc.) and start a countdown.
-/// If no further touches arrive before the timeout, we fade back to ambient.
-class IdleController extends ChangeNotifier {
+/// Used by HubShell to navigate back to Home after the user stops
+/// interacting. Video playback can suppress the timer so camera
+/// streams aren't interrupted.
+class IdleController {
   Timer? _timer;
-  bool _isIdle = false;
   int _timeoutSeconds;
+  bool _suppressed = false;
 
-  IdleController({int timeoutSeconds = 120, bool startIdle = true})
-      : _timeoutSeconds = timeoutSeconds,
-        _isIdle = startIdle {
-    if (!startIdle) _startTimer();
-  }
+  /// Called when the inactivity timeout fires.
+  void Function()? onTimeout;
 
-  bool get isIdle => _isIdle;
+  IdleController({required int timeoutSeconds})
+      : _timeoutSeconds = timeoutSeconds;
+
+  bool get isSuppressed => _suppressed;
 
   set timeoutSeconds(int value) {
     _timeoutSeconds = value;
-    resetTimer();
+    if (!_suppressed) _startTimer();
   }
 
-  /// Call this on every user touch event to reset the idle countdown.
-  /// If we're currently idle, this wakes us up immediately.
+  /// Call on every user touch event to reset the inactivity countdown.
   void onUserActivity() {
-    if (_isIdle) {
-      _isIdle = false;
-      notifyListeners();
-    }
     _startTimer();
   }
 
-  void resetTimer() {
+  /// Pause the timer (e.g., while video is playing).
+  void suppress() {
+    _suppressed = true;
     _timer?.cancel();
+  }
+
+  /// Resume the timer after suppression.
+  void unsuppress() {
+    _suppressed = false;
     _startTimer();
   }
 
   void _startTimer() {
     _timer?.cancel();
+    if (_suppressed) return;
     _timer = Timer(Duration(seconds: _timeoutSeconds), () {
-      _isIdle = true;
-      notifyListeners();
+      onTimeout?.call();
     });
   }
 
-  @override
   void dispose() {
     _timer?.cancel();
-    super.dispose();
   }
 }
 
-final idleControllerProvider = ChangeNotifierProvider<IdleController>((ref) {
+final idleControllerProvider = Provider<IdleController>((ref) {
   final timeout = ref.read(hubConfigProvider).idleTimeoutSeconds;
   final controller = IdleController(timeoutSeconds: timeout);
-  ref.listen(hubConfigProvider.select((c) => c.idleTimeoutSeconds), (_, newTimeout) {
+  ref.listen(hubConfigProvider.select((c) => c.idleTimeoutSeconds),
+      (_, newTimeout) {
     controller.timeoutSeconds = newTimeout;
   });
+  ref.onDispose(() => controller.dispose());
   return controller;
 });

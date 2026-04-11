@@ -16,16 +16,24 @@ class MealieScreen extends ConsumerStatefulWidget {
   ConsumerState<MealieScreen> createState() => _MealieScreenState();
 }
 
-class _MealieScreenState extends ConsumerState<MealieScreen> {
+class _MealieScreenState extends ConsumerState<MealieScreen>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   MealieRecipe? _selectedRecipe;
   List<MealieMealPlanEntry> _mealPlan = [];
+  List<MealieRecipeSummary> _recipes = [];
   List<MealieRecipeSummary> _searchResults = [];
-  List<String> _categories = [];
+  List<MealieCategory> _categories = [];
   String? _activeCategory;
   bool _loading = false;
   final Set<int> _checkedIngredients = {};
   Timer? _searchDebounce;
   final _searchController = TextEditingController();
+
+  List<MealieRecipeSummary> get _displayedRecipes =>
+      _searchResults.isNotEmpty ? _searchResults : _recipes;
 
   @override
   void initState() {
@@ -47,11 +55,13 @@ class _MealieScreenState extends ConsumerState<MealieScreen> {
     final results = await Future.wait([
       service.getMealPlanToday(),
       service.getCategories(),
+      service.getRecipes(),
     ]);
     if (mounted) {
       setState(() {
         _mealPlan = results[0] as List<MealieMealPlanEntry>;
-        _categories = results[1] as List<String>;
+        _categories = results[1] as List<MealieCategory>;
+        _recipes = results[2] as List<MealieRecipeSummary>;
         _loading = false;
       });
     }
@@ -60,9 +70,13 @@ class _MealieScreenState extends ConsumerState<MealieScreen> {
   void _onSearchChanged(String query) {
     _searchDebounce?.cancel();
     if (query.isEmpty) {
-      setState(() => _searchResults = []);
+      setState(() {
+        _searchResults = [];
+        _activeCategory = null;
+      });
       return;
     }
+    setState(() => _activeCategory = null);
     _searchDebounce = Timer(const Duration(milliseconds: 300), () async {
       final service = ref.read(mealieServiceProvider);
       if (service == null) return;
@@ -71,6 +85,27 @@ class _MealieScreenState extends ConsumerState<MealieScreen> {
         setState(() => _searchResults = results);
       }
     });
+  }
+
+  Future<void> _filterByCategory(MealieCategory? category) async {
+    final service = ref.read(mealieServiceProvider);
+    if (service == null) return;
+    _searchController.clear();
+    _searchDebounce?.cancel();
+    setState(() {
+      _activeCategory = category?.slug;
+      _searchResults = [];
+      _loading = true;
+    });
+    final results = category != null
+        ? await service.getRecipes(categorySlug: category.slug)
+        : await service.getRecipes();
+    if (mounted) {
+      setState(() {
+        _recipes = results;
+        _loading = false;
+      });
+    }
   }
 
   Future<void> _selectRecipe(String slug) async {
@@ -89,6 +124,7 @@ class _MealieScreenState extends ConsumerState<MealieScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final service = ref.watch(mealieServiceProvider);
 
     return Container(
@@ -175,21 +211,12 @@ class _MealieScreenState extends ConsumerState<MealieScreen> {
               separatorBuilder: (_, __) => const SizedBox(width: 8),
               itemBuilder: (context, index) {
                 final cat = _categories[index];
-                final isActive = _activeCategory == cat;
+                final isActive = _activeCategory == cat.slug;
                 return FilterChip(
-                  label: Text(cat),
+                  label: Text(cat.name),
                   selected: isActive,
                   onSelected: (selected) {
-                    setState(() {
-                      _activeCategory = selected ? cat : null;
-                    });
-                    if (selected) {
-                      _searchController.text = cat;
-                      _onSearchChanged(cat);
-                    } else {
-                      _searchController.clear();
-                      setState(() => _searchResults = []);
-                    }
+                    _filterByCategory(selected ? cat : null);
                   },
                   selectedColor: _accent,
                   backgroundColor: kDialogBackground,
@@ -209,8 +236,8 @@ class _MealieScreenState extends ConsumerState<MealieScreen> {
         if (_loading)
           const Center(child: CircularProgressIndicator(color: _accent)),
 
-        // Search results grid
-        if (_searchResults.isNotEmpty)
+        // Recipe grid (search results take priority, otherwise show all)
+        if (_displayedRecipes.isNotEmpty)
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
@@ -220,9 +247,9 @@ class _MealieScreenState extends ConsumerState<MealieScreen> {
               crossAxisSpacing: 12,
               mainAxisSpacing: 12,
             ),
-            itemCount: _searchResults.length,
+            itemCount: _displayedRecipes.length,
             itemBuilder: (context, index) {
-              final recipe = _searchResults[index];
+              final recipe = _displayedRecipes[index];
               return _buildRecipeCard(recipe, service, token);
             },
           ),

@@ -59,14 +59,34 @@ class MealieService {
     }
   }
 
-  Future<List<String>> getCategories() async {
+  Future<List<MealieRecipeSummary>> getRecipes({String? categorySlug}) async {
+    try {
+      final params = <String, dynamic>{'perPage': 30};
+      if (categorySlug != null) {
+        params['categories'] = categorySlug;
+      }
+      final response =
+          await _dio.get('$_baseUrl/api/recipes', queryParameters: params);
+      final data = response.data as Map<String, dynamic>?;
+      final items = data?['items'] as List<dynamic>? ?? [];
+      return items
+          .map((e) => MealieRecipeSummary.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      Log.e('Mealie', 'Failed to fetch recipes: $e');
+      return [];
+    }
+  }
+
+  Future<List<MealieCategory>> getCategories() async {
     try {
       final response = await _dio.get('$_baseUrl/api/organizers/categories');
       final data = response.data as Map<String, dynamic>?;
       final items = data?['items'] as List<dynamic>? ?? [];
       return items
-          .map((e) => (e as Map<String, dynamic>)['name'] as String? ?? '')
-          .where((name) => name.isNotEmpty)
+          .map((e) =>
+              MealieCategory.fromJson(e as Map<String, dynamic>))
+          .where((cat) => cat.name.isNotEmpty)
           .toList();
     } catch (e) {
       Log.e('Mealie', 'Failed to fetch categories: $e');

@@ -76,18 +76,20 @@ class FrigateCamera {
   final String name;
   final String snapshotUrl;
   final String rtspUrl;
+  final String httpStreamUrl;
 
   const FrigateCamera({
     required this.name,
     required this.snapshotUrl,
     required this.rtspUrl,
+    required this.httpStreamUrl,
   });
 
   /// Creates a camera model from the camera name and Frigate base URL.
-  /// Derives the RTSP URL from the same host — go2rtc serves RTSP on
-  /// port 8554 by default alongside Frigate's HTTP API.
+  /// Derives the RTSP and HTTP stream URLs from the same host — go2rtc
+  /// serves RTSP on port 8554 and its HTTP API on port 1984 by default.
   factory FrigateCamera.fromEntry(String name, String frigateBaseUrl) {
-    // Extract host from the Frigate HTTP URL for the RTSP URL.
+    // Extract host from the Frigate HTTP URL for stream URLs.
     // e.g., "http://frigate.local:5000" → "frigate.local"
     final uri = Uri.parse(frigateBaseUrl);
     final rtspHost = uri.host;
@@ -96,6 +98,7 @@ class FrigateCamera {
       name: name,
       snapshotUrl: '$frigateBaseUrl/api/$name/latest.jpg',
       rtspUrl: 'rtsp://$rtspHost:8554/$name',
+      httpStreamUrl: 'http://$rtspHost:1984/api/stream.mp4?src=$name',
     );
   }
 }
