@@ -2,8 +2,8 @@ import 'dart:ffi';
 import 'dart:typed_data';
 
 import 'package:ffi/ffi.dart';
-import 'package:flutter/foundation.dart';
 
+import '../../utils/logger.dart';
 import 'flac_ffi.dart';
 import 'sendspin_codec.dart';
 
@@ -45,7 +45,7 @@ class FlacCodec implements SendspinCodec {
     calloc.free(inputBuf);
 
     if (sampleCount < 0) {
-      debugPrint('FlacCodec: decode error');
+      Log.e('FlacCodec', 'decode error (code=$sampleCount)');
       return Int16List(0);
     }
 
