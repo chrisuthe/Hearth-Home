@@ -332,6 +332,8 @@ class LocalApiServer {
               (json['pinnedEntityIds'] as List<dynamic>?)?.cast<String>(),
           displayProfile: json['displayProfile'] as String?,
           autoUpdate: json['autoUpdate'] as bool?,
+          updateSource: json['updateSource'] as String?,
+          giteaApiToken: json['giteaApiToken'] as String?,
           sendspinEnabled: json['sendspinEnabled'] as bool?,
           sendspinPlayerName: json['sendspinPlayerName'] as String?,
           sendspinBufferSeconds: json['sendspinBufferSeconds'] as int?,
@@ -803,6 +805,15 @@ const _configPageHtml = r'''
     <label for="autoUpdate" class="checkbox-label">
       <input type="checkbox" id="autoUpdate"> Auto-Update
     </label>
+    <label>Update Source</label>
+    <select id="updateSource">
+      <option value="github">GitHub</option>
+      <option value="gitea">Gitea (registry.home)</option>
+    </select>
+    <div id="giteaTokenRow">
+      <label for="giteaApiToken">Gitea API Token</label>
+      <input type="password" id="giteaApiToken" placeholder="Paste Gitea read-only token">
+    </div>
     <div id="updateInfo" style="margin-bottom:12px;padding:12px;background:#1a1a1a;border-radius:6px;font-size:13px;color:#888;">
       <span id="updateText">Click "Check for Updates" to check.</span>
     </div>
@@ -831,14 +842,14 @@ async function initAuth() {
 const textFields = [
   'immichUrl','immichApiKey','haUrl','haToken',
   'musicAssistantUrl','musicAssistantToken','defaultMusicZone','frigateUrl',
-  'mealieUrl','mealieToken',
+  'mealieUrl','mealieToken','giteaApiToken',
   'weatherEntityId','nightModeHaEntity','nightModeClockStart','nightModeClockEnd',
   'sendspinPlayerName','sendspinServerUrl'
 ];
 const intFields = ['idleTimeoutSeconds','sendspinBufferSeconds'];
 const boolFields = ['use24HourClock','sendspinEnabled','autoUpdate'];
-const selectFields = ['nightModeSource','displayProfile'];
-const secretFields = ['immichApiKey', 'haToken', 'musicAssistantToken', 'mealieToken'];
+const selectFields = ['nightModeSource','displayProfile','updateSource'];
+const secretFields = ['immichApiKey', 'haToken', 'musicAssistantToken', 'mealieToken', 'giteaApiToken'];
 const REDACTED = '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022';
 
 async function load() {
@@ -871,8 +882,15 @@ async function load() {
     if (cfg.pinnedEntityIds && Array.isArray(cfg.pinnedEntityIds)) {
       document.getElementById('pinnedEntityIds').value = cfg.pinnedEntityIds.join('\n');
     }
+    toggleGiteaToken();
   } catch(e) { showToast('Failed to load config', true); }
 }
+function toggleGiteaToken() {
+  const src = document.getElementById('updateSource');
+  const row = document.getElementById('giteaTokenRow');
+  if (src && row) row.style.display = src.value === 'gitea' ? '' : 'none';
+}
+document.getElementById('updateSource').addEventListener('change', toggleGiteaToken);
 
 document.getElementById('configForm').addEventListener('submit', async (e) => {
   e.preventDefault();
