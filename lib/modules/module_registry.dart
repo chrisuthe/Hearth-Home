@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../config/hub_config.dart';
 import 'hearth_module.dart';
+import 'alarm_clock/alarm_clock_module.dart';
 import 'media/media_module.dart';
 import 'controls/controls_module.dart';
 import 'cameras/cameras_module.dart';
@@ -8,6 +9,7 @@ import 'mealie/mealie_module.dart';
 
 /// All available modules. Order here doesn't matter — defaultOrder controls display.
 final allModules = <HearthModule>[
+  AlarmClockModule(),
   MediaModule(),
   ControlsModule(),
   CamerasModule(),
