@@ -1020,6 +1020,7 @@ class _NowPlayingState extends State<_NowPlaying> {
             color: Colors.white.withValues(alpha: 0.5),
           ),
           textAlign: TextAlign.center,
+          maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
 
