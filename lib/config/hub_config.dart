@@ -48,6 +48,7 @@ class HubConfig {
   final int displayWidth;      // 0 = use profile default
   final int displayHeight;     // 0 = use profile default
   final List<String> enabledModules;
+  final Map<String, List<String>> modulePlacements;
   final String mealieUrl;
   final String mealieToken;
   final bool setupComplete;
@@ -87,6 +88,7 @@ class HubConfig {
     this.displayWidth = 0,
     this.displayHeight = 0,
     this.enabledModules = const ['media', 'controls', 'cameras'],
+    this.modulePlacements = const {},
     this.mealieUrl = '',
     this.mealieToken = '',
     this.setupComplete = false,
@@ -133,6 +135,7 @@ class HubConfig {
     int? displayWidth,
     int? displayHeight,
     List<String>? enabledModules,
+    Map<String, List<String>>? modulePlacements,
     String? mealieUrl,
     String? mealieToken,
     bool? setupComplete,
@@ -172,6 +175,7 @@ class HubConfig {
       displayWidth: displayWidth ?? this.displayWidth,
       displayHeight: displayHeight ?? this.displayHeight,
       enabledModules: enabledModules ?? this.enabledModules,
+      modulePlacements: modulePlacements ?? this.modulePlacements,
       mealieUrl: mealieUrl ?? this.mealieUrl,
       mealieToken: mealieToken ?? this.mealieToken,
       setupComplete: setupComplete ?? this.setupComplete,
@@ -213,6 +217,7 @@ class HubConfig {
         'displayWidth': displayWidth,
         'displayHeight': displayHeight,
         'enabledModules': enabledModules,
+        'modulePlacements': modulePlacements.map((k, v) => MapEntry(k, v)),
         'mealieUrl': mealieUrl,
         'mealieToken': mealieToken,
         'setupComplete': setupComplete,
@@ -253,6 +258,10 @@ class HubConfig {
         displayWidth: json['displayWidth'] as int? ?? 0,
         displayHeight: json['displayHeight'] as int? ?? 0,
         enabledModules: (json['enabledModules'] as List<dynamic>?)?.cast<String>() ?? const ['media', 'controls', 'cameras'],
+        modulePlacements: json.containsKey('modulePlacements')
+            ? (json['modulePlacements'] as Map<String, dynamic>).map(
+                (k, v) => MapEntry(k, (v as List<dynamic>).cast<String>()))
+            : _migrateEnabledModules(json),
         mealieUrl: json['mealieUrl'] as String? ?? '',
         mealieToken: json['mealieToken'] as String? ?? '',
         setupComplete: json['setupComplete'] as bool? ?? false,
@@ -265,6 +274,12 @@ class HubConfig {
         topSwipeAction: json['topSwipeAction'] as String? ?? 'menu2',
         bottomSwipeAction: json['bottomSwipeAction'] as String? ?? 'menu1',
       );
+
+  static Map<String, List<String>> _migrateEnabledModules(Map<String, dynamic> json) {
+    final enabled = (json['enabledModules'] as List<dynamic>?)?.cast<String>()
+        ?? const ['media', 'controls', 'cameras'];
+    return {for (final id in enabled) id: ['swipe']};
+  }
 }
 
 /// Manages config state and persists changes to disk automatically.

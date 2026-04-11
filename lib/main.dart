@@ -7,6 +7,7 @@ import 'app/app.dart';
 import 'config/hub_config.dart';
 import 'services/local_api_server.dart';
 import 'services/timezone_service.dart';
+import 'modules/alarm_clock/alarm_service.dart';
 import 'services/sendspin/sendspin_service.dart';
 import 'services/video/media_kit_player.dart';
 import 'services/video/gstreamer_player.dart';
@@ -76,6 +77,11 @@ Future<void> main() async {
   if (!kIsWeb) {
     container.read(sendspinServiceProvider);
   }
+
+  // Eager-load AlarmService so persisted alarms are loaded and the
+  // 30-second ticker starts checking fire times immediately.
+  final alarmService = container.read(alarmServiceProvider);
+  await alarmService.load();
 
   runApp(
     UncontrolledProviderScope(

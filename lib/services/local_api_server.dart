@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../modules/alarm_clock/alarm_models.dart';
+import '../modules/alarm_clock/alarm_service.dart';
 import '../utils/logger.dart';
 import '../config/hub_config.dart';
 import 'display_mode_service.dart';
@@ -26,12 +28,16 @@ import 'update_service.dart';
 ///   GET  /api/wifi/scan    — scan for WiFi networks
 ///   POST /api/wifi/connect — connect to a WiFi network
 ///   GET  /api/update/status — current version and auto-update setting
+///   GET  /api/alarms        — list all alarms
+///   POST /api/alarms        — create or update an alarm
+///   DELETE /api/alarms?id=x — delete an alarm
 class LocalApiServer {
   final DisplayModeService _displayModeService;
   final HubConfigNotifier _configNotifier;
   final TimezoneService _timezoneService;
   final WifiService _wifiService;
   final UpdateService _updateService;
+  final AlarmService? _alarmService;
   HttpServer? _server;
 
   static const int _maxBodySize = 64 * 1024; // 64 KB
@@ -50,12 +56,14 @@ class LocalApiServer {
     TimezoneService? timezoneService,
     WifiService? wifiService,
     UpdateService? updateService,
+    AlarmService? alarmService,
     String? webPin,
   })  : _displayModeService = displayModeService,
         _configNotifier = configNotifier,
         _timezoneService = timezoneService ?? TimezoneService(),
         _wifiService = wifiService ?? WifiService(),
         _updateService = updateService ?? UpdateService(),
+        _alarmService = alarmService,
         _webPin = webPin ?? (Random.secure().nextInt(9000) + 1000).toString();
 
   Future<int> start({int port = 8090}) async {
@@ -160,6 +168,17 @@ class LocalApiServer {
           await _handleUpdateCheck(request);
         } else if (path == '/api/update/apply' && request.method == 'POST') {
           await _handleUpdateApply(request);
+        } else if (path == '/api/alarms') {
+          if (request.method == 'GET') {
+            await _handleGetAlarms(request);
+          } else if (request.method == 'POST') {
+            await _handlePostAlarm(request);
+          } else if (request.method == 'DELETE') {
+            await _handleDeleteAlarm(request);
+          } else {
+            request.response.statusCode = 405;
+            await request.response.close();
+          }
         } else {
           request.response.statusCode = 404;
           request.response.write(jsonEncode({'error': 'not found'}));
@@ -587,6 +606,80 @@ class LocalApiServer {
     await request.response.close();
   }
 
+  // --- Alarms ---
+
+  Future<void> _handleGetAlarms(HttpRequest request) async {
+    final service = _alarmService;
+    if (service == null) {
+      request.response.statusCode = 503;
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(jsonEncode({'error': 'alarm service unavailable'}));
+      await request.response.close();
+      return;
+    }
+    request.response.statusCode = 200;
+    request.response.headers.contentType = ContentType.json;
+    request.response.write(
+      jsonEncode(service.alarms.map((a) => a.toJson()).toList()),
+    );
+    await request.response.close();
+  }
+
+  Future<void> _handlePostAlarm(HttpRequest request) async {
+    final service = _alarmService;
+    if (service == null) {
+      request.response.statusCode = 503;
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(jsonEncode({'error': 'alarm service unavailable'}));
+      await request.response.close();
+      return;
+    }
+    try {
+      final json = await _readJsonBody(request);
+      final alarm = Alarm.fromJson(json);
+      // Check if this alarm already exists (update) or is new (add).
+      final existing = service.alarms.where((a) => a.id == alarm.id);
+      if (existing.isNotEmpty) {
+        service.updateAlarm(alarm);
+      } else {
+        service.addAlarm(alarm);
+      }
+      request.response.statusCode = 200;
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(jsonEncode(alarm.toJson()));
+      await request.response.close();
+    } catch (e) {
+      request.response.statusCode = 400;
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(jsonEncode({'error': 'invalid alarm data'}));
+      await request.response.close();
+    }
+  }
+
+  Future<void> _handleDeleteAlarm(HttpRequest request) async {
+    final service = _alarmService;
+    if (service == null) {
+      request.response.statusCode = 503;
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(jsonEncode({'error': 'alarm service unavailable'}));
+      await request.response.close();
+      return;
+    }
+    final id = request.uri.queryParameters['id'];
+    if (id == null || id.isEmpty) {
+      request.response.statusCode = 400;
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(jsonEncode({'error': 'missing id parameter'}));
+      await request.response.close();
+      return;
+    }
+    service.deleteAlarm(id);
+    request.response.statusCode = 200;
+    request.response.headers.contentType = ContentType.json;
+    request.response.write(jsonEncode({'status': 'ok'}));
+    await request.response.close();
+  }
+
   // --- Config web page ---
 
   Future<void> _serveConfigPage(HttpRequest request) async {
@@ -620,12 +713,14 @@ final localApiServerProvider = Provider<LocalApiServer>((ref) {
   final timezoneService = ref.read(timezoneServiceProvider);
   final wifiService = ref.read(wifiServiceProvider);
   final updateService = ref.read(updateServiceProvider);
+  final alarmService = ref.read(alarmServiceProvider);
   final server = LocalApiServer(
     displayModeService: displayService,
     configNotifier: configNotifier,
     timezoneService: timezoneService,
     wifiService: wifiService,
     updateService: updateService,
+    alarmService: alarmService,
   );
   ref.onDispose(() => server.stop());
   return server;
@@ -815,6 +910,14 @@ const _configPageHtml = r'''
       <option value="7">7 seconds</option>
       <option value="10">10 seconds</option>
     </select>
+
+    <h2>Alarms</h2>
+    <div id="alarmsList" style="margin-bottom:12px;"></div>
+    <div style="display:flex;gap:8px;margin-bottom:16px;">
+      <input type="time" id="newAlarmTime" value="07:00" style="flex:1;padding:8px;background:#1e1e1e;border:1px solid #333;border-radius:6px;color:#e0e0e0;font-size:14px;">
+      <input type="text" id="newAlarmLabel" placeholder="Label (optional)" style="flex:1;padding:8px;background:#1e1e1e;border:1px solid #333;border-radius:6px;color:#e0e0e0;font-size:13px;">
+      <button type="button" onclick="addAlarm()" style="padding:8px 16px;background:#646cff;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;">Add</button>
+    </div>
 
     <h2>Updates</h2>
     <label for="autoUpdate" class="checkbox-label">
@@ -1012,7 +1115,69 @@ for (const tz of commonTimezones) {
   dl.appendChild(opt);
 }
 
-initAuth().then(() => load().then(() => updateNightModeFields()));
+async function loadAlarms() {
+  try {
+    const r = await fetch('/api/alarms', {headers: getHeaders()});
+    const alarms = await r.json();
+    const el = document.getElementById('alarmsList');
+    el.textContent = '';
+    if (!alarms.length) {
+      const msg = document.createElement('div');
+      msg.style.cssText = 'color:#666;font-size:13px;padding:8px;';
+      msg.textContent = 'No alarms configured.';
+      el.appendChild(msg);
+      return;
+    }
+    for (const a of alarms) {
+      const dayNames = ['','Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+      const days = a.days && a.days.length ? a.days.map(d => dayNames[d]).join(', ') : 'One-time';
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:8px 12px;margin-bottom:4px;background:#1a1a1a;border-radius:6px;';
+      const info = document.createElement('div');
+      const timeSpan = document.createElement('span');
+      timeSpan.style.cssText = 'font-size:20px;font-weight:200;color:' + (a.enabled ? '#fff' : '#666');
+      timeSpan.textContent = a.time;
+      info.appendChild(timeSpan);
+      if (a.label) {
+        const labelSpan = document.createElement('span');
+        labelSpan.style.cssText = 'margin-left:8px;font-size:12px;color:#888;';
+        labelSpan.textContent = a.label;
+        info.appendChild(labelSpan);
+      }
+      const daysDiv = document.createElement('div');
+      daysDiv.style.cssText = 'font-size:11px;color:#666;';
+      daysDiv.textContent = days;
+      info.appendChild(daysDiv);
+      row.appendChild(info);
+      const btn = document.createElement('button');
+      btn.style.cssText = 'padding:4px 10px;background:#333;color:#f87171;border:1px solid #444;border-radius:4px;cursor:pointer;font-size:12px;';
+      btn.textContent = 'Delete';
+      btn.addEventListener('click', () => deleteAlarm(a.id));
+      row.appendChild(btn);
+      el.appendChild(row);
+    }
+  } catch(e) {}
+}
+
+async function addAlarm() {
+  const time = document.getElementById('newAlarmTime').value;
+  const label = document.getElementById('newAlarmLabel').value;
+  if (!time) return;
+  try {
+    await fetch('/api/alarms', {method:'POST', headers: getHeaders(), body: JSON.stringify({time: time, label: label})});
+    loadAlarms();
+    document.getElementById('newAlarmLabel').value = '';
+  } catch(e) { showToast('Failed to add alarm', true); }
+}
+
+async function deleteAlarm(id) {
+  try {
+    await fetch('/api/alarms?id=' + id, {method:'DELETE', headers: getHeaders()});
+    loadAlarms();
+  } catch(e) { showToast('Failed to delete alarm', true); }
+}
+
+initAuth().then(() => load().then(() => { updateNightModeFields(); loadAlarms(); }));
 </script>
 </body>
 </html>

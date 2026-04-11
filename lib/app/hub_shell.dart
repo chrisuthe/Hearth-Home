@@ -12,6 +12,9 @@ import '../screens/timer/timer_screen.dart';
 import '../services/timer_service.dart';
 import '../screens/home/home_screen.dart';
 import '../screens/settings/settings_screen.dart';
+import '../modules/alarm_clock/alarm_alert_overlay.dart';
+import '../modules/alarm_clock/alarm_service.dart';
+import '../modules/alarm_clock/sunrise_controller.dart';
 import '../services/sendspin/sendspin_service.dart';
 
 /// The main shell that manages the layered navigation model.
@@ -187,21 +190,54 @@ class _HubShellState extends ConsumerState<HubShell> {
               );
             },
           ),
+          ...menuModules(ref, 'menu1').map((m) => Padding(
+            padding: const EdgeInsets.only(left: 12),
+            child: _QuickAction(
+              icon: m.icon,
+              label: m.name,
+              onTap: () {
+                setState(() => _menu1Open = false);
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => m.buildScreen(isActive: true)),
+                );
+              },
+            ),
+          )),
         ],
       ),
     );
   }
 
   Widget _buildMenu2({required bool fromTop}) {
+    final menu2Items = menuModules(ref, 'menu2');
     return _MenuTray(
       fromTop: fromTop,
       onDismiss: () => setState(() => _menu2Open = false),
-      child: const Column(
+      child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text('Volume', style: TextStyle(fontSize: 12, color: Colors.white54)),
-          SizedBox(height: 4),
-          _SystemVolumeSlider(),
+          const Text('Volume', style: TextStyle(fontSize: 12, color: Colors.white54)),
+          const SizedBox(height: 4),
+          const _SystemVolumeSlider(),
+          if (menu2Items.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: menu2Items.map((m) => Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                child: _QuickAction(
+                  icon: m.icon,
+                  label: m.name,
+                  onTap: () {
+                    setState(() => _menu2Open = false);
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => m.buildScreen(isActive: true)),
+                    );
+                  },
+                ),
+              )).toList(),
+            ),
+          ],
         ],
       ),
     );
@@ -212,7 +248,7 @@ class _HubShellState extends ConsumerState<HubShell> {
     final config = ref.watch(hubConfigProvider);
     final idleController = ref.read(idleControllerProvider);
 
-    final modules = ref.watch(enabledModulesProvider);
+    final modules = ref.watch(swipeModulesProvider);
     final hasCustomOrder = config.moduleOrder.isNotEmpty;
     // With custom ordering, all modules go right of Home.
     // With default ordering, negative defaultOrder goes left.
@@ -236,10 +272,11 @@ class _HubShellState extends ConsumerState<HubShell> {
         if (page != _currentPage) setState(() => _currentPage = page);
       });
       idleController.onTimeout = () {
-        // Pop any pushed routes (e.g. TimerScreen) unless a timer is
+        // Pop any pushed routes (e.g. TimerScreen) unless a timer or alarm is
         // actively fired — the alert overlay should stay visible.
         final timerService = ref.read(timerServiceProvider);
-        if (timerService.firedTimers.isEmpty) {
+        final alarmService = ref.read(alarmServiceProvider);
+        if (timerService.firedTimers.isEmpty && alarmService.firedAlarm == null) {
           Navigator.of(context).popUntil((route) => route.isFirst);
         }
         _pageController?.animateToPage(
@@ -294,6 +331,10 @@ class _HubShellState extends ConsumerState<HubShell> {
               },
             ),
 
+            // Sunrise gradient — overlays the photo background when an alarm
+            // sunrise is active. Fades from black through dawn colors.
+            _SunriseGradientLayer(),
+
             // Layer 2: Active screens — PageView over the photo background.
             PageView(
               controller: _pageController,
@@ -337,6 +378,9 @@ class _HubShellState extends ConsumerState<HubShell> {
             // Isolated in its own ConsumerWidget so 200ms timer ticks
             // only rebuild this overlay, not the entire HubShell.
             _TimerAlertOverlay(onWake: _onUserActivity),
+
+            // Alarm alert — full-screen overlay when an alarm fires.
+            AlarmAlertOverlay(onWake: _onUserActivity),
 
             // Event overlay layer (doorbell, alerts)
           ],
@@ -404,6 +448,24 @@ class _TimerAlertOverlay extends ConsumerWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Sunrise gradient overlay — renders the dawn color ramp above the photo
+/// background when a sunrise alarm is active. Isolated in its own
+/// ConsumerWidget so 1-second sunrise ticks only rebuild this layer.
+class _SunriseGradientLayer extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final sunrise = ref.watch(sunriseControllerProvider);
+    if (!sunrise.active) return const SizedBox.shrink();
+    return Positioned.fill(
+      child: IgnorePointer(
+        child: Container(
+          color: sunrise.currentColor.withValues(alpha: 0.7),
         ),
       ),
     );
