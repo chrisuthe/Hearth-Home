@@ -287,7 +287,7 @@ class LocalApiServer {
   Future<void> _handleGetConfig(HttpRequest request) async {
     final json = _configNotifier.current.toJson();
     // Redact secrets — tokens are write-only from the API's perspective.
-    const secretFields = ['apiKey', 'haToken', 'immichApiKey', 'musicAssistantToken', 'mealieToken'];
+    const secretFields = ['apiKey', 'haToken', 'immichApiKey', 'musicAssistantToken', 'mealieToken', 'giteaApiToken'];
     for (final field in secretFields) {
       final value = json[field] as String? ?? '';
       json[field] = value.isEmpty ? '' : '••••••••';
@@ -305,7 +305,7 @@ class LocalApiServer {
 
     // Filter out redacted markers so clients cannot overwrite real secrets
     // with the placeholder value returned by GET /api/config.
-    const secretFields = ['haToken', 'immichApiKey', 'musicAssistantToken', 'mealieToken'];
+    const secretFields = ['haToken', 'immichApiKey', 'musicAssistantToken', 'mealieToken', 'giteaApiToken'];
     for (final field in secretFields) {
       if (json[field] == _redactedMarker) {
         json.remove(field);

@@ -52,6 +52,7 @@ class HubConfig {
   final bool setupComplete;
   final bool autoUpdate;
   final String updateSource; // 'github' or 'gitea'
+  final String giteaApiToken;
   final String currentVersion;
   final List<String> moduleOrder;  // custom screen order (module IDs); empty = use defaultOrder
   final String topSwipeAction;    // "menu1" | "menu2" | "settings" | "nextScreen" | "previousScreen"
@@ -89,6 +90,7 @@ class HubConfig {
     this.setupComplete = false,
     this.autoUpdate = true,
     this.updateSource = 'github',
+    this.giteaApiToken = '',
     this.currentVersion = '',
     this.moduleOrder = const [],
     this.topSwipeAction = 'menu2',
@@ -133,6 +135,7 @@ class HubConfig {
     bool? setupComplete,
     bool? autoUpdate,
     String? updateSource,
+    String? giteaApiToken,
     String? currentVersion,
     List<String>? moduleOrder,
     String? topSwipeAction,
@@ -170,6 +173,7 @@ class HubConfig {
       setupComplete: setupComplete ?? this.setupComplete,
       autoUpdate: autoUpdate ?? this.autoUpdate,
       updateSource: updateSource ?? this.updateSource,
+      giteaApiToken: giteaApiToken ?? this.giteaApiToken,
       currentVersion: currentVersion ?? this.currentVersion,
       moduleOrder: moduleOrder ?? this.moduleOrder,
       topSwipeAction: topSwipeAction ?? this.topSwipeAction,
@@ -209,6 +213,7 @@ class HubConfig {
         'setupComplete': setupComplete,
         'autoUpdate': autoUpdate,
         'updateSource': updateSource,
+        'giteaApiToken': giteaApiToken,
         'currentVersion': currentVersion,
         'moduleOrder': moduleOrder,
         'topSwipeAction': topSwipeAction,
@@ -247,6 +252,7 @@ class HubConfig {
         setupComplete: json['setupComplete'] as bool? ?? false,
         autoUpdate: json['autoUpdate'] as bool? ?? true,
         updateSource: json['updateSource'] as String? ?? 'github',
+        giteaApiToken: json['giteaApiToken'] as String? ?? '',
         currentVersion: json['currentVersion'] as String? ?? '',
         moduleOrder: (json['moduleOrder'] as List<dynamic>?)?.cast<String>() ?? const [],
         topSwipeAction: json['topSwipeAction'] as String? ?? 'menu2',

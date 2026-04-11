@@ -78,20 +78,25 @@ class UpdateService {
       'https://registry.home.chrisuthe.com/api/v1/repos/chris/Hearth/releases?limit=1';
 
   final String _source;
+  final String _giteaToken;
   final Dio _dio;
 
-  UpdateService({Dio? dio, String source = 'github'})
+  UpdateService({Dio? dio, String source = 'github', String giteaToken = ''})
       : _dio = dio ?? Dio(BaseOptions(
           headers: {'User-Agent': 'Hearth-Home-Updater'},
         )),
-        _source = source;
+        _source = source,
+        _giteaToken = giteaToken;
 
   /// Fetches the latest release and returns an [UpdateInfo] if available,
   /// or null on error or if the release doesn't meet criteria.
   Future<UpdateInfo?> checkForUpdate() async {
     try {
       final url = _source == 'gitea' ? _giteaUrl : _githubUrl;
-      final response = await _dio.get<dynamic>(url);
+      final options = _source == 'gitea' && _giteaToken.isNotEmpty
+          ? Options(headers: {'Authorization': 'token $_giteaToken'})
+          : null;
+      final response = await _dio.get<dynamic>(url, options: options);
 
       // GitHub returns a single object; Gitea returns an array.
       final Map<String, dynamic>? data;
@@ -113,8 +118,11 @@ class UpdateService {
 }
 
 final updateServiceProvider = Provider<UpdateService>((ref) {
-  final source = ref.watch(hubConfigProvider.select((c) => c.updateSource));
-  return UpdateService(source: source);
+  final config = ref.watch(hubConfigProvider);
+  return UpdateService(
+    source: config.updateSource,
+    giteaToken: config.giteaApiToken,
+  );
 });
 
 final latestUpdateProvider = FutureProvider<UpdateInfo?>((ref) async {

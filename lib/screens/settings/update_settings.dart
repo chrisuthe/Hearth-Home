@@ -145,6 +145,44 @@ class UpdateSettingsSection extends ConsumerWidget {
               .update((c) => c.copyWith(updateSource: v ? 'gitea' : 'github')),
           contentPadding: const EdgeInsets.symmetric(horizontal: 8),
         ),
+
+        // Gitea API token (only when Gitea is selected).
+        if (config.updateSource == 'gitea')
+          ListTile(
+            leading: const Icon(Icons.key, color: Colors.white54, size: 22),
+            title: const Text('Gitea API Token', style: TextStyle(fontSize: 15)),
+            subtitle: Text(
+              config.giteaApiToken.isEmpty ? 'Not set' : 'Configured',
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.white.withValues(alpha: 0.4),
+              ),
+            ),
+            onTap: () async {
+              final controller = TextEditingController(text: config.giteaApiToken);
+              final result = await showDialog<String>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  backgroundColor: const Color(0xFF1E1E1E),
+                  title: const Text('Gitea API Token'),
+                  content: TextField(
+                    controller: controller,
+                    autofocus: true,
+                    decoration: const InputDecoration(hintText: 'Paste token here'),
+                  ),
+                  actions: [
+                    TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+                    TextButton(onPressed: () => Navigator.pop(ctx, controller.text), child: const Text('Save')),
+                  ],
+                ),
+              );
+              if (result != null) {
+                ref.read(hubConfigProvider.notifier)
+                    .update((c) => c.copyWith(giteaApiToken: result));
+              }
+            },
+            contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+          ),
       ],
     );
   }
