@@ -172,17 +172,18 @@ class SendspinService {
 
     _audioSink = Platform.isLinux ? AlsaAudioSink() : SendspinAudioSink();
 
-    _client!.onStreamStart = (sampleRate, channels, bitDepth) async {
+    _client!.onStreamStart = (sampleRate, channels, bitDepth) {
       Log.i('Sendspin', 'Initializing audio sink: '
           '${sampleRate}Hz ${channels}ch ${bitDepth}bit');
       _channels = channels;
-      await _audioSink?.initialize(
+      // Start draining the buffer immediately so it doesn't overflow
+      // while the async ALSA initialization completes.
+      _startAudioFeed(sampleRate);
+      _audioSink?.initialize(
         sampleRate: sampleRate,
         channels: channels,
         bitDepth: bitDepth,
-      );
-      await _audioSink?.start();
-      _startAudioFeed(sampleRate);
+      ).then((_) => _audioSink?.start());
     };
 
     _client!.onStreamStop = () async {
