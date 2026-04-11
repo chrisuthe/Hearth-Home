@@ -187,21 +187,54 @@ class _HubShellState extends ConsumerState<HubShell> {
               );
             },
           ),
+          ...menuModules(ref, 'menu1').map((m) => Padding(
+            padding: const EdgeInsets.only(left: 12),
+            child: _QuickAction(
+              icon: m.icon,
+              label: m.name,
+              onTap: () {
+                setState(() => _menu1Open = false);
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => m.buildScreen(isActive: true)),
+                );
+              },
+            ),
+          )),
         ],
       ),
     );
   }
 
   Widget _buildMenu2({required bool fromTop}) {
+    final menu2Items = menuModules(ref, 'menu2');
     return _MenuTray(
       fromTop: fromTop,
       onDismiss: () => setState(() => _menu2Open = false),
-      child: const Column(
+      child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text('Volume', style: TextStyle(fontSize: 12, color: Colors.white54)),
-          SizedBox(height: 4),
-          _SystemVolumeSlider(),
+          const Text('Volume', style: TextStyle(fontSize: 12, color: Colors.white54)),
+          const SizedBox(height: 4),
+          const _SystemVolumeSlider(),
+          if (menu2Items.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: menu2Items.map((m) => Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                child: _QuickAction(
+                  icon: m.icon,
+                  label: m.name,
+                  onTap: () {
+                    setState(() => _menu2Open = false);
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => m.buildScreen(isActive: true)),
+                    );
+                  },
+                ),
+              )).toList(),
+            ),
+          ],
         ],
       ),
     );
@@ -212,7 +245,7 @@ class _HubShellState extends ConsumerState<HubShell> {
     final config = ref.watch(hubConfigProvider);
     final idleController = ref.read(idleControllerProvider);
 
-    final modules = ref.watch(enabledModulesProvider);
+    final modules = ref.watch(swipeModulesProvider);
     final hasCustomOrder = config.moduleOrder.isNotEmpty;
     // With custom ordering, all modules go right of Home.
     // With default ordering, negative defaultOrder goes left.
