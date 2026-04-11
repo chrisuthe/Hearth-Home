@@ -195,6 +195,9 @@ class _BrowsePanelState extends ConsumerState<_BrowsePanel>
   bool _libraryLoading = false;
   String _libraryType = 'artists';
   bool _albumArtistsOnly = false;
+  bool _libraryHasMore = true;
+  static const int _libraryPageSize = 100;
+  final ScrollController _libraryScrollController = ScrollController();
 
   // Search state
   final _searchController = TextEditingController();
@@ -206,6 +209,7 @@ class _BrowsePanelState extends ConsumerState<_BrowsePanel>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _libraryScrollController.addListener(_onLibraryScroll);
     _tabController.addListener(() {
       if (!_tabController.indexIsChanging) {
         if (_tabController.index == 0) {
@@ -230,6 +234,7 @@ class _BrowsePanelState extends ConsumerState<_BrowsePanel>
   @override
   void dispose() {
     _tabController.dispose();
+    _libraryScrollController.dispose();
     _searchDebounce?.cancel();
     _searchController.dispose();
     super.dispose();
@@ -249,18 +254,49 @@ class _BrowsePanelState extends ConsumerState<_BrowsePanel>
   }
 
   Future<void> _loadLibrary() async {
+    setState(() {
+      _libraryItems = [];
+      _libraryHasMore = true;
+      _libraryLoading = true;
+    });
+    await _loadLibraryPage(0);
+  }
+
+  Future<void> _loadLibraryPage(int offset) async {
+    if (!_libraryHasMore && offset > 0) return;
     setState(() => _libraryLoading = true);
     try {
       final effectiveType =
           _libraryType == 'artists' && _albumArtistsOnly
               ? 'album_artists'
               : _libraryType;
-      final items = await widget.music.getLibraryItems(effectiveType);
-      if (mounted) setState(() => _libraryItems = items);
+      final items = await widget.music.getLibraryItems(
+        effectiveType,
+        limit: _libraryPageSize,
+        offset: offset,
+      );
+      if (mounted) {
+        setState(() {
+          if (offset == 0) {
+            _libraryItems = items;
+          } else {
+            _libraryItems = [..._libraryItems, ...items];
+          }
+          _libraryHasMore = items.length >= _libraryPageSize;
+        });
+      }
     } catch (e) {
       // Library may not be available
     }
     if (mounted) setState(() => _libraryLoading = false);
+  }
+
+  void _onLibraryScroll() {
+    if (_libraryLoading || !_libraryHasMore) return;
+    final pos = _libraryScrollController.position;
+    if (pos.pixels >= pos.maxScrollExtent - 200) {
+      _loadLibraryPage(_libraryItems.length);
+    }
   }
 
   void _onSearchChanged(String query) {
@@ -584,7 +620,7 @@ class _BrowsePanelState extends ConsumerState<_BrowsePanel>
 
         // Items list
         Expanded(
-          child: _libraryLoading
+          child: _libraryLoading && _libraryItems.isEmpty
               ? const Center(
                   child: CircularProgressIndicator(color: _accent))
               : _libraryItems.isEmpty
@@ -593,9 +629,26 @@ class _BrowsePanelState extends ConsumerState<_BrowsePanel>
                           style: TextStyle(
                               color: Colors.white.withValues(alpha: 0.4))))
                   : ListView.builder(
+                      controller: _libraryScrollController,
                       padding: const EdgeInsets.symmetric(vertical: 4),
-                      itemCount: _libraryItems.length,
+                      itemCount:
+                          _libraryItems.length + (_libraryHasMore ? 1 : 0),
                       itemBuilder: (context, index) {
+                        if (index >= _libraryItems.length) {
+                          return const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 16),
+                            child: Center(
+                              child: SizedBox(
+                                width: 24,
+                                height: 24,
+                                child: CircularProgressIndicator(
+                                  color: _accent,
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                            ),
+                          );
+                        }
                         final item = _libraryItems[index];
                         return _LibraryItemTile(
                           item: item,
