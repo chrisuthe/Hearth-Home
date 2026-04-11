@@ -289,10 +289,82 @@ class _BrowsePanelState extends ConsumerState<_BrowsePanel>
     widget.music.playMedia(id, item);
   }
 
-  void _enqueueItem(MaMediaItem item) {
+  void _showItemContextMenu(BuildContext context, MaMediaItem item) {
     final id = widget.playerId;
     if (id == null) return;
-    widget.music.playMedia(id, item, option: 'next');
+
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: kDialogBackground,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(
+                item.name,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const Divider(color: Colors.white12, height: 1),
+            _contextMenuOption(
+              icon: Icons.play_arrow,
+              label: 'Play Now',
+              onTap: () {
+                Navigator.of(context).pop();
+                widget.music.playMedia(id, item, option: 'play');
+              },
+            ),
+            _contextMenuOption(
+              icon: Icons.skip_next,
+              label: 'Play Next',
+              onTap: () {
+                Navigator.of(context).pop();
+                widget.music.playMedia(id, item, option: 'next');
+              },
+            ),
+            _contextMenuOption(
+              icon: Icons.add_to_queue,
+              label: 'Add to Queue',
+              onTap: () {
+                Navigator.of(context).pop();
+                widget.music.playMedia(id, item, option: 'add');
+              },
+            ),
+            _contextMenuOption(
+              icon: Icons.playlist_remove,
+              label: 'Clear Queue & Play',
+              onTap: () {
+                Navigator.of(context).pop();
+                widget.music.playMedia(id, item, option: 'replace');
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _contextMenuOption({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return ListTile(
+      leading: Icon(icon, color: _accent),
+      title: Text(label, style: const TextStyle(color: Colors.white)),
+      onTap: onTap,
+    );
   }
 
   @override
@@ -495,7 +567,8 @@ class _BrowsePanelState extends ConsumerState<_BrowsePanel>
                         return _LibraryItemTile(
                           item: item,
                           onTap: () => _playItem(item),
-                          onLongPress: () => _enqueueItem(item),
+                          onLongPress: () =>
+                              _showItemContextMenu(context, item),
                         );
                       },
                     ),
@@ -527,7 +600,7 @@ class _BrowsePanelState extends ConsumerState<_BrowsePanel>
             _LibraryItemTile(
                 item: item,
                 onTap: () => _playItem(item),
-                onLongPress: () => _enqueueItem(item)),
+                onLongPress: () => _showItemContextMenu(context, item)),
         ],
         if (results.albums.isNotEmpty) ...[
           _sectionHeader('Albums'),
@@ -535,7 +608,7 @@ class _BrowsePanelState extends ConsumerState<_BrowsePanel>
             _LibraryItemTile(
                 item: item,
                 onTap: () => _playItem(item),
-                onLongPress: () => _enqueueItem(item)),
+                onLongPress: () => _showItemContextMenu(context, item)),
         ],
         if (results.tracks.isNotEmpty) ...[
           _sectionHeader('Tracks'),
@@ -543,7 +616,7 @@ class _BrowsePanelState extends ConsumerState<_BrowsePanel>
             _LibraryItemTile(
                 item: item,
                 onTap: () => _playItem(item),
-                onLongPress: () => _enqueueItem(item)),
+                onLongPress: () => _showItemContextMenu(context, item)),
         ],
         if (results.playlists.isNotEmpty) ...[
           _sectionHeader('Playlists'),
@@ -551,7 +624,7 @@ class _BrowsePanelState extends ConsumerState<_BrowsePanel>
             _LibraryItemTile(
                 item: item,
                 onTap: () => _playItem(item),
-                onLongPress: () => _enqueueItem(item)),
+                onLongPress: () => _showItemContextMenu(context, item)),
         ],
       ],
     );
