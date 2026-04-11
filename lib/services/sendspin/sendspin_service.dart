@@ -119,6 +119,7 @@ class SendspinService {
       _setupWebSocket(socket, onDone: () {
         Log.i('Sendspin', 'Server disconnected');
         _client?.stopClockSync();
+        _stopAudioFeed();
         _audioSink?.stop();
         _audioSink?.dispose();
         _audioSink = null;
@@ -150,6 +151,7 @@ class SendspinService {
       _setupWebSocket(_webSocket!, onDone: () {
         Log.w('Sendspin', 'Server disconnected, reconnecting...');
         _client?.stopClockSync();
+        _stopAudioFeed();
         _audioSink?.stop();
         _audioSink?.dispose();
         _audioSink = null;
