@@ -912,11 +912,15 @@ class _ModuleReorderListState extends State<_ModuleReorderList> {
               if (hasCustomOrder)
                 GestureDetector(
                   onTap: widget.onReset,
-                  child: Text(
-                    'Reset to Default',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.white.withValues(alpha: 0.3),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 14),
+                    child: Text(
+                      'Reset to Default',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.white.withValues(alpha: 0.3),
+                      ),
                     ),
                   ),
                 ),

@@ -472,7 +472,7 @@ class _ChevronOverlayState extends State<_ChevronOverlay> {
                 child: GestureDetector(
                   onTap: widget.onSkipBack,
                   child: Container(
-                    padding: const EdgeInsets.all(8),
+                    padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
                       color: Colors.black.withValues(alpha: 0.25),
                       shape: BoxShape.circle,
@@ -495,7 +495,7 @@ class _ChevronOverlayState extends State<_ChevronOverlay> {
                 child: GestureDetector(
                   onTap: widget.onSkipForward,
                   child: Container(
-                    padding: const EdgeInsets.all(8),
+                    padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
                       color: Colors.black.withValues(alpha: 0.25),
                       shape: BoxShape.circle,

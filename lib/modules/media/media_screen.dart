@@ -560,7 +560,7 @@ class _BrowsePanelState extends ConsumerState<_BrowsePanel>
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: SizedBox(
-            height: 36,
+            height: 48,
             child: ListView(
               scrollDirection: Axis.horizontal,
               children: [
@@ -1294,24 +1294,27 @@ class _ZonePicker extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 8),
       child: GestureDetector(
         onTap: () => _showZonePicker(context),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.speaker, size: 16, color: Colors.white54),
-              const SizedBox(width: 6),
-              Text(
-                selectedName!,
-                style: const TextStyle(fontSize: 13, color: Colors.white70),
-              ),
-              const SizedBox(width: 4),
-              const Icon(Icons.expand_more, size: 16, color: Colors.white54),
-            ],
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 48),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.speaker, size: 16, color: Colors.white54),
+                const SizedBox(width: 6),
+                Text(
+                  selectedName!,
+                  style: const TextStyle(fontSize: 13, color: Colors.white70),
+                ),
+                const SizedBox(width: 4),
+                const Icon(Icons.expand_more, size: 16, color: Colors.white54),
+              ],
+            ),
           ),
         ),
       ),
