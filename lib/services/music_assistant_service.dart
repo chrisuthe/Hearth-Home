@@ -419,6 +419,8 @@ class MusicAssistantService {
     _channel!.sink.add(jsonEncode(msg));
   }
 
+  static const Duration _commandTimeout = Duration(seconds: 10);
+
   Future<T> _sendWithResult<T>(
     String command,
     Map<String, dynamic> args,
@@ -427,6 +429,7 @@ class MusicAssistantService {
     final completer = Completer<T>();
     final msgId = _nextMsgId();
     _pendingCommands[msgId] = (result) {
+      if (completer.isCompleted) return;
       try {
         completer.complete(parser(result));
       } catch (e) {
@@ -435,7 +438,15 @@ class MusicAssistantService {
       }
     };
     _send({'message_id': msgId, 'command': command, 'args': args});
-    return completer.future;
+    return completer.future.timeout(
+      _commandTimeout,
+      onTimeout: () {
+        _pendingCommands.remove(msgId);
+        throw TimeoutException(
+            'MA command "$command" timed out after ${_commandTimeout.inSeconds}s',
+            _commandTimeout);
+      },
+    );
   }
 
   String _nextMsgId() => 'msg_${++_messageCounter}';

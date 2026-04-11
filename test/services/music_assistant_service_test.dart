@@ -425,5 +425,36 @@ void main() {
       expect(state.currentTrack?.title, 'Song B');
       expect(state.currentTrack?.imageUrl, 'http://art.example.com/new.jpg');
     });
+
+    test('getQueueItems times out if server never responds', () async {
+      service.connect('test-token');
+      final authMsgId = channel.sentMessages[0]['message_id'] as String;
+      channel.simulateServerMessage({'message_id': authMsgId, 'result': true});
+
+      // Call getQueueItems but never send a response — should time out
+      expect(
+        () => service.getQueueItems('player_kitchen'),
+        throwsA(isA<TimeoutException>()),
+      );
+    });
+
+    test('getQueueItems resolves normally when server responds', () async {
+      service.connect('test-token');
+      final authMsgId = channel.sentMessages[0]['message_id'] as String;
+      channel.simulateServerMessage({'message_id': authMsgId, 'result': true});
+
+      final future = service.getQueueItems('player_kitchen');
+
+      // Find the queue items message and respond
+      final queueMsg = channel.sentMessages.last;
+      expect(queueMsg['command'], 'player_queues/items');
+      channel.simulateServerMessage({
+        'message_id': queueMsg['message_id'],
+        'result': [],
+      });
+
+      final items = await future;
+      expect(items, isEmpty);
+    });
   });
 }
