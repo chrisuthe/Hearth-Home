@@ -48,11 +48,8 @@ void main() {
       expect(zones, contains('UTC'));
     });
 
-    test('fallback timezone list is sorted', () {
-      final sorted = List<String>.from(TimezoneService.commonTimezones)..sort();
-      // Common list is curated, not necessarily sorted — but fallback should be.
-      final fallback = TimezoneService.commonTimezones;
-      expect(fallback, isNotEmpty);
+    test('fallback timezone list is non-empty', () {
+      expect(TimezoneService.commonTimezones, isNotEmpty);
     });
   });
 }
