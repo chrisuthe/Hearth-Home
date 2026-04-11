@@ -1,4 +1,5 @@
 import 'dart:collection';
+import 'dart:math';
 import '../../utils/logger.dart';
 
 class _AudioChunk implements Comparable<_AudioChunk> {
@@ -29,9 +30,28 @@ class SendspinBuffer {
   final int startupBufferMs;
   final int maxBufferMs;
 
+  // Sync correction constants
+  static const int _correctionDeadbandUs = 2000;
+  static const int _reanchorThresholdUs = 500000;
+  static const int _reanchorCooldownUs = 5000000;
+  static const double _maxSpeedCorrection = 0.04;
+  static const double _correctionTargetSeconds = 2.0;
+
   final SplayTreeSet<_AudioChunk> _chunks = SplayTreeSet();
   int _totalSamples = 0;
   bool _startupMet = false;
+
+  // Sync correction state
+  bool _playbackAnchored = false;
+  int _playbackPositionUs = 0;
+  int _lastReanchorUs = 0;
+
+  /// Accumulated fractional correction frames from micro-correction.
+  double _correctionAccumulator = 0.0;
+
+  /// Last computed sync error in microseconds (for diagnostics).
+  int get syncErrorUs => _lastSyncErrorUs;
+  int _lastSyncErrorUs = 0;
 
   SendspinBuffer({
     required this.sampleRate,
@@ -77,11 +97,113 @@ class SendspinBuffer {
   /// Returns samples in timestamp order. If not enough data is available
   /// (or startup threshold has not been met), the missing samples are filled
   /// with silence (zeros).
+  ///
+  /// Sync corrections are applied transparently:
+  /// - **Deadband** (< 2ms): no correction.
+  /// - **Micro-correction** (2ms–500ms): drop or duplicate individual frames
+  ///   at a rate clamped to ±4% of the pull rate.
+  /// - **Re-anchor** (> 500ms): flush the buffer and restart playback
+  ///   tracking (with a 5-second cooldown).
   List<int> pullSamples(int count) {
     if (!_startupMet || _chunks.isEmpty) {
       return List<int>.filled(count, 0);
     }
 
+    // Anchor playback position to the first chunk we ever play.
+    if (!_playbackAnchored) {
+      _playbackPositionUs = _chunks.first.timestampUs;
+      _playbackAnchored = true;
+      _lastReanchorUs = _playbackPositionUs;
+    }
+
+    // The number of frames (not samples) we are pulling.
+    final frames = count ~/ channels;
+
+    // Compute sync error: positive = we are behind (need to skip/drop),
+    // negative = we are ahead (need to insert/duplicate).
+    final int chunkTimestampUs =
+        _chunks.isNotEmpty ? _chunks.first.timestampUs : _playbackPositionUs;
+    _lastSyncErrorUs = _playbackPositionUs - chunkTimestampUs;
+
+    final int absSyncError = _lastSyncErrorUs.abs();
+
+    // --- RE-ANCHOR ---
+    if (absSyncError > _reanchorThresholdUs) {
+      final int nowUs = _playbackPositionUs;
+      if ((nowUs - _lastReanchorUs).abs() > _reanchorCooldownUs) {
+        Log.w('Sendspin',
+            'Sync: re-anchor — error $_lastSyncErrorUs µs exceeds threshold');
+        flush();
+        // Return silence for this tick; next pull will re-anchor.
+        return List<int>.filled(count, 0);
+      }
+    }
+
+    // --- MICRO-CORRECTION ---
+    int adjustedFrames = frames;
+    if (absSyncError > _correctionDeadbandUs) {
+      // correction_frames per pull = sync_error / (target_seconds * sample_rate)
+      // This is the number of extra (or fewer) frames to pull this tick.
+      final double correctionRate =
+          _lastSyncErrorUs / (_correctionTargetSeconds * sampleRate);
+      // Clamp to ±4% of the requested frame count.
+      final double maxAdj = _maxSpeedCorrection * frames;
+      final double clampedRate = correctionRate.clamp(-maxAdj, maxAdj);
+
+      _correctionAccumulator += clampedRate;
+
+      // Only apply whole-frame corrections (channels samples per frame).
+      final int wholeFrames = _correctionAccumulator.truncate();
+      if (wholeFrames != 0) {
+        _correctionAccumulator -= wholeFrames;
+        adjustedFrames += wholeFrames;
+        // Never go negative.
+        adjustedFrames = max(0, adjustedFrames);
+      }
+    } else {
+      // Inside deadband — bleed off any accumulated correction.
+      _correctionAccumulator = 0.0;
+    }
+
+    // Pull adjustedFrames * channels samples from the buffer.
+    final pullCount = adjustedFrames * channels;
+    final rawSamples = _pullRaw(pullCount);
+
+    // Advance the playback position by the *requested* frame count (not
+    // the adjusted one). The adjustment is the correction itself — the
+    // playback clock should track wall-clock, not the corrected pull.
+    final int frameDurationUs = (frames * 1000000) ~/ sampleRate;
+    _playbackPositionUs += frameDurationUs;
+
+    // Now map rawSamples back to the caller's expected [count].
+    if (rawSamples.length == count) {
+      return rawSamples;
+    } else if (rawSamples.length > count) {
+      // We pulled more (dropping frames to catch up) — truncate to what
+      // the audio sink expects. The extra samples are effectively skipped.
+      return rawSamples.sublist(0, count);
+    } else {
+      // We pulled fewer (inserting frames to slow down) — pad by
+      // duplicating the last frame to fill the gap.
+      final result = List<int>.of(rawSamples);
+      if (rawSamples.length >= channels) {
+        final lastFrame =
+            rawSamples.sublist(rawSamples.length - channels);
+        while (result.length < count) {
+          final needed = min(channels, count - result.length);
+          result.addAll(lastFrame.sublist(0, needed));
+        }
+      } else {
+        // Not enough for even one frame — pad with silence.
+        result.addAll(List<int>.filled(count - result.length, 0));
+      }
+      return result;
+    }
+  }
+
+  /// Raw pull: extracts exactly [count] samples from the chunk queue,
+  /// padding with silence on underrun.
+  List<int> _pullRaw(int count) {
     final result = <int>[];
     var remaining = count;
 
@@ -90,13 +212,11 @@ class SendspinBuffer {
       final available = chunk.samples.length;
 
       if (available <= remaining) {
-        // Consume the whole chunk.
         result.addAll(chunk.samples);
         remaining -= available;
         _totalSamples -= available;
         _chunks.remove(chunk);
       } else {
-        // Consume only the front portion; leave the rest in the buffer.
         result.addAll(chunk.samples.sublist(0, remaining));
         _totalSamples -= remaining;
         chunk.samples = chunk.samples.sublist(remaining);
@@ -104,9 +224,9 @@ class SendspinBuffer {
       }
     }
 
-    // Pad with silence if we ran out of data.
     if (remaining > 0) {
-      Log.d('Sendspin', 'Buffer: underrun — padding $remaining samples with silence');
+      Log.d('Sendspin',
+          'Buffer: underrun — padding $remaining samples with silence');
       result.addAll(List<int>.filled(remaining, 0));
     }
 
@@ -118,6 +238,10 @@ class SendspinBuffer {
     _chunks.clear();
     _totalSamples = 0;
     _startupMet = startupBufferMs == 0;
+    _playbackAnchored = false;
+    _playbackPositionUs = 0;
+    _correctionAccumulator = 0.0;
+    _lastSyncErrorUs = 0;
     Log.d('Sendspin', 'Buffer: flushed');
   }
 
