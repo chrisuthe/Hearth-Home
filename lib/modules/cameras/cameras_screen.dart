@@ -182,48 +182,52 @@ class _CamerasScreenState extends ConsumerState<CamerasScreen> {
         itemCount: cameras.length,
         itemBuilder: (context, index) {
           final camera = cameras[index];
-          return GestureDetector(
-            onTap: () => _expandCamera(camera),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  // Auto-refreshing snapshot tile
-                  _CameraSnapshotTile(
-                    camera: camera,
-                    isActive: widget.isActive,
-                  ),
-                  // Play icon hint
-                  Center(
-                    child: Icon(Icons.play_circle_outline,
-                      size: 40,
-                      color: Colors.white.withValues(alpha: 0.5)),
-                  ),
-                  // Camera name label with gradient background
-                  Positioned(
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.transparent,
-                            Colors.black.withValues(alpha: 0.7),
-                          ],
-                        ),
-                      ),
-                      child: Text(camera.name,
-                          style: const TextStyle(
-                              fontSize: 12, color: Colors.white70)),
+          return ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () => _expandCamera(camera),
+                splashColor: Colors.white24,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    // Auto-refreshing snapshot tile
+                    _CameraSnapshotTile(
+                      camera: camera,
+                      isActive: widget.isActive,
                     ),
-                  ),
-                ],
+                    // Play icon hint
+                    Center(
+                      child: Icon(Icons.play_circle_outline,
+                        size: 40,
+                        color: Colors.white.withValues(alpha: 0.5)),
+                    ),
+                    // Camera name label with gradient background
+                    Positioned(
+                      bottom: 0,
+                      left: 0,
+                      right: 0,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.transparent,
+                              Colors.black.withValues(alpha: 0.7),
+                            ],
+                          ),
+                        ),
+                        child: Text(camera.name,
+                            style: const TextStyle(
+                                fontSize: 12, color: Colors.white70)),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           );

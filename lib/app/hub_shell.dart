@@ -426,34 +426,39 @@ class _QuickAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 88,
-        height: 88,
-        decoration: BoxDecoration(
-          color: active
-              ? const Color(0xFF646CFF).withValues(alpha: 0.2)
-              : Colors.white.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(16),
-          border: active
-              ? Border.all(
-                  color: const Color(0xFF646CFF).withValues(alpha: 0.5))
-              : null,
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon,
-                size: 28,
-                color: active ? const Color(0xFF646CFF) : Colors.white70),
-            const SizedBox(height: 6),
-            Text(
-              label,
-              style: const TextStyle(fontSize: 11, color: Colors.white70),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        splashColor: Colors.white24,
+        child: Container(
+          width: 88,
+          height: 88,
+          decoration: BoxDecoration(
+            color: active
+                ? const Color(0xFF646CFF).withValues(alpha: 0.2)
+                : Colors.white.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(16),
+            border: active
+                ? Border.all(
+                    color: const Color(0xFF646CFF).withValues(alpha: 0.5))
+                : null,
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon,
+                  size: 28,
+                  color: active ? const Color(0xFF646CFF) : Colors.white70),
+              const SizedBox(height: 6),
+              Text(
+                label,
+                style: const TextStyle(fontSize: 11, color: Colors.white70),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
         ),
       ),
     );
