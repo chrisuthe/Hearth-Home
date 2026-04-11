@@ -560,7 +560,7 @@ class _BrowsePanelState extends ConsumerState<_BrowsePanel>
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: SizedBox(
-            height: 36,
+            height: 48,
             child: ListView(
               scrollDirection: Axis.horizontal,
               children: [
@@ -1299,6 +1299,8 @@ class _ZonePicker extends StatelessWidget {
           onTap: () => _showZonePicker(context),
           borderRadius: BorderRadius.circular(20),
           splashColor: Colors.white24,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 48),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
@@ -1319,6 +1321,7 @@ class _ZonePicker extends StatelessWidget {
               ],
             ),
           ),
+        ),
         ),
       ),
     );
