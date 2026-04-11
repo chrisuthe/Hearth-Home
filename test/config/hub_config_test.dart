@@ -287,5 +287,40 @@ void main() {
       expect(config.timezone, '');
     });
 
+    test('modulePlacements round-trips through JSON', () {
+      final config = HubConfig(modulePlacements: {
+        'media': ['swipe'],
+        'alarm_clock': ['menu1', 'menu2'],
+      });
+      final json = config.toJson();
+      final restored = HubConfig.fromJson(json);
+      expect(restored.modulePlacements['media'], ['swipe']);
+      expect(restored.modulePlacements['alarm_clock'], ['menu1', 'menu2']);
+    });
+
+    test('modulePlacements migrates from enabledModules', () {
+      final json = {'enabledModules': ['media', 'controls']};
+      final config = HubConfig.fromJson(json);
+      expect(config.modulePlacements['media'], ['swipe']);
+      expect(config.modulePlacements['controls'], ['swipe']);
+      expect(config.modulePlacements.containsKey('cameras'), false);
+    });
+
+    test('modulePlacements defaults to empty when no config', () {
+      final config = HubConfig.fromJson({});
+      // Migration from default enabledModules
+      expect(config.modulePlacements['media'], ['swipe']);
+      expect(config.modulePlacements['controls'], ['swipe']);
+      expect(config.modulePlacements['cameras'], ['swipe']);
+    });
+
+    test('modulePlacements copyWith preserves unchanged fields', () {
+      final config = HubConfig(modulePlacements: {
+        'media': ['swipe'],
+      });
+      final updated = config.copyWith(immichUrl: 'http://test');
+      expect(updated.modulePlacements['media'], ['swipe']);
+    });
+
   });
 }
