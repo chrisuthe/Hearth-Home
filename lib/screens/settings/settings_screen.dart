@@ -545,10 +545,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         const SizedBox(height: 8),
         const UpdateSettingsSection(),
 
-        // Per-module settings (only shown when module is enabled),
-        // but skip mealie since we moved its settings into Services.
+        // Per-module settings (only shown when module is enabled).
         ...allModules
-            .where((m) => config.enabledModules.contains(m.id) && m.id != 'mealie')
+            .where((m) => config.enabledModules.contains(m.id))
             .map((m) => m.buildSettingsSection())
             .whereType<Widget>(),
       ],
