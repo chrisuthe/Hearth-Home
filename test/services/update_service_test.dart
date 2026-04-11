@@ -21,7 +21,7 @@ void main() {
           },
         ],
       };
-      final release = UpdateInfo.fromGitHubRelease(json);
+      final release = UpdateInfo.fromRelease(json);
       expect(release, isNotNull);
       expect(release!.version, '1.2.0');
       expect(release.bundleUrl, contains('hearth-bundle-1.2.0.tar.gz'));
@@ -34,7 +34,7 @@ void main() {
         'draft': false,
         'assets': [],
       };
-      expect(UpdateInfo.fromGitHubRelease(json), isNull);
+      expect(UpdateInfo.fromRelease(json), isNull);
     });
 
     test('parseLatestRelease returns null for draft', () {
@@ -44,7 +44,7 @@ void main() {
         'draft': true,
         'assets': [],
       };
-      expect(UpdateInfo.fromGitHubRelease(json), isNull);
+      expect(UpdateInfo.fromRelease(json), isNull);
     });
 
     test('parseLatestRelease returns null when no bundle asset exists', () {
@@ -59,7 +59,7 @@ void main() {
           },
         ],
       };
-      expect(UpdateInfo.fromGitHubRelease(json), isNull);
+      expect(UpdateInfo.fromRelease(json), isNull);
     });
 
     test('isNewerThan compares semver correctly', () {

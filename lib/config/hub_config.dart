@@ -51,6 +51,7 @@ class HubConfig {
   final String mealieToken;
   final bool setupComplete;
   final bool autoUpdate;
+  final String updateSource; // 'github' or 'gitea'
   final String currentVersion;
   final List<String> moduleOrder;  // custom screen order (module IDs); empty = use defaultOrder
   final String topSwipeAction;    // "menu1" | "menu2" | "settings" | "nextScreen" | "previousScreen"
@@ -87,6 +88,7 @@ class HubConfig {
     this.mealieToken = '',
     this.setupComplete = false,
     this.autoUpdate = true,
+    this.updateSource = 'github',
     this.currentVersion = '',
     this.moduleOrder = const [],
     this.topSwipeAction = 'menu2',
@@ -130,6 +132,7 @@ class HubConfig {
     String? mealieToken,
     bool? setupComplete,
     bool? autoUpdate,
+    String? updateSource,
     String? currentVersion,
     List<String>? moduleOrder,
     String? topSwipeAction,
@@ -166,6 +169,7 @@ class HubConfig {
       mealieToken: mealieToken ?? this.mealieToken,
       setupComplete: setupComplete ?? this.setupComplete,
       autoUpdate: autoUpdate ?? this.autoUpdate,
+      updateSource: updateSource ?? this.updateSource,
       currentVersion: currentVersion ?? this.currentVersion,
       moduleOrder: moduleOrder ?? this.moduleOrder,
       topSwipeAction: topSwipeAction ?? this.topSwipeAction,
@@ -204,6 +208,7 @@ class HubConfig {
         'mealieToken': mealieToken,
         'setupComplete': setupComplete,
         'autoUpdate': autoUpdate,
+        'updateSource': updateSource,
         'currentVersion': currentVersion,
         'moduleOrder': moduleOrder,
         'topSwipeAction': topSwipeAction,
@@ -241,6 +246,7 @@ class HubConfig {
         mealieToken: json['mealieToken'] as String? ?? '',
         setupComplete: json['setupComplete'] as bool? ?? false,
         autoUpdate: json['autoUpdate'] as bool? ?? true,
+        updateSource: json['updateSource'] as String? ?? 'github',
         currentVersion: json['currentVersion'] as String? ?? '',
         moduleOrder: (json['moduleOrder'] as List<dynamic>?)?.cast<String>() ?? const [],
         topSwipeAction: json['topSwipeAction'] as String? ?? 'menu2',

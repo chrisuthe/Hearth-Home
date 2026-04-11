@@ -125,6 +125,26 @@ class UpdateSettingsSection extends ConsumerWidget {
               .update((c) => c.copyWith(autoUpdate: v)),
           contentPadding: const EdgeInsets.symmetric(horizontal: 8),
         ),
+
+        // Update source toggle.
+        SwitchListTile(
+          secondary: const Icon(Icons.dns_outlined, color: Colors.white54, size: 22),
+          title: const Text('Use Gitea for Updates', style: TextStyle(fontSize: 15)),
+          subtitle: Text(
+            config.updateSource == 'gitea'
+                ? 'Checking registry.home for releases'
+                : 'Checking GitHub for releases',
+            style: TextStyle(
+              fontSize: 13,
+              color: Colors.white.withValues(alpha: 0.4),
+            ),
+          ),
+          value: config.updateSource == 'gitea',
+          onChanged: (v) => ref
+              .read(hubConfigProvider.notifier)
+              .update((c) => c.copyWith(updateSource: v ? 'gitea' : 'github')),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+        ),
       ],
     );
   }

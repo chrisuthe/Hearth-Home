@@ -15,11 +15,12 @@ class UpdateInfo {
     required this.tagName,
   });
 
-  /// Parses a GitHub Releases API response.
+  /// Parses a GitHub or Gitea Releases API response.
   ///
   /// Returns null if the release is a prerelease, a draft, or has no
-  /// `hearth-bundle-*.tar.gz` asset.
-  static UpdateInfo? fromGitHubRelease(Map<String, dynamic> json) {
+  /// `hearth-bundle-*.tar.gz` asset. Works with both GitHub and Gitea
+  /// API formats (Gitea uses the same field names).
+  static UpdateInfo? fromRelease(Map<String, dynamic> json) {
     if (json['prerelease'] == true || json['draft'] == true) return null;
 
     final tagName = json['tag_name'] as String? ?? '';
@@ -33,9 +34,13 @@ class UpdateInfo {
 
     if (bundleAsset == null) return null;
 
+    // GitHub uses 'browser_download_url', Gitea also supports it.
+    final downloadUrl = bundleAsset['browser_download_url'] as String?;
+    if (downloadUrl == null) return null;
+
     return UpdateInfo(
       version: version,
-      bundleUrl: bundleAsset['browser_download_url'] as String,
+      bundleUrl: downloadUrl,
       tagName: tagName,
     );
   }
@@ -65,36 +70,52 @@ class UpdateInfo {
   }
 }
 
-/// Checks GitHub Releases for the latest Hearth update.
+/// Checks GitHub or Gitea Releases for the latest Hearth update.
 class UpdateService {
-  static const _defaultReleaseUrl =
+  static const _githubUrl =
       'https://api.github.com/repos/chrisuthe/Hearth-Home/releases/latest';
+  static const _giteaUrl =
+      'https://registry.home.chrisuthe.com/api/v1/repos/chris/Hearth/releases?limit=1';
 
-  final String _releaseUrl;
+  final String _source;
   final Dio _dio;
 
-  UpdateService({Dio? dio, String? releaseUrl})
+  UpdateService({Dio? dio, String source = 'github'})
       : _dio = dio ?? Dio(BaseOptions(
           headers: {'User-Agent': 'Hearth-Home-Updater'},
         )),
-        _releaseUrl = releaseUrl ?? _defaultReleaseUrl;
+        _source = source;
 
   /// Fetches the latest release and returns an [UpdateInfo] if available,
   /// or null on error or if the release doesn't meet criteria.
   Future<UpdateInfo?> checkForUpdate() async {
     try {
-      final response = await _dio.get<Map<String, dynamic>>(_releaseUrl);
-      final data = response.data;
+      final url = _source == 'gitea' ? _giteaUrl : _githubUrl;
+      final response = await _dio.get<dynamic>(url);
+
+      // GitHub returns a single object; Gitea returns an array.
+      final Map<String, dynamic>? data;
+      if (response.data is List) {
+        final list = response.data as List<dynamic>;
+        data = list.isNotEmpty ? list.first as Map<String, dynamic> : null;
+      } else {
+        data = response.data as Map<String, dynamic>?;
+      }
       if (data == null) return null;
-      return UpdateInfo.fromGitHubRelease(data);
+      return UpdateInfo.fromRelease(data);
     } catch (e) {
-      Log.e('Update', 'Check failed: $e');
+      Log.e('Update', 'Check failed ($source): $e');
       return null;
     }
   }
+
+  String get source => _source;
 }
 
-final updateServiceProvider = Provider<UpdateService>((ref) => UpdateService());
+final updateServiceProvider = Provider<UpdateService>((ref) {
+  final source = ref.watch(hubConfigProvider.select((c) => c.updateSource));
+  return UpdateService(source: source);
+});
 
 final latestUpdateProvider = FutureProvider<UpdateInfo?>((ref) async {
   final service = ref.read(updateServiceProvider);
