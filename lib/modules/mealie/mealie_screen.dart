@@ -130,13 +130,24 @@ class _MealieScreenState extends ConsumerState<MealieScreen>
     return Container(
       color: Colors.black.withValues(alpha: 0.7),
       child: service == null
-          ? const Center(
-              child: Text(
-                'Configure Mealie in Settings',
-                style: TextStyle(
-                  fontSize: 18,
-                  color: Colors.white54,
-                ),
+          ? Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.restaurant_menu,
+                      size: 64,
+                      color: Colors.white.withValues(alpha: 0.2)),
+                  const SizedBox(height: 16),
+                  Text('Recipes not configured',
+                      style: TextStyle(
+                          fontSize: 18,
+                          color: Colors.white.withValues(alpha: 0.4))),
+                  const SizedBox(height: 8),
+                  Text('Add your Mealie URL and token in Settings',
+                      style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.white.withValues(alpha: 0.3))),
+                ],
               ),
             )
           : _selectedRecipe != null

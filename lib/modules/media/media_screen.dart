@@ -46,7 +46,10 @@ class _MediaScreenState extends ConsumerState<MediaScreen> {
     return !music.isConnected
         ? Container(
             color: Colors.black.withValues(alpha: 0.7),
-            child: const _NoMusic(isConnected: false),
+            child: _NoMusic(
+              isConnected: false,
+              isConfigured: config.musicAssistantUrl.isNotEmpty,
+            ),
           )
         : _AlbumArtBackdrop(
             imageUrl: state?.currentTrack?.imageUrl,
@@ -1183,8 +1186,9 @@ class _NowPlayingState extends State<_NowPlaying> {
 
 class _NoMusic extends StatelessWidget {
   final bool isConnected;
+  final bool isConfigured;
 
-  const _NoMusic({required this.isConnected});
+  const _NoMusic({required this.isConnected, this.isConfigured = true});
 
   @override
   Widget build(BuildContext context) {
@@ -1205,7 +1209,9 @@ class _NoMusic extends StatelessWidget {
           if (!isConnected) ...[
             const SizedBox(height: 8),
             Text(
-              'Add your MA URL and token in Settings',
+              isConfigured
+                  ? 'Will reconnect automatically'
+                  : 'Add your MA URL and token in Settings',
               style: TextStyle(
                 fontSize: 14,
                 color: Colors.white.withValues(alpha: 0.3),
