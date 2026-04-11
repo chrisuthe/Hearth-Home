@@ -123,7 +123,7 @@ class MusicAssistantService {
   }
 
   Future<List<MaMediaItem>> getLibraryItems(String mediaType,
-      {int limit = 50, int offset = 0, bool favorite = false}) {
+      {int limit = 100, int offset = 0, bool favorite = false}) {
     return _sendWithResult(
       'music/$mediaType/library_items',
       {
