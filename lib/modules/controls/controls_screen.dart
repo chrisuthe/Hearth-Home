@@ -18,10 +18,13 @@ class ControlsScreen extends ConsumerWidget {
     ref.watch(haEntitiesProvider);
 
     if (!ha.isConnected) {
-      return const _EmptyState(
+      final haConfigured = ref.read(hubConfigProvider).haUrl.isNotEmpty;
+      return _EmptyState(
         icon: Icons.cloud_off,
-        title: 'Not connected',
-        subtitle: 'Connect Home Assistant in settings',
+        title: haConfigured ? 'Reconnecting...' : 'Not connected',
+        subtitle: haConfigured
+            ? 'Will reconnect automatically'
+            : 'Connect Home Assistant in settings',
       );
     }
 
