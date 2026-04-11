@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/music_state.dart';
 import '../../services/music_assistant_service.dart';
+import '../../services/sendspin/sendspin_service.dart';
+import '../../models/sendspin_state.dart';
 import '../../app/app.dart' show kDialogBackground;
 import '../../config/hub_config.dart';
 
@@ -1110,6 +1112,49 @@ class _NowPlayingState extends State<_NowPlaying> {
           serverVolume: state.volume,
           onVolumeChanged: widget.onVolumeChanged,
         ),
+
+        const SizedBox(height: 8),
+
+        // Sendspin sync indicator
+        Consumer(builder: (context, ref, _) {
+          final ss = ref.watch(sendspinStateProvider);
+          return ss.maybeWhen(
+            data: (s) {
+              if (!s.isActive) return const SizedBox.shrink();
+              final IconData icon;
+              final String label;
+              final Color color;
+              switch (s.connectionState) {
+                case SendspinConnectionState.streaming:
+                  icon = Icons.sensors;
+                  label = '${s.bufferDepthMs}ms';
+                  color = s.bufferDepthMs > 50
+                      ? Colors.green
+                      : Colors.orange;
+                case SendspinConnectionState.syncing:
+                  icon = Icons.sync;
+                  label = 'Syncing';
+                  color = Colors.amber;
+                default:
+                  icon = Icons.link;
+                  label = 'Connected';
+                  color = Colors.white38;
+              }
+              return Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(icon, size: 14, color: color),
+                  const SizedBox(width: 6),
+                  Text(
+                    label,
+                    style: TextStyle(fontSize: 12, color: color),
+                  ),
+                ],
+              );
+            },
+            orElse: () => const SizedBox.shrink(),
+          );
+        }),
 
         const Spacer(),
       ],
