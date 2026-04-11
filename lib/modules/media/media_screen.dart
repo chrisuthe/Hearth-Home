@@ -28,15 +28,14 @@ class _MediaScreenState extends ConsumerState<MediaScreen> {
   @override
   Widget build(BuildContext context) {
     final music = ref.watch(musicAssistantServiceProvider);
-    ref.watch(maPlayerStateProvider); // trigger rebuilds on state changes
+    final allPlayers = ref.watch(maAllPlayersProvider).valueOrNull ?? const {};
 
     final config = ref.watch(hubConfigProvider);
-    final players = music.playerStates;
     final manualSelection = ref.watch(selectedPlayerProvider);
 
     // Filter out empty keys and unavailable players.
     final validPlayers = Map.fromEntries(
-        players.entries.where((e) => e.key.isNotEmpty && e.value.available));
+        allPlayers.entries.where((e) => e.key.isNotEmpty && e.value.available));
 
     // Pick the active player: explicit selection, then shared default logic
     final playerId =
