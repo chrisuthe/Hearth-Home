@@ -717,7 +717,7 @@ class _LibraryItemTile extends StatelessWidget {
 // Now Playing (left panel)
 // =============================================================================
 
-class _NowPlaying extends StatelessWidget {
+class _NowPlaying extends StatefulWidget {
   final MusicPlayerState state;
   final String playerId;
   final VoidCallback onPlayPause;
@@ -739,10 +739,78 @@ class _NowPlaying extends StatelessWidget {
   });
 
   @override
+  State<_NowPlaying> createState() => _NowPlayingState();
+}
+
+class _NowPlayingState extends State<_NowPlaying> {
+  Timer? _ticker;
+  Duration _localPosition = Duration.zero;
+  Duration _lastServerPosition = Duration.zero;
+
+  @override
+  void initState() {
+    super.initState();
+    _lastServerPosition = widget.state.position;
+    _localPosition = widget.state.position;
+    _syncTicker();
+  }
+
+  @override
+  void didUpdateWidget(covariant _NowPlaying oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // When the server sends a new position, reset our local tracker.
+    if (widget.state.position != _lastServerPosition) {
+      _lastServerPosition = widget.state.position;
+      _localPosition = widget.state.position;
+    }
+    // Start or stop the ticker when play state changes.
+    if (widget.state.isPlaying != oldWidget.state.isPlaying) {
+      _syncTicker();
+    }
+  }
+
+  void _syncTicker() {
+    _ticker?.cancel();
+    _ticker = null;
+    if (widget.state.isPlaying) {
+      _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+        final track = widget.state.currentTrack;
+        if (track == null) return;
+        if (_localPosition < track.duration) {
+          setState(() {
+            _localPosition += const Duration(seconds: 1);
+          });
+        }
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _ticker?.cancel();
+    super.dispose();
+  }
+
+  static String _formatDuration(Duration d) {
+    final minutes = d.inMinutes;
+    final seconds = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$minutes:$seconds';
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final state = widget.state;
     final track = state.currentTrack!;
     final panelWidth = MediaQuery.sizeOf(context).width * 0.4 - 48;
     final artSize = min(panelWidth * 0.75, 260.0);
+
+    // Clamp local position so it never exceeds track duration.
+    final elapsed = _localPosition > track.duration
+        ? track.duration
+        : _localPosition;
+    final progress = track.duration.inSeconds > 0
+        ? elapsed.inSeconds / track.duration.inSeconds
+        : 0.0;
 
     return Column(
       children: [
@@ -794,15 +862,37 @@ class _NowPlaying extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8),
           child: LinearProgressIndicator(
-            value: track.duration.inSeconds > 0
-                ? state.position.inSeconds / track.duration.inSeconds
-                : 0,
+            value: progress,
             backgroundColor: Colors.white.withValues(alpha: 0.1),
             valueColor: const AlwaysStoppedAnimation(Colors.white70),
           ),
         ),
 
-        const SizedBox(height: 16),
+        // Time labels
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                _formatDuration(elapsed),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.white.withValues(alpha: 0.5),
+                ),
+              ),
+              Text(
+                _formatDuration(track.duration),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.white.withValues(alpha: 0.5),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 8),
 
         // Transport controls
         Row(
@@ -814,12 +904,12 @@ class _NowPlaying extends StatelessWidget {
                 color: state.shuffle ? Colors.white : Colors.white38,
                 size: 20,
               ),
-              onPressed: onShuffleToggle,
+              onPressed: widget.onShuffleToggle,
             ),
             const SizedBox(width: 8),
             IconButton(
               icon: const Icon(Icons.skip_previous, size: 32),
-              onPressed: onPrevious,
+              onPressed: widget.onPrevious,
             ),
             const SizedBox(width: 8),
             Container(
@@ -833,13 +923,13 @@ class _NowPlaying extends StatelessWidget {
                   color: Colors.black,
                   size: 32,
                 ),
-                onPressed: onPlayPause,
+                onPressed: widget.onPlayPause,
               ),
             ),
             const SizedBox(width: 8),
             IconButton(
               icon: const Icon(Icons.skip_next, size: 32),
-              onPressed: onNext,
+              onPressed: widget.onNext,
             ),
             const SizedBox(width: 8),
             IconButton(
@@ -849,7 +939,7 @@ class _NowPlaying extends StatelessWidget {
                     state.repeatMode != 'off' ? Colors.white : Colors.white38,
                 size: 20,
               ),
-              onPressed: onRepeatToggle,
+              onPressed: widget.onRepeatToggle,
             ),
           ],
         ),
@@ -859,7 +949,7 @@ class _NowPlaying extends StatelessWidget {
         // Volume slider
         _VolumeSlider(
           serverVolume: state.volume,
-          onVolumeChanged: onVolumeChanged,
+          onVolumeChanged: widget.onVolumeChanged,
         ),
 
         const Spacer(),
