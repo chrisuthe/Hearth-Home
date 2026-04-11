@@ -7,6 +7,7 @@ import 'package:bonsoir/bonsoir.dart';
 import '../../config/hub_config.dart';
 import '../../models/sendspin_state.dart';
 import '../../utils/logger.dart';
+import 'alsa_audio_sink.dart';
 import 'sendspin_audio_sink.dart';
 import 'sendspin_client.dart';
 
@@ -19,14 +20,16 @@ import 'sendspin_client.dart';
 /// through Riverpod providers.
 class SendspinService {
   SendspinClient? _client;
-  SendspinAudioSink? _audioSink;
+  AudioSink? _audioSink;
   HttpServer? _httpServer;
   BonsoirBroadcast? _bonsoirBroadcast;
   StreamSubscription? _stateSubscription;
   WebSocket? _webSocket;
   Timer? _reconnectTimer;
+  Timer? _audioFeedTimer;
   int _reconnectDelay = 1;
   String _serverUrl = '';
+  int _channels = 2;
   final _stateController = StreamController<SendspinPlayerState>.broadcast();
 
   SendspinPlayerState _state = const SendspinPlayerState();
@@ -132,10 +135,13 @@ class SendspinService {
     _updateState(
       _state.copyWith(connectionState: SendspinConnectionState.advertising),
     );
-    Log.i('Sendspin', 'Connecting to server $url');
+
+    // MA's Sendspin server expects connections on the /sendspin path.
+    final wsUrl = url.endsWith('/sendspin') ? url : '$url/sendspin';
+    Log.i('Sendspin', 'Connecting to server $wsUrl');
 
     try {
-      _webSocket = await WebSocket.connect(url);
+      _webSocket = await WebSocket.connect(wsUrl);
       _reconnectDelay = 1;
       _setupWebSocket(_webSocket!, onDone: () {
         Log.w('Sendspin', 'Server disconnected, reconnecting...');
@@ -160,16 +166,25 @@ class SendspinService {
     socket.add(_client!.buildClientHello());
     _client!.onSendText = (message) => socket.add(message);
 
-    _audioSink = SendspinAudioSink();
-    _audioSink!.onSamplesRequested = (frameCount) {
-      if (_client == null) return;
-      final samples = _client!.pullSamples(frameCount * 2); // stereo
-      final bytes = Uint8List(samples.length * 2);
-      final view = ByteData.view(bytes.buffer);
-      for (int i = 0; i < samples.length; i++) {
-        view.setInt16(i * 2, samples[i], Endian.little);
-      }
-      _audioSink!.writeSamples(bytes);
+    _audioSink = Platform.isLinux ? AlsaAudioSink() : SendspinAudioSink();
+
+    _client!.onStreamStart = (sampleRate, channels, bitDepth) async {
+      Log.i('Sendspin', 'Initializing audio sink: '
+          '${sampleRate}Hz ${channels}ch ${bitDepth}bit');
+      _channels = channels;
+      await _audioSink?.initialize(
+        sampleRate: sampleRate,
+        channels: channels,
+        bitDepth: bitDepth,
+      );
+      await _audioSink?.start();
+      _startAudioFeed(sampleRate);
+    };
+
+    _client!.onStreamStop = () async {
+      Log.i('Sendspin', 'Stopping audio sink');
+      _stopAudioFeed();
+      await _audioSink?.stop();
     };
 
     socket.listen(
@@ -189,6 +204,31 @@ class SendspinService {
     );
   }
 
+  /// Periodically pulls samples from the jitter buffer and pushes them to
+  /// the native audio sink. Runs every 20ms (~50Hz), feeding enough frames
+  /// to cover the interval at the stream's sample rate.
+  void _startAudioFeed(int sampleRate) {
+    _stopAudioFeed();
+    // 20ms worth of frames at the stream's sample rate.
+    final framesPerTick = sampleRate ~/ 50;
+    _audioFeedTimer = Timer.periodic(const Duration(milliseconds: 20), (_) {
+      if (_client == null || _audioSink == null) return;
+      final sampleCount = framesPerTick * _channels;
+      final samples = _client!.pullSamples(sampleCount);
+      final bytes = Uint8List(samples.length * 2);
+      final view = ByteData.view(bytes.buffer);
+      for (int i = 0; i < samples.length; i++) {
+        view.setInt16(i * 2, samples[i], Endian.little);
+      }
+      _audioSink!.writeSamples(bytes);
+    });
+  }
+
+  void _stopAudioFeed() {
+    _audioFeedTimer?.cancel();
+    _audioFeedTimer = null;
+  }
+
   void _scheduleReconnect() {
     if (_serverUrl.isEmpty) return;
     _reconnectTimer?.cancel();
@@ -199,6 +239,7 @@ class SendspinService {
   }
 
   Future<void> _stop() async {
+    _stopAudioFeed();
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
     _serverUrl = '';

@@ -277,102 +277,149 @@ class _NowPlayingPill extends ConsumerStatefulWidget {
 }
 
 class _NowPlayingPillState extends ConsumerState<_NowPlayingPill> {
-  int _playerIndex = 0;
-
   @override
   Widget build(BuildContext context) {
     final music = ref.watch(musicAssistantServiceProvider);
     ref.watch(maPlayerStateProvider);
+    final config = ref.watch(hubConfigProvider);
+    final manualSelection = ref.watch(selectedPlayerProvider);
     final players = music.playerStates;
-    final entries = players.entries.where((e) => e.value.hasTrack).toList();
+    final entries = players.entries
+        .where((e) => e.value.hasTrack && e.value.available)
+        .toList();
 
     if (entries.isEmpty) return const SizedBox.shrink();
 
-    // Clamp index to valid range
-    if (_playerIndex >= entries.length) _playerIndex = 0;
-    final entry = entries[_playerIndex];
+    // Use shared provider for selection, fall back to default logic.
+    final defaultId = pickDefaultPlayer(
+        Map.fromEntries(entries), config);
+    final playerId = (manualSelection != null &&
+            entries.any((e) => e.key == manualSelection))
+        ? manualSelection
+        : defaultId;
+    final entry = entries.firstWhere(
+      (e) => e.key == playerId,
+      orElse: () => entries.first,
+    );
+    final entryIndex = entries.indexOf(entry);
     final state = entry.value;
     final track = state.currentTrack!;
 
-    return GestureDetector(
-      onTap: widget.onTap,
-      onHorizontalDragEnd: entries.length > 1
-          ? (details) {
-              final v = details.primaryVelocity ?? 0;
-              if (v < -200) {
-                // Swipe left → next player
-                setState(() => _playerIndex = (_playerIndex + 1) % entries.length);
-              } else if (v > 200) {
-                // Swipe right → previous player
-                setState(() => _playerIndex = (_playerIndex - 1 + entries.length) % entries.length);
-              }
-            }
-          : null,
-      child: Container(
-      padding: const EdgeInsets.all(12),
+    final bool multiPlayer = entries.length > 1;
+
+    return Container(
       decoration: BoxDecoration(
         color: Colors.black.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(16),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Album art
-          ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: track.imageUrl != null
-                ? Image.network(
-                    track.imageUrl!,
-                    width: 96,
-                    height: 96,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
-                      width: 96,
-                      height: 96,
-                      color: Colors.white.withValues(alpha: 0.1),
-                      child: const Icon(Icons.music_note,
-                          color: Colors.white38, size: 40),
-                    ),
-                  )
-                : Container(
-                    width: 96,
-                    height: 96,
-                    color: Colors.white.withValues(alpha: 0.1),
-                    child: const Icon(Icons.music_note,
-                        color: Colors.white38, size: 40),
+      child: IntrinsicHeight(
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Previous player tap zone
+            if (multiPlayer)
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () {
+                  final prev = (entryIndex - 1 + entries.length) % entries.length;
+                  ref.read(selectedPlayerProvider.notifier).state = entries[prev].key;
+                },
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 6, right: 2),
+                  child: Center(
+                    child: Icon(Icons.chevron_left, size: 24,
+                        color: Colors.white.withValues(alpha: 0.4)),
                   ),
-          ),
-          const SizedBox(width: 16),
-          // Track info
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                state.activeZoneName ?? '',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.white.withValues(alpha: 0.5),
                 ),
               ),
-              const SizedBox(height: 4),
-              Text(
-                track.title,
-                style: const TextStyle(
-                    fontSize: 20, fontWeight: FontWeight.w500),
-              ),
-              Text(
-                track.artist,
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.white.withValues(alpha: 0.6),
+
+            // Main pill content — taps navigate to media screen
+            GestureDetector(
+              onTap: widget.onTap,
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                    multiPlayer ? 4 : 12, 12, multiPlayer ? 4 : 12, 12),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Album art
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: track.imageUrl != null
+                          ? Image.network(
+                              track.imageUrl!,
+                              width: 96,
+                              height: 96,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, _, _) => Container(
+                                width: 96,
+                                height: 96,
+                                color: Colors.white.withValues(alpha: 0.1),
+                                child: const Icon(Icons.music_note,
+                                    color: Colors.white38, size: 40),
+                              ),
+                            )
+                          : Container(
+                              width: 96,
+                              height: 96,
+                              color: Colors.white.withValues(alpha: 0.1),
+                              child: const Icon(Icons.music_note,
+                                  color: Colors.white38, size: 40),
+                            ),
+                    ),
+                    const SizedBox(width: 16),
+                    // Track info
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          state.activeZoneName ?? '',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.white.withValues(alpha: 0.5),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          track.title,
+                          style: const TextStyle(
+                              fontSize: 20, fontWeight: FontWeight.w500),
+                        ),
+                        Text(
+                          track.artist,
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.white.withValues(alpha: 0.6),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
-            ],
-          ),
-        ],
+            ),
+
+            // Next player tap zone
+            if (multiPlayer)
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () {
+                  final next = (entryIndex + 1) % entries.length;
+                  ref.read(selectedPlayerProvider.notifier).state = entries[next].key;
+                },
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 2, right: 6),
+                  child: Center(
+                    child: Icon(Icons.chevron_right, size: 24,
+                        color: Colors.white.withValues(alpha: 0.4)),
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
-    ),
     );
   }
 }

@@ -39,6 +39,12 @@ class SendspinClient {
   /// Callback for sending text messages back through the WebSocket.
   void Function(String message)? onSendText;
 
+  /// Called when stream/start is received with the negotiated audio format.
+  void Function(int sampleRate, int channels, int bitDepth)? onStreamStart;
+
+  /// Called when stream/end or stream/clear resets the pipeline.
+  void Function()? onStreamStop;
+
   SendspinClient({
     required this.playerName,
     required this.clientId,
@@ -195,6 +201,8 @@ class SendspinClient {
       sampleRate: sampleRate,
       channels: channels,
     ));
+
+    onStreamStart?.call(sampleRate, channels, bitDepth);
   }
 
   void _handleStreamClear() {
@@ -205,6 +213,7 @@ class SendspinClient {
 
   void _handleStreamEnd() {
     Log.d('Sendspin', 'stream/end');
+    onStreamStop?.call();
     _buffer?.flush();
     _codec?.reset();
     _codec = null;

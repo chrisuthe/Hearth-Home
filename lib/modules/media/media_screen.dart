@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/music_state.dart';
@@ -22,8 +23,6 @@ class MediaScreen extends ConsumerStatefulWidget {
 }
 
 class _MediaScreenState extends ConsumerState<MediaScreen> {
-  String? _selectedPlayerId;
-
   @override
   Widget build(BuildContext context) {
     final music = ref.watch(musicAssistantServiceProvider);
@@ -31,30 +30,26 @@ class _MediaScreenState extends ConsumerState<MediaScreen> {
 
     final config = ref.watch(hubConfigProvider);
     final players = music.playerStates;
+    final manualSelection = ref.watch(selectedPlayerProvider);
 
-    // Filter out empty keys (players with no ID from MA).
+    // Filter out empty keys and unavailable players.
     final validPlayers = Map.fromEntries(
-        players.entries.where((e) => e.key.isNotEmpty));
+        players.entries.where((e) => e.key.isNotEmpty && e.value.available));
 
-    // Pick the active player: explicit selection > sendspin > default zone > first playing > first
-    final playerId = _selectedPlayerId ??
-        _findSendspinPlayer(validPlayers, config) ??
-        (config.defaultMusicZone?.isNotEmpty == true
-            ? config.defaultMusicZone
-            : null) ??
-        validPlayers.entries
-            .where((e) => e.value.isPlaying)
-            .map((e) => e.key)
-            .firstOrNull ??
-        validPlayers.keys.firstOrNull;
+    // Pick the active player: explicit selection, then shared default logic
+    final playerId =
+        manualSelection ?? pickDefaultPlayer(validPlayers, config);
 
     final state = playerId != null ? validPlayers[playerId] : null;
 
-    return Container(
-      color: Colors.black.withValues(alpha: 0.7),
-      child: !music.isConnected
-          ? const _NoMusic(isConnected: false)
-          : Row(
+    return !music.isConnected
+        ? Container(
+            color: Colors.black.withValues(alpha: 0.7),
+            child: const _NoMusic(isConnected: false),
+          )
+        : _AlbumArtBackdrop(
+            imageUrl: state?.currentTrack?.imageUrl,
+            child: Row(
               children: [
                 // Left panel: now playing
                 SizedBox(
@@ -67,7 +62,7 @@ class _MediaScreenState extends ConsumerState<MediaScreen> {
                           allPlayers: validPlayers,
                           selectedPlayerId: playerId,
                           onZoneSelected: (id) =>
-                              setState(() => _selectedPlayerId = id),
+                              ref.read(selectedPlayerProvider.notifier).state = id,
                         ),
                         Expanded(
                           child: (state != null && state.hasTrack)
@@ -114,22 +109,64 @@ class _MediaScreenState extends ConsumerState<MediaScreen> {
                 ),
               ],
             ),
-    );
+          );
   }
 
-  /// Find the sendspin player in the player list by matching the configured name.
-  String? _findSendspinPlayer(
-      Map<String, MusicPlayerState> players, HubConfig config) {
-    if (!config.sendspinEnabled || config.sendspinPlayerName.isEmpty) {
-      return null;
-    }
-    final name = config.sendspinPlayerName.toLowerCase();
-    for (final entry in players.entries) {
-      if (entry.value.activeZoneName?.toLowerCase() == name) {
-        return entry.key;
-      }
-    }
-    return null;
+}
+
+// =============================================================================
+// Blurred album art backdrop for the left panel
+// =============================================================================
+
+/// Renders the current album art as a blurred, darkened background with a
+/// gradient overlay. Falls back to plain black when no art is available.
+class _AlbumArtBackdrop extends StatelessWidget {
+  final String? imageUrl;
+  final Widget child;
+
+  const _AlbumArtBackdrop({required this.imageUrl, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRect(
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          // Blurred album art layer
+          if (imageUrl != null)
+            ImageFiltered(
+              imageFilter: ui.ImageFilter.blur(
+                sigmaX: 60,
+                sigmaY: 60,
+                tileMode: TileMode.decal,
+              ),
+              child: Image.network(
+                imageUrl!,
+                fit: BoxFit.cover,
+                errorBuilder: (_, _, _) => const SizedBox.shrink(),
+              ),
+            ),
+
+          // Dark gradient overlay
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.black.withValues(alpha: 0.7),
+                  Colors.black.withValues(alpha: 0.85),
+                  Colors.black.withValues(alpha: 0.7),
+                ],
+              ),
+            ),
+          ),
+
+          // Actual content
+          child,
+        ],
+      ),
+    );
   }
 }
 
@@ -333,6 +370,12 @@ class _BrowsePanelState extends ConsumerState<_BrowsePanel>
           return _QueueItemTile(
             item: item,
             isCurrent: isCurrent,
+            onTap: () {
+              final id = widget.playerId;
+              if (id != null && item.queueItemId.isNotEmpty) {
+                widget.music.playQueueItem(id, item.queueItemId);
+              }
+            },
           );
         },
       ),
@@ -537,8 +580,13 @@ class _BrowsePanelState extends ConsumerState<_BrowsePanel>
 class _QueueItemTile extends StatelessWidget {
   final MaQueueItem item;
   final bool isCurrent;
+  final VoidCallback? onTap;
 
-  const _QueueItemTile({required this.item, required this.isCurrent});
+  const _QueueItemTile({
+    required this.item,
+    required this.isCurrent,
+    this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -546,6 +594,7 @@ class _QueueItemTile extends StatelessWidget {
       color: isCurrent ? _accent.withValues(alpha: 0.15) : null,
       child: ListTile(
         dense: true,
+        onTap: onTap,
         leading: SizedBox(
           width: 40,
           height: 40,

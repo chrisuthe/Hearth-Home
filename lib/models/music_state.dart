@@ -50,6 +50,7 @@ class MusicPlayerState {
   final double volume; // 0.0 - 1.0, matching HA's volume_level attribute
   final String? activeZoneId;
   final String? activeZoneName;
+  final bool available;
   final bool shuffle;
   final String repeatMode; // "off" | "one" | "all"
   final MusicTrack? nextTrack;
@@ -62,6 +63,7 @@ class MusicPlayerState {
     this.volume = 0.5,
     this.activeZoneId,
     this.activeZoneName,
+    this.available = true,
     this.shuffle = false,
     this.repeatMode = 'off',
     this.nextTrack,
@@ -78,6 +80,7 @@ class MusicPlayerState {
     double? volume,
     String? activeZoneId,
     String? activeZoneName,
+    bool? available,
     bool? shuffle,
     String? repeatMode,
     MusicTrack? nextTrack,
@@ -90,6 +93,7 @@ class MusicPlayerState {
       volume: volume ?? this.volume,
       activeZoneId: activeZoneId ?? this.activeZoneId,
       activeZoneName: activeZoneName ?? this.activeZoneName,
+      available: available ?? this.available,
       shuffle: shuffle ?? this.shuffle,
       repeatMode: repeatMode ?? this.repeatMode,
       nextTrack: nextTrack ?? this.nextTrack,
@@ -123,8 +127,9 @@ class MusicPlayerState {
       playbackState: playbackState,
       currentTrack: track,
       volume: ((json['volume_level'] as num?)?.toDouble() ?? 50) / 100,
-      activeZoneId: json['player_id'] as String?,
+      activeZoneId: json['active_source'] as String? ?? json['player_id'] as String?,
       activeZoneName: json['display_name'] as String?,
+      available: json['available'] as bool? ?? true,
     );
   }
 
@@ -178,6 +183,7 @@ class MusicPlayerState {
 
 /// A single item in a Music Assistant play queue.
 class MaQueueItem {
+  final String queueItemId;
   final String title;
   final String artist;
   final String album;
@@ -186,6 +192,7 @@ class MaQueueItem {
   final String? uri;
 
   const MaQueueItem({
+    required this.queueItemId,
     required this.title,
     required this.artist,
     required this.album,
@@ -203,6 +210,7 @@ class MaQueueItem {
     final image = mediaItem?['image'] as Map<String, dynamic>?;
 
     return MaQueueItem(
+      queueItemId: json['queue_item_id'] as String? ?? '',
       title: json['name'] as String? ?? 'Unknown',
       artist: artistName,
       album: album?['name'] as String? ?? '',

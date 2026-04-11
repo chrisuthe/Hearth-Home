@@ -21,6 +21,7 @@ sudo apt-get install -y -qq \
     cmake libgl1-mesa-dev libgles2-mesa-dev libegl1-mesa-dev \
     libdrm-dev libgbm-dev libinput-dev libudev-dev libsystemd-dev \
     libxkbcommon-dev libvulkan-dev \
+    libasound2 \
     gstreamer1.0-plugins-base gstreamer1.0-plugins-good \
     gstreamer1.0-plugins-bad gstreamer1.0-alsa \
     gstreamer1.0-libav gstreamer1.0-tools \

@@ -156,20 +156,30 @@ class MusicAssistantService {
     );
   }
 
-  void playMedia(String queueId, MaMediaItem item,
+  void playMedia(String playerId, MaMediaItem item,
       {String option = 'play'}) {
+    final queueId = _resolveQueueId(playerId);
     sendCommand('player_queues/play_media', {
       'queue_id': queueId,
-      'media': [
-        {
-          'item_id': item.itemId,
-          'provider': item.provider,
-          'media_type': item.mediaType,
-          'uri': item.uri,
-        },
-      ],
+      'media': item.uri ?? 'library://${item.mediaType}/${item.itemId}',
       'option': option,
     });
+  }
+
+  void playQueueItem(String playerId, String queueItemId) {
+    final queueId = _resolveQueueId(playerId);
+    sendCommand('player_queues/play_index', {
+      'queue_id': queueId,
+      'index': queueItemId,
+    });
+  }
+
+  /// Resolve the correct queue ID for a player. The player state's
+  /// activeZoneId (from queue_updated events) is the canonical queue ID.
+  /// Falls back to the player ID itself if no queue state is available.
+  String _resolveQueueId(String playerId) {
+    final state = _playerStates[playerId];
+    return state?.activeZoneId ?? playerId;
   }
 
   /// Generic command sender. Responses are handled internally.
@@ -290,6 +300,10 @@ class MusicAssistantService {
 
     if (msg.containsKey('event')) {
       _handleEvent(msg);
+    } else if (msg.containsKey('error_code')) {
+      final msgId = msg['message_id'] as String?;
+      Log.e('MA', 'Command $msgId failed: ${msg['details'] ?? msg}');
+      if (msgId != null) _pendingCommands.remove(msgId);
     } else if (msg.containsKey('result')) {
       _handleResponse(msg);
     }
@@ -328,6 +342,7 @@ class MusicAssistantService {
               volume: playerState.volume,
               activeZoneId: playerState.activeZoneId,
               activeZoneName: playerState.activeZoneName,
+              available: playerState.available,
               currentTrack: _preferTrackWithImage(
                   playerState.currentTrack, existing.currentTrack),
             );
@@ -452,3 +467,37 @@ final maAllPlayersProvider =
   final service = ref.watch(musicAssistantServiceProvider);
   return service.playerStateStream.map((_) => service.playerStates);
 });
+
+/// User's manual player selection, shared across all music UI surfaces.
+/// `null` means "use the default" from [pickDefaultPlayer].
+final selectedPlayerProvider = StateProvider<String?>((ref) => null);
+
+/// Pick the default player using a consistent priority across all screens:
+/// sendspin > configured default zone > first currently playing > first available.
+String? pickDefaultPlayer(
+    Map<String, MusicPlayerState> players, HubConfig config) {
+  // Sendspin player takes top priority when enabled.
+  if (config.sendspinEnabled && config.sendspinPlayerName.isNotEmpty) {
+    final name = config.sendspinPlayerName.toLowerCase();
+    for (final entry in players.entries) {
+      if (entry.value.activeZoneName?.toLowerCase() == name) {
+        return entry.key;
+      }
+    }
+  }
+
+  // Configured default zone.
+  if (config.defaultMusicZone?.isNotEmpty == true) {
+    return config.defaultMusicZone;
+  }
+
+  // First player that's actively playing.
+  final playing = players.entries
+      .where((e) => e.value.isPlaying)
+      .map((e) => e.key)
+      .firstOrNull;
+  if (playing != null) return playing;
+
+  // Fall back to first available.
+  return players.keys.firstOrNull;
+}
