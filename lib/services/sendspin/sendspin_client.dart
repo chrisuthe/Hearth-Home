@@ -136,7 +136,7 @@ class SendspinClient {
           'volume': (_state.volume * 100).round(),
           'muted': _state.muted,
           'static_delay_ms': _staticDelayMs,
-          'supported_commands': ['set_static_delay'],
+          'supported_commands': ['volume', 'mute', 'set_static_delay'],
         },
       },
     });
@@ -191,8 +191,10 @@ class SendspinClient {
     ));
 
     // Send initial state report, then start clock sync.
+    Log.d('Sendspin', 'Sending client/state after hello');
     onSendText?.call(buildClientState());
     startClockSync();
+    Log.d('Sendspin', 'Clock sync started');
   }
 
   void _handleServerTime(Map<String, dynamic> payload) {
