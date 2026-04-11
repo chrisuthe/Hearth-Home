@@ -35,7 +35,7 @@ class UpdateSettingsSection extends ConsumerWidget {
             installedVersion.isEmpty ? 'Unknown' : installedVersion,
             style: TextStyle(
               fontSize: 13,
-              color: Colors.white.withValues(alpha: 0.4),
+              color: Colors.white.withValues(alpha: 0.5),
             ),
           ),
           contentPadding: const EdgeInsets.symmetric(horizontal: 8),
@@ -72,7 +72,7 @@ class UpdateSettingsSection extends ConsumerWidget {
                   'Up to date',
                   style: TextStyle(
                     fontSize: 13,
-                    color: Colors.white.withValues(alpha: 0.4),
+                    color: Colors.white.withValues(alpha: 0.5),
                   ),
                 );
               }
@@ -83,7 +83,7 @@ class UpdateSettingsSection extends ConsumerWidget {
                   fontSize: 13,
                   color: isNewer
                       ? Colors.amber
-                      : Colors.white.withValues(alpha: 0.4),
+                      : Colors.white.withValues(alpha: 0.5),
                 ),
               );
             },
@@ -91,14 +91,14 @@ class UpdateSettingsSection extends ConsumerWidget {
               'Checking…',
               style: TextStyle(
                 fontSize: 13,
-                color: Colors.white.withValues(alpha: 0.4),
+                color: Colors.white.withValues(alpha: 0.5),
               ),
             ),
             error: (err, _) => Text(
               'Could not check',
               style: TextStyle(
                 fontSize: 13,
-                color: Colors.white.withValues(alpha: 0.4),
+                color: Colors.white.withValues(alpha: 0.5),
               ),
             ),
           ),
@@ -116,7 +116,7 @@ class UpdateSettingsSection extends ConsumerWidget {
             config.autoUpdate ? 'Install updates automatically' : 'Manual updates only',
             style: TextStyle(
               fontSize: 13,
-              color: Colors.white.withValues(alpha: 0.4),
+              color: Colors.white.withValues(alpha: 0.5),
             ),
           ),
           value: config.autoUpdate,
@@ -136,7 +136,7 @@ class UpdateSettingsSection extends ConsumerWidget {
                 : 'Checking GitHub for releases',
             style: TextStyle(
               fontSize: 13,
-              color: Colors.white.withValues(alpha: 0.4),
+              color: Colors.white.withValues(alpha: 0.5),
             ),
           ),
           value: config.updateSource == 'gitea',
@@ -155,7 +155,7 @@ class UpdateSettingsSection extends ConsumerWidget {
               config.giteaApiToken.isEmpty ? 'Not set' : 'Configured',
               style: TextStyle(
                 fontSize: 13,
-                color: Colors.white.withValues(alpha: 0.4),
+                color: Colors.white.withValues(alpha: 0.5),
               ),
             ),
             onTap: () async {
@@ -235,7 +235,7 @@ class _ForceUpdateTileState extends State<_ForceUpdateTile> {
         'Download and install the latest bundle',
         style: TextStyle(
           fontSize: 13,
-          color: Colors.white.withValues(alpha: 0.4),
+          color: Colors.white.withValues(alpha: 0.5),
         ),
       ),
       onTap: _updating ? null : _triggerUpdate,

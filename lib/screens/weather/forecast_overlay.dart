@@ -264,7 +264,7 @@ class _DailyPill extends StatelessWidget {
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w400,
-                color: Colors.white.withValues(alpha: 0.4),
+                color: Colors.white.withValues(alpha: 0.5),
                 height: 1.3,
               ),
             ),
@@ -309,7 +309,7 @@ class _DetailRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = highlight
         ? _accent.withValues(alpha: 0.9)
-        : Colors.white.withValues(alpha: 0.35);
+        : Colors.white.withValues(alpha: 0.5);
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [

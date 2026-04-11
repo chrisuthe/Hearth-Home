@@ -150,9 +150,9 @@ class _EmptyState extends StatelessWidget {
           children: [
             Icon(icon, size: 64, color: Colors.white.withValues(alpha: 0.2)),
             const SizedBox(height: 16),
-            Text(title, style: TextStyle(fontSize: 18, color: Colors.white.withValues(alpha: 0.4))),
+            Text(title, style: TextStyle(fontSize: 18, color: Colors.white.withValues(alpha: 0.5))),
             const SizedBox(height: 8),
-            Text(subtitle, style: TextStyle(fontSize: 14, color: Colors.white.withValues(alpha: 0.3))),
+            Text(subtitle, style: TextStyle(fontSize: 14, color: Colors.white.withValues(alpha: 0.5))),
           ],
         ),
       ),

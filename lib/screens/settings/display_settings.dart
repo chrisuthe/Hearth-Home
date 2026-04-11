@@ -60,7 +60,7 @@ class DisplaySettingsSection extends ConsumerWidget {
         label,
         style: TextStyle(
           fontSize: 13,
-          color: Colors.white.withValues(alpha: 0.4),
+          color: Colors.white.withValues(alpha: 0.5),
         ),
       ),
       trailing: const Icon(Icons.chevron_right, color: Colors.white24),

@@ -64,7 +64,7 @@ class _WifiSettingsSectionState extends ConsumerState<WifiSettingsSection> {
         subtitle,
         style: TextStyle(
           fontSize: 13,
-          color: Colors.white.withValues(alpha: 0.4),
+          color: Colors.white.withValues(alpha: 0.5),
         ),
       ),
       trailing: const Icon(Icons.chevron_right, color: Colors.white24),
@@ -200,7 +200,7 @@ class _WifiPickerDialogState extends State<_WifiPickerDialog> {
                           child: Text(
                             'No networks found',
                             style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.4),
+                              color: Colors.white.withValues(alpha: 0.5),
                             ),
                           ),
                         )
@@ -231,7 +231,7 @@ class _WifiPickerDialogState extends State<_WifiPickerDialog> {
                                 '${n.signalStrength}%${n.isSecured ? '  \u{1F512}' : ''}',
                                 style: TextStyle(
                                   fontSize: 11,
-                                  color: Colors.white.withValues(alpha: 0.4),
+                                  color: Colors.white.withValues(alpha: 0.5),
                                 ),
                               ),
                               onTap: () => _connectTo(n),
