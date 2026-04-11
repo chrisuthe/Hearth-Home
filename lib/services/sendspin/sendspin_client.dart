@@ -200,6 +200,12 @@ class SendspinClient {
         (serverTransmitted - serverReceived);
 
     _clock.update(offset, delay ~/ 2, clientReceived);
+
+    // Update state with clock sync info.
+    _updateState(_state.copyWith(
+      clockOffsetMs: (_clock.offsetUs / 1000).round(),
+      clockSamples: _clock.sampleCount,
+    ));
   }
 
   void _handleStreamStart(Map<String, dynamic> payload) {
@@ -248,7 +254,7 @@ class SendspinClient {
         sampleRate: sampleRate,
         channels: channels,
         startupBufferMs: 200, // Match reference impl: 200ms before releasing
-        maxBufferMs: 2000, // 2s max — keeps buffer manageable on Pi
+        maxBufferMs: bufferSeconds * 1000,
       );
     }
 

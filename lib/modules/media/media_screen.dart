@@ -1126,14 +1126,23 @@ class _NowPlayingState extends State<_NowPlaying> {
               final Color color;
               switch (s.connectionState) {
                 case SendspinConnectionState.streaming:
+                  final absOffset = s.clockOffsetMs.abs();
                   icon = Icons.sensors;
-                  label = '${s.bufferDepthMs}ms';
-                  color = s.bufferDepthMs > 50
-                      ? Colors.green
-                      : Colors.orange;
+                  label = s.clockSamples < 10
+                      ? 'Syncing...'
+                      : '${absOffset < 1 ? "<1" : absOffset}ms offset';
+                  color = s.clockSamples < 10
+                      ? Colors.amber
+                      : absOffset < 10
+                          ? Colors.green
+                          : absOffset < 50
+                              ? Colors.orange
+                              : Colors.red;
                 case SendspinConnectionState.syncing:
                   icon = Icons.sync;
-                  label = 'Syncing';
+                  label = s.clockSamples > 0
+                      ? 'Syncing (${s.clockSamples} samples)'
+                      : 'Syncing';
                   color = Colors.amber;
                 default:
                   icon = Icons.link;

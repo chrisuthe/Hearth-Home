@@ -35,6 +35,15 @@ class SendspinClock {
   bool _useDrift = false;
   int _count = 0;
 
+  /// Estimated clock offset in microseconds (server - client).
+  double get offsetUs => _offset;
+
+  /// Number of time sync samples processed.
+  int get sampleCount => _count;
+
+  /// Whether the filter has converged (enough samples for reliable estimate).
+  bool get isConverged => _count >= _minSamplesForForgetting;
+
   // Immutable parameters
   final double _processVariance;
   final double _driftProcessVariance;

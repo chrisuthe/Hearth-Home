@@ -18,6 +18,8 @@ class SendspinPlayerState {
   final String? codec;
   final String? serverName;
   final int bufferDepthMs;
+  final int clockOffsetMs; // server-client offset from Kalman filter
+  final int clockSamples;  // number of time sync samples received
   final int staticDelayMs;
 
   const SendspinPlayerState({
@@ -29,6 +31,8 @@ class SendspinPlayerState {
     this.codec,
     this.serverName,
     this.bufferDepthMs = 0,
+    this.clockOffsetMs = 0,
+    this.clockSamples = 0,
     this.staticDelayMs = 0,
   });
 
@@ -46,6 +50,8 @@ class SendspinPlayerState {
     String? codec,
     String? serverName,
     int? bufferDepthMs,
+    int? clockOffsetMs,
+    int? clockSamples,
     int? staticDelayMs,
   }) {
     return SendspinPlayerState(
@@ -57,6 +63,8 @@ class SendspinPlayerState {
       codec: codec ?? this.codec,
       serverName: serverName ?? this.serverName,
       bufferDepthMs: bufferDepthMs ?? this.bufferDepthMs,
+      clockOffsetMs: clockOffsetMs ?? this.clockOffsetMs,
+      clockSamples: clockSamples ?? this.clockSamples,
       staticDelayMs: staticDelayMs ?? this.staticDelayMs,
     );
   }
