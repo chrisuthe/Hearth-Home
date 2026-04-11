@@ -36,7 +36,14 @@ class SendspinClock {
   int _count = 0;
 
   /// Estimated clock offset in microseconds (server - client).
+  /// This is a large absolute value (different clock epochs) — not useful
+  /// for display. Use [precisionUs] for sync quality.
   double get offsetUs => _offset;
+
+  /// Estimated sync precision (1-sigma) in microseconds.
+  /// Lower is better. Square root of the Kalman filter's offset covariance.
+  double get precisionUs =>
+      _offsetCovariance.isFinite ? sqrt(_offsetCovariance.abs()) : double.infinity;
 
   /// Number of time sync samples processed.
   int get sampleCount => _count;

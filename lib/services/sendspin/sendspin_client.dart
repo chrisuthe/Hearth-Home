@@ -201,9 +201,10 @@ class SendspinClient {
 
     _clock.update(offset, delay ~/ 2, clientReceived);
 
-    // Update state with clock sync info.
+    // Update state with clock sync precision (not raw offset, which is
+    // a huge value representing the epoch difference between clocks).
     _updateState(_state.copyWith(
-      clockOffsetMs: (_clock.offsetUs / 1000).round(),
+      clockOffsetMs: (_clock.precisionUs / 1000).round(),
       clockSamples: _clock.sampleCount,
     ));
   }
