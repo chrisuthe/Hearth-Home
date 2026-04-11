@@ -137,6 +137,7 @@ class SendspinService {
 
   Future<void> _connectToServer(String url) async {
     _serverUrl = url;
+    _reconnectDelay = 1;
     _updateState(
       _state.copyWith(connectionState: SendspinConnectionState.advertising),
     );
@@ -169,8 +170,7 @@ class SendspinService {
     }
   }
 
-  void _setupWebSocket(WebSocket socket, {required VoidCallback onDone}) {
-    _client!.resetForNewConnection();
+  void _setupWebSocket(dynamic socket, {required VoidCallback onDone}) {
     socket.add(_client!.buildClientHello());
     _client!.onSendText = (message) => socket.add(message);
 
