@@ -170,6 +170,7 @@ class SendspinService {
   }
 
   void _setupWebSocket(WebSocket socket, {required VoidCallback onDone}) {
+    _client!.resetForNewConnection();
     socket.add(_client!.buildClientHello());
     _client!.onSendText = (message) => socket.add(message);
 

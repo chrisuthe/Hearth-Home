@@ -424,6 +424,20 @@ class SendspinClient {
   // Lifecycle
   // ---------------------------------------------------------------------------
 
+  /// Resets the client for a new connection.
+  ///
+  /// Stops all periodic timers (clock sync, state reporting) and clears
+  /// stream state so nothing is sent on the new socket before the
+  /// server/hello handshake completes.
+  void resetForNewConnection() {
+    stopClockSync();
+    _stopStateReporting();
+    _codec?.reset();
+    _codec = null;
+    _buffer?.flush();
+    _buffer = null;
+  }
+
   /// Cleans up timers and stream controller.
   void dispose() {
     stopClockSync();
