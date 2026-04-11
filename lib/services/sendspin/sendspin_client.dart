@@ -92,7 +92,7 @@ class SendspinClient {
             {'codec': 'flac', 'channels': 2, 'sample_rate': 44100, 'bit_depth': 16},
           ],
           'buffer_capacity': bufferSeconds * 48000 * 2 * 2, // bytes
-          'supported_commands': ['volume', 'mute', 'set_static_delay'],
+          'supported_commands': ['volume', 'mute'],
         },
       },
     });
