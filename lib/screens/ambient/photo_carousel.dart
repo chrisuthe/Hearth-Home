@@ -78,11 +78,37 @@ class _PhotoCarouselState extends State<PhotoCarousel>
     );
   }
 
+  Widget _buildPlaceholder() {
+    return const Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.photo_library_outlined,
+            size: 48,
+            color: Color(0xFF333333),
+          ),
+          SizedBox(height: 12),
+          Text(
+            'Photos unavailable',
+            style: TextStyle(
+              color: Color(0xFF444444),
+              fontSize: 14,
+              fontWeight: FontWeight.w300,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Stack(
       fit: StackFit.expand,
       children: [
+        if (_currentPath == null) _buildPlaceholder(),
         if (_currentPath != null) _buildImage(_currentPath!),
         if (_nextPath != null)
           FadeTransition(
