@@ -81,7 +81,9 @@ class ImmichService {
       for (final file in files.skip(200)) {
         file.deleteSync();
       }
-    } catch (_) {}
+    } catch (e) {
+      Log.w('Immich', 'Cache eviction failed: $e');
+    }
   }
 
   /// Parses the memories API response into flat photo list.

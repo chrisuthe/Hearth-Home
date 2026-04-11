@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../utils/logger.dart';
 
 // dart:io and path_provider compile to stubs on web — guarded by kIsWeb at runtime.
 import 'dart:io' if (dart.library.html) 'dart:io';
@@ -280,6 +281,7 @@ class HubConfigNotifier extends StateNotifier<HubConfig> {
             jsonDecode(await file.readAsString()) as Map<String, dynamic>;
         state = HubConfig.fromJson(json);
       } catch (e) {
+        Log.e('Config', 'Failed to parse hub_config.json, resetting to defaults: $e');
         state = const HubConfig();
       }
     }
