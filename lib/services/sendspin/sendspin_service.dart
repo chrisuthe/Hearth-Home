@@ -48,9 +48,13 @@ class SendspinService {
       _updateState(const SendspinPlayerState());
       return;
     }
+    // Generate a stable client_id from the player name if not configured.
+    final effectiveClientId = clientId.isNotEmpty
+        ? clientId
+        : 'hearth-${playerName.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '')}';
     _client = SendspinClient(
       playerName: playerName,
-      clientId: clientId,
+      clientId: effectiveClientId,
       bufferSeconds: bufferSeconds,
     );
     _stateSubscription = _client!.stateStream.listen(_updateState);
