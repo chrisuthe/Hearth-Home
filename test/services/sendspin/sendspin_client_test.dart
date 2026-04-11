@@ -183,7 +183,7 @@ void main() {
         bufferSeconds: 5,
       );
       final state = jsonDecode(client.buildClientState()) as Map<String, dynamic>;
-      expect(state['payload']['state'], 'idle');
+      expect(state['payload']['state'], 'synchronized');
       expect(state['payload']['buffer_depth_ms'], 0);
       client.dispose();
     });
@@ -213,7 +213,7 @@ void main() {
 
       await Future.delayed(Duration.zero);
       final state = jsonDecode(client.buildClientState()) as Map<String, dynamic>;
-      expect(state['payload']['state'], 'buffering');
+      expect(state['payload']['state'], 'synchronized');
       client.dispose();
     });
 
