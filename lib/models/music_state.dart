@@ -1,3 +1,40 @@
+/// Extract an image URL from a Music Assistant JSON object.
+///
+/// MA returns image URLs in several locations depending on the endpoint:
+///   - `image.url` (resolved image object)
+///   - `metadata.images[0].url` (raw metadata image list)
+///   - `image_url` (flattened convenience field)
+/// This helper tries each in order and returns the first non-null match.
+String? _extractImageUrl(Map<String, dynamic>? json) {
+  if (json == null) return null;
+
+  // Direct image object: { "image": { "url": "..." } }
+  final image = json['image'];
+  if (image is Map<String, dynamic>) {
+    final url = image['url'] as String?;
+    if (url != null && url.isNotEmpty) return url;
+  }
+
+  // Metadata images list: { "metadata": { "images": [{ "url": "..." }] } }
+  final metadata = json['metadata'];
+  if (metadata is Map<String, dynamic>) {
+    final images = metadata['images'];
+    if (images is List && images.isNotEmpty) {
+      final first = images[0];
+      if (first is Map<String, dynamic>) {
+        final url = first['url'] as String?;
+        if (url != null && url.isNotEmpty) return url;
+      }
+    }
+  }
+
+  // Flat image_url field
+  final imageUrl = json['image_url'] as String?;
+  if (imageUrl != null && imageUrl.isNotEmpty) return imageUrl;
+
+  return null;
+}
+
 /// A single track's metadata from Music Assistant via HA.
 ///
 /// Music Assistant stores track info in the media_player entity's attributes.
@@ -207,14 +244,13 @@ class MaQueueItem {
     final artistName =
         artists.isNotEmpty ? artists[0]['name'] as String? ?? 'Unknown' : 'Unknown';
     final album = mediaItem?['album'] as Map<String, dynamic>?;
-    final image = mediaItem?['image'] as Map<String, dynamic>?;
 
     return MaQueueItem(
       queueItemId: json['queue_item_id'] as String? ?? '',
       title: json['name'] as String? ?? 'Unknown',
       artist: artistName,
       album: album?['name'] as String? ?? '',
-      imageUrl: image?['url'] as String?,
+      imageUrl: _extractImageUrl(mediaItem) ?? _extractImageUrl(json),
       duration: Duration(seconds: (json['duration'] as num?)?.toInt() ?? 0),
       uri: mediaItem?['uri'] as String?,
     );
@@ -246,7 +282,6 @@ class MaMediaItem {
   });
 
   factory MaMediaItem.fromMaJson(Map<String, dynamic> json) {
-    final image = json['image'] as Map<String, dynamic>?;
     final artists = json['artists'] as List<dynamic>?;
     final artistName = artists != null && artists.isNotEmpty
         ? (artists[0] as Map<String, dynamic>)['name'] as String? ?? ''
@@ -258,7 +293,7 @@ class MaMediaItem {
       provider: json['provider'] as String? ?? '',
       name: json['name'] as String? ?? 'Unknown',
       mediaType: json['media_type'] as String? ?? 'track',
-      imageUrl: image?['url'] as String?,
+      imageUrl: _extractImageUrl(json),
       artist: artistName.isNotEmpty ? artistName : null,
       albumName: album?['name'] as String?,
       duration: json['duration'] != null
