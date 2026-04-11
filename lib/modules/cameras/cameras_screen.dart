@@ -256,6 +256,10 @@ class _CameraSnapshotTileState extends State<_CameraSnapshotTile> {
   /// Changing this forces Image.network to re-fetch.
   int _tick = DateTime.now().millisecondsSinceEpoch;
 
+  /// The full snapshot URL for the current tick, used to evict
+  /// the previous entry from Flutter's image cache on refresh.
+  String get _snapshotUrl => '${widget.camera.snapshotUrl}?t=$_tick';
+
   @override
   void initState() {
     super.initState();
@@ -267,7 +271,7 @@ class _CameraSnapshotTileState extends State<_CameraSnapshotTile> {
     super.didUpdateWidget(oldWidget);
     if (widget.isActive && !oldWidget.isActive) {
       // Becoming visible — refresh immediately and start polling
-      setState(() => _tick = DateTime.now().millisecondsSinceEpoch);
+      _evictAndRefresh();
       _startTimer();
     } else if (!widget.isActive && oldWidget.isActive) {
       _refreshTimer?.cancel();
@@ -278,10 +282,16 @@ class _CameraSnapshotTileState extends State<_CameraSnapshotTile> {
   void _startTimer() {
     _refreshTimer?.cancel();
     _refreshTimer = Timer.periodic(const Duration(seconds: 3), (_) {
-      if (mounted) {
-        setState(() => _tick = DateTime.now().millisecondsSinceEpoch);
-      }
+      if (mounted) _evictAndRefresh();
     });
+  }
+
+  /// Evict the current snapshot URL from Flutter's image cache,
+  /// then update the tick so the next build fetches a fresh frame.
+  void _evictAndRefresh() {
+    final oldUrl = _snapshotUrl;
+    setState(() => _tick = DateTime.now().millisecondsSinceEpoch);
+    PaintingBinding.instance.imageCache.evict(oldUrl);
   }
 
   @override
@@ -294,10 +304,12 @@ class _CameraSnapshotTileState extends State<_CameraSnapshotTile> {
   Widget build(BuildContext context) {
     return Image.network(
       // Append timestamp to bust the HTTP cache and get a fresh frame
-      '${widget.camera.snapshotUrl}?t=$_tick',
+      _snapshotUrl,
       fit: widget.fit,
       // Keep the previous frame visible while the new one loads
       gaplessPlayback: true,
+      // Cap decoded texture size to tile display resolution (~300px wide)
+      cacheWidth: 300,
       errorBuilder: (_, __, ___) => Container(
         color: Colors.white.withValues(alpha: 0.05),
         child: const Center(
