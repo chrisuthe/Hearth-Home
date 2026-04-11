@@ -33,7 +33,7 @@ class _MealieSettings extends ConsumerWidget {
       children: [
         Text('MEALIE', style: TextStyle(
           fontSize: 13, fontWeight: FontWeight.w600,
-          color: Colors.white.withValues(alpha: 0.4),
+          color: Colors.white.withValues(alpha: 0.5),
           letterSpacing: 1.2,
         )),
         const SizedBox(height: 8),
@@ -42,7 +42,7 @@ class _MealieSettings extends ConsumerWidget {
           title: const Text('Mealie URL', style: TextStyle(fontSize: 15)),
           subtitle: Text(
             config.mealieUrl.isEmpty ? 'Not configured' : config.mealieUrl,
-            style: TextStyle(fontSize: 13, color: Colors.white.withValues(alpha: 0.4)),
+            style: TextStyle(fontSize: 13, color: Colors.white.withValues(alpha: 0.5)),
           ),
           trailing: const Icon(Icons.chevron_right, color: Colors.white24),
           onTap: () => _showTextInput(context, ref, 'Mealie URL', config.mealieUrl,
@@ -55,7 +55,7 @@ class _MealieSettings extends ConsumerWidget {
           title: const Text('Mealie API Token', style: TextStyle(fontSize: 15)),
           subtitle: Text(
             config.mealieToken.isEmpty ? 'Not configured' : '\u2022' * 8,
-            style: TextStyle(fontSize: 13, color: Colors.white.withValues(alpha: 0.4)),
+            style: TextStyle(fontSize: 13, color: Colors.white.withValues(alpha: 0.5)),
           ),
           trailing: const Icon(Icons.chevron_right, color: Colors.white24),
           onTap: () => _showTextInput(context, ref, 'Mealie API Token', config.mealieToken,

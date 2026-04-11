@@ -83,12 +83,12 @@ class _CamerasScreenState extends ConsumerState<CamerasScreen> {
               Text('No cameras',
                   style: TextStyle(
                       fontSize: 18,
-                      color: Colors.white.withValues(alpha: 0.4))),
+                      color: Colors.white.withValues(alpha: 0.5))),
               const SizedBox(height: 8),
               Text('Connect Frigate NVR in settings',
                   style: TextStyle(
                       fontSize: 14,
-                      color: Colors.white.withValues(alpha: 0.3))),
+                      color: Colors.white.withValues(alpha: 0.5))),
             ],
           ),
         ),

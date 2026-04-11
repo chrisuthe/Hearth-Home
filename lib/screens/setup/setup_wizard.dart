@@ -177,7 +177,7 @@ class _SetupWizardState extends ConsumerState<SetupWizard> {
                         subtitle: Text(
                           network.isOpen ? 'Open' : network.security,
                           style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.4)),
+                              color: Colors.white.withValues(alpha: 0.5)),
                         ),
                         trailing: isConnected
                             ? const Icon(Icons.check_circle,
