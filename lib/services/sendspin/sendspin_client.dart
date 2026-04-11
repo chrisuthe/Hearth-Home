@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 
 import '../../models/sendspin_state.dart';
@@ -215,6 +216,18 @@ class SendspinClient {
       sampleRate: sampleRate,
     );
 
+    // Feed codec header (e.g. FLAC STREAMINFO) to the decoder if provided.
+    final codecHeader = audioFormat['codec_header'] as String?;
+    if (codecHeader != null && codecHeader.isNotEmpty) {
+      try {
+        final headerBytes = base64Decode(codecHeader);
+        _codec!.decode(Uint8List.fromList(headerBytes));
+        Log.d('Sendspin', 'Fed ${headerBytes.length} byte codec header');
+      } catch (e) {
+        Log.w('Sendspin', 'Failed to decode codec header: $e');
+      }
+    }
+
     // On track switch, flush the existing buffer instead of creating a new
     // one with a startup delay. This avoids the 5-second startup buffer
     // that causes overflow when audio arrives immediately.
@@ -224,7 +237,7 @@ class SendspinClient {
       _buffer = SendspinBuffer(
         sampleRate: sampleRate,
         channels: channels,
-        startupBufferMs: bufferSeconds * 1000 ~/ 2,
+        startupBufferMs: 200, // Match reference impl: 200ms before releasing
         maxBufferMs: bufferSeconds * 1000,
       );
     }
@@ -326,13 +339,25 @@ class SendspinClient {
   // Clock sync
   // ---------------------------------------------------------------------------
 
-  /// Starts periodic clock synchronization (every 2 seconds).
+  /// Starts periodic clock synchronization (every 2 seconds, burst of 5).
+  ///
+  /// The reference implementation sends 5 rapid time samples per burst for
+  /// better jitter rejection in the Kalman filter.
   void startClockSync() {
     stopClockSync();
     _clockSyncTimer = Timer.periodic(const Duration(seconds: 2), (_) {
-      final clientTransmittedUs = DateTime.now().microsecondsSinceEpoch;
-      onSendText?.call(buildClientTime(clientTransmittedUs));
+      _sendTimeBurst();
     });
+  }
+
+  void _sendTimeBurst() {
+    for (int i = 0; i < 5; i++) {
+      Future.delayed(Duration(milliseconds: i * 20), () {
+        if (_clockSyncTimer == null) return; // cancelled
+        final clientTransmittedUs = DateTime.now().microsecondsSinceEpoch;
+        onSendText?.call(buildClientTime(clientTransmittedUs));
+      });
+    }
   }
 
   /// Stops clock synchronization.
