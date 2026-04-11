@@ -114,24 +114,11 @@ class SendspinClient {
   /// 'synchronized' during normal playback, 'buffering' when buffer is empty
   /// but streaming, or 'idle' when not streaming.
   String buildClientState() {
-    final bufferMs = _buffer?.bufferDepthMs ?? 0;
-    final bool isStreaming =
-        _state.connectionState == SendspinConnectionState.streaming;
-
-    final String operationalState;
-    if (!isStreaming) {
-      operationalState = 'idle';
-    } else if (bufferMs == 0) {
-      operationalState = 'buffering';
-    } else {
-      operationalState = 'synchronized';
-    }
-
     return jsonEncode({
       'type': 'client/state',
       'payload': {
-        'state': operationalState,
-        'buffer_depth_ms': bufferMs,
+        // Spec states: 'synchronized', 'error', 'external_source'.
+        'state': 'synchronized',
         'player': {
           'volume': (_state.volume * 100).round(),
           'muted': _state.muted,

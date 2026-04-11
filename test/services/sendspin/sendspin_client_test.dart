@@ -176,44 +176,14 @@ void main() {
       client.dispose();
     });
 
-    test('buildClientState reports idle when not streaming', () {
+    test('buildClientState always reports synchronized per spec', () {
       final client = SendspinClient(
         playerName: 'Test Player',
         clientId: 'test-id',
         bufferSeconds: 5,
       );
       final state = jsonDecode(client.buildClientState()) as Map<String, dynamic>;
-      expect(state['payload']['state'], 'idle');
-      expect(state['payload']['buffer_depth_ms'], 0);
-      client.dispose();
-    });
-
-    test('buildClientState reports buffering when streaming with empty buffer', () async {
-      final client = SendspinClient(
-        playerName: 'Test Player',
-        clientId: 'test-id',
-        bufferSeconds: 5,
-      );
-      // Enter streaming state.
-      client.handleTextMessage(jsonEncode({
-        'type': 'server/hello',
-        'payload': {'name': 'MA'},
-      }));
-      client.handleTextMessage(jsonEncode({
-        'type': 'stream/start',
-        'payload': {
-          'audio_format': {
-            'codec': 'pcm',
-            'channels': 2,
-            'sample_rate': 48000,
-            'bit_depth': 16,
-          },
-        },
-      }));
-
-      await Future.delayed(Duration.zero);
-      final state = jsonDecode(client.buildClientState()) as Map<String, dynamic>;
-      expect(state['payload']['state'], 'buffering');
+      expect(state['payload']['state'], 'synchronized');
       client.dispose();
     });
 
