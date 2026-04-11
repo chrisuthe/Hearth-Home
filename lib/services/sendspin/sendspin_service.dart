@@ -296,11 +296,10 @@ class SendspinService {
       if (_client == null || _audioSink == null) return;
       final sampleCount = framesPerTick * _channels;
       final samples = _client!.pullSamples(sampleCount);
-      final bytes = Uint8List(samples.length * 2);
-      final view = ByteData.view(bytes.buffer);
-      for (int i = 0; i < samples.length; i++) {
-        view.setInt16(i * 2, samples[i], Endian.little);
-      }
+      // Int16List's backing buffer is already little-endian 16-bit PCM on
+      // little-endian hosts (ARM, x86). Reinterpret directly as bytes.
+      final bytes = Uint8List.view(samples.buffer,
+          samples.offsetInBytes, samples.lengthInBytes);
       _audioSink!.writeSamples(bytes);
     });
   }

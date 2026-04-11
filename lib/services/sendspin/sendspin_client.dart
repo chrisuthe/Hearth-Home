@@ -376,8 +376,8 @@ class SendspinClient {
   // ---------------------------------------------------------------------------
 
   /// Pulls [count] decoded PCM samples from the buffer, or silence if empty.
-  List<int> pullSamples(int count) {
-    return _buffer?.pullSamples(count) ?? List<int>.filled(count, 0);
+  Int16List pullSamples(int count) {
+    return _buffer?.pullSamples(count) ?? Int16List(count);
   }
 
   // ---------------------------------------------------------------------------

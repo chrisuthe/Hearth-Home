@@ -1,12 +1,18 @@
 import 'dart:collection';
 import 'dart:math';
+import 'dart:typed_data';
 import '../../utils/logger.dart';
 
 class _AudioChunk implements Comparable<_AudioChunk> {
   final int timestampUs;
-  List<int> samples;
+  Int16List samples;
+  /// Offset into [samples] where unconsumed data begins.
+  int offset;
 
-  _AudioChunk(this.timestampUs, this.samples);
+  _AudioChunk(this.timestampUs, this.samples) : offset = 0;
+
+  /// Number of unconsumed samples remaining in this chunk.
+  int get remaining => samples.length - offset;
 
   @override
   int compareTo(_AudioChunk other) => timestampUs.compareTo(other.timestampUs);
@@ -79,10 +85,10 @@ class SendspinBuffer {
   /// Add a decoded PCM chunk with a network timestamp in microseconds.
   ///
   /// Chunks with duplicate timestamps are rejected (the first one wins).
-  void addChunk(int timestampUs, List<int> samples) {
+  void addChunk(int timestampUs, Int16List samples) {
     // SplayTreeSet uses compareTo for equality — duplicate timestamps collide.
     // Wrap in a fresh object each time; if insertion fails it's a duplicate.
-    final chunk = _AudioChunk(timestampUs, List<int>.of(samples));
+    final chunk = _AudioChunk(timestampUs, Int16List.fromList(samples));
     final added = _chunks.add(chunk);
     if (!added) {
       Log.w('Sendspin', 'Buffer: duplicate timestamp $timestampUs µs — chunk dropped');
@@ -111,16 +117,16 @@ class SendspinBuffer {
   ///   at a rate clamped to ±4% of the pull rate.
   /// - **Re-anchor** (> 500ms): flush the buffer and restart playback
   ///   tracking (with a 5-second cooldown).
-  List<int> pullSamples(int count) {
+  Int16List pullSamples(int count) {
     if (!_startupMet || _chunks.isEmpty) {
-      return List<int>.filled(count, 0);
+      return Int16List(count);
     }
 
     // Static delay: hold back enough samples to cover the delay period.
     if (_staticDelayMs > 0) {
       final delaySamples = _staticDelayMs * _samplesPerMs;
       if (_totalSamples <= delaySamples) {
-        return List<int>.filled(count, 0);
+        return Int16List(count);
       }
     }
 
@@ -149,7 +155,7 @@ class SendspinBuffer {
         Log.w('Sendspin',
             'Sync: re-anchor — error $_lastSyncErrorUs µs exceeds threshold');
         flush();
-        return List<int>.filled(count, 0);
+        return Int16List(count);
       }
     }
 
@@ -183,42 +189,52 @@ class SendspinBuffer {
     if (rawSamples.length == count) {
       return rawSamples;
     } else if (rawSamples.length > count) {
-      return rawSamples.sublist(0, count);
+      return Int16List.sublistView(rawSamples, 0, count);
     } else {
-      final result = List<int>.of(rawSamples);
+      // Need to expand: duplicate last frame or pad with silence.
+      final result = Int16List(count);
+      result.setRange(0, rawSamples.length, rawSamples);
       if (rawSamples.length >= channels) {
-        final lastFrame =
-            rawSamples.sublist(rawSamples.length - channels);
-        while (result.length < count) {
-          final needed = min(channels, count - result.length);
-          result.addAll(lastFrame.sublist(0, needed));
+        // Duplicate the last frame to fill.
+        int pos = rawSamples.length;
+        while (pos < count) {
+          final needed = min(channels, count - pos);
+          for (int i = 0; i < needed; i++) {
+            result[pos + i] = rawSamples[rawSamples.length - channels + i];
+          }
+          pos += needed;
         }
-      } else {
-        result.addAll(List<int>.filled(count - result.length, 0));
       }
+      // If rawSamples.length < channels, the remaining zeros from Int16List
+      // constructor serve as silence padding.
       return result;
     }
   }
 
   /// Raw pull: extracts exactly [count] samples from the chunk queue,
   /// padding with silence on underrun.
-  List<int> _pullRaw(int count) {
-    final result = <int>[];
+  Int16List _pullRaw(int count) {
+    final result = Int16List(count);
+    int written = 0;
     var remaining = count;
 
     while (remaining > 0 && _chunks.isNotEmpty) {
       final chunk = _chunks.first;
-      final available = chunk.samples.length;
+      final available = chunk.remaining;
 
       if (available <= remaining) {
-        result.addAll(chunk.samples);
+        result.setRange(written, written + available,
+            chunk.samples, chunk.offset);
+        written += available;
         remaining -= available;
         _totalSamples -= available;
         _chunks.remove(chunk);
       } else {
-        result.addAll(chunk.samples.sublist(0, remaining));
+        result.setRange(written, written + remaining,
+            chunk.samples, chunk.offset);
         _totalSamples -= remaining;
-        chunk.samples = chunk.samples.sublist(remaining);
+        chunk.offset += remaining;
+        written += remaining;
         remaining = 0;
       }
     }
@@ -226,7 +242,7 @@ class SendspinBuffer {
     if (remaining > 0) {
       Log.d('Sendspin',
           'Buffer: underrun — padding $remaining samples with silence');
-      result.addAll(List<int>.filled(remaining, 0));
+      // Remaining portion of result is already zero from Int16List constructor.
     }
 
     return result;
@@ -251,7 +267,7 @@ class SendspinBuffer {
     final maxSamples = maxBufferMs * _samplesPerMs;
     while (_totalSamples > maxSamples && _chunks.isNotEmpty) {
       final oldest = _chunks.first;
-      _totalSamples -= oldest.samples.length;
+      _totalSamples -= oldest.remaining;
       _chunks.remove(oldest);
       _overflowCount++;
       if (_overflowCount % 100 == 1) {

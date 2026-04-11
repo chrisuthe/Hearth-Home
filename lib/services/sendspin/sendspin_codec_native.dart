@@ -1,4 +1,5 @@
 import 'dart:ffi';
+import 'dart:typed_data';
 
 import 'package:ffi/ffi.dart';
 import 'package:flutter/foundation.dart';
@@ -27,8 +28,8 @@ class FlacCodec implements SendspinCodec {
   }
 
   @override
-  List<int> decode(Uint8List encodedData) {
-    if (encodedData.isEmpty) return const [];
+  Int16List decode(Uint8List encodedData) {
+    if (encodedData.isEmpty) return Int16List(0);
 
     final inputBuf = calloc<Uint8>(encodedData.length);
     inputBuf.asTypedList(encodedData.length).setAll(0, encodedData);
@@ -45,10 +46,16 @@ class FlacCodec implements SendspinCodec {
 
     if (sampleCount < 0) {
       debugPrint('FlacCodec: decode error');
-      return const [];
+      return Int16List(0);
     }
 
-    return _outputBuf.asTypedList(sampleCount).toList();
+    // FLAC output is Int32 — truncate to Int16 for the audio pipeline.
+    final int32Samples = _outputBuf.asTypedList(sampleCount);
+    final result = Int16List(sampleCount);
+    for (int i = 0; i < sampleCount; i++) {
+      result[i] = int32Samples[i];
+    }
+    return result;
   }
 
   @override
