@@ -244,6 +244,8 @@ class SendspinBuffer {
     Log.d('Sendspin', 'Buffer: flushed');
   }
 
+  int _overflowCount = 0;
+
   /// Drop oldest chunks until the buffer is within [maxBufferMs].
   void _trimToMax() {
     final maxSamples = maxBufferMs * _samplesPerMs;
@@ -251,7 +253,10 @@ class SendspinBuffer {
       final oldest = _chunks.first;
       _totalSamples -= oldest.samples.length;
       _chunks.remove(oldest);
-      Log.w('Sendspin', 'Buffer: overflow — dropped chunk ts=${oldest.timestampUs} µs');
+      _overflowCount++;
+      if (_overflowCount % 100 == 1) {
+        Log.w('Sendspin', 'Buffer: overflow — dropped $_overflowCount chunks (depth=${bufferDepthMs}ms)');
+      }
     }
   }
 }

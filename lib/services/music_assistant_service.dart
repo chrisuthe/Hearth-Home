@@ -92,9 +92,12 @@ class MusicAssistantService {
   void previousTrack(String queueId) =>
       sendCommand('player_queues/previous', {'queue_id': queueId});
 
-  void setVolume(String playerId, double volume) => sendCommand(
-      'players/cmd/volume_set',
-      {'player_id': playerId, 'volume_level': (volume * 100).round()});
+  void setVolume(String playerId, double volume) {
+    final level = (volume * 100).round();
+    Log.i('MA', 'setVolume: player=$playerId level=$level');
+    sendCommand('players/cmd/volume_set',
+        {'player_id': playerId, 'volume_level': level});
+  }
 
   void setShuffle(String queueId, bool shuffle) => sendCommand(
       'player_queues/shuffle', {'queue_id': queueId, 'shuffle': shuffle});
