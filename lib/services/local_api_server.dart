@@ -29,7 +29,6 @@ class LocalApiServer {
   final DisplayModeService _displayModeService;
   final HubConfigNotifier _configNotifier;
   final WifiService _wifiService;
-  // ignore: unused_field
   final UpdateService _updateService;
   HttpServer? _server;
 
