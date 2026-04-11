@@ -56,6 +56,7 @@ class FlacCodec implements SendspinCodec {
     _ffi.reset(_decoder);
   }
 
+  @override
   void dispose() {
     _ffi.free(_decoder);
     calloc.free(_outputBuf);
