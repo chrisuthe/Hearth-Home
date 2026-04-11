@@ -31,6 +31,8 @@ class SendspinClient {
   SendspinBuffer? _buffer;
   SendspinCodec? _codec;
 
+  int _staticDelayMs = 0;
+
   SendspinPlayerState _state = const SendspinPlayerState();
   final StreamController<SendspinPlayerState> _stateController =
       StreamController<SendspinPlayerState>.broadcast();
@@ -90,7 +92,7 @@ class SendspinClient {
             {'codec': 'flac', 'channels': 2, 'sample_rate': 44100, 'bit_depth': 16},
           ],
           'buffer_capacity': bufferSeconds * 48000 * 2 * 2, // bytes
-          'supported_commands': ['volume', 'mute'],
+          'supported_commands': ['volume', 'mute', 'set_static_delay'],
         },
       },
     });
@@ -133,8 +135,8 @@ class SendspinClient {
         'player': {
           'volume': (_state.volume * 100).round(),
           'muted': _state.muted,
-          'static_delay_ms': 0,
-          'supported_commands': ['volume', 'mute'],
+          'static_delay_ms': _staticDelayMs,
+          'supported_commands': ['volume', 'mute', 'set_static_delay'],
         },
       },
     });
@@ -308,6 +310,15 @@ class SendspinClient {
         final muted = player['mute'] as bool?;
         if (muted != null) {
           _updateState(_state.copyWith(muted: muted));
+          onSendText?.call(buildClientState());
+        }
+      case 'set_static_delay':
+        final delayMs = player['static_delay_ms'] as int?;
+        if (delayMs != null) {
+          _staticDelayMs = delayMs.clamp(0, 5000);
+          _buffer?.staticDelayMs = _staticDelayMs;
+          _updateState(_state.copyWith(staticDelayMs: _staticDelayMs));
+          Log.i('Sendspin', 'Static delay set to $_staticDelayMs ms');
           onSendText?.call(buildClientState());
         }
       default:

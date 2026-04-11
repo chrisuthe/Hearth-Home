@@ -40,6 +40,13 @@ class SendspinBuffer {
   final SplayTreeSet<_AudioChunk> _chunks = SplayTreeSet();
   int _totalSamples = 0;
   bool _startupMet = false;
+  int _staticDelayMs = 0;
+
+  /// Sets the static delay in milliseconds for multi-room sync.
+  ///
+  /// The delay offsets when samples become eligible for playback, effectively
+  /// holding audio in the buffer longer to compensate for speaker distance.
+  set staticDelayMs(int value) => _staticDelayMs = value;
 
   // Sync correction state
   bool _playbackAnchored = false;
@@ -109,6 +116,14 @@ class SendspinBuffer {
       return List<int>.filled(count, 0);
     }
 
+    // Static delay: hold back enough samples to cover the delay period.
+    if (_staticDelayMs > 0) {
+      final delaySamples = _staticDelayMs * _samplesPerMs;
+      if (_totalSamples <= delaySamples) {
+        return List<int>.filled(count, 0);
+      }
+    }
+
     // Anchor playback position to the first chunk we ever play.
     if (!_playbackAnchored) {
       _playbackPositionUs = _chunks.first.timestampUs;
@@ -134,7 +149,6 @@ class SendspinBuffer {
         Log.w('Sendspin',
             'Sync: re-anchor — error $_lastSyncErrorUs µs exceeds threshold');
         flush();
-        // Return silence for this tick; next pull will re-anchor.
         return List<int>.filled(count, 0);
       }
     }
@@ -142,26 +156,20 @@ class SendspinBuffer {
     // --- MICRO-CORRECTION ---
     int adjustedFrames = frames;
     if (absSyncError > _correctionDeadbandUs) {
-      // correction_frames per pull = sync_error / (target_seconds * sample_rate)
-      // This is the number of extra (or fewer) frames to pull this tick.
       final double correctionRate =
           _lastSyncErrorUs / (_correctionTargetSeconds * sampleRate);
-      // Clamp to ±4% of the requested frame count.
       final double maxAdj = _maxSpeedCorrection * frames;
       final double clampedRate = correctionRate.clamp(-maxAdj, maxAdj);
 
       _correctionAccumulator += clampedRate;
 
-      // Only apply whole-frame corrections (channels samples per frame).
       final int wholeFrames = _correctionAccumulator.truncate();
       if (wholeFrames != 0) {
         _correctionAccumulator -= wholeFrames;
         adjustedFrames += wholeFrames;
-        // Never go negative.
         adjustedFrames = max(0, adjustedFrames);
       }
     } else {
-      // Inside deadband — bleed off any accumulated correction.
       _correctionAccumulator = 0.0;
     }
 
@@ -169,22 +177,14 @@ class SendspinBuffer {
     final pullCount = adjustedFrames * channels;
     final rawSamples = _pullRaw(pullCount);
 
-    // Advance the playback position by the *requested* frame count (not
-    // the adjusted one). The adjustment is the correction itself — the
-    // playback clock should track wall-clock, not the corrected pull.
     final int frameDurationUs = (frames * 1000000) ~/ sampleRate;
     _playbackPositionUs += frameDurationUs;
 
-    // Now map rawSamples back to the caller's expected [count].
     if (rawSamples.length == count) {
       return rawSamples;
     } else if (rawSamples.length > count) {
-      // We pulled more (dropping frames to catch up) — truncate to what
-      // the audio sink expects. The extra samples are effectively skipped.
       return rawSamples.sublist(0, count);
     } else {
-      // We pulled fewer (inserting frames to slow down) — pad by
-      // duplicating the last frame to fill the gap.
       final result = List<int>.of(rawSamples);
       if (rawSamples.length >= channels) {
         final lastFrame =
@@ -194,7 +194,6 @@ class SendspinBuffer {
           result.addAll(lastFrame.sublist(0, needed));
         }
       } else {
-        // Not enough for even one frame — pad with silence.
         result.addAll(List<int>.filled(count - result.length, 0));
       }
       return result;

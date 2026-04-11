@@ -18,6 +18,7 @@ class SendspinPlayerState {
   final String? codec;
   final String? serverName;
   final int bufferDepthMs;
+  final int staticDelayMs;
 
   const SendspinPlayerState({
     this.connectionState = SendspinConnectionState.disabled,
@@ -28,6 +29,7 @@ class SendspinPlayerState {
     this.codec,
     this.serverName,
     this.bufferDepthMs = 0,
+    this.staticDelayMs = 0,
   });
 
   bool get isActive =>
@@ -44,6 +46,7 @@ class SendspinPlayerState {
     String? codec,
     String? serverName,
     int? bufferDepthMs,
+    int? staticDelayMs,
   }) {
     return SendspinPlayerState(
       connectionState: connectionState ?? this.connectionState,
@@ -54,6 +57,7 @@ class SendspinPlayerState {
       codec: codec ?? this.codec,
       serverName: serverName ?? this.serverName,
       bufferDepthMs: bufferDepthMs ?? this.bufferDepthMs,
+      staticDelayMs: staticDelayMs ?? this.staticDelayMs,
     );
   }
 }
