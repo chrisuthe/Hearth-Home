@@ -36,6 +36,7 @@ class SendspinClient {
       StreamController<SendspinPlayerState>.broadcast();
 
   Timer? _clockSyncTimer;
+  Timer? _stateReportTimer;
 
   /// Callback for sending text messages back through the WebSocket.
   void Function(String message)? onSendText;
@@ -106,11 +107,29 @@ class SendspinClient {
   }
 
   /// Builds a client/state report.
+  ///
+  /// Reports the current buffer depth and derives the operational state:
+  /// 'synchronized' during normal playback, 'buffering' when buffer is empty
+  /// but streaming, or 'idle' when not streaming.
   String buildClientState() {
+    final bufferMs = _buffer?.bufferDepthMs ?? 0;
+    final bool isStreaming =
+        _state.connectionState == SendspinConnectionState.streaming;
+
+    String operationalState;
+    if (!isStreaming) {
+      operationalState = 'idle';
+    } else if (bufferMs == 0) {
+      operationalState = 'buffering';
+    } else {
+      operationalState = 'synchronized';
+    }
+
     return jsonEncode({
       'type': 'client/state',
       'payload': {
-        'state': 'synchronized',
+        'state': operationalState,
+        'buffer_depth_ms': bufferMs,
         'player': {
           'volume': (_state.volume * 100).round(),
           'muted': _state.muted,
@@ -249,6 +268,7 @@ class SendspinClient {
       channels: channels,
     ));
 
+    _startStateReporting();
     onStreamStart?.call(sampleRate, channels, bitDepth);
   }
 
@@ -260,6 +280,7 @@ class SendspinClient {
 
   void _handleStreamEnd() {
     Log.d('Sendspin', 'stream/end');
+    _stopStateReporting();
     onStreamStop?.call();
     _buffer?.flush();
     _codec?.reset();
@@ -281,10 +302,14 @@ class SendspinClient {
         final vol = player['volume'];
         if (vol is num) {
           _updateState(_state.copyWith(volume: vol.toDouble() / 100));
+          onSendText?.call(buildClientState());
         }
       case 'mute':
         final muted = player['mute'] as bool?;
-        if (muted != null) _updateState(_state.copyWith(muted: muted));
+        if (muted != null) {
+          _updateState(_state.copyWith(muted: muted));
+          onSendText?.call(buildClientState());
+        }
       default:
         Log.d('Sendspin', 'Unknown server command: $command');
     }
@@ -367,12 +392,31 @@ class SendspinClient {
   }
 
   // ---------------------------------------------------------------------------
+  // Periodic state reporting
+  // ---------------------------------------------------------------------------
+
+  /// Starts periodic client/state reports every 5 seconds during streaming.
+  void _startStateReporting() {
+    _stopStateReporting();
+    _stateReportTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      onSendText?.call(buildClientState());
+    });
+  }
+
+  /// Stops periodic state reporting.
+  void _stopStateReporting() {
+    _stateReportTimer?.cancel();
+    _stateReportTimer = null;
+  }
+
+  // ---------------------------------------------------------------------------
   // Lifecycle
   // ---------------------------------------------------------------------------
 
   /// Cleans up timers and stream controller.
   void dispose() {
     stopClockSync();
+    _stopStateReporting();
     _stateController.close();
   }
 }

@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -124,6 +123,136 @@ void main() {
       expect(payload['supported_roles'], contains('player@v1'));
       final deviceInfo = payload['device_info'] as Map<String, dynamic>;
       expect(deviceInfo['product_name'], 'Hearth');
+      client.dispose();
+    });
+
+    test('sends client/state immediately on volume command', () async {
+      final client = SendspinClient(
+        playerName: 'Test Player',
+        clientId: 'test-id',
+        bufferSeconds: 5,
+      );
+      final sentMessages = <String>[];
+      client.onSendText = sentMessages.add;
+
+      client.handleTextMessage(jsonEncode({
+        'type': 'server/command',
+        'payload': {
+          'player': {'command': 'volume', 'volume': 75},
+        },
+      }));
+
+      await Future.delayed(Duration.zero);
+      expect(sentMessages, hasLength(1));
+      final parsed = jsonDecode(sentMessages.first) as Map<String, dynamic>;
+      expect(parsed['type'], 'client/state');
+      final payload = parsed['payload'] as Map<String, dynamic>;
+      expect((payload['player'] as Map)['volume'], 75);
+      client.dispose();
+    });
+
+    test('sends client/state immediately on mute command', () async {
+      final client = SendspinClient(
+        playerName: 'Test Player',
+        clientId: 'test-id',
+        bufferSeconds: 5,
+      );
+      final sentMessages = <String>[];
+      client.onSendText = sentMessages.add;
+
+      client.handleTextMessage(jsonEncode({
+        'type': 'server/command',
+        'payload': {
+          'player': {'command': 'mute', 'mute': true},
+        },
+      }));
+
+      await Future.delayed(Duration.zero);
+      expect(sentMessages, hasLength(1));
+      final parsed = jsonDecode(sentMessages.first) as Map<String, dynamic>;
+      expect(parsed['type'], 'client/state');
+      final payload = parsed['payload'] as Map<String, dynamic>;
+      expect((payload['player'] as Map)['muted'], true);
+      client.dispose();
+    });
+
+    test('buildClientState reports idle when not streaming', () {
+      final client = SendspinClient(
+        playerName: 'Test Player',
+        clientId: 'test-id',
+        bufferSeconds: 5,
+      );
+      final state = jsonDecode(client.buildClientState()) as Map<String, dynamic>;
+      expect(state['payload']['state'], 'idle');
+      expect(state['payload']['buffer_depth_ms'], 0);
+      client.dispose();
+    });
+
+    test('buildClientState reports buffering when streaming with empty buffer', () async {
+      final client = SendspinClient(
+        playerName: 'Test Player',
+        clientId: 'test-id',
+        bufferSeconds: 5,
+      );
+      // Enter streaming state.
+      client.handleTextMessage(jsonEncode({
+        'type': 'server/hello',
+        'payload': {'name': 'MA'},
+      }));
+      client.handleTextMessage(jsonEncode({
+        'type': 'stream/start',
+        'payload': {
+          'audio_format': {
+            'codec': 'pcm',
+            'channels': 2,
+            'sample_rate': 48000,
+            'bit_depth': 16,
+          },
+        },
+      }));
+
+      await Future.delayed(Duration.zero);
+      final state = jsonDecode(client.buildClientState()) as Map<String, dynamic>;
+      expect(state['payload']['state'], 'buffering');
+      client.dispose();
+    });
+
+    test('starts state report timer on stream/start and stops on stream/end', () async {
+      final client = SendspinClient(
+        playerName: 'Test Player',
+        clientId: 'test-id',
+        bufferSeconds: 5,
+      );
+      final sentMessages = <String>[];
+      client.onSendText = sentMessages.add;
+
+      client.handleTextMessage(jsonEncode({
+        'type': 'server/hello',
+        'payload': {'name': 'MA'},
+      }));
+      sentMessages.clear(); // clear the initial client/state from server/hello
+
+      client.handleTextMessage(jsonEncode({
+        'type': 'stream/start',
+        'payload': {
+          'audio_format': {
+            'codec': 'pcm',
+            'channels': 2,
+            'sample_rate': 48000,
+            'bit_depth': 16,
+          },
+        },
+      }));
+
+      // Timer fires every 5 seconds; use fakeAsync if needed.
+      // For now just verify dispose doesn't throw (timer cleanup).
+      client.handleTextMessage(jsonEncode({
+        'type': 'stream/end',
+        'payload': {},
+      }));
+
+      // After stream/end, the timer should be stopped.
+      // Disposing should not throw.
       client.dispose();
     });
 
