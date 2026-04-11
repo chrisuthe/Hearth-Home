@@ -194,6 +194,7 @@ class _BrowsePanelState extends ConsumerState<_BrowsePanel>
   List<MaMediaItem> _libraryItems = [];
   bool _libraryLoading = false;
   String _libraryType = 'artists';
+  bool _albumArtistsOnly = false;
 
   // Search state
   final _searchController = TextEditingController();
@@ -250,7 +251,11 @@ class _BrowsePanelState extends ConsumerState<_BrowsePanel>
   Future<void> _loadLibrary() async {
     setState(() => _libraryLoading = true);
     try {
-      final items = await widget.music.getLibraryItems(_libraryType);
+      final effectiveType =
+          _libraryType == 'artists' && _albumArtistsOnly
+              ? 'album_artists'
+              : _libraryType;
+      final items = await widget.music.getLibraryItems(effectiveType);
       if (mounted) setState(() => _libraryItems = items);
     } catch (e) {
       // Library may not be available
@@ -541,6 +546,34 @@ class _BrowsePanelState extends ConsumerState<_BrowsePanel>
                         fontSize: 12,
                       ),
                       side: BorderSide.none,
+                    ),
+                  ),
+                if (_libraryType == 'artists')
+                  Padding(
+                    padding: const EdgeInsets.only(left: 4),
+                    child: FilterChip(
+                      label: const Text('Album Artists Only'),
+                      selected: _albumArtistsOnly,
+                      onSelected: (selected) {
+                        setState(() => _albumArtistsOnly = selected);
+                        _loadLibrary();
+                      },
+                      selectedColor: _accent,
+                      backgroundColor: kDialogBackground,
+                      labelStyle: TextStyle(
+                        color: _albumArtistsOnly
+                            ? Colors.white
+                            : Colors.white70,
+                        fontSize: 12,
+                      ),
+                      side: BorderSide.none,
+                      avatar: Icon(
+                        Icons.album,
+                        size: 16,
+                        color: _albumArtistsOnly
+                            ? Colors.white
+                            : Colors.white54,
+                      ),
                     ),
                   ),
               ],
