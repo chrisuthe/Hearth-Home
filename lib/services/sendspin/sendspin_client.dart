@@ -200,10 +200,12 @@ class SendspinClient {
     final sampleRate = audioFormat['sample_rate'] as int? ?? 48000;
     final bitDepth = audioFormat['bit_depth'] as int? ?? 16;
 
+    final wasStreaming = _state.connectionState == SendspinConnectionState.streaming;
+
     Log.i(
       'Sendspin',
       'stream/start codec=$codecName ch=$channels '
-      'rate=$sampleRate bits=$bitDepth',
+      'rate=$sampleRate bits=$bitDepth${wasStreaming ? " (track switch)" : ""}',
     );
 
     _codec = createCodec(
@@ -213,12 +215,19 @@ class SendspinClient {
       sampleRate: sampleRate,
     );
 
-    _buffer = SendspinBuffer(
-      sampleRate: sampleRate,
-      channels: channels,
-      startupBufferMs: bufferSeconds * 1000 ~/ 2,
-      maxBufferMs: bufferSeconds * 1000,
-    );
+    // On track switch, flush the existing buffer instead of creating a new
+    // one with a startup delay. This avoids the 5-second startup buffer
+    // that causes overflow when audio arrives immediately.
+    if (wasStreaming && _buffer != null) {
+      _buffer!.flush();
+    } else {
+      _buffer = SendspinBuffer(
+        sampleRate: sampleRate,
+        channels: channels,
+        startupBufferMs: bufferSeconds * 1000 ~/ 2,
+        maxBufferMs: bufferSeconds * 1000,
+      );
+    }
 
     _updateState(_state.copyWith(
       connectionState: SendspinConnectionState.streaming,

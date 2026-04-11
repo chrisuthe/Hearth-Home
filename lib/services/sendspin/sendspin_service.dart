@@ -173,9 +173,14 @@ class SendspinService {
     _audioSink = Platform.isLinux ? AlsaAudioSink() : SendspinAudioSink();
 
     _client!.onStreamStart = (sampleRate, channels, bitDepth) {
+      _channels = channels;
+      if (_audioFeedTimer != null) {
+        // Already streaming (track switch) — keep the sink and timer running.
+        Log.i('Sendspin', 'Track switch: reusing audio sink');
+        return;
+      }
       Log.i('Sendspin', 'Initializing audio sink: '
           '${sampleRate}Hz ${channels}ch ${bitDepth}bit');
-      _channels = channels;
       // Start draining the buffer immediately so it doesn't overflow
       // while the async ALSA initialization completes.
       _startAudioFeed(sampleRate);
@@ -186,10 +191,10 @@ class SendspinService {
       ).then((_) => _audioSink?.start());
     };
 
-    _client!.onStreamStop = () async {
-      Log.i('Sendspin', 'Stopping audio sink');
-      _stopAudioFeed();
-      await _audioSink?.stop();
+    _client!.onStreamStop = () {
+      // Don't stop the sink here — stream/end is followed by stream/start
+      // on track switches. The sink and timer are cleaned up on disconnect.
+      Log.d('Sendspin', 'stream/end received');
     };
 
     socket.listen(
