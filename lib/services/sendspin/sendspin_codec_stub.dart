@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/foundation.dart';
 
 import 'sendspin_codec.dart';
@@ -9,7 +11,7 @@ class FlacCodec implements SendspinCodec {
   }
 
   @override
-  List<int> decode(Uint8List encodedData) => throw UnsupportedError('FLAC not supported');
+  Int16List decode(Uint8List encodedData) => throw UnsupportedError('FLAC not supported');
 
   @override
   void reset() {}
