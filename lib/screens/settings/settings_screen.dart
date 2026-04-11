@@ -42,20 +42,51 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ),
         const SizedBox(height: 8),
         ...allModules.map((module) {
-          final isEnabled = config.enabledModules.contains(module.id);
-          return SwitchListTile(
-            secondary: Icon(module.icon, color: Colors.white54),
+          final placements = List<String>.from(
+              config.modulePlacements[module.id] ?? []);
+          return ListTile(
+            leading: Icon(module.icon, color: Colors.white54),
             title: Text(module.name),
-            value: isEnabled,
-            onChanged: (v) {
-              final updated = List<String>.from(config.enabledModules);
-              if (v) {
-                updated.add(module.id);
-              } else {
-                updated.remove(module.id);
-              }
-              _updateConfig((c) => c.copyWith(enabledModules: updated));
-            },
+            subtitle: Wrap(
+              spacing: 6,
+              children: [
+                for (final placement in ['swipe', 'menu1', 'menu2'])
+                  FilterChip(
+                    label: Text(
+                      placement == 'swipe' ? 'Swipe' :
+                      placement == 'menu1' ? 'Menu 1' : 'Menu 2',
+                      style: const TextStyle(fontSize: 11),
+                    ),
+                    selected: placements.contains(placement),
+                    onSelected: (selected) {
+                      final updated = Map<String, List<String>>.from(
+                          config.modulePlacements);
+                      final list = List<String>.from(updated[module.id] ?? []);
+                      if (selected) {
+                        list.add(placement);
+                      } else {
+                        list.remove(placement);
+                      }
+                      if (list.isEmpty) {
+                        updated.remove(module.id);
+                      } else {
+                        updated[module.id] = list;
+                      }
+                      _updateConfig((c) => c.copyWith(modulePlacements: updated));
+                    },
+                    selectedColor: const Color(0xFF646CFF),
+                    backgroundColor: const Color(0xFF1E1E1E),
+                    labelStyle: TextStyle(
+                      color: placements.contains(placement)
+                          ? Colors.white : Colors.white70,
+                      fontSize: 11,
+                    ),
+                    side: BorderSide.none,
+                    visualDensity: VisualDensity.compact,
+                  ),
+              ],
+            ),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 8),
           );
         }),
         const SizedBox(height: 12),
