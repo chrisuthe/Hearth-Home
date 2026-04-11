@@ -128,6 +128,14 @@ class _AlbumArtBackdrop extends StatelessWidget {
 
   const _AlbumArtBackdrop({required this.imageUrl, required this.child});
 
+  /// Cached blur filter — always sigma 60/60 with decal tile mode, so no need
+  /// to recreate on every build.
+  static final ui.ImageFilter _blurFilter = ui.ImageFilter.blur(
+    sigmaX: 60,
+    sigmaY: 60,
+    tileMode: TileMode.decal,
+  );
+
   @override
   Widget build(BuildContext context) {
     return ClipRect(
@@ -137,14 +145,13 @@ class _AlbumArtBackdrop extends StatelessWidget {
           // Blurred album art layer
           if (imageUrl != null)
             ImageFiltered(
-              imageFilter: ui.ImageFilter.blur(
-                sigmaX: 60,
-                sigmaY: 60,
-                tileMode: TileMode.decal,
-              ),
+              imageFilter: _blurFilter,
               child: Image.network(
                 imageUrl!,
                 fit: BoxFit.cover,
+                // Decode at 200px wide — the heavy blur makes higher
+                // resolution pointless and this saves GPU texture memory.
+                cacheWidth: 200,
                 errorBuilder: (_, _, _) => const SizedBox.shrink(),
               ),
             ),
