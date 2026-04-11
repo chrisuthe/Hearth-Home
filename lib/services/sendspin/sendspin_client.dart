@@ -248,7 +248,7 @@ class SendspinClient {
         sampleRate: sampleRate,
         channels: channels,
         startupBufferMs: 200, // Match reference impl: 200ms before releasing
-        maxBufferMs: bufferSeconds * 1000,
+        maxBufferMs: 2000, // 2s max — keeps buffer manageable on Pi
       );
     }
 
