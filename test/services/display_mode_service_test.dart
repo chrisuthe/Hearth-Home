@@ -46,6 +46,54 @@ void main() {
       expect(service.resolveMode(config: config), DisplayMode.night);
     });
 
+    test('source "clock" with malformed start time falls back to day', () {
+      final service = DisplayModeService();
+      const config = HubConfig(
+        nightModeSource: 'clock',
+        nightModeClockStart: 'abc',
+        nightModeClockEnd: '07:00',
+      );
+      expect(
+        service.resolveMode(
+          config: config,
+          now: DateTime(2026, 4, 5, 23, 0),
+        ),
+        DisplayMode.day,
+      );
+    });
+
+    test('source "clock" with out-of-range time falls back to day', () {
+      final service = DisplayModeService();
+      const config = HubConfig(
+        nightModeSource: 'clock',
+        nightModeClockStart: '99:99',
+        nightModeClockEnd: '07:00',
+      );
+      expect(
+        service.resolveMode(
+          config: config,
+          now: DateTime(2026, 4, 5, 23, 0),
+        ),
+        DisplayMode.day,
+      );
+    });
+
+    test('source "clock" with empty string time falls back to day', () {
+      final service = DisplayModeService();
+      const config = HubConfig(
+        nightModeSource: 'clock',
+        nightModeClockStart: '',
+        nightModeClockEnd: '07:00',
+      );
+      expect(
+        service.resolveMode(
+          config: config,
+          now: DateTime(2026, 4, 5, 23, 0),
+        ),
+        DisplayMode.day,
+      );
+    });
+
     test('source "ha_entity" uses entity state', () {
       final service = DisplayModeService();
       service.setEntityState(isOn: false);
