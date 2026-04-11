@@ -117,7 +117,8 @@ class SendspinService {
       final socket = await WebSocketTransformer.upgrade(request);
       Log.i('Sendspin', 'Server connected');
       _setupWebSocket(socket, onDone: () {
-        Log.i('Sendspin', 'Server disconnected');
+        Log.i('Sendspin', 'Server disconnected '
+            '(close=${socket.closeCode} ${socket.closeReason})');
         _client?.stopClockSync();
         _stopAudioFeed();
         _audioSink?.stop();
@@ -136,7 +137,6 @@ class SendspinService {
 
   Future<void> _connectToServer(String url) async {
     _serverUrl = url;
-    _reconnectDelay = 1;
     _updateState(
       _state.copyWith(connectionState: SendspinConnectionState.advertising),
     );
@@ -149,7 +149,8 @@ class SendspinService {
       _webSocket = await WebSocket.connect(wsUrl);
       _reconnectDelay = 1;
       _setupWebSocket(_webSocket!, onDone: () {
-        Log.w('Sendspin', 'Server disconnected, reconnecting...');
+        Log.w('Sendspin', 'Server disconnected, reconnecting... '
+            '(close=${_webSocket?.closeCode} ${_webSocket?.closeReason})');
         _client?.stopClockSync();
         _stopAudioFeed();
         _audioSink?.stop();
@@ -168,7 +169,7 @@ class SendspinService {
     }
   }
 
-  void _setupWebSocket(dynamic socket, {required VoidCallback onDone}) {
+  void _setupWebSocket(WebSocket socket, {required VoidCallback onDone}) {
     socket.add(_client!.buildClientHello());
     _client!.onSendText = (message) => socket.add(message);
 
