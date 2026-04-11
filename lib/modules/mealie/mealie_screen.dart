@@ -190,7 +190,7 @@ class _MealieScreenState extends ConsumerState<MealieScreen>
           decoration: InputDecoration(
             prefixIcon: const Icon(Icons.search, color: Colors.white54),
             hintText: 'Search recipes...',
-            hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
+            hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
             filled: true,
             fillColor: kDialogBackground,
             border: OutlineInputBorder(
@@ -305,7 +305,7 @@ class _MealieScreenState extends ConsumerState<MealieScreen>
                     entry.entryType,
                     style: TextStyle(
                       fontSize: 11,
-                      color: Colors.white.withValues(alpha: 0.4),
+                      color: Colors.white.withValues(alpha: 0.5),
                     ),
                   ),
                 ],
@@ -365,7 +365,7 @@ class _MealieScreenState extends ConsumerState<MealieScreen>
                       '${recipe.totalTime} min',
                       style: TextStyle(
                         fontSize: 11,
-                        color: Colors.white.withValues(alpha: 0.4),
+                        color: Colors.white.withValues(alpha: 0.5),
                       ),
                     ),
                   ],

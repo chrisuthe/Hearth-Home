@@ -254,7 +254,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           title: const Text('24-Hour Clock'),
           subtitle: Text(
             config.use24HourClock ? '14:30' : '2:30 PM',
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
           ),
           value: config.use24HourClock,
           onChanged: (v) => _updateConfig((c) => c.copyWith(use24HourClock: v)),
@@ -422,7 +422,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           title: const Text('Enable Sendspin Player'),
           subtitle: Text(
             config.sendspinEnabled ? 'Active' : 'Disabled',
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
           ),
           value: config.sendspinEnabled,
           onChanged: config.sendspinPlayerName.isEmpty
@@ -756,7 +756,7 @@ class _SectionHeader extends StatelessWidget {
           style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w600,
-            color: Colors.white.withValues(alpha: 0.4),
+            color: Colors.white.withValues(alpha: 0.5),
             letterSpacing: 1.2,
           ),
         ),
@@ -766,7 +766,7 @@ class _SectionHeader extends StatelessWidget {
             description!,
             style: TextStyle(
               fontSize: 12,
-              color: Colors.white.withValues(alpha: 0.25),
+              color: Colors.white.withValues(alpha: 0.5),
             ),
           ),
         ],
@@ -789,7 +789,7 @@ class _ServiceSubHeader extends StatelessWidget {
         style: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w500,
-          color: Colors.white.withValues(alpha: 0.3),
+          color: Colors.white.withValues(alpha: 0.5),
         ),
       ),
     );
@@ -819,7 +819,7 @@ class _SettingsTile extends StatelessWidget {
         subtitle,
         style: TextStyle(
           fontSize: 13,
-          color: Colors.white.withValues(alpha: 0.4),
+          color: Colors.white.withValues(alpha: 0.5),
         ),
       ),
       trailing: const Icon(Icons.chevron_right, color: Colors.white24),
@@ -905,7 +905,7 @@ class _ModuleReorderListState extends State<_ModuleReorderList> {
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
-                  color: Colors.white.withValues(alpha: 0.3),
+                  color: Colors.white.withValues(alpha: 0.5),
                 ),
               ),
               const Spacer(),
@@ -916,7 +916,7 @@ class _ModuleReorderListState extends State<_ModuleReorderList> {
                     'Reset to Default',
                     style: TextStyle(
                       fontSize: 12,
-                      color: Colors.white.withValues(alpha: 0.3),
+                      color: Colors.white.withValues(alpha: 0.5),
                     ),
                   ),
                 ),
@@ -1036,7 +1036,7 @@ class _EntityPickerDialogState extends State<_EntityPickerDialog> {
                     subtitle: Text(entity.entityId,
                         style: TextStyle(
                             fontSize: 11,
-                            color: Colors.white.withValues(alpha: 0.3))),
+                            color: Colors.white.withValues(alpha: 0.5))),
                     value: isSelected,
                     onChanged: (v) {
                       setState(() {

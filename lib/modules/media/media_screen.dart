@@ -466,7 +466,7 @@ class _BrowsePanelState extends ConsumerState<_BrowsePanel>
             const SizedBox(height: 12),
             Text('Queue is empty',
                 style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.4),
+                    color: Colors.white.withValues(alpha: 0.5),
                     fontSize: 15)),
           ],
         ),
@@ -521,7 +521,7 @@ class _BrowsePanelState extends ConsumerState<_BrowsePanel>
               prefixIcon:
                   const Icon(Icons.search, color: Colors.white54, size: 20),
               hintText: 'Search library...',
-              hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
+              hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
               filled: true,
               fillColor: kDialogBackground,
               contentPadding: const EdgeInsets.symmetric(vertical: 8),
@@ -635,7 +635,7 @@ class _BrowsePanelState extends ConsumerState<_BrowsePanel>
                   ? Center(
                       child: Text('No items found',
                           style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.4))))
+                              color: Colors.white.withValues(alpha: 0.5))))
                   : ListView.builder(
                       controller: _libraryScrollController,
                       padding: const EdgeInsets.symmetric(vertical: 4),
@@ -681,7 +681,7 @@ class _BrowsePanelState extends ConsumerState<_BrowsePanel>
       return Center(
         child: Text('No results',
             style:
-                TextStyle(color: Colors.white.withValues(alpha: 0.4))),
+                TextStyle(color: Colors.white.withValues(alpha: 0.5))),
       );
     }
 
@@ -791,7 +791,7 @@ class _QueueItemTile extends StatelessWidget {
         subtitle: Text(
           item.artist,
           style: TextStyle(
-              fontSize: 11, color: Colors.white.withValues(alpha: 0.4)),
+              fontSize: 11, color: Colors.white.withValues(alpha: 0.5)),
           overflow: TextOverflow.ellipsis,
         ),
         trailing: isCurrent
@@ -800,7 +800,7 @@ class _QueueItemTile extends StatelessWidget {
                 _formatDuration(item.duration),
                 style: TextStyle(
                     fontSize: 11,
-                    color: Colors.white.withValues(alpha: 0.3)),
+                    color: Colors.white.withValues(alpha: 0.5)),
               ),
       ),
     );
@@ -854,7 +854,7 @@ class _LibraryItemTile extends StatelessWidget {
       subtitle: Text(
         subtitle,
         style: TextStyle(
-            fontSize: 11, color: Colors.white.withValues(alpha: 0.4)),
+            fontSize: 11, color: Colors.white.withValues(alpha: 0.5)),
         overflow: TextOverflow.ellipsis,
       ),
       trailing: isTrack && item.duration != null
@@ -862,10 +862,10 @@ class _LibraryItemTile extends StatelessWidget {
               _formatDuration(item.duration!),
               style: TextStyle(
                   fontSize: 11,
-                  color: Colors.white.withValues(alpha: 0.3)),
+                  color: Colors.white.withValues(alpha: 0.5)),
             )
           : Icon(Icons.play_circle_outline,
-              color: Colors.white.withValues(alpha: 0.3), size: 20),
+              color: Colors.white.withValues(alpha: 0.5), size: 20),
     );
   }
 
@@ -1199,7 +1199,7 @@ class _NoMusic extends StatelessWidget {
             isConnected ? 'No music playing' : 'Music Assistant not connected',
             style: TextStyle(
               fontSize: 18,
-              color: Colors.white.withValues(alpha: 0.4),
+              color: Colors.white.withValues(alpha: 0.5),
             ),
           ),
           if (!isConnected) ...[
@@ -1208,7 +1208,7 @@ class _NoMusic extends StatelessWidget {
               'Add your MA URL and token in Settings',
               style: TextStyle(
                 fontSize: 14,
-                color: Colors.white.withValues(alpha: 0.3),
+                color: Colors.white.withValues(alpha: 0.5),
               ),
             ),
           ],
@@ -1362,7 +1362,7 @@ class _ZonePicker extends StatelessWidget {
                         ? Text(
                             e.value.currentTrack?.title ?? '',
                             style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.4),
+                                color: Colors.white.withValues(alpha: 0.5),
                                 fontSize: 12),
                             overflow: TextOverflow.ellipsis,
                           )

@@ -377,7 +377,7 @@ class _TimerAlertOverlay extends ConsumerWidget {
                 'Tap anywhere to dismiss',
                 style: TextStyle(
                   fontSize: 14,
-                  color: Colors.white.withValues(alpha: 0.4),
+                  color: Colors.white.withValues(alpha: 0.5),
                 ),
               ),
             ],
