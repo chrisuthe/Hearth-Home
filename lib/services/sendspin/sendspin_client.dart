@@ -49,6 +49,9 @@ class SendspinClient {
   /// Called when stream/end or stream/clear resets the pipeline.
   void Function()? onStreamStop;
 
+  /// Called when the server changes volume or mute via server/command.
+  void Function(double volume, bool muted)? onVolumeChanged;
+
   SendspinClient({
     required this.playerName,
     required this.clientId,
@@ -127,6 +130,12 @@ class SendspinClient {
         },
       },
     });
+  }
+
+  /// Update volume from local UI and report to server.
+  void updateVolume(double volume) {
+    _updateState(_state.copyWith(volume: volume.clamp(0.0, 1.0)));
+    onSendText?.call(buildClientState());
   }
 
   // ---------------------------------------------------------------------------
@@ -299,14 +308,17 @@ class SendspinClient {
       case 'volume':
         final vol = player['volume'];
         if (vol is num) {
-          _updateState(_state.copyWith(volume: vol.toDouble() / 100));
+          final normalized = vol.toDouble() / 100;
+          _updateState(_state.copyWith(volume: normalized));
           onSendText?.call(buildClientState());
+          onVolumeChanged?.call(normalized, _state.muted);
         }
       case 'mute':
         final muted = player['mute'] as bool?;
         if (muted != null) {
           _updateState(_state.copyWith(muted: muted));
           onSendText?.call(buildClientState());
+          onVolumeChanged?.call(_state.volume, muted);
         }
       case 'set_static_delay':
         final delayMs = player['static_delay_ms'] as int?;

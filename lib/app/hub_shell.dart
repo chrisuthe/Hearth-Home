@@ -12,6 +12,7 @@ import '../screens/timer/timer_screen.dart';
 import '../services/timer_service.dart';
 import '../screens/home/home_screen.dart';
 import '../screens/settings/settings_screen.dart';
+import '../services/sendspin/sendspin_service.dart';
 
 /// The main shell that manages the layered navigation model.
 ///
@@ -514,17 +515,23 @@ class _MenuTray extends StatelessWidget {
   }
 }
 
-/// System volume slider using amixer (ALSA) on Linux/Pi.
-class _SystemVolumeSlider extends StatefulWidget {
+/// System volume slider synced with Sendspin.
+///
+/// When Sendspin is active, the slider reflects the Sendspin volume (which
+/// the server controls). Slider changes are pushed to both ALSA hardware
+/// and reported back to the Sendspin server via client/state.
+/// When Sendspin is inactive, the slider controls ALSA directly.
+class _SystemVolumeSlider extends ConsumerStatefulWidget {
   const _SystemVolumeSlider();
 
   @override
-  State<_SystemVolumeSlider> createState() => _SystemVolumeSliderState();
+  ConsumerState<_SystemVolumeSlider> createState() => _SystemVolumeSliderState();
 }
 
-class _SystemVolumeSliderState extends State<_SystemVolumeSlider> {
+class _SystemVolumeSliderState extends ConsumerState<_SystemVolumeSlider> {
   double _volume = 0.5;
   Timer? _debounce;
+  bool _userDragging = false;
 
   @override
   void initState() {
@@ -551,16 +558,41 @@ class _SystemVolumeSliderState extends State<_SystemVolumeSlider> {
   }
 
   void _onChanged(double value) {
+    _userDragging = true;
     setState(() => _volume = value);
     _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 100), () {
+    _debounce = Timer(const Duration(milliseconds: 100), () async {
+      _userDragging = false;
       final percent = (value * 100).round();
-      Process.run('amixer', ['set', 'Master', '$percent%']);
+      // Set ALSA hardware volume.
+      if (Platform.isLinux) {
+        try {
+          await Process.run('amixer', ['set', 'Master', '$percent%']);
+        } catch (_) {}
+      }
+      // If Sendspin is active, report the volume change to the server.
+      final sendspin = ref.read(sendspinServiceProvider);
+      if (sendspin.state.isActive) {
+        sendspin.setVolume(value);
+      }
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    // Sync from Sendspin volume when not dragging.
+    final ssAsync = ref.watch(sendspinStateProvider);
+    final ssState = ssAsync.valueOrNull;
+    if (ssState != null && ssState.isActive && !_userDragging) {
+      final ssVol = ssState.volume;
+      if ((ssVol - _volume).abs() > 0.01) {
+        // Schedule to avoid setState during build.
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) setState(() => _volume = ssVol);
+        });
+      }
+    }
+
     return Row(
       children: [
         const Icon(Icons.volume_down, color: Colors.white54, size: 20),

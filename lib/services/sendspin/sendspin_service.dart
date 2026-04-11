@@ -36,6 +36,11 @@ class SendspinService {
   SendspinPlayerState get state => _state;
   Stream<SendspinPlayerState> get stateStream => _stateController.stream;
 
+  /// Set volume from the local UI slider and report to the server.
+  void setVolume(double volume) {
+    _client?.updateVolume(volume);
+  }
+
   Future<void> configure({
     required bool enabled,
     required String playerName,
@@ -193,6 +198,18 @@ class SendspinService {
         channels: channels,
         bitDepth: bitDepth,
       ).then((_) => _audioSink?.start());
+    };
+
+    _client!.onVolumeChanged = (volume, muted) async {
+      // Sync Sendspin volume to ALSA hardware volume.
+      final percent = (volume * 100).round();
+      Log.i('Sendspin', 'Volume changed: $percent%${muted ? " (muted)" : ""}');
+      if (Platform.isLinux) {
+        try {
+          await Process.run('amixer', ['set', 'Master', '$percent%']);
+          await Process.run('amixer', ['set', 'Master', muted ? 'mute' : 'unmute']);
+        } catch (_) {}
+      }
     };
 
     _client!.onStreamStop = () {
