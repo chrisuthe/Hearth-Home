@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'app/app.dart';
 import 'config/hub_config.dart';
 import 'services/local_api_server.dart';
+import 'services/timezone_service.dart';
 import 'services/sendspin/sendspin_service.dart';
 import 'services/video/media_kit_player.dart';
 import 'services/video/gstreamer_player.dart';
@@ -39,6 +40,17 @@ Future<void> main() async {
 
   final container = ProviderContainer();
   await container.read(hubConfigProvider.notifier).load();
+
+  // Apply configured timezone before anything else reads the clock.
+  // On Linux (Pi), this sets the system timezone via timedatectl or
+  // /etc/localtime. On Windows/web, this is a no-op.
+  if (!kIsWeb) {
+    final tz = container.read(hubConfigProvider).timezone;
+    if (tz.isNotEmpty) {
+      final tzService = container.read(timezoneServiceProvider);
+      await tzService.applyTimezone(tz);
+    }
+  }
 
   // Start local API server (native only — dart:io HttpServer).
   // The server reads config and display state per-request, so it

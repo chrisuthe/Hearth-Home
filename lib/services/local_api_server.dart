@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../utils/logger.dart';
 import '../config/hub_config.dart';
 import 'display_mode_service.dart';
+import 'timezone_service.dart';
 import 'wifi_service.dart';
 import 'update_service.dart';
 
@@ -28,6 +29,7 @@ import 'update_service.dart';
 class LocalApiServer {
   final DisplayModeService _displayModeService;
   final HubConfigNotifier _configNotifier;
+  final TimezoneService _timezoneService;
   final WifiService _wifiService;
   final UpdateService _updateService;
   HttpServer? _server;
@@ -45,11 +47,13 @@ class LocalApiServer {
   LocalApiServer({
     required DisplayModeService displayModeService,
     required HubConfigNotifier configNotifier,
+    TimezoneService? timezoneService,
     WifiService? wifiService,
     UpdateService? updateService,
     String? webPin,
   })  : _displayModeService = displayModeService,
         _configNotifier = configNotifier,
+        _timezoneService = timezoneService ?? TimezoneService(),
         _wifiService = wifiService ?? WifiService(),
         _updateService = updateService ?? UpdateService(),
         _webPin = webPin ?? (Random.secure().nextInt(9000) + 1000).toString();
@@ -339,7 +343,14 @@ class LocalApiServer {
           sendspinServerUrl: json['sendspinServerUrl'] as String?,
           mealieUrl: json['mealieUrl'] as String?,
           mealieToken: json['mealieToken'] as String?,
+          timezone: json['timezone'] as String?,
         ));
+
+    // Apply timezone change immediately on Linux.
+    final tz = json['timezone'] as String?;
+    if (tz != null && tz.isNotEmpty) {
+      await _timezoneService.applyTimezone(tz);
+    }
 
     request.response.statusCode = 200;
     request.response.headers.contentType = ContentType.json;
@@ -606,11 +617,13 @@ final localApiServerProvider = Provider<LocalApiServer>((ref) {
   // so it doesn't need to be recreated when config changes.
   final displayService = ref.read(displayModeServiceProvider);
   final configNotifier = ref.read(hubConfigProvider.notifier);
+  final timezoneService = ref.read(timezoneServiceProvider);
   final wifiService = ref.read(wifiServiceProvider);
   final updateService = ref.read(updateServiceProvider);
   final server = LocalApiServer(
     displayModeService: displayService,
     configNotifier: configNotifier,
+    timezoneService: timezoneService,
     wifiService: wifiService,
     updateService: updateService,
   );
@@ -754,6 +767,9 @@ const _configPageHtml = r'''
     <label for="use24HourClock" class="checkbox-label">
       <input type="checkbox" id="use24HourClock"> Use 24-Hour Clock
     </label>
+    <label for="timezone">Timezone</label>
+    <input type="text" id="timezone" placeholder="America/New_York (blank = system default)" list="timezoneList">
+    <datalist id="timezoneList"></datalist>
     <label for="displayProfile">Display Profile</label>
     <select id="displayProfile">
       <option value="auto">Auto-detect</option>
@@ -843,7 +859,7 @@ const textFields = [
   'musicAssistantUrl','musicAssistantToken','defaultMusicZone','frigateUrl',
   'mealieUrl','mealieToken','giteaApiToken',
   'weatherEntityId','nightModeHaEntity','nightModeClockStart','nightModeClockEnd',
-  'sendspinPlayerName','sendspinServerUrl'
+  'sendspinPlayerName','sendspinServerUrl','timezone'
 ];
 const intFields = ['idleTimeoutSeconds','sendspinBufferSeconds'];
 const boolFields = ['use24HourClock','sendspinEnabled','autoUpdate'];
@@ -980,6 +996,21 @@ function updateNightModeFields() {
   document.getElementById('nightModeClockFields').style.display = src === 'clock' ? '' : 'none';
 }
 document.getElementById('nightModeSource').addEventListener('change', updateNightModeFields);
+
+// Populate timezone datalist with common timezones.
+const commonTimezones = [
+  'America/New_York','America/Chicago','America/Denver','America/Los_Angeles',
+  'America/Anchorage','Pacific/Honolulu','America/Phoenix','America/Toronto',
+  'Europe/London','Europe/Paris','Europe/Berlin','Europe/Moscow',
+  'Asia/Tokyo','Asia/Shanghai','Asia/Kolkata','Asia/Dubai',
+  'Australia/Sydney','Pacific/Auckland','UTC'
+];
+const dl = document.getElementById('timezoneList');
+for (const tz of commonTimezones) {
+  const opt = document.createElement('option');
+  opt.value = tz;
+  dl.appendChild(opt);
+}
 
 initAuth().then(() => load().then(() => updateNightModeFields()));
 </script>

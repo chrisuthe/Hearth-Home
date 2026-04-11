@@ -264,5 +264,28 @@ void main() {
       expect(config.moduleOrder, isEmpty);
     });
 
+    test('timezone defaults to empty string', () {
+      const config = HubConfig();
+      expect(config.timezone, '');
+    });
+
+    test('timezone round-trips through JSON', () {
+      const config = HubConfig(timezone: 'America/New_York');
+      final json = config.toJson();
+      final restored = HubConfig.fromJson(json);
+      expect(restored.timezone, 'America/New_York');
+    });
+
+    test('timezone copyWith preserves unchanged fields', () {
+      const config = HubConfig(timezone: 'Europe/London');
+      final updated = config.copyWith(immichUrl: 'http://test');
+      expect(updated.timezone, 'Europe/London');
+    });
+
+    test('timezone fromJson handles missing field', () {
+      final config = HubConfig.fromJson({});
+      expect(config.timezone, '');
+    });
+
   });
 }
