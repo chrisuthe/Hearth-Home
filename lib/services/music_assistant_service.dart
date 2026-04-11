@@ -483,10 +483,14 @@ final maPlayerStateProvider = StreamProvider<MusicPlayerState>((ref) {
 });
 
 /// Emits the full map of all player states whenever any player updates.
+/// Uses [mapEquals] to skip emissions where nothing actually changed
+/// (e.g. duplicate player_updated events with identical data).
 final maAllPlayersProvider =
     StreamProvider<Map<String, MusicPlayerState>>((ref) {
   final service = ref.watch(musicAssistantServiceProvider);
-  return service.playerStateStream.map((_) => service.playerStates);
+  return service.playerStateStream
+      .map((_) => service.playerStates)
+      .distinct(mapEquals);
 });
 
 /// User's manual player selection, shared across all music UI surfaces.

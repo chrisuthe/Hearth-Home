@@ -279,12 +279,10 @@ class _NowPlayingPill extends ConsumerStatefulWidget {
 class _NowPlayingPillState extends ConsumerState<_NowPlayingPill> {
   @override
   Widget build(BuildContext context) {
-    final music = ref.watch(musicAssistantServiceProvider);
-    ref.watch(maPlayerStateProvider);
+    final allPlayers = ref.watch(maAllPlayersProvider).valueOrNull ?? const {};
     final config = ref.watch(hubConfigProvider);
     final manualSelection = ref.watch(selectedPlayerProvider);
-    final players = music.playerStates;
-    final entries = players.entries
+    final entries = allPlayers.entries
         .where((e) => e.value.hasTrack && e.value.available)
         .toList();
 

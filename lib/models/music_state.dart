@@ -55,6 +55,19 @@ class MusicTrack {
     required this.duration,
   });
 
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is MusicTrack &&
+          title == other.title &&
+          artist == other.artist &&
+          album == other.album &&
+          imageUrl == other.imageUrl &&
+          duration == other.duration;
+
+  @override
+  int get hashCode => Object.hash(title, artist, album, imageUrl, duration);
+
   /// Parses from the track metadata attributes on an HA media_player entity.
   /// Falls back to sensible defaults for missing fields since Music Assistant
   /// doesn't always populate every attribute (e.g., radio streams lack album).
@@ -109,6 +122,37 @@ class MusicPlayerState {
 
   bool get isPlaying => playbackState == PlaybackState.playing;
   bool get hasTrack => currentTrack != null;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is MusicPlayerState &&
+          playbackState == other.playbackState &&
+          currentTrack == other.currentTrack &&
+          position == other.position &&
+          volume == other.volume &&
+          activeZoneId == other.activeZoneId &&
+          activeZoneName == other.activeZoneName &&
+          available == other.available &&
+          shuffle == other.shuffle &&
+          repeatMode == other.repeatMode &&
+          nextTrack == other.nextTrack &&
+          queueSize == other.queueSize;
+
+  @override
+  int get hashCode => Object.hash(
+        playbackState,
+        currentTrack,
+        position,
+        volume,
+        activeZoneId,
+        activeZoneName,
+        available,
+        shuffle,
+        repeatMode,
+        nextTrack,
+        queueSize,
+      );
 
   MusicPlayerState copyWith({
     PlaybackState? playbackState,
