@@ -158,76 +158,14 @@ class _HubShellState extends ConsumerState<HubShell> {
     }
   }
 
-  /// Full-screen alert overlay when one or more timers have fired.
-  /// Wakes the display from idle and shows a big "Time's up!" with
-  /// the countdown rings. Tap anywhere to dismiss all fired timers.
-  Widget _buildTimerAlert() {
-    final timerService = ref.watch(timerServiceProvider);
-    final fired = timerService.firedTimers;
-    if (fired.isEmpty) return const SizedBox.shrink();
-
-    // Wake from idle when a timer fires — deferred to avoid
-    // notifyListeners() during build.
-    WidgetsBinding.instance.addPostFrameCallback((_) => _onUserActivity());
-
-    return GestureDetector(
-      onTap: () => timerService.dismissAllFired(),
-      child: Container(
-        color: Colors.black.withValues(alpha: 0.92),
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.timer, size: 48, color: Color(0xFFFF9800)),
-              const SizedBox(height: 16),
-              Text(
-                fired.length == 1 ? "Time's up!" : "${fired.length} timers done!",
-                style: const TextStyle(
-                  fontSize: 36,
-                  fontWeight: FontWeight.w200,
-                  color: Color(0xFFFF9800),
-                ),
-              ),
-              const SizedBox(height: 32),
-              // Show the fired timer rings
-              Wrap(
-                spacing: 24,
-                runSpacing: 24,
-                alignment: WrapAlignment.center,
-                children: fired.map((t) => TimerDisplay(
-                  timer: t,
-                  size: fired.length == 1 ? 220 : 160,
-                )).toList(),
-              ),
-              const SizedBox(height: 32),
-              Text(
-                'Tap anywhere to dismiss',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.white.withValues(alpha: 0.4),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildMenu1({required bool fromTop}) {
-    final timerService = ref.watch(timerServiceProvider);
     return _MenuTray(
       fromTop: fromTop,
       onDismiss: () => setState(() => _menu1Open = false),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          _QuickAction(
-            icon: Icons.timer,
-            label: timerService.hasActiveTimers
-                ? timerService.statusLabel
-                : 'Timer',
-            active: timerService.hasActiveTimers,
+          _Menu1TimerAction(
             onTap: () {
               setState(() => _menu1Open = false);
               Navigator.of(context).push(
@@ -374,12 +312,100 @@ class _HubShellState extends ConsumerState<HubShell> {
             if (_menu2Open) _buildMenu2(fromTop: _edgeFor('menu2') == 'top'),
 
             // Timer alert — full-screen overlay when a timer fires.
-            _buildTimerAlert(),
+            // Isolated in its own ConsumerWidget so 200ms timer ticks
+            // only rebuild this overlay, not the entire HubShell.
+            _TimerAlertOverlay(onWake: _onUserActivity),
 
             // Event overlay layer (doorbell, alerts)
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Full-screen alert overlay when one or more timers have fired.
+///
+/// Isolated in its own ConsumerWidget so the 200ms timer tick rebuilds
+/// are scoped to this overlay instead of triggering a full HubShell rebuild.
+class _TimerAlertOverlay extends ConsumerWidget {
+  final VoidCallback onWake;
+
+  const _TimerAlertOverlay({required this.onWake});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final timerService = ref.watch(timerServiceProvider);
+    final fired = timerService.firedTimers;
+    if (fired.isEmpty) return const SizedBox.shrink();
+
+    // Wake from idle when a timer fires — deferred to avoid
+    // notifyListeners() during build.
+    WidgetsBinding.instance.addPostFrameCallback((_) => onWake());
+
+    return GestureDetector(
+      onTap: () => timerService.dismissAllFired(),
+      child: Container(
+        color: Colors.black.withValues(alpha: 0.92),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.timer, size: 48, color: Color(0xFFFF9800)),
+              const SizedBox(height: 16),
+              Text(
+                fired.length == 1 ? "Time's up!" : "${fired.length} timers done!",
+                style: const TextStyle(
+                  fontSize: 36,
+                  fontWeight: FontWeight.w200,
+                  color: Color(0xFFFF9800),
+                ),
+              ),
+              const SizedBox(height: 32),
+              // Show the fired timer rings
+              Wrap(
+                spacing: 24,
+                runSpacing: 24,
+                alignment: WrapAlignment.center,
+                children: fired.map((t) => TimerDisplay(
+                  timer: t,
+                  size: fired.length == 1 ? 220 : 160,
+                )).toList(),
+              ),
+              const SizedBox(height: 32),
+              Text(
+                'Tap anywhere to dismiss',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.white.withValues(alpha: 0.4),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Timer action button for menu1 — isolated so its ref.watch on
+/// timerServiceProvider only rebuilds this widget, not the menu tray
+/// or the HubShell.
+class _Menu1TimerAction extends ConsumerWidget {
+  final VoidCallback onTap;
+
+  const _Menu1TimerAction({required this.onTap});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final timerService = ref.watch(timerServiceProvider);
+    return _QuickAction(
+      icon: Icons.timer,
+      label: timerService.hasActiveTimers
+          ? timerService.statusLabel
+          : 'Timer',
+      active: timerService.hasActiveTimers,
+      onTap: onTap,
     );
   }
 }
