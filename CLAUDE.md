@@ -56,6 +56,8 @@ Home Assistant is the backbone. Services initialize in order in `main.dart`:
 6. **ImmichService** loads independently (no HA dependency)
 7. **LocalApiServer** starts on port 8090 (no HA dependency)
 
+Keep in mind, all the integration targets (Home assistant, music assistant, immich, frigate, mealie) are open source and we can pull and compare the server/source to verify assumptions: nothing should be guessed at.
+
 ### Configuration
 
 No backend or database. Config is a single `hub_config.json` in the OS app-support directory, loaded/saved via `HubConfigNotifier`. All settings persist immediately on change (no save button). The `HubConfig` class uses `copyWith` for immutable updates.
