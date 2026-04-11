@@ -864,7 +864,7 @@ class _LibraryItemTile extends StatelessWidget {
                   fontSize: 11,
                   color: Colors.white.withValues(alpha: 0.3)),
             )
-          : Icon(Icons.play_circle_outline,
+          : Icon(Icons.more_vert,
               color: Colors.white.withValues(alpha: 0.3), size: 20),
     );
   }
@@ -1292,26 +1292,31 @@ class _ZonePicker extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
-      child: GestureDetector(
-        onTap: () => _showZonePicker(context),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.speaker, size: 16, color: Colors.white54),
-              const SizedBox(width: 6),
-              Text(
-                selectedName!,
-                style: const TextStyle(fontSize: 13, color: Colors.white70),
-              ),
-              const SizedBox(width: 4),
-              const Icon(Icons.expand_more, size: 16, color: Colors.white54),
-            ],
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => _showZonePicker(context),
+          borderRadius: BorderRadius.circular(20),
+          splashColor: Colors.white24,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.speaker, size: 16, color: Colors.white54),
+                const SizedBox(width: 6),
+                Text(
+                  selectedName!,
+                  style: const TextStyle(fontSize: 13, color: Colors.white70),
+                ),
+                const SizedBox(width: 4),
+                const Icon(Icons.expand_more, size: 16, color: Colors.white54),
+              ],
+            ),
           ),
         ),
       ),
