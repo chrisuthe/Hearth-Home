@@ -6,6 +6,7 @@ import '../../services/home_assistant_service.dart';
 import '../../services/local_api_server.dart';
 import '../../app/app.dart' show kDialogBackground;
 import '../../services/sendspin/sendspin_service.dart';
+import '../../services/timezone_service.dart';
 import '../../models/sendspin_state.dart';
 import 'wifi_settings.dart';
 import 'display_settings.dart';
@@ -258,6 +259,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
           value: config.use24HourClock,
           onChanged: (v) => _updateConfig((c) => c.copyWith(use24HourClock: v)),
+        ),
+        _SettingsTile(
+          icon: Icons.public,
+          title: 'Timezone',
+          subtitle: config.timezone.isEmpty
+              ? 'System default'
+              : config.timezone,
+          onTap: () => _showTimezonePicker(),
         ),
         _SettingsTile(
           icon: Icons.timer,
@@ -706,6 +715,25 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     if (result != null) onSave(result);
   }
 
+  Future<void> _showTimezonePicker() async {
+    final tzService = ref.read(timezoneServiceProvider);
+    final allZones = await tzService.listTimezones();
+
+    if (!mounted) return;
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => _TimezonePickerDialog(
+        timezones: allZones,
+        currentTimezone: ref.read(hubConfigProvider).timezone,
+      ),
+    );
+    if (result != null) {
+      await _updateConfig((c) => c.copyWith(timezone: result));
+      // Apply immediately on Linux.
+      await tzService.applyTimezone(result);
+    }
+  }
+
   Future<void> _showEntityPicker(BuildContext context, WidgetRef ref) async {
     final ha = ref.read(homeAssistantServiceProvider);
     final config = ref.read(hubConfigProvider);
@@ -1070,6 +1098,128 @@ class _EntityPickerDialogState extends State<_EntityPickerDialog> {
           child: Text('Save (${_selected.length})'),
         ),
       ],
+    );
+  }
+}
+
+/// Searchable timezone picker dialog.
+///
+/// Shows common timezones at the top, then all available timezones
+/// filtered by the search query. Selecting "System default" clears
+/// the timezone config (empty string).
+class _TimezonePickerDialog extends StatefulWidget {
+  final List<String> timezones;
+  final String currentTimezone;
+
+  const _TimezonePickerDialog({
+    required this.timezones,
+    required this.currentTimezone,
+  });
+
+  @override
+  State<_TimezonePickerDialog> createState() => _TimezonePickerDialogState();
+}
+
+class _TimezonePickerDialogState extends State<_TimezonePickerDialog> {
+  final _searchController = TextEditingController();
+  String _filter = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Build filtered list: common timezones first, then the rest.
+    final lowerFilter = _filter.toLowerCase();
+    final common = TimezoneService.commonTimezones
+        .where((tz) => lowerFilter.isEmpty || tz.toLowerCase().contains(lowerFilter))
+        .toList();
+    final rest = widget.timezones
+        .where((tz) => !TimezoneService.commonTimezones.contains(tz))
+        .where((tz) => lowerFilter.isEmpty || tz.toLowerCase().contains(lowerFilter))
+        .toList();
+
+    return AlertDialog(
+      backgroundColor: kDialogBackground,
+      title: const Text('Timezone'),
+      content: SizedBox(
+        width: double.maxFinite,
+        height: 400,
+        child: Column(
+          children: [
+            TextField(
+              controller: _searchController,
+              decoration: const InputDecoration(
+                hintText: 'Search timezones...',
+                prefixIcon: Icon(Icons.search, size: 20),
+                isDense: true,
+              ),
+              autofocus: true,
+              onChanged: (v) => setState(() => _filter = v),
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: ListView(
+                children: [
+                  // "System default" option to clear the setting.
+                  if (lowerFilter.isEmpty || 'system default'.contains(lowerFilter))
+                    _buildTile('', 'System default'),
+                  if (common.isNotEmpty && lowerFilter.isEmpty) ...[
+                    Padding(
+                      padding: const EdgeInsets.only(left: 4, top: 8, bottom: 4),
+                      child: Text(
+                        'Common',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.white.withValues(alpha: 0.4),
+                        ),
+                      ),
+                    ),
+                  ],
+                  ...common.map((tz) => _buildTile(tz, tz)),
+                  if (rest.isNotEmpty && lowerFilter.isEmpty) ...[
+                    Padding(
+                      padding: const EdgeInsets.only(left: 4, top: 12, bottom: 4),
+                      child: Text(
+                        'All timezones',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.white.withValues(alpha: 0.4),
+                        ),
+                      ),
+                    ),
+                  ],
+                  ...rest.map((tz) => _buildTile(tz, tz)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTile(String value, String label) {
+    final isSelected = value == widget.currentTimezone;
+    return ListTile(
+      dense: true,
+      visualDensity: VisualDensity.compact,
+      leading: isSelected
+          ? const Icon(Icons.check, size: 18, color: Colors.amber)
+          : const SizedBox(width: 18),
+      title: Text(label, style: const TextStyle(fontSize: 14)),
+      onTap: () => Navigator.pop(context, value),
     );
   }
 }

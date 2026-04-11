@@ -56,6 +56,7 @@ class HubConfig {
   final String giteaApiToken;
   final String currentVersion;
   final List<String> moduleOrder;  // custom screen order (module IDs); empty = use defaultOrder
+  final String timezone;           // IANA timezone (e.g. "America/New_York"); empty = system default
   final String topSwipeAction;    // "menu1" | "menu2" | "settings" | "nextScreen" | "previousScreen"
   final String bottomSwipeAction; // "menu1" | "menu2" | "settings" | "nextScreen" | "previousScreen"
 
@@ -94,6 +95,7 @@ class HubConfig {
     this.giteaApiToken = '',
     this.currentVersion = '',
     this.moduleOrder = const [],
+    this.timezone = '',
     this.topSwipeAction = 'menu2',
     this.bottomSwipeAction = 'menu1',
   });
@@ -139,6 +141,7 @@ class HubConfig {
     String? giteaApiToken,
     String? currentVersion,
     List<String>? moduleOrder,
+    String? timezone,
     String? topSwipeAction,
     String? bottomSwipeAction,
   }) {
@@ -177,6 +180,7 @@ class HubConfig {
       giteaApiToken: giteaApiToken ?? this.giteaApiToken,
       currentVersion: currentVersion ?? this.currentVersion,
       moduleOrder: moduleOrder ?? this.moduleOrder,
+      timezone: timezone ?? this.timezone,
       topSwipeAction: topSwipeAction ?? this.topSwipeAction,
       bottomSwipeAction: bottomSwipeAction ?? this.bottomSwipeAction,
     );
@@ -217,6 +221,7 @@ class HubConfig {
         'giteaApiToken': giteaApiToken,
         'currentVersion': currentVersion,
         'moduleOrder': moduleOrder,
+        'timezone': timezone,
         'topSwipeAction': topSwipeAction,
         'bottomSwipeAction': bottomSwipeAction,
       };
@@ -256,6 +261,7 @@ class HubConfig {
         giteaApiToken: json['giteaApiToken'] as String? ?? '',
         currentVersion: json['currentVersion'] as String? ?? '',
         moduleOrder: (json['moduleOrder'] as List<dynamic>?)?.cast<String>() ?? const [],
+        timezone: json['timezone'] as String? ?? '',
         topSwipeAction: json['topSwipeAction'] as String? ?? 'menu2',
         bottomSwipeAction: json['bottomSwipeAction'] as String? ?? 'menu1',
       );
