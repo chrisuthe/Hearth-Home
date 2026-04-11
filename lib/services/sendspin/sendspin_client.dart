@@ -66,26 +66,40 @@ class SendspinClient {
   // Message builders
   // ---------------------------------------------------------------------------
 
-  /// Builds the client/hello handshake message.
+  /// Builds the client/hello handshake message per the Sendspin spec.
   String buildClientHello() {
     return jsonEncode({
       'type': 'client/hello',
       'payload': {
         'client_id': clientId,
         'name': playerName,
-        'product_name': 'Hearth',
-        'roles': ['player@v1'],
-        'supported_codecs': ['pcm', 'flac'],
+        'version': 1,
+        'supported_roles': ['player@v1'],
+        'device_info': {
+          'product_name': 'Hearth',
+          'manufacturer': 'Hearth',
+          'software_version': '0.6.0',
+        },
+        'player@v1_support': {
+          'supported_formats': [
+            {'codec': 'pcm', 'channels': 2, 'sample_rate': 48000, 'bit_depth': 16},
+            {'codec': 'pcm', 'channels': 2, 'sample_rate': 44100, 'bit_depth': 16},
+            {'codec': 'flac', 'channels': 2, 'sample_rate': 48000, 'bit_depth': 16},
+            {'codec': 'flac', 'channels': 2, 'sample_rate': 44100, 'bit_depth': 16},
+          ],
+          'buffer_capacity': bufferSeconds * 48000 * 2 * 2, // bytes
+          'supported_commands': ['volume', 'mute'],
+        },
       },
     });
   }
 
-  /// Builds a client/time response for clock synchronization.
+  /// Builds a client/time message for clock synchronization.
   String buildClientTime(int clientTransmittedUs) {
     return jsonEncode({
       'type': 'client/time',
       'payload': {
-        'client_transmitted_us': clientTransmittedUs,
+        'client_transmitted': clientTransmittedUs,
       },
     });
   }
@@ -95,9 +109,13 @@ class SendspinClient {
     return jsonEncode({
       'type': 'client/state',
       'payload': {
-        'volume': _state.volume,
-        'muted': _state.muted,
-        'buffer_depth_ms': _state.bufferDepthMs,
+        'state': 'synchronized',
+        'player': {
+          'volume': (_state.volume * 100).round(),
+          'muted': _state.muted,
+          'static_delay_ms': 0,
+          'supported_commands': ['volume', 'mute'],
+        },
       },
     });
   }
@@ -130,8 +148,12 @@ class SendspinClient {
         _handleStreamClear();
       case 'stream/end':
         _handleStreamEnd();
-      case 'player/command':
-        _handlePlayerCommand(payload);
+      case 'server/command':
+        _handleServerCommand(payload);
+      case 'server/state':
+        _handleServerState(payload);
+      case 'group/update':
+        Log.d('Sendspin', 'group/update: ${payload['playback_state']}');
       default:
         Log.d('Sendspin', 'Unknown message type: $type');
     }
@@ -146,30 +168,33 @@ class SendspinClient {
       serverName: serverName,
     ));
 
-    // Send our hello back and start clock sync.
-    onSendText?.call(buildClientHello());
+    // Send initial state report, then start clock sync.
+    onSendText?.call(buildClientState());
     startClockSync();
   }
 
   void _handleServerTime(Map<String, dynamic> payload) {
-    final serverReceivedUs = payload['server_received_us'] as int? ?? 0;
-    final serverTransmittedUs = payload['server_transmitted_us'] as int? ?? 0;
-    final clientReceivedUs = DateTime.now().microsecondsSinceEpoch;
+    final serverReceived = payload['server_received'] as int? ?? 0;
+    final serverTransmitted = payload['server_transmitted'] as int? ?? 0;
+    final clientReceived = DateTime.now().microsecondsSinceEpoch;
+    final clientTransmitted = payload['client_transmitted'] as int? ?? 0;
 
     // NTP-style offset calculation.
     final offset =
-        ((serverReceivedUs - (payload['client_transmitted_us'] as int? ?? 0)) +
-                (serverTransmittedUs - clientReceivedUs)) ~/
+        ((serverReceived - clientTransmitted) +
+                (serverTransmitted - clientReceived)) ~/
             2;
-    final delay = (clientReceivedUs -
-            (payload['client_transmitted_us'] as int? ?? 0)) -
-        (serverTransmittedUs - serverReceivedUs);
+    final delay =
+        (clientReceived - clientTransmitted) -
+        (serverTransmitted - serverReceived);
 
-    _clock.update(offset, delay ~/ 2, clientReceivedUs);
+    _clock.update(offset, delay ~/ 2, clientReceived);
   }
 
   void _handleStreamStart(Map<String, dynamic> payload) {
-    final audioFormat = payload['audio_format'] as Map<String, dynamic>? ?? {};
+    // Spec nests format under "player"; fall back to top-level for compat.
+    final playerFormat = payload['player'] as Map<String, dynamic>?;
+    final audioFormat = playerFormat ?? payload['audio_format'] as Map<String, dynamic>? ?? {};
     final codecName = audioFormat['codec'] as String? ?? 'pcm';
     final channels = audioFormat['channels'] as int? ?? 2;
     final sampleRate = audioFormat['sample_rate'] as int? ?? 48000;
@@ -224,20 +249,28 @@ class SendspinClient {
     ));
   }
 
-  void _handlePlayerCommand(Map<String, dynamic> payload) {
-    final command = payload['command'] as String?;
-    final value = payload['value'];
+  void _handleServerCommand(Map<String, dynamic> payload) {
+    final player = payload['player'] as Map<String, dynamic>?;
+    if (player == null) return;
 
+    final command = player['command'] as String?;
     switch (command) {
       case 'volume':
-        final vol = (value is num) ? value.toDouble() : _state.volume;
-        _updateState(_state.copyWith(volume: vol));
+        final vol = player['volume'];
+        if (vol is num) {
+          _updateState(_state.copyWith(volume: vol.toDouble() / 100));
+        }
       case 'mute':
-        final muted = (value is bool) ? value : _state.muted;
-        _updateState(_state.copyWith(muted: muted));
+        final muted = player['mute'] as bool?;
+        if (muted != null) _updateState(_state.copyWith(muted: muted));
       default:
-        Log.d('Sendspin', 'Unknown player command: $command');
+        Log.d('Sendspin', 'Unknown server command: $command');
     }
+  }
+
+  void _handleServerState(Map<String, dynamic> payload) {
+    // Server state carries metadata, controller info — log for now.
+    Log.d('Sendspin', 'server/state received');
   }
 
   // ---------------------------------------------------------------------------

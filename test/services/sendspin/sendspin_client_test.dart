@@ -74,30 +74,34 @@ void main() {
       client.dispose();
     });
 
-    test('parses player/command for volume', () async {
+    test('parses server/command for volume', () async {
       final client = SendspinClient(
         playerName: 'Test Player',
         clientId: 'test-id',
         bufferSeconds: 5,
       );
       client.handleTextMessage(jsonEncode({
-        'type': 'player/command',
-        'payload': {'command': 'volume', 'value': 0.5},
+        'type': 'server/command',
+        'payload': {
+          'player': {'command': 'volume', 'volume': 50},
+        },
       }));
       await Future.delayed(Duration.zero);
       expect(client.state.volume, 0.5);
       client.dispose();
     });
 
-    test('parses player/command for mute', () async {
+    test('parses server/command for mute', () async {
       final client = SendspinClient(
         playerName: 'Test Player',
         clientId: 'test-id',
         bufferSeconds: 5,
       );
       client.handleTextMessage(jsonEncode({
-        'type': 'player/command',
-        'payload': {'command': 'mute', 'value': true},
+        'type': 'server/command',
+        'payload': {
+          'player': {'command': 'mute', 'mute': true},
+        },
       }));
       await Future.delayed(Duration.zero);
       expect(client.state.muted, true);
@@ -116,9 +120,10 @@ void main() {
       final payload = parsed['payload'] as Map<String, dynamic>;
       expect(payload['client_id'], 'abc-123');
       expect(payload['name'], 'Kitchen Display');
-      expect(payload['product_name'], 'Hearth');
-      expect(payload['roles'], contains('player@v1'));
-      expect(payload['supported_codecs'], containsAll(['pcm', 'flac']));
+      expect(payload['version'], 1);
+      expect(payload['supported_roles'], contains('player@v1'));
+      final deviceInfo = payload['device_info'] as Map<String, dynamic>;
+      expect(deviceInfo['product_name'], 'Hearth');
       client.dispose();
     });
 
