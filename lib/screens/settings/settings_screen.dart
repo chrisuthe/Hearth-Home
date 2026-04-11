@@ -320,11 +320,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               currentValue: config.nightModeClockStart ?? '22:00',
               hint: '22:00',
               onSave: (value) {
-                if (RegExp(r'^\d{1,2}:\d{2}$').hasMatch(value)) {
+                if (RegExp(r'^([01]?\d|2[0-3]):[0-5]\d$').hasMatch(value)) {
                   _updateConfig((c) => c.copyWith(nightModeClockStart: value));
                 } else {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Invalid format. Use HH:MM (e.g. 22:00)')),
+                    const SnackBar(content: Text('Invalid time. Use HH:MM with valid hours (0-23) and minutes (0-59)')),
                   );
                 }
               },
@@ -339,11 +339,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               currentValue: config.nightModeClockEnd ?? '07:00',
               hint: '07:00',
               onSave: (value) {
-                if (RegExp(r'^\d{1,2}:\d{2}$').hasMatch(value)) {
+                if (RegExp(r'^([01]?\d|2[0-3]):[0-5]\d$').hasMatch(value)) {
                   _updateConfig((c) => c.copyWith(nightModeClockEnd: value));
                 } else {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Invalid format. Use HH:MM (e.g. 07:00)')),
+                    const SnackBar(content: Text('Invalid time. Use HH:MM with valid hours (0-23) and minutes (0-59)')),
                   );
                 }
               },

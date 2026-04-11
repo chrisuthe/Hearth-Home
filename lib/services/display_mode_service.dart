@@ -60,6 +60,18 @@ class DisplayModeService {
     }
   }
 
+  /// Parses an "HH:MM" string into total minutes since midnight.
+  /// Returns null if the string is malformed or out of range.
+  static int? _parseTimeToMinutes(String time) {
+    final parts = time.split(':');
+    if (parts.length != 2) return null;
+    final hour = int.tryParse(parts[0]);
+    final minute = int.tryParse(parts[1]);
+    if (hour == null || minute == null) return null;
+    if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
+    return hour * 60 + minute;
+  }
+
   /// Handles overnight time ranges (e.g., 22:00-07:00) by checking
   /// whether "now" falls within the wrapped range.
   DisplayMode _resolveClockMode(HubConfig config, DateTime now) {
@@ -68,11 +80,9 @@ class DisplayModeService {
       return DisplayMode.day;
     }
 
-    final startParts = config.nightModeClockStart!.split(':');
-    final endParts = config.nightModeClockEnd!.split(':');
-    final startMinutes =
-        int.parse(startParts[0]) * 60 + int.parse(startParts[1]);
-    final endMinutes = int.parse(endParts[0]) * 60 + int.parse(endParts[1]);
+    final startMinutes = _parseTimeToMinutes(config.nightModeClockStart!);
+    final endMinutes = _parseTimeToMinutes(config.nightModeClockEnd!);
+    if (startMinutes == null || endMinutes == null) return DisplayMode.day;
     final nowMinutes = now.hour * 60 + now.minute;
 
     if (startMinutes > endMinutes) {
