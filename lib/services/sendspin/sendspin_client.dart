@@ -118,10 +118,19 @@ class SendspinClient {
     final bool isStreaming =
         _state.connectionState == SendspinConnectionState.streaming;
 
+    final String operationalState;
+    if (!isStreaming) {
+      operationalState = 'idle';
+    } else if (bufferMs == 0) {
+      operationalState = 'buffering';
+    } else {
+      operationalState = 'synchronized';
+    }
+
     return jsonEncode({
       'type': 'client/state',
       'payload': {
-        'state': 'synchronized',
+        'state': operationalState,
         'buffer_depth_ms': bufferMs,
         'player': {
           'volume': (_state.volume * 100).round(),
