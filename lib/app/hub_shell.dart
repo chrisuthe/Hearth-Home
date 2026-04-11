@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../config/hub_config.dart';
 import 'idle_controller.dart';
+import 'page_indicator.dart';
 import '../models/photo_memory.dart';
 import '../modules/module_registry.dart';
 import '../screens/ambient/ambient_screen.dart';
@@ -298,6 +299,21 @@ class _HubShellState extends ConsumerState<HubShell> {
               controller: _pageController,
               physics: const BouncingScrollPhysics(),
               children: pages,
+            ),
+
+            // Page position indicator — dot row at the bottom center.
+            // Positioned above the bottom edge-swipe zone so it does
+            // not interfere with vertical drag gestures.
+            Positioned(
+              bottom: _edgeZoneHeight + 8,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: PageIndicator(
+                  pageCount: _pageCount,
+                  currentPage: _currentPage,
+                ),
+              ),
             ),
 
             // Edge-swipe zones — invisible strips at top/bottom that
