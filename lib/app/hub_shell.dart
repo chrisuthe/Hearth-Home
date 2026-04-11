@@ -235,6 +235,12 @@ class _HubShellState extends ConsumerState<HubShell> {
         if (page != _currentPage) setState(() => _currentPage = page);
       });
       idleController.onTimeout = () {
+        // Pop any pushed routes (e.g. TimerScreen) unless a timer is
+        // actively fired — the alert overlay should stay visible.
+        final timerService = ref.read(timerServiceProvider);
+        if (timerService.firedTimers.isEmpty) {
+          Navigator.of(context).popUntil((route) => route.isFirst);
+        }
         _pageController?.animateToPage(
           _homeIndex,
           duration: const Duration(milliseconds: 300),
