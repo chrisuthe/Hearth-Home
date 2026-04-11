@@ -205,10 +205,7 @@ class SendspinService {
       final percent = (volume * 100).round();
       Log.i('Sendspin', 'Volume changed: $percent%${muted ? " (muted)" : ""}');
       if (Platform.isLinux) {
-        try {
-          await Process.run('amixer', ['set', 'Master', '$percent%']);
-          await Process.run('amixer', ['set', 'Master', muted ? 'mute' : 'unmute']);
-        } catch (_) {}
+        await setAlsaVolume(percent, muted);
       }
     };
 
@@ -233,6 +230,59 @@ class SendspinService {
     _updateState(
       _state.copyWith(connectionState: SendspinConnectionState.connected),
     );
+  }
+
+  // ---------------------------------------------------------------------------
+  // ALSA volume control
+  // ---------------------------------------------------------------------------
+
+  static String? _alsaControl; // cached ALSA mixer control name
+
+  /// Detect the ALSA mixer control name (Master or PCM).
+  static Future<String> getAlsaControl() async {
+    if (_alsaControl != null) return _alsaControl!;
+    try {
+      final result = await Process.run('amixer', ['scontrols']);
+      final output = result.stdout as String;
+      if (output.contains("'Master'")) {
+        _alsaControl = 'Master';
+      } else if (output.contains("'PCM'")) {
+        _alsaControl = 'PCM';
+      } else {
+        // Use first available control.
+        final match = RegExp(r"'([^']+)'").firstMatch(output);
+        _alsaControl = match?.group(1) ?? 'Master';
+      }
+    } catch (_) {
+      _alsaControl = 'Master';
+    }
+    Log.i('Sendspin', 'ALSA control: $_alsaControl');
+    return _alsaControl!;
+  }
+
+  /// Set ALSA hardware volume and mute state.
+  static Future<void> setAlsaVolume(int percent, bool muted) async {
+    try {
+      final control = await getAlsaControl();
+      await Process.run('amixer', ['set', control, '$percent%']);
+      // Not all controls support mute — ignore errors.
+      if (muted) {
+        await Process.run('amixer', ['set', control, 'mute']);
+      } else {
+        await Process.run('amixer', ['set', control, 'unmute']);
+      }
+    } catch (_) {}
+  }
+
+  /// Read current ALSA hardware volume (0.0-1.0).
+  static Future<double?> readAlsaVolume() async {
+    try {
+      final control = await getAlsaControl();
+      final result = await Process.run('amixer', ['get', control]);
+      final match = RegExp(r'\[(\d+)%\]').firstMatch(result.stdout as String);
+      if (match != null) return int.parse(match.group(1)!) / 100.0;
+    } catch (_) {}
+    return null;
   }
 
   /// Periodically pulls samples from the jitter buffer and pushes them to

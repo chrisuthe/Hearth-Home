@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -546,14 +545,9 @@ class _SystemVolumeSliderState extends ConsumerState<_SystemVolumeSlider> {
   }
 
   Future<void> _readVolume() async {
-    try {
-      final result = await Process.run('amixer', ['get', 'Master']);
-      final match = RegExp(r'\[(\d+)%\]').firstMatch(result.stdout as String);
-      if (match != null && mounted) {
-        setState(() => _volume = int.parse(match.group(1)!) / 100.0);
-      }
-    } catch (_) {
-      // amixer not available (e.g., Windows dev)
+    final vol = await SendspinService.readAlsaVolume();
+    if (vol != null && mounted) {
+      setState(() => _volume = vol);
     }
   }
 
@@ -563,13 +557,8 @@ class _SystemVolumeSliderState extends ConsumerState<_SystemVolumeSlider> {
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 100), () async {
       _userDragging = false;
-      final percent = (value * 100).round();
-      // Set ALSA hardware volume.
-      if (Platform.isLinux) {
-        try {
-          await Process.run('amixer', ['set', 'Master', '$percent%']);
-        } catch (_) {}
-      }
+      // Set ALSA hardware volume (detects correct control name).
+      await SendspinService.setAlsaVolume((value * 100).round(), false);
       // If Sendspin is active, report the volume change to the server.
       final sendspin = ref.read(sendspinServiceProvider);
       if (sendspin.state.isActive) {
