@@ -17,12 +17,16 @@ class DailyForecast {
   final double high;
   final double low;
   final String condition;
+  final double? precipitation; // probability %, 0–100
+  final double? windSpeed;
 
   const DailyForecast({
     required this.date,
     required this.high,
     required this.low,
     required this.condition,
+    this.precipitation,
+    this.windSpeed,
   });
 }
 
@@ -92,6 +96,8 @@ class WeatherState {
         condition: map['condition'] as String,
         high: (map['temperature'] as num).toDouble(),
         low: (map['templow'] as num).toDouble(),
+        precipitation: (map['precipitation_probability'] as num?)?.toDouble(),
+        windSpeed: (map['wind_speed'] as num?)?.toDouble(),
       );
     }).toList();
   }
