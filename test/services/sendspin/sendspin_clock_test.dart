@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hearth/services/sendspin/sendspin_clock.dart';
+import 'package:sendspin_dart/sendspin_dart.dart';
 
 void main() {
   group('SendspinClock', () {

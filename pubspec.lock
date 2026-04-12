@@ -672,6 +672,15 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.1.0"
+  sendspin_dart:
+    dependency: "direct main"
+    description:
+      path: "."
+      ref: main
+      resolved-ref: b22295e87cf0bc6ee5cac4696fcf0be3261ce977
+      url: "https://github.com/chrisuthe/sendspin_dart.git"
+    source: git
+    version: "0.1.0"
   sky_engine:
     dependency: transitive
     description: flutter

@@ -6,7 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/music_state.dart';
 import '../../services/music_assistant_service.dart';
 import '../../services/sendspin/sendspin_service.dart';
-import '../../models/sendspin_state.dart';
+import 'package:sendspin_dart/sendspin_dart.dart';
 import '../../app/app.dart' show kDialogBackground;
 import '../../config/hub_config.dart';
 

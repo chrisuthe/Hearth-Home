@@ -5,7 +5,7 @@ import 'package:ffi/ffi.dart';
 
 import '../../utils/logger.dart';
 import 'flac_ffi.dart';
-import 'sendspin_codec.dart';
+import 'package:sendspin_dart/sendspin_dart.dart';
 
 /// Native FlacCodec using dart:ffi and libFLAC.
 class FlacCodec implements SendspinCodec {
