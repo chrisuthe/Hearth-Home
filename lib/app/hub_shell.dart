@@ -362,10 +362,10 @@ class _HubShellState extends ConsumerState<HubShell> {
             // Voice pill — floating feedback overlay for voice assistant.
             const VoicePillOverlay(),
 
-            // Mic mute toggle — always visible, top-right corner.
+            // Mic mute toggle — always visible, top-left corner.
             Positioned(
               top: 12,
-              right: 12,
+              left: 12,
               child: Consumer(builder: (context, ref, _) {
                 final muted = ref.watch(
                   hubConfigProvider.select((c) => c.micMuted),
