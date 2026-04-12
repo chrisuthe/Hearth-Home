@@ -263,7 +263,8 @@ Type=simple
 User=hearth
 ExecStart=/opt/wyoming/wyoming-openwakeword/.venv/bin/python3 -m wyoming_openwakeword \
     --uri tcp://127.0.0.1:10400 \
-    --preload-model ok_nabu
+    --preload-model ok_nabu \
+    --threshold 0.3
 Restart=on-failure
 RestartSec=5
 
