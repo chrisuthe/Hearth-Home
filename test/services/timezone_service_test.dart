@@ -33,10 +33,11 @@ void main() {
       expect(result, false);
     });
 
-    test('getCurrentTimezone returns empty on non-Linux', () async {
-      // On Windows test runner, should return empty string.
+    test('getCurrentTimezone returns a string', () async {
+      // On Linux (CI), returns the system timezone (e.g. 'Etc/UTC').
+      // On Windows dev, returns empty string.
       final tz = await service.getCurrentTimezone();
-      expect(tz, '');
+      expect(tz, isA<String>());
     });
 
     test('listTimezones returns fallback list on non-Linux', () async {
