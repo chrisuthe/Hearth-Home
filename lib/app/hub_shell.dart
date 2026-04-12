@@ -200,7 +200,10 @@ class _HubShellState extends ConsumerState<HubShell> {
               onTap: () {
                 setState(() => _menu1Open = false);
                 Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => m.buildScreen(isActive: true)),
+                  MaterialPageRoute(builder: (_) => _MenuScreenWrapper(
+                    title: m.name,
+                    child: m.buildScreen(isActive: true),
+                  )),
                 );
               },
             ),
@@ -233,7 +236,10 @@ class _HubShellState extends ConsumerState<HubShell> {
                   onTap: () {
                     setState(() => _menu2Open = false);
                     Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => m.buildScreen(isActive: true)),
+                      MaterialPageRoute(builder: (_) => _MenuScreenWrapper(
+                        title: m.name,
+                        child: m.buildScreen(isActive: true),
+                      )),
                     );
                   },
                 ),
@@ -740,6 +746,38 @@ class _SystemVolumeSliderState extends ConsumerState<_SystemVolumeSlider> {
         ),
         const Icon(Icons.volume_up, color: Colors.white54, size: 20),
       ],
+    );
+  }
+}
+
+/// Wraps a module screen launched from a menu with a close button.
+///
+/// Module screens are designed for the swipeable PageView and don't include
+/// their own navigation chrome. When pushed as a route from a menu, this
+/// wrapper adds a back button so the user can return.
+class _MenuScreenWrapper extends StatelessWidget {
+  final String title;
+  final Widget child;
+
+  const _MenuScreenWrapper({required this.title, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.black,
+      child: Stack(
+        children: [
+          child,
+          Positioned(
+            top: 12,
+            left: 12,
+            child: IconButton(
+              icon: const Icon(Icons.close, color: Colors.white70, size: 28),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
