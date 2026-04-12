@@ -48,201 +48,101 @@ class VoiceAssistantState {
   int get hashCode => Object.hash(state, transcription, responseText, errorMessage);
 }
 
-/// Watches Home Assistant assist_pipeline events and maps pipeline stages
-/// to a simple [VoiceState] for UI consumption.
+/// Watches the assist_satellite HA entity state to drive the voice feedback UI.
 ///
-/// HA's assist pipeline fires events as a voice command moves through
-/// stages: wake word detection, speech-to-text, intent processing, and
-/// text-to-speech. This service subscribes to those events and exposes
-/// a broadcast stream of [VoiceAssistantState] snapshots.
+/// The assist_satellite.hearth entity transitions through states:
+/// idle → listening → processing → responding → idle
 ///
-/// Safety: auto-resets to idle after 3 seconds of no events to avoid
-/// getting stuck in a non-idle state.
+/// This is simpler and more reliable than subscribing to pipeline events,
+/// which are internal to HA and not exposed via the standard event bus.
 class VoiceAssistantService {
   final HomeAssistantService _ha;
   final _stateController = StreamController<VoiceAssistantState>.broadcast();
   VoiceAssistantState _currentState = const VoiceAssistantState();
   Timer? _idleResetTimer;
-  Timer? _ttsEndTimer;
-  int? _subscriptionId;
   StreamSubscription? _entitySub;
   bool _disposed = false;
+  String? _satelliteEntityId;
 
-  /// Duration before auto-resetting to idle after the last event.
-  static const Duration idleTimeout = Duration(seconds: 3);
+  /// Duration before auto-resetting to idle after the last state change.
+  static const Duration idleTimeout = Duration(seconds: 5);
 
   Stream<VoiceAssistantState> get stateStream => _stateController.stream;
   VoiceAssistantState get currentState => _currentState;
 
   VoiceAssistantService(this._ha);
 
-  /// Subscribes to assist_pipeline events on the HA WebSocket.
-  ///
-  /// If HA is already connected, subscribes immediately. Otherwise,
-  /// waits for entity stream activity (indicating connection) then subscribes.
+  /// Starts watching the assist_satellite entity for state changes.
   void start() {
-    if (_ha.isConnected) {
-      _subscribe();
-    } else {
-      // Wait for HA to connect, then subscribe once.
-      _entitySub = _ha.entityStream.listen((_) {
-        _entitySub?.cancel();
-        _entitySub = null;
-        _subscribe();
-      });
+    // Find the satellite entity ID — look for any assist_satellite entity.
+    _entitySub = _ha.entityStream.listen((entity) {
+      if (_satelliteEntityId == null &&
+          entity.entityId.startsWith('assist_satellite.')) {
+        _satelliteEntityId = entity.entityId;
+        Log.i('Voice', 'Found satellite entity: $_satelliteEntityId');
+      }
+      if (entity.entityId == _satelliteEntityId) {
+        _onSatelliteStateChanged(entity.state);
+      }
+    });
+
+    // Check if entity is already in cache.
+    for (final entity in _ha.entities.values) {
+      if (entity.entityId.startsWith('assist_satellite.')) {
+        _satelliteEntityId = entity.entityId;
+        Log.i('Voice', 'Found satellite entity in cache: $_satelliteEntityId');
+        _onSatelliteStateChanged(entity.state);
+        break;
+      }
+    }
+
+    if (_satelliteEntityId == null) {
+      Log.i('Voice', 'No assist_satellite entity found yet, waiting...');
     }
   }
 
-  void _subscribe() {
-    _subscriptionId = _ha.subscribeToEvents(
-      'assist_pipeline/run',
-      _handlePipelineEvent,
-    );
-    if (_subscriptionId != null) {
-      Log.i('Voice', 'Subscribed to assist_pipeline events');
-    }
-  }
-
-  /// Processes a raw HA event for `assist_pipeline/run`.
-  ///
-  /// Event structure:
-  /// ```json
-  /// {
-  ///   "event_type": "assist_pipeline/run",
-  ///   "data": {
-  ///     "pipeline_event": {
-  ///       "type": "stt-end",
-  ///       "data": { "stt_output": { "text": "turn on the lights" } }
-  ///     }
-  ///   }
-  /// }
-  /// ```
-  void _handlePipelineEvent(Map<String, dynamic> event) {
+  void _onSatelliteStateChanged(String haState) {
     if (_disposed) return;
 
-    Log.i('Voice', 'Raw pipeline event keys: ${event.keys.toList()}');
+    Log.i('Voice', 'Satellite state: $haState');
 
-    final data = event['data'] as Map<String, dynamic>?;
-    if (data == null) {
-      Log.w('Voice', 'No data in event: $event');
-      return;
-    }
-    Log.i('Voice', 'Event data keys: ${data.keys.toList()}');
+    _cancelIdleTimer();
 
-    final pipelineEvent = data['pipeline_event'] as Map<String, dynamic>?;
-    if (pipelineEvent == null) {
-      Log.w('Voice', 'No pipeline_event in data: ${data.keys.toList()}');
-      return;
-    }
-
-    final eventType = pipelineEvent['type'] as String?;
-    final eventData = pipelineEvent['data'] as Map<String, dynamic>?;
-
-    if (eventType == null) return;
-
-    Log.i('Voice', 'Pipeline event: $eventType');
-
-    _cancelTtsEndTimer();
-    _resetIdleTimer();
-
-    switch (eventType) {
-      case 'wake_word-end':
+    switch (haState) {
+      case 'listening':
         _updateState(const VoiceAssistantState(
           state: VoiceState.listening,
         ));
-        break;
 
-      case 'stt-start':
-        _updateState(_currentState.copyWith(
-          state: VoiceState.listening,
-        ));
-        break;
-
-      case 'stt-end':
-        final sttOutput = eventData?['stt_output'] as Map<String, dynamic>?;
-        final text = sttOutput?['text'] as String?;
-        _updateState(_currentState.copyWith(
-          state: VoiceState.processing,
-          transcription: text,
-        ));
-        break;
-
-      case 'intent-start':
+      case 'processing':
         _updateState(_currentState.copyWith(
           state: VoiceState.processing,
         ));
-        break;
 
-      case 'intent-end':
-        final intentOutput =
-            eventData?['intent_output'] as Map<String, dynamic>?;
-        final response = intentOutput?['response'] as Map<String, dynamic>?;
-        final speech = response?['speech'] as Map<String, dynamic>?;
-        final plain = speech?['plain'] as Map<String, dynamic>?;
-        final responseText = plain?['speech'] as String?;
-        _updateState(_currentState.copyWith(
-          state: VoiceState.responding,
-          responseText: responseText,
-        ));
-        break;
-
-      case 'tts-start':
+      case 'responding':
         _updateState(_currentState.copyWith(
           state: VoiceState.responding,
         ));
-        break;
 
-      case 'tts-end':
-        // Delay reset to idle so UI can show the response briefly.
-        _cancelIdleTimer();
-        _ttsEndTimer = Timer(idleTimeout, () {
+      case 'idle':
+        // Delay the idle transition so the UI can show the last state briefly.
+        _idleResetTimer = Timer(idleTimeout, () {
           if (!_disposed) {
             _updateState(const VoiceAssistantState());
           }
         });
-        break;
 
-      case 'error':
-        final message = eventData?['message'] as String? ??
-            eventData?['code'] as String? ??
-            'Unknown error';
-        _updateState(VoiceAssistantState(
-          state: VoiceState.error,
-          errorMessage: message,
-          transcription: _currentState.transcription,
-        ));
-        break;
-
-      case 'run-end':
-        // Pipeline finished — if we're not already idle (from tts-end),
-        // schedule a reset.
-        if (_currentState.state != VoiceState.idle) {
-          _cancelIdleTimer();
-          _ttsEndTimer ??= Timer(idleTimeout, () {
-            if (!_disposed) {
-              _updateState(const VoiceAssistantState());
-            }
-          });
-        }
-        break;
+      default:
+        Log.d('Voice', 'Unknown satellite state: $haState');
     }
   }
 
   void _updateState(VoiceAssistantState newState) {
+    if (newState == _currentState) return;
     _currentState = newState;
     if (!_stateController.isClosed) {
       _stateController.add(newState);
     }
-  }
-
-  void _resetIdleTimer() {
-    _cancelIdleTimer();
-    _idleResetTimer = Timer(idleTimeout, () {
-      if (!_disposed && _currentState.state != VoiceState.idle) {
-        Log.w('Voice', 'Idle timeout — resetting state');
-        _updateState(const VoiceAssistantState());
-      }
-    });
   }
 
   void _cancelIdleTimer() {
@@ -250,23 +150,17 @@ class VoiceAssistantService {
     _idleResetTimer = null;
   }
 
-  void _cancelTtsEndTimer() {
-    _ttsEndTimer?.cancel();
-    _ttsEndTimer = null;
-  }
-
   void dispose() {
     _disposed = true;
     _cancelIdleTimer();
-    _cancelTtsEndTimer();
     _entitySub?.cancel();
     _stateController.close();
   }
 
-  /// Exposed for testing — injects a pipeline event directly.
+  /// Exposed for testing — injects a satellite state change directly.
   @visibleForTesting
-  void handlePipelineEventForTest(Map<String, dynamic> event) {
-    _handlePipelineEvent(event);
+  void handleStateChangeForTest(String haState) {
+    _onSatelliteStateChanged(haState);
   }
 }
 
