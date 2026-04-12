@@ -9,6 +9,7 @@ import '../../services/sendspin/sendspin_service.dart';
 import 'package:sendspin_dart/sendspin_dart.dart';
 import '../../app/app.dart' show kDialogBackground;
 import '../../config/hub_config.dart';
+import '../../services/toast_service.dart';
 
 const _accent = Color(0xFF646CFF);
 
@@ -339,6 +340,10 @@ class _BrowsePanelState extends ConsumerState<_BrowsePanel>
     final id = widget.playerId;
     if (id == null) return;
     widget.music.playMedia(id, item);
+    ref.read(toastProvider.notifier).show(
+      'Playing ${item.name}',
+      icon: Icons.play_arrow,
+    );
   }
 
   void _showItemContextMenu(BuildContext context, MaMediaItem item) {
@@ -374,6 +379,10 @@ class _BrowsePanelState extends ConsumerState<_BrowsePanel>
               onTap: () {
                 Navigator.of(context).pop();
                 widget.music.playMedia(id, item, option: 'play');
+                ref.read(toastProvider.notifier).show(
+                  'Playing ${item.name}',
+                  icon: Icons.play_arrow,
+                );
               },
             ),
             _contextMenuOption(
@@ -382,6 +391,10 @@ class _BrowsePanelState extends ConsumerState<_BrowsePanel>
               onTap: () {
                 Navigator.of(context).pop();
                 widget.music.playMedia(id, item, option: 'next');
+                ref.read(toastProvider.notifier).show(
+                  'Playing next: ${item.name}',
+                  icon: Icons.skip_next,
+                );
               },
             ),
             _contextMenuOption(
@@ -390,6 +403,10 @@ class _BrowsePanelState extends ConsumerState<_BrowsePanel>
               onTap: () {
                 Navigator.of(context).pop();
                 widget.music.playMedia(id, item, option: 'add');
+                ref.read(toastProvider.notifier).show(
+                  'Added to queue',
+                  icon: Icons.add_to_queue,
+                );
               },
             ),
             _contextMenuOption(
@@ -398,6 +415,10 @@ class _BrowsePanelState extends ConsumerState<_BrowsePanel>
               onTap: () {
                 Navigator.of(context).pop();
                 widget.music.playMedia(id, item, option: 'replace');
+                ref.read(toastProvider.notifier).show(
+                  'Playing ${item.name}',
+                  icon: Icons.play_arrow,
+                );
               },
             ),
             const SizedBox(height: 8),

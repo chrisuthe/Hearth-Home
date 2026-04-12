@@ -16,6 +16,8 @@ import '../modules/alarm_clock/alarm_alert_overlay.dart';
 import '../modules/alarm_clock/alarm_service.dart';
 import '../modules/alarm_clock/sunrise_controller.dart';
 import '../services/sendspin/sendspin_service.dart';
+import '../services/toast_service.dart';
+import '../widgets/toast_overlay.dart';
 import '../widgets/voice_pill.dart';
 import '../utils/alsa_utils.dart';
 
@@ -365,6 +367,9 @@ class _HubShellState extends ConsumerState<HubShell> {
               ),
             ),
 
+            // Toast overlay — brief feedback messages from any service.
+            const ToastOverlay(),
+
             // Voice pill — floating feedback overlay for voice assistant.
             const VoicePillOverlay(),
 
@@ -388,6 +393,10 @@ class _HubShellState extends ConsumerState<HubShell> {
                       (c) => c.copyWith(micMuted: newValue),
                     );
                     setMicMuted(newValue);
+                    ref.read(toastProvider.notifier).show(
+                      newValue ? 'Microphone muted' : 'Microphone unmuted',
+                      icon: newValue ? Icons.mic_off : Icons.mic,
+                    );
                   },
                 );
               }),

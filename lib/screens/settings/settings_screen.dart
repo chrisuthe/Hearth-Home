@@ -12,6 +12,7 @@ import 'wifi_settings.dart';
 import 'display_settings.dart';
 import 'update_settings.dart';
 import '../../modules/module_registry.dart';
+import '../../services/toast_service.dart';
 import '../../services/voice_assistant_service.dart';
 
 /// Settings screen -- configure connections, display, night mode, and music.
@@ -1334,6 +1335,10 @@ class _VoiceMuteToggleState extends ConsumerState<_VoiceMuteToggle> {
     final success = enable ? await voice.unmute() : await voice.mute();
     if (success && mounted) {
       setState(() { _running = enable; _loading = false; });
+      ref.read(toastProvider.notifier).show(
+        enable ? 'Voice assistant listening' : 'Voice assistant muted',
+        icon: enable ? Icons.record_voice_over : Icons.voice_over_off,
+      );
     } else if (mounted) {
       setState(() => _loading = false);
     }

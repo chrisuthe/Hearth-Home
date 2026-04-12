@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../config/hub_config.dart';
+import '../../services/toast_service.dart';
 import '../../services/update_service.dart';
 
 /// Reads installed version from /etc/hearth-version (written by the OTA updater).
@@ -188,33 +189,39 @@ class UpdateSettingsSection extends ConsumerWidget {
   }
 }
 
-class _ForceUpdateTile extends StatefulWidget {
+class _ForceUpdateTile extends ConsumerStatefulWidget {
   @override
-  State<_ForceUpdateTile> createState() => _ForceUpdateTileState();
+  ConsumerState<_ForceUpdateTile> createState() => _ForceUpdateTileState();
 }
 
-class _ForceUpdateTileState extends State<_ForceUpdateTile> {
+class _ForceUpdateTileState extends ConsumerState<_ForceUpdateTile> {
   bool _updating = false;
 
   Future<void> _triggerUpdate() async {
     if (_updating || kIsWeb) return;
     setState(() => _updating = true);
+    ref.read(toastProvider.notifier).show(
+      'Checking for updates...',
+      icon: Icons.system_update_alt,
+    );
     try {
       final result = await Process.run(
         'sudo', ['systemctl', 'start', 'hearth-updater.service'],
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(result.exitCode == 0
-              ? 'Update triggered — the app will restart if a new version is found'
-              : 'Failed to trigger update'),
-        ),
+      ref.read(toastProvider.notifier).show(
+        result.exitCode == 0
+            ? 'Update triggered'
+            : 'Failed to trigger update',
+        icon: result.exitCode == 0 ? Icons.check_circle : Icons.error_outline,
+        type: result.exitCode == 0 ? ToastType.success : ToastType.error,
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
+      ref.read(toastProvider.notifier).show(
+        'Update error: $e',
+        icon: Icons.error_outline,
+        type: ToastType.error,
       );
     } finally {
       if (mounted) setState(() => _updating = false);
