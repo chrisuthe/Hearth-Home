@@ -225,11 +225,18 @@ if [ ! -d /opt/wyoming/satellite-env ]; then
 fi
 sudo -u hearth /opt/wyoming/satellite-env/bin/pip install --quiet --upgrade wyoming-satellite
 
-# Install wyoming-openwakeword
-if [ ! -d /opt/wyoming/wakeword-env ]; then
-    sudo -u hearth python3 -m venv /opt/wyoming/wakeword-env
+# Install wyoming-openwakeword (clone + setup script to avoid dependency conflicts)
+if [ ! -d /opt/wyoming/wyoming-openwakeword ]; then
+    sudo -u hearth git clone https://github.com/rhasspy/wyoming-openwakeword.git /opt/wyoming/wyoming-openwakeword
+    cd /opt/wyoming/wyoming-openwakeword
+    sudo -u hearth bash script/setup
+    cd /tmp
+else
+    cd /opt/wyoming/wyoming-openwakeword
+    sudo -u hearth git pull --quiet
+    sudo -u hearth bash script/setup
+    cd /tmp
 fi
-sudo -u hearth /opt/wyoming/wakeword-env/bin/pip install --quiet --upgrade wyoming-openwakeword
 
 # Auto-detect USB microphone card number
 MIC_CARD=$(arecord -l 2>/dev/null | grep -oP 'card \K\d+(?=.*USB)' | head -1)
@@ -258,7 +265,7 @@ After=network.target
 [Service]
 Type=simple
 User=hearth
-ExecStart=/opt/wyoming/wakeword-env/bin/python3 -m wyoming_openwakeword \
+ExecStart=/opt/wyoming/wyoming-openwakeword/script/run \
     --uri tcp://127.0.0.1:10400 \
     --preload-model ok_nabu
 Restart=on-failure
