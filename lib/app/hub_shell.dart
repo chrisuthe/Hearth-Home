@@ -17,6 +17,7 @@ import '../modules/alarm_clock/alarm_service.dart';
 import '../modules/alarm_clock/sunrise_controller.dart';
 import '../services/sendspin/sendspin_service.dart';
 import '../widgets/voice_pill.dart';
+import '../utils/alsa_utils.dart';
 
 /// The main shell that manages the layered navigation model.
 ///
@@ -360,6 +361,31 @@ class _HubShellState extends ConsumerState<HubShell> {
 
             // Voice pill — floating feedback overlay for voice assistant.
             const VoicePillOverlay(),
+
+            // Mic mute toggle — always visible, top-right corner.
+            Positioned(
+              top: 12,
+              right: 12,
+              child: Consumer(builder: (context, ref, _) {
+                final muted = ref.watch(
+                  hubConfigProvider.select((c) => c.micMuted),
+                );
+                return IconButton(
+                  icon: Icon(
+                    muted ? Icons.mic_off : Icons.mic,
+                    color: muted ? Colors.red : Colors.white38,
+                    size: 22,
+                  ),
+                  onPressed: () {
+                    final newValue = !muted;
+                    ref.read(hubConfigProvider.notifier).update(
+                      (c) => c.copyWith(micMuted: newValue),
+                    );
+                    setMicMuted(newValue);
+                  },
+                );
+              }),
+            ),
 
             // Edge-swipe zones — invisible strips at top/bottom that
             // dispatch configurable actions on vertical drag.
