@@ -120,17 +120,27 @@ class VoiceAssistantService {
   void _handlePipelineEvent(Map<String, dynamic> event) {
     if (_disposed) return;
 
+    Log.i('Voice', 'Raw pipeline event keys: ${event.keys.toList()}');
+
     final data = event['data'] as Map<String, dynamic>?;
-    if (data == null) return;
+    if (data == null) {
+      Log.w('Voice', 'No data in event: $event');
+      return;
+    }
+    Log.i('Voice', 'Event data keys: ${data.keys.toList()}');
+
     final pipelineEvent = data['pipeline_event'] as Map<String, dynamic>?;
-    if (pipelineEvent == null) return;
+    if (pipelineEvent == null) {
+      Log.w('Voice', 'No pipeline_event in data: ${data.keys.toList()}');
+      return;
+    }
 
     final eventType = pipelineEvent['type'] as String?;
     final eventData = pipelineEvent['data'] as Map<String, dynamic>?;
 
     if (eventType == null) return;
 
-    Log.d('Voice', 'Pipeline event: $eventType');
+    Log.i('Voice', 'Pipeline event: $eventType');
 
     _cancelTtsEndTimer();
     _resetIdleTimer();
