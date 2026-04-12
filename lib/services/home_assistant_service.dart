@@ -29,6 +29,9 @@ class HomeAssistantService {
 
   final Map<int, Completer<Map<String, dynamic>?>> _pendingResponses = {};
 
+  /// Callbacks for generic event subscriptions (keyed by subscription msg ID).
+  final Map<int, void Function(Map<String, dynamic>)> _eventSubscriptions = {};
+
   // Reconnection state
   String? _url;
   String? _token;
@@ -206,6 +209,18 @@ class HomeAssistantService {
   }
 
   void _handleEvent(Map<String, dynamic> msg) {
+    final id = msg['id'] as int?;
+
+    // Dispatch to generic event subscribers if this message matches one.
+    if (id != null && _eventSubscriptions.containsKey(id)) {
+      final event = msg['event'] as Map<String, dynamic>?;
+      if (event != null) {
+        _eventSubscriptions[id]!(event);
+      }
+      return;
+    }
+
+    // Default: handle state_changed events for the entity cache.
     final event = msg['event'] as Map<String, dynamic>?;
     if (event == null) return;
     final data = event['data'] as Map<String, dynamic>?;
@@ -276,6 +291,29 @@ class HomeAssistantService {
         return null;
       },
     );
+  }
+
+  /// Subscribes to a specific HA event type and calls [onEvent] for each
+  /// event received. Returns the subscription message ID, which can be used
+  /// to unsubscribe later.
+  ///
+  /// The [onEvent] callback receives the full event data map from HA.
+  /// Requires an authenticated connection.
+  int? subscribeToEvents(
+      String eventType, void Function(Map<String, dynamic>) onEvent) {
+    if (!_authenticated) {
+      Log.w('HA',
+          'subscribeToEvents dropped (not authenticated): $eventType');
+      return null;
+    }
+    final id = _nextId;
+    _eventSubscriptions[id] = onEvent;
+    _send({
+      'id': id,
+      'type': 'subscribe_events',
+      'event_type': eventType,
+    });
+    return id;
   }
 
   void _send(Map<String, dynamic> msg) {

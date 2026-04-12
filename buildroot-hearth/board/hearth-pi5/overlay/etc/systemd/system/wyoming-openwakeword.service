@@ -1,0 +1,15 @@
+[Unit]
+Description=Wyoming openWakeWord
+After=network.target
+
+[Service]
+Type=simple
+User=hearth
+ExecStart=/opt/wyoming/wakeword-env/bin/python3 -m wyoming_openwakeword \
+    --uri tcp://127.0.0.1:10400 \
+    --preload-model ok_nabu
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -16,6 +16,7 @@ import '../modules/alarm_clock/alarm_alert_overlay.dart';
 import '../modules/alarm_clock/alarm_service.dart';
 import '../modules/alarm_clock/sunrise_controller.dart';
 import '../services/sendspin/sendspin_service.dart';
+import '../widgets/voice_pill.dart';
 
 /// The main shell that manages the layered navigation model.
 ///
@@ -356,6 +357,9 @@ class _HubShellState extends ConsumerState<HubShell> {
                 ),
               ),
             ),
+
+            // Voice pill — floating feedback overlay for voice assistant.
+            const VoicePillOverlay(),
 
             // Edge-swipe zones — invisible strips at top/bottom that
             // dispatch configurable actions on vertical drag.

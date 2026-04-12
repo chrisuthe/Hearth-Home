@@ -586,6 +586,27 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
         const SizedBox(height: 24),
 
+        // ── Voice Assistant ─────────────────────────────────────────
+        const _SectionHeader(
+          title: 'Voice Assistant',
+          description: 'Visual feedback for Wyoming voice satellite',
+        ),
+        const SizedBox(height: 8),
+        SwitchListTile(
+          secondary: const Icon(Icons.mic, color: Colors.white54),
+          title: const Text('Show voice feedback'),
+          subtitle: Text(
+            config.showVoiceFeedback
+                ? 'Voice pill overlay visible during interactions'
+                : 'Voice pill overlay hidden',
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
+          ),
+          value: config.showVoiceFeedback,
+          onChanged: (v) => _updateConfig((c) => c.copyWith(showVoiceFeedback: v)),
+        ),
+
+        const SizedBox(height: 24),
+
         // ── 6. Network & Access ─────────────────────────────────────
         const _SectionHeader(
           title: 'Network & Access',

@@ -62,6 +62,7 @@ class HubConfig {
   final String timezone;           // IANA timezone (e.g. "America/New_York"); empty = system default
   final String topSwipeAction;    // "menu1" | "menu2" | "settings" | "nextScreen" | "previousScreen"
   final String bottomSwipeAction; // "menu1" | "menu2" | "settings" | "nextScreen" | "previousScreen"
+  final bool showVoiceFeedback;
 
   const HubConfig({
     this.apiKey = '',
@@ -104,6 +105,7 @@ class HubConfig {
     this.timezone = '',
     this.topSwipeAction = 'menu2',
     this.bottomSwipeAction = 'menu1',
+    this.showVoiceFeedback = true,
   });
 
   static String generateApiKey() {
@@ -153,6 +155,7 @@ class HubConfig {
     String? timezone,
     String? topSwipeAction,
     String? bottomSwipeAction,
+    bool? showVoiceFeedback,
   }) {
     return HubConfig(
       apiKey: apiKey ?? this.apiKey,
@@ -195,6 +198,7 @@ class HubConfig {
       timezone: timezone ?? this.timezone,
       topSwipeAction: topSwipeAction ?? this.topSwipeAction,
       bottomSwipeAction: bottomSwipeAction ?? this.bottomSwipeAction,
+      showVoiceFeedback: showVoiceFeedback ?? this.showVoiceFeedback,
     );
   }
 
@@ -239,6 +243,7 @@ class HubConfig {
         'timezone': timezone,
         'topSwipeAction': topSwipeAction,
         'bottomSwipeAction': bottomSwipeAction,
+        'showVoiceFeedback': showVoiceFeedback,
       };
 
   factory HubConfig.fromJson(Map<String, dynamic> json) => HubConfig(
@@ -285,6 +290,7 @@ class HubConfig {
         timezone: json['timezone'] as String? ?? '',
         topSwipeAction: json['topSwipeAction'] as String? ?? 'menu2',
         bottomSwipeAction: json['bottomSwipeAction'] as String? ?? 'menu1',
+        showVoiceFeedback: json['showVoiceFeedback'] as bool? ?? true,
       );
 
   static Map<String, List<String>> _migrateEnabledModules(Map<String, dynamic> json) {
