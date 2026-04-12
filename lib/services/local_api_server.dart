@@ -309,7 +309,7 @@ class LocalApiServer {
   Future<void> _handleGetConfig(HttpRequest request) async {
     final json = _configNotifier.current.toJson();
     // Redact secrets — tokens are write-only from the API's perspective.
-    const secretFields = ['apiKey', 'haToken', 'immichApiKey', 'musicAssistantToken', 'mealieToken', 'giteaApiToken'];
+    const secretFields = ['apiKey', 'haToken', 'immichApiKey', 'musicAssistantToken', 'frigatePassword', 'mealieToken', 'giteaApiToken'];
     for (final field in secretFields) {
       final value = json[field] as String? ?? '';
       json[field] = value.isEmpty ? '' : '••••••••';
@@ -327,7 +327,7 @@ class LocalApiServer {
 
     // Filter out redacted markers so clients cannot overwrite real secrets
     // with the placeholder value returned by GET /api/config.
-    const secretFields = ['haToken', 'immichApiKey', 'musicAssistantToken', 'mealieToken', 'giteaApiToken'];
+    const secretFields = ['haToken', 'immichApiKey', 'musicAssistantToken', 'frigatePassword', 'mealieToken', 'giteaApiToken'];
     for (final field in secretFields) {
       if (json[field] == _redactedMarker) {
         json.remove(field);
@@ -342,6 +342,8 @@ class LocalApiServer {
           musicAssistantUrl: json['musicAssistantUrl'] as String?,
           musicAssistantToken: json['musicAssistantToken'] as String?,
           frigateUrl: json['frigateUrl'] as String?,
+          frigateUsername: json['frigateUsername'] as String?,
+          frigatePassword: json['frigatePassword'] as String?,
           weatherEntityId: json['weatherEntityId'] as String?,
           idleTimeoutSeconds: json['idleTimeoutSeconds'] as int?,
           nightModeSource: json['nightModeSource'] as String?,
@@ -841,6 +843,14 @@ const _configPageHtml = r'''
 
     <label for="frigateUrl">Frigate URL</label>
     <input type="text" id="frigateUrl" placeholder="http://192.168.1.x:5000">
+    <label for="frigateUsername">Frigate Username</label>
+    <input type="text" id="frigateUsername" placeholder="admin (leave blank for unauthenticated)">
+    <label for="frigatePassword">Frigate Password</label>
+    <div class="secret-wrap">
+      <input type="password" id="frigatePassword" placeholder="Password for Frigate auth">
+      <button type="button" class="toggle-vis" onclick="toggleVis(this)">&#x1f441;</button>
+    </div>
+    <div class="hint" id="frigatePassword_hint"></div>
 
     <h2>Mealie</h2>
     <label for="mealieUrl">Mealie URL</label>
@@ -959,7 +969,7 @@ async function initAuth() {
 
 const textFields = [
   'immichUrl','immichApiKey','haUrl','haToken',
-  'musicAssistantUrl','musicAssistantToken','defaultMusicZone','frigateUrl',
+  'musicAssistantUrl','musicAssistantToken','defaultMusicZone','frigateUrl','frigateUsername','frigatePassword',
   'mealieUrl','mealieToken','giteaApiToken',
   'weatherEntityId','nightModeHaEntity','nightModeClockStart','nightModeClockEnd',
   'sendspinPlayerName','sendspinServerUrl','timezone'
@@ -967,7 +977,7 @@ const textFields = [
 const intFields = ['idleTimeoutSeconds','sendspinBufferSeconds'];
 const boolFields = ['use24HourClock','sendspinEnabled','autoUpdate'];
 const selectFields = ['nightModeSource','displayProfile','updateSource'];
-const secretFields = ['immichApiKey', 'haToken', 'musicAssistantToken', 'mealieToken', 'giteaApiToken'];
+const secretFields = ['immichApiKey', 'haToken', 'musicAssistantToken', 'frigatePassword', 'mealieToken', 'giteaApiToken'];
 const REDACTED = '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022';
 
 async function load() {

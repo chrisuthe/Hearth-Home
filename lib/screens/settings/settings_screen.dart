@@ -223,6 +223,31 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             onSave: (value) => _updateConfig((c) => c.copyWith(frigateUrl: value)),
           ),
         ),
+        _SettingsTile(
+          icon: Icons.person,
+          title: 'Username',
+          subtitle: config.frigateUsername.isEmpty ? 'Not configured' : config.frigateUsername,
+          onTap: () => _showTextInputDialog(
+            title: 'Frigate Username',
+            currentValue: config.frigateUsername,
+            hint: 'admin',
+            onSave: (value) => _updateConfig((c) => c.copyWith(frigateUsername: value)),
+          ),
+        ),
+        _SettingsTile(
+          icon: Icons.key,
+          title: 'Password',
+          subtitle: config.frigatePassword.isEmpty
+              ? 'Not configured'
+              : '\u2022' * 8,
+          onTap: () => _showTextInputDialog(
+            title: 'Frigate Password',
+            currentValue: config.frigatePassword,
+            hint: 'Enter password for Frigate auth',
+            obscure: true,
+            onSave: (value) => _updateConfig((c) => c.copyWith(frigatePassword: value)),
+          ),
+        ),
 
         // -- Mealie (only when enabled) --
         if (config.enabledModules.contains('mealie')) ...[

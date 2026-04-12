@@ -16,21 +16,87 @@ import '../../services/home_assistant_service.dart';
 class FrigateService {
   final Dio _dio;
   final String _baseUrl;
+  final String _username;
+  final String _password;
   final HomeAssistantService _ha;
   final _eventController = StreamController<FrigateEvent>.broadcast();
   final List<FrigateCamera> _cameras = [];
   StreamSubscription? _entitySub;
+  String? _jwtToken;
+  DateTime? _tokenExpiry;
 
   FrigateService({
     required String baseUrl,
     required HomeAssistantService ha,
+    String username = '',
+    String password = '',
   })  : _baseUrl = baseUrl,
         _ha = ha,
+        _username = username,
+        _password = password,
         _dio = Dio(BaseOptions(
           baseUrl: baseUrl,
           connectTimeout: const Duration(seconds: 10),
           receiveTimeout: const Duration(seconds: 30),
         ));
+
+  bool get _hasCredentials => _username.isNotEmpty && _password.isNotEmpty;
+
+  /// Authenticates with Frigate via POST /api/login.
+  ///
+  /// Frigate returns a JWT token either as `access_token` in the JSON body
+  /// or as a `frigate_token` cookie in Set-Cookie headers. Both are checked.
+  /// Tokens are cached for 12 hours before refresh.
+  Future<bool> _authenticate() async {
+    if (!_hasCredentials) return false;
+    try {
+      final response = await _dio.post('/api/login', data: {
+        'user': _username,
+        'password': _password,
+      });
+      if (response.statusCode == 200) {
+        // Check JSON body for access_token
+        final data = response.data;
+        if (data is Map<String, dynamic> && data.containsKey('access_token')) {
+          _jwtToken = data['access_token'] as String?;
+        }
+        // Fallback: check Set-Cookie header for frigate_token
+        if (_jwtToken == null) {
+          final cookies = response.headers.map['set-cookie'];
+          if (cookies != null) {
+            for (final cookie in cookies) {
+              final match = RegExp(r'frigate_token=([^;]+)').firstMatch(cookie);
+              if (match != null) {
+                _jwtToken = match.group(1);
+                break;
+              }
+            }
+          }
+        }
+        if (_jwtToken != null) {
+          _tokenExpiry = DateTime.now().add(const Duration(hours: 12));
+          _dio.options.headers['Authorization'] = 'Bearer $_jwtToken';
+          Log.d('Frigate', 'Authenticated successfully');
+          return true;
+        }
+      }
+    } catch (e) {
+      Log.e('Frigate', 'Authentication failed: $e');
+    }
+    return false;
+  }
+
+  /// Refreshes the JWT token if it is close to expiry (within 30 minutes).
+  Future<void> _refreshTokenIfNeeded() async {
+    if (!_hasCredentials) return;
+    if (_jwtToken == null || _tokenExpiry == null) {
+      await _authenticate();
+      return;
+    }
+    if (DateTime.now().isAfter(_tokenExpiry!.subtract(const Duration(minutes: 30)))) {
+      await _authenticate();
+    }
+  }
 
   Stream<FrigateEvent> get eventStream => _eventController.stream;
   List<FrigateCamera> get cameras => List.unmodifiable(_cameras);
@@ -58,6 +124,7 @@ class FrigateService {
 
   /// Fetches the camera list from Frigate's configuration endpoint.
   Future<void> loadCameras() async {
+    await _refreshTokenIfNeeded();
     final response = await _dio.get('/api/config');
     _cameras.clear();
     _cameras.addAll(parseCameras(
@@ -67,6 +134,7 @@ class FrigateService {
   }
 
   Future<List<FrigateEvent>> getRecentEvents({int limit = 20}) async {
+    await _refreshTokenIfNeeded();
     final response =
         await _dio.get('/api/events', queryParameters: {'limit': limit});
     return parseEvents(
@@ -115,14 +183,25 @@ class FrigateService {
 }
 
 final frigateServiceProvider = Provider<FrigateService>((ref) {
-  final frigateUrl = ref.watch(hubConfigProvider.select((c) => c.frigateUrl));
+  final config = ref.watch(hubConfigProvider);
   final ha = ref.watch(homeAssistantServiceProvider);
-  final service = FrigateService(baseUrl: frigateUrl, ha: ha);
+  final service = FrigateService(
+    baseUrl: config.frigateUrl,
+    ha: ha,
+    username: config.frigateUsername,
+    password: config.frigatePassword,
+  );
   ref.onDispose(() => service.dispose());
-  if (frigateUrl.isNotEmpty) {
+  if (config.frigateUrl.isNotEmpty) {
+    // Authenticate first if credentials are configured, then load cameras.
+    Future<void> init() async {
+      if (service._hasCredentials) {
+        await service._authenticate();
+      }
+      await service.loadCameras();
+    }
+    init().catchError((e) => Log.e('Frigate', 'Initialization failed: $e'));
     service.listenForHaEvents();
-    service.loadCameras().catchError(
-        (e) => Log.e('Frigate', 'Camera load failed: $e'));
   }
   return service;
 });

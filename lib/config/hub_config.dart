@@ -30,6 +30,8 @@ class HubConfig {
   final String musicAssistantUrl;
   final String musicAssistantToken;
   final String frigateUrl;
+  final String frigateUsername;
+  final String frigatePassword;
   final int idleTimeoutSeconds;
   final String nightModeSource; // "ha_entity" | "api" | "clock" | "none"
   final String? nightModeHaEntity;
@@ -70,6 +72,8 @@ class HubConfig {
     this.musicAssistantUrl = '',
     this.musicAssistantToken = '',
     this.frigateUrl = '',
+    this.frigateUsername = '',
+    this.frigatePassword = '',
     this.idleTimeoutSeconds = 120,
     this.nightModeSource = 'none',
     this.nightModeHaEntity,
@@ -117,6 +121,8 @@ class HubConfig {
     String? musicAssistantUrl,
     String? musicAssistantToken,
     String? frigateUrl,
+    String? frigateUsername,
+    String? frigatePassword,
     int? idleTimeoutSeconds,
     String? nightModeSource,
     Object? nightModeHaEntity = _undefined,
@@ -157,6 +163,8 @@ class HubConfig {
       musicAssistantUrl: musicAssistantUrl ?? this.musicAssistantUrl,
       musicAssistantToken: musicAssistantToken ?? this.musicAssistantToken,
       frigateUrl: frigateUrl ?? this.frigateUrl,
+      frigateUsername: frigateUsername ?? this.frigateUsername,
+      frigatePassword: frigatePassword ?? this.frigatePassword,
       idleTimeoutSeconds: idleTimeoutSeconds ?? this.idleTimeoutSeconds,
       nightModeSource: nightModeSource ?? this.nightModeSource,
       nightModeHaEntity: nightModeHaEntity == _undefined ? this.nightModeHaEntity : nightModeHaEntity as String?,
@@ -199,6 +207,8 @@ class HubConfig {
         'musicAssistantUrl': musicAssistantUrl,
         'musicAssistantToken': musicAssistantToken,
         'frigateUrl': frigateUrl,
+        'frigateUsername': frigateUsername,
+        'frigatePassword': frigatePassword,
         'idleTimeoutSeconds': idleTimeoutSeconds,
         'nightModeSource': nightModeSource,
         'nightModeHaEntity': nightModeHaEntity,
@@ -240,6 +250,8 @@ class HubConfig {
         musicAssistantUrl: json['musicAssistantUrl'] as String? ?? '',
         musicAssistantToken: json['musicAssistantToken'] as String? ?? '',
         frigateUrl: json['frigateUrl'] as String? ?? '',
+        frigateUsername: json['frigateUsername'] as String? ?? '',
+        frigatePassword: json['frigatePassword'] as String? ?? '',
         idleTimeoutSeconds: json['idleTimeoutSeconds'] as int? ?? 120,
         nightModeSource: json['nightModeSource'] as String? ?? 'none',
         nightModeHaEntity: json['nightModeHaEntity'] as String?,

@@ -322,5 +322,35 @@ void main() {
       expect(updated.modulePlacements['media'], ['swipe']);
     });
 
+    test('frigate auth fields default to empty strings', () {
+      const config = HubConfig();
+      expect(config.frigateUsername, '');
+      expect(config.frigatePassword, '');
+    });
+
+    test('frigate auth fields round-trip through JSON', () {
+      const config = HubConfig(
+        frigateUsername: 'admin',
+        frigatePassword: 'secret123',
+      );
+      final json = config.toJson();
+      final restored = HubConfig.fromJson(json);
+      expect(restored.frigateUsername, 'admin');
+      expect(restored.frigatePassword, 'secret123');
+    });
+
+    test('frigate auth copyWith preserves unchanged fields', () {
+      const config = HubConfig(frigateUsername: 'admin');
+      final updated = config.copyWith(frigatePassword: 'newpass');
+      expect(updated.frigateUsername, 'admin');
+      expect(updated.frigatePassword, 'newpass');
+    });
+
+    test('frigate auth fromJson handles missing fields', () {
+      final config = HubConfig.fromJson({'frigateUrl': 'http://frigate:5000'});
+      expect(config.frigateUsername, '');
+      expect(config.frigatePassword, '');
+    });
+
   });
 }
