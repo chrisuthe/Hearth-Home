@@ -234,8 +234,8 @@ sudo -u hearth git pull --quiet
 sudo -u hearth python3 script/setup
 cd /tmp
 
-# Auto-detect USB microphone card number
-MIC_CARD=$(arecord -l 2>/dev/null | grep -oP 'card \K\d+(?=.*USB)' | head -1)
+# Auto-detect USB microphone ALSA card name (survives card number changes across reboots)
+MIC_CARD=$(grep -l 'USB' /proc/asound/card*/id 2>/dev/null | head -1 | xargs cat 2>/dev/null)
 if [ -z "$MIC_CARD" ]; then
     echo "WARNING: No USB microphone detected. Wyoming satellite may not capture audio."
     echo "         Plug in a USB mic and re-run this script, or edit the service manually:"
@@ -243,14 +243,14 @@ if [ -z "$MIC_CARD" ]; then
     MIC_CARD="0"
 fi
 
-# Auto-detect speaker card number (first available playback device)
-SPEAKER_CARD=$(aplay -l 2>/dev/null | grep -oP 'card \K\d+' | head -1)
+# Auto-detect HDMI speaker ALSA card name (prefer HDMI over USB for TTS output)
+SPEAKER_CARD=$(grep -l 'hdmi' /proc/asound/card*/id 2>/dev/null | head -1 | xargs cat 2>/dev/null)
 if [ -z "$SPEAKER_CARD" ]; then
-    echo "WARNING: No speaker detected. Wyoming satellite may not play TTS audio."
-    SPEAKER_CARD="0"
+    SPEAKER_CARD=$(aplay -l 2>/dev/null | grep -oP 'card \K\d+' | head -1)
+    SPEAKER_CARD="${SPEAKER_CARD:-0}"
 fi
 
-echo "Detected audio: mic card=$MIC_CARD, speaker card=$SPEAKER_CARD"
+echo "Detected audio: mic=$MIC_CARD, speaker=$SPEAKER_CARD"
 
 # Wyoming openWakeWord service
 sudo tee /etc/systemd/system/wyoming-openwakeword.service > /dev/null << 'EOF'
