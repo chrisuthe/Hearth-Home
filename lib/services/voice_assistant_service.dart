@@ -1,5 +1,6 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart' show visibleForTesting;
+import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb, visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../utils/logger.dart';
 import 'home_assistant_service.dart';
@@ -148,6 +149,48 @@ class VoiceAssistantService {
   void _cancelIdleTimer() {
     _idleResetTimer?.cancel();
     _idleResetTimer = null;
+  }
+
+  /// Mute the voice assistant by stopping the Wyoming satellite service.
+  Future<bool> mute() async {
+    if (kIsWeb) return false;
+    try {
+      final result = await Process.run(
+          'sudo', ['systemctl', 'stop', 'wyoming-satellite.service']);
+      final success = result.exitCode == 0;
+      if (success) Log.i('Voice', 'Satellite stopped (muted)');
+      return success;
+    } catch (e) {
+      Log.e('Voice', 'Failed to stop satellite: $e');
+      return false;
+    }
+  }
+
+  /// Unmute the voice assistant by starting the Wyoming satellite service.
+  Future<bool> unmute() async {
+    if (kIsWeb) return false;
+    try {
+      final result = await Process.run(
+          'sudo', ['systemctl', 'start', 'wyoming-satellite.service']);
+      final success = result.exitCode == 0;
+      if (success) Log.i('Voice', 'Satellite started (unmuted)');
+      return success;
+    } catch (e) {
+      Log.e('Voice', 'Failed to start satellite: $e');
+      return false;
+    }
+  }
+
+  /// Check if the satellite service is currently running.
+  Future<bool> get isSatelliteRunning async {
+    if (kIsWeb) return false;
+    try {
+      final result = await Process.run(
+          'systemctl', ['is-active', '--quiet', 'wyoming-satellite.service']);
+      return result.exitCode == 0;
+    } catch (_) {
+      return false;
+    }
   }
 
   void dispose() {

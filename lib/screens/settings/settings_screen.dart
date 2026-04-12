@@ -12,6 +12,7 @@ import 'wifi_settings.dart';
 import 'display_settings.dart';
 import 'update_settings.dart';
 import '../../modules/module_registry.dart';
+import '../../services/voice_assistant_service.dart';
 
 /// Settings screen -- configure connections, display, night mode, and music.
 ///
@@ -592,6 +593,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           description: 'Visual feedback for Wyoming voice satellite',
         ),
         const SizedBox(height: 8),
+        const _VoiceMuteToggle(),
         SwitchListTile(
           secondary: const Icon(Icons.mic, color: Colors.white54),
           title: const Text('Show voice feedback'),
@@ -1297,6 +1299,60 @@ class _TimezonePickerDialogState extends State<_TimezonePickerDialog> {
           : const SizedBox(width: 18),
       title: Text(label, style: const TextStyle(fontSize: 14)),
       onTap: () => Navigator.pop(context, value),
+    );
+  }
+}
+
+/// Toggle that stops/starts the Wyoming satellite service to mute/unmute
+/// the voice assistant. Checks service state on build.
+class _VoiceMuteToggle extends ConsumerStatefulWidget {
+  const _VoiceMuteToggle();
+
+  @override
+  ConsumerState<_VoiceMuteToggle> createState() => _VoiceMuteToggleState();
+}
+
+class _VoiceMuteToggleState extends ConsumerState<_VoiceMuteToggle> {
+  bool _running = true;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkStatus();
+  }
+
+  Future<void> _checkStatus() async {
+    final voice = ref.read(voiceAssistantServiceProvider);
+    final running = await voice.isSatelliteRunning;
+    if (mounted) setState(() { _running = running; _loading = false; });
+  }
+
+  Future<void> _toggle(bool enable) async {
+    setState(() => _loading = true);
+    final voice = ref.read(voiceAssistantServiceProvider);
+    final success = enable ? await voice.unmute() : await voice.mute();
+    if (success && mounted) {
+      setState(() { _running = enable; _loading = false; });
+    } else if (mounted) {
+      setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SwitchListTile(
+      secondary: Icon(
+        _running ? Icons.record_voice_over : Icons.voice_over_off,
+        color: Colors.white54,
+      ),
+      title: const Text('Voice assistant'),
+      subtitle: Text(
+        _loading ? 'Checking...' : _running ? 'Listening for wake word' : 'Muted — not listening',
+        style: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
+      ),
+      value: _running,
+      onChanged: _loading ? null : _toggle,
     );
   }
 }

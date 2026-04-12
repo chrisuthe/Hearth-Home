@@ -301,7 +301,8 @@ SATEOF
 # Allow hearth user to trigger OTA updates without password
 echo "hearth ALL=(root) NOPASSWD: /usr/bin/systemctl start hearth-updater.service" | sudo tee /etc/sudoers.d/hearth-updater > /dev/null
 echo "hearth ALL=(root) NOPASSWD: /usr/bin/gst-launch-1.0" | sudo tee /etc/sudoers.d/hearth-gstreamer > /dev/null
-sudo chmod 440 /etc/sudoers.d/hearth-updater /etc/sudoers.d/hearth-gstreamer
+echo "hearth ALL=(root) NOPASSWD: /usr/bin/systemctl stop wyoming-satellite.service, /usr/bin/systemctl start wyoming-satellite.service, /usr/bin/systemctl restart wyoming-satellite.service" | sudo tee /etc/sudoers.d/hearth-voice > /dev/null
+sudo chmod 440 /etc/sudoers.d/hearth-updater /etc/sudoers.d/hearth-gstreamer /etc/sudoers.d/hearth-voice
 
 # Allow hearth user (netdev group) to manage WiFi via nmcli
 sudo mkdir -p /etc/polkit-1/rules.d
