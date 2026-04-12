@@ -287,9 +287,7 @@ ExecStart=/opt/wyoming/satellite-env/bin/python3 -m wyoming_satellite \\
     --mic-command "arecord -D plughw:CARD=${MIC_CARD},DEV=0 -r 16000 -c 1 -f S16_LE -t raw" \\
     --snd-command "aplay -D plughw:CARD=${SPEAKER_CARD},DEV=0 -r 22050 -c 1 -f S16_LE -t raw" \\
     --wake-uri tcp://127.0.0.1:10400 \\
-    --wake-word-name ok_nabu \\
-    --noise-suppression 2 \\
-    --auto-gain 5
+    --wake-word-name ok_nabu
 Restart=on-failure
 RestartSec=5
 
