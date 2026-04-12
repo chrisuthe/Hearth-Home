@@ -1,0 +1,22 @@
+[Unit]
+Description=Wyoming Voice Satellite
+After=network.target wyoming-openwakeword.service
+Requires=wyoming-openwakeword.service
+
+[Service]
+Type=simple
+User=hearth
+ExecStart=/opt/wyoming/satellite-env/bin/python3 -m wyoming_satellite \
+    --name "Hearth" \
+    --uri tcp://0.0.0.0:10700 \
+    --mic-command "arecord -D plughw:CARD=MIC_CARD,DEV=0 -r 16000 -c 1 -f S16_LE -t raw" \
+    --snd-command "aplay -D plughw:CARD=SPEAKER_CARD,DEV=0 -r 22050 -c 1 -f S16_LE -t raw" \
+    --wake-uri tcp://127.0.0.1:10400 \
+    --wake-word-name ok_nabu \
+    --noise-suppression 2 \
+    --auto-gain 5
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

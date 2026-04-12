@@ -28,6 +28,12 @@ ln -sf /etc/systemd/system/hearth.service \
 ln -sf /etc/systemd/system/hearth-updater.timer \
     "$TARGET_DIR/etc/systemd/system/timers.target.wants/hearth-updater.timer"
 
+ln -sf /etc/systemd/system/wyoming-openwakeword.service \
+    "$TARGET_DIR/etc/systemd/system/multi-user.target.wants/wyoming-openwakeword.service"
+
+ln -sf /etc/systemd/system/wyoming-satellite.service \
+    "$TARGET_DIR/etc/systemd/system/multi-user.target.wants/wyoming-satellite.service"
+
 # Create hearth system user (Buildroot doesn't have useradd in post-build,
 # so we edit passwd/shadow/group directly)
 if ! grep -q '^hearth:' "$TARGET_DIR/etc/passwd"; then
@@ -47,8 +53,12 @@ done
 # Create bundle directory
 mkdir -p "$TARGET_DIR/opt/hearth/bundle"
 
+# Create Wyoming voice satellite directory
+mkdir -p "$TARGET_DIR/opt/wyoming"
+
 # Set ownership (will take effect in the final image)
 chown -R 1000:1000 "$TARGET_DIR/opt/hearth" 2>/dev/null || true
+chown -R 1000:1000 "$TARGET_DIR/opt/wyoming" 2>/dev/null || true
 chown -R 1000:1000 "$TARGET_DIR/home/hearth" 2>/dev/null || true
 
 # Create config directory for hearth user

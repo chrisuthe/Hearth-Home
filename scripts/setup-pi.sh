@@ -211,6 +211,89 @@ Persistent=true
 WantedBy=timers.target
 EOF
 
+# --- Voice Satellite (Wyoming) ---
+echo "Installing Wyoming voice satellite..."
+sudo apt-get install -y -qq python3-venv alsa-utils
+
+# Create Wyoming directory
+sudo mkdir -p /opt/wyoming
+sudo chown hearth:hearth /opt/wyoming
+
+# Install wyoming-satellite (idempotent: recreates venv if missing)
+if [ ! -d /opt/wyoming/satellite-env ]; then
+    sudo -u hearth python3 -m venv /opt/wyoming/satellite-env
+fi
+sudo -u hearth /opt/wyoming/satellite-env/bin/pip install --quiet --upgrade wyoming-satellite
+
+# Install wyoming-openwakeword
+if [ ! -d /opt/wyoming/wakeword-env ]; then
+    sudo -u hearth python3 -m venv /opt/wyoming/wakeword-env
+fi
+sudo -u hearth /opt/wyoming/wakeword-env/bin/pip install --quiet --upgrade wyoming-openwakeword
+
+# Auto-detect USB microphone card number
+MIC_CARD=$(arecord -l 2>/dev/null | grep -oP 'card \K\d+(?=.*USB)' | head -1)
+if [ -z "$MIC_CARD" ]; then
+    echo "WARNING: No USB microphone detected. Wyoming satellite may not capture audio."
+    echo "         Plug in a USB mic and re-run this script, or edit the service manually:"
+    echo "         /etc/systemd/system/wyoming-satellite.service"
+    MIC_CARD="0"
+fi
+
+# Auto-detect speaker card number (first available playback device)
+SPEAKER_CARD=$(aplay -l 2>/dev/null | grep -oP 'card \K\d+' | head -1)
+if [ -z "$SPEAKER_CARD" ]; then
+    echo "WARNING: No speaker detected. Wyoming satellite may not play TTS audio."
+    SPEAKER_CARD="0"
+fi
+
+echo "Detected audio: mic card=$MIC_CARD, speaker card=$SPEAKER_CARD"
+
+# Wyoming openWakeWord service
+sudo tee /etc/systemd/system/wyoming-openwakeword.service > /dev/null << 'EOF'
+[Unit]
+Description=Wyoming openWakeWord
+After=network.target
+
+[Service]
+Type=simple
+User=hearth
+ExecStart=/opt/wyoming/wakeword-env/bin/python3 -m wyoming_openwakeword \
+    --uri tcp://127.0.0.1:10400 \
+    --preload-model ok_nabu
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Wyoming satellite service (substitute detected card numbers)
+sudo tee /etc/systemd/system/wyoming-satellite.service > /dev/null << SATEOF
+[Unit]
+Description=Wyoming Voice Satellite
+After=network.target wyoming-openwakeword.service
+Requires=wyoming-openwakeword.service
+
+[Service]
+Type=simple
+User=hearth
+ExecStart=/opt/wyoming/satellite-env/bin/python3 -m wyoming_satellite \\
+    --name "Hearth" \\
+    --uri tcp://0.0.0.0:10700 \\
+    --mic-command "arecord -D plughw:CARD=${MIC_CARD},DEV=0 -r 16000 -c 1 -f S16_LE -t raw" \\
+    --snd-command "aplay -D plughw:CARD=${SPEAKER_CARD},DEV=0 -r 22050 -c 1 -f S16_LE -t raw" \\
+    --wake-uri tcp://127.0.0.1:10400 \\
+    --wake-word-name ok_nabu \\
+    --noise-suppression 2 \\
+    --auto-gain 5
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+SATEOF
+
 # --- Permissions ---
 
 # Allow hearth user to trigger OTA updates without password
@@ -256,6 +339,10 @@ sudo systemctl enable hearth.service
 sudo systemctl enable hearth-updater.timer
 sudo systemctl enable avahi-daemon
 sudo systemctl restart avahi-daemon
+sudo systemctl enable wyoming-openwakeword.service
+sudo systemctl enable wyoming-satellite.service
+sudo systemctl restart wyoming-openwakeword.service
+sudo systemctl restart wyoming-satellite.service
 
 echo ""
 echo "=== Hearth setup complete ==="
@@ -265,3 +352,6 @@ echo "Hearth service started."
 echo "Web portal: http://hearth.local:8090"
 echo ""
 echo "The PIN to access the web portal is shown on the kiosk display."
+echo ""
+echo "Wyoming voice satellite is running on tcp://0.0.0.0:10700"
+echo "Go to Home Assistant > Settings > Devices to add the satellite."
