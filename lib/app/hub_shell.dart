@@ -364,8 +364,8 @@ class _HubShellState extends ConsumerState<HubShell> {
 
             // Mic mute toggle — always visible, top-left corner.
             Positioned(
-              top: 12,
-              left: 12,
+              top: 24,
+              left: 24,
               child: Consumer(builder: (context, ref, _) {
                 final muted = ref.watch(
                   hubConfigProvider.select((c) => c.micMuted),
@@ -374,7 +374,7 @@ class _HubShellState extends ConsumerState<HubShell> {
                   icon: Icon(
                     muted ? Icons.mic_off : Icons.mic,
                     color: muted ? Colors.red : Colors.white38,
-                    size: 22,
+                    size: 33,
                   ),
                   onPressed: () {
                     final newValue = !muted;
