@@ -4,8 +4,9 @@ import 'dart:typed_data';
 
 import 'package:ffi/ffi.dart';
 
+import 'package:sendspin_dart/sendspin_dart.dart';
+
 import '../../utils/logger.dart';
-import 'sendspin_audio_sink.dart' show AudioSink;
 
 // ---------------------------------------------------------------------------
 // ALSA C function signatures

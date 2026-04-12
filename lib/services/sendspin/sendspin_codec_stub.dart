@@ -1,8 +1,6 @@
 import 'dart:typed_data';
 
-import 'package:flutter/foundation.dart';
-
-import 'sendspin_codec.dart';
+import 'package:sendspin_dart/sendspin_dart.dart';
 
 /// Stub FlacCodec for platforms without dart:ffi (web).
 class FlacCodec implements SendspinCodec {

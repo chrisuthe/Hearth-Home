@@ -7,7 +7,7 @@ import '../../services/local_api_server.dart';
 import '../../app/app.dart' show kDialogBackground;
 import '../../services/sendspin/sendspin_service.dart';
 import '../../services/timezone_service.dart';
-import '../../models/sendspin_state.dart';
+import 'package:sendspin_dart/sendspin_dart.dart';
 import 'wifi_settings.dart';
 import 'display_settings.dart';
 import 'update_settings.dart';

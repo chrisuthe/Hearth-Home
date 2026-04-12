@@ -27,6 +27,10 @@ dependencies:
   weather_icons: ^3.0.0
   bonsoir: ^6.0.2
   ffi: ^2.2.0
+  sendspin_dart:
+    git:
+      url: https://github.com/chrisuthe/sendspin_dart.git
+      ref: main
   flutterpi_gstreamer_video_player: ^0.2.0
 
 dev_dependencies:

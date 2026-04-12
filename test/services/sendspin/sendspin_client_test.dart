@@ -2,8 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hearth/services/sendspin/sendspin_client.dart';
-import 'package:hearth/models/sendspin_state.dart';
+import 'package:sendspin_dart/sendspin_dart.dart';
 
 void main() {
   group('SendspinClient', () {
@@ -112,6 +111,11 @@ void main() {
         playerName: 'Kitchen Display',
         clientId: 'abc-123',
         bufferSeconds: 5,
+        deviceInfo: const DeviceInfo(
+          productName: 'Hearth',
+          manufacturer: 'Hearth',
+          softwareVersion: '0.6.0',
+        ),
       );
       final hello = client.buildClientHello();
       final parsed = jsonDecode(hello) as Map<String, dynamic>;

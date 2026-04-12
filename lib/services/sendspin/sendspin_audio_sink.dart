@@ -1,21 +1,6 @@
-import 'dart:typed_data';
 import 'package:flutter/services.dart';
+import 'package:sendspin_dart/sendspin_dart.dart';
 import '../../utils/logger.dart';
-
-/// Common interface for audio output backends.
-abstract class AudioSink {
-  Future<void> initialize({
-    required int sampleRate,
-    required int channels,
-    required int bitDepth,
-  });
-  Future<void> start();
-  Future<void> stop();
-  Future<void> writeSamples(Uint8List samples);
-  Future<void> setVolume(double volume);
-  Future<void> setMuted(bool muted);
-  Future<void> dispose();
-}
 
 /// Platform channel interface to native audio output (WASAPI / PulseAudio).
 class SendspinAudioSink implements AudioSink {

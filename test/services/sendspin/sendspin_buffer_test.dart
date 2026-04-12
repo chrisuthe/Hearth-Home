@@ -1,7 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hearth/services/sendspin/sendspin_buffer.dart';
+import 'package:sendspin_dart/sendspin_dart.dart';
 
 void main() {
   group('SendspinBuffer', () {

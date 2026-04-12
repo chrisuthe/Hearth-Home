@@ -1,15 +1,14 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bonsoir/bonsoir.dart';
+import 'package:sendspin_dart/sendspin_dart.dart';
 import '../../config/hub_config.dart';
-import '../../models/sendspin_state.dart';
 import '../../utils/logger.dart';
 import 'alsa_audio_sink.dart';
 import 'sendspin_audio_sink.dart';
-import 'sendspin_client.dart';
+import 'sendspin_codec.dart' as hearth_codec;
 
 /// Top-level Sendspin player service.
 ///
@@ -61,6 +60,29 @@ class SendspinService {
       playerName: playerName,
       clientId: effectiveClientId,
       bufferSeconds: bufferSeconds,
+      deviceInfo: const DeviceInfo(
+        productName: 'Hearth',
+        manufacturer: 'Hearth',
+        softwareVersion: '0.6.0',
+      ),
+      supportedFormats: const [
+        AudioFormat(codec: 'pcm', channels: 2, sampleRate: 48000, bitDepth: 16),
+        AudioFormat(codec: 'pcm', channels: 2, sampleRate: 44100, bitDepth: 16),
+        AudioFormat(codec: 'flac', channels: 2, sampleRate: 48000, bitDepth: 16),
+        AudioFormat(codec: 'flac', channels: 2, sampleRate: 44100, bitDepth: 16),
+      ],
+      codecFactory: (codec, bitDepth, channels, sampleRate) {
+        try {
+          return hearth_codec.createCodec(
+            codec: codec,
+            bitDepth: bitDepth,
+            channels: channels,
+            sampleRate: sampleRate,
+          );
+        } catch (_) {
+          return null; // fall back to library's built-in factory
+        }
+      },
     );
     _stateSubscription = _client!.stateStream.listen(_updateState);
 
