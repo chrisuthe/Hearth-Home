@@ -20,6 +20,7 @@ void main() {
         nightModeSource: 'ha_entity',
         nightModeHaEntity: 'light.living_room',
         idleTimeoutSeconds: 60,
+        micMuted: true,
       );
       final json = config.toJson();
       final restored = HubConfig.fromJson(json);
@@ -29,6 +30,7 @@ void main() {
       expect(restored.nightModeSource, 'ha_entity');
       expect(restored.nightModeHaEntity, 'light.living_room');
       expect(restored.idleTimeoutSeconds, 60);
+      expect(restored.micMuted, true);
     });
 
     test('copyWith preserves unchanged fields', () {

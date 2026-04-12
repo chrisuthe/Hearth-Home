@@ -63,6 +63,7 @@ class HubConfig {
   final String topSwipeAction;    // "menu1" | "menu2" | "settings" | "nextScreen" | "previousScreen"
   final String bottomSwipeAction; // "menu1" | "menu2" | "settings" | "nextScreen" | "previousScreen"
   final bool showVoiceFeedback;
+  final bool micMuted;
 
   const HubConfig({
     this.apiKey = '',
@@ -106,6 +107,7 @@ class HubConfig {
     this.topSwipeAction = 'menu2',
     this.bottomSwipeAction = 'menu1',
     this.showVoiceFeedback = true,
+    this.micMuted = false,
   });
 
   static String generateApiKey() {
@@ -156,6 +158,7 @@ class HubConfig {
     String? topSwipeAction,
     String? bottomSwipeAction,
     bool? showVoiceFeedback,
+    bool? micMuted,
   }) {
     return HubConfig(
       apiKey: apiKey ?? this.apiKey,
@@ -199,6 +202,7 @@ class HubConfig {
       topSwipeAction: topSwipeAction ?? this.topSwipeAction,
       bottomSwipeAction: bottomSwipeAction ?? this.bottomSwipeAction,
       showVoiceFeedback: showVoiceFeedback ?? this.showVoiceFeedback,
+      micMuted: micMuted ?? this.micMuted,
     );
   }
 
@@ -244,6 +248,7 @@ class HubConfig {
         'topSwipeAction': topSwipeAction,
         'bottomSwipeAction': bottomSwipeAction,
         'showVoiceFeedback': showVoiceFeedback,
+        'micMuted': micMuted,
       };
 
   factory HubConfig.fromJson(Map<String, dynamic> json) => HubConfig(
@@ -291,6 +296,7 @@ class HubConfig {
         topSwipeAction: json['topSwipeAction'] as String? ?? 'menu2',
         bottomSwipeAction: json['bottomSwipeAction'] as String? ?? 'menu1',
         showVoiceFeedback: json['showVoiceFeedback'] as bool? ?? true,
+        micMuted: json['micMuted'] as bool? ?? false,
       );
 
   static Map<String, List<String>> _migrateEnabledModules(Map<String, dynamic> json) {
