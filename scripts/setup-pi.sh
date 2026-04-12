@@ -219,11 +219,11 @@ sudo apt-get install -y -qq python3-venv alsa-utils
 sudo mkdir -p /opt/wyoming
 sudo chown hearth:hearth /opt/wyoming
 
-# Install wyoming-satellite (idempotent: recreates venv if missing)
+# Install wyoming-satellite from git (PyPI version is outdated 1.0.0, need 1.4+)
 if [ ! -d /opt/wyoming/satellite-env ]; then
     sudo -u hearth python3 -m venv /opt/wyoming/satellite-env
 fi
-sudo -u hearth /opt/wyoming/satellite-env/bin/pip install --quiet --upgrade wyoming-satellite
+sudo -u hearth /opt/wyoming/satellite-env/bin/pip install --quiet --upgrade 'git+https://github.com/rhasspy/wyoming-satellite.git'
 
 # Install wyoming-openwakeword (clone + setup script to avoid pip dependency conflicts)
 if [ ! -d /opt/wyoming/wyoming-openwakeword ]; then
