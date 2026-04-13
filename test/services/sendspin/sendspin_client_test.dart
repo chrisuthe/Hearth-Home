@@ -5,9 +5,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sendspin_dart/sendspin_dart.dart';
 
 void main() {
-  group('SendspinClient', () {
+  group('SendspinPlayer', () {
     test('starts in disabled state', () {
-      final client = SendspinClient(
+      final client = SendspinPlayer(
         playerName: 'Test Player',
         clientId: 'test-id',
         bufferSeconds: 5,
@@ -17,7 +17,7 @@ void main() {
     });
 
     test('parses server/hello and transitions to syncing', () async {
-      final client = SendspinClient(
+      final client = SendspinPlayer(
         playerName: 'Test Player',
         clientId: 'test-id',
         bufferSeconds: 5,
@@ -41,7 +41,7 @@ void main() {
     });
 
     test('parses stream/start and configures codec', () async {
-      final client = SendspinClient(
+      final client = SendspinPlayer(
         playerName: 'Test Player',
         clientId: 'test-id',
         bufferSeconds: 5,
@@ -73,7 +73,7 @@ void main() {
     });
 
     test('parses server/command for volume', () async {
-      final client = SendspinClient(
+      final client = SendspinPlayer(
         playerName: 'Test Player',
         clientId: 'test-id',
         bufferSeconds: 5,
@@ -90,7 +90,7 @@ void main() {
     });
 
     test('parses server/command for mute', () async {
-      final client = SendspinClient(
+      final client = SendspinPlayer(
         playerName: 'Test Player',
         clientId: 'test-id',
         bufferSeconds: 5,
@@ -107,7 +107,7 @@ void main() {
     });
 
     test('builds correct client/hello message', () {
-      final client = SendspinClient(
+      final client = SendspinPlayer(
         playerName: 'Kitchen Display',
         clientId: 'abc-123',
         bufferSeconds: 5,
@@ -131,7 +131,7 @@ void main() {
     });
 
     test('sends client/state immediately on volume command', () async {
-      final client = SendspinClient(
+      final client = SendspinPlayer(
         playerName: 'Test Player',
         clientId: 'test-id',
         bufferSeconds: 5,
@@ -156,7 +156,7 @@ void main() {
     });
 
     test('sends client/state immediately on mute command', () async {
-      final client = SendspinClient(
+      final client = SendspinPlayer(
         playerName: 'Test Player',
         clientId: 'test-id',
         bufferSeconds: 5,
@@ -181,7 +181,7 @@ void main() {
     });
 
     test('buildClientState always reports synchronized per spec', () {
-      final client = SendspinClient(
+      final client = SendspinPlayer(
         playerName: 'Test Player',
         clientId: 'test-id',
         bufferSeconds: 5,
@@ -192,7 +192,7 @@ void main() {
     });
 
     test('starts state report timer on stream/start and stops on stream/end', () async {
-      final client = SendspinClient(
+      final client = SendspinPlayer(
         playerName: 'Test Player',
         clientId: 'test-id',
         bufferSeconds: 5,
@@ -239,7 +239,7 @@ void main() {
       frame[10] = 0x02;
       frame[11] = 0x03;
       frame[12] = 0x04;
-      final result = SendspinClient.parseBinaryFrame(frame);
+      final result = SendspinPlayer.parseBinaryFrame(frame);
       expect(result.timestampUs, 123456789);
       expect(result.audioData, [0x01, 0x02, 0x03, 0x04]);
     });

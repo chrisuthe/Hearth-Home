@@ -13,12 +13,12 @@ import 'sendspin_codec.dart' as hearth_codec;
 /// Top-level Sendspin player service.
 ///
 /// Manages a WebSocket server on port 8928, handles upgrade requests from
-/// Music Assistant's Sendspin server, creates a [SendspinClient] for protocol
+/// Music Assistant's Sendspin server, creates a [SendspinPlayer] for protocol
 /// handling and a [SendspinAudioSink] for audio output, and registers mDNS
 /// via bonsoir. Exposes state via a broadcast stream and is driven by config
 /// through Riverpod providers.
 class SendspinService {
-  SendspinClient? _client;
+  SendspinPlayer? _client;
   AudioSink? _audioSink;
   HttpServer? _httpServer;
   BonsoirBroadcast? _bonsoirBroadcast;
@@ -56,7 +56,7 @@ class SendspinService {
     final effectiveClientId = clientId.isNotEmpty
         ? clientId
         : 'hearth-${playerName.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '')}';
-    _client = SendspinClient(
+    _client = SendspinPlayer(
       playerName: playerName,
       clientId: effectiveClientId,
       bufferSeconds: bufferSeconds,

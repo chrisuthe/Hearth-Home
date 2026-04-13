@@ -677,7 +677,7 @@ packages:
     description:
       path: "."
       ref: main
-      resolved-ref: b22295e87cf0bc6ee5cac4696fcf0be3261ce977
+      resolved-ref: "071afb6264dafc479ab870dfafbaef95f3a299e3"
       url: "https://github.com/chrisuthe/sendspin_dart.git"
     source: git
     version: "0.1.0"
