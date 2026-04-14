@@ -46,6 +46,7 @@ class HubConfig {
   final int sendspinBufferSeconds;
   final String sendspinClientId;
   final String sendspinServerUrl;
+  final int sendspinStaticDelayMs;
   final String displayProfile; // "auto" | "amoled-11" | "rpi-7" | "hdmi"
   final int displayWidth;      // 0 = use profile default
   final int displayHeight;     // 0 = use profile default
@@ -90,6 +91,7 @@ class HubConfig {
     this.sendspinBufferSeconds = 5,
     this.sendspinClientId = '',
     this.sendspinServerUrl = '',
+    this.sendspinStaticDelayMs = 0,
     this.displayProfile = 'auto',
     this.displayWidth = 0,
     this.displayHeight = 0,
@@ -141,6 +143,7 @@ class HubConfig {
     int? sendspinBufferSeconds,
     String? sendspinClientId,
     String? sendspinServerUrl,
+    int? sendspinStaticDelayMs,
     String? displayProfile,
     int? displayWidth,
     int? displayHeight,
@@ -185,6 +188,7 @@ class HubConfig {
       sendspinBufferSeconds: sendspinBufferSeconds ?? this.sendspinBufferSeconds,
       sendspinClientId: sendspinClientId ?? this.sendspinClientId,
       sendspinServerUrl: sendspinServerUrl ?? this.sendspinServerUrl,
+      sendspinStaticDelayMs: sendspinStaticDelayMs ?? this.sendspinStaticDelayMs,
       displayProfile: displayProfile ?? this.displayProfile,
       displayWidth: displayWidth ?? this.displayWidth,
       displayHeight: displayHeight ?? this.displayHeight,
@@ -231,6 +235,7 @@ class HubConfig {
         'sendspinBufferSeconds': sendspinBufferSeconds,
         'sendspinClientId': sendspinClientId,
         'sendspinServerUrl': sendspinServerUrl,
+        'sendspinStaticDelayMs': sendspinStaticDelayMs,
         'displayProfile': displayProfile,
         'displayWidth': displayWidth,
         'displayHeight': displayHeight,
@@ -276,6 +281,7 @@ class HubConfig {
         sendspinBufferSeconds: json['sendspinBufferSeconds'] as int? ?? 5,
         sendspinClientId: json['sendspinClientId'] as String? ?? '',
         sendspinServerUrl: json['sendspinServerUrl'] as String? ?? '',
+        sendspinStaticDelayMs: json['sendspinStaticDelayMs'] as int? ?? 0,
         displayProfile: json['displayProfile'] as String? ?? 'auto',
         displayWidth: json['displayWidth'] as int? ?? 0,
         displayHeight: json['displayHeight'] as int? ?? 0,

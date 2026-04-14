@@ -677,10 +677,10 @@ packages:
     description:
       path: "."
       ref: main
-      resolved-ref: "071afb6264dafc479ab870dfafbaef95f3a299e3"
+      resolved-ref: acc42ade279c729ae0206f5252eacbcb751417c5
       url: "https://github.com/chrisuthe/sendspin_dart.git"
     source: git
-    version: "0.1.0"
+    version: "0.0.2"
   sky_engine:
     dependency: transitive
     description: flutter

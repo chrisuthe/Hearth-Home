@@ -40,13 +40,18 @@ class SendspinService {
     _client?.updateVolume(volume);
   }
 
+  void Function(int delayMs)? _onStaticDelayPersist;
+
   Future<void> configure({
     required bool enabled,
     required String playerName,
     required int bufferSeconds,
     required String clientId,
     required String serverUrl,
+    int initialStaticDelayMs = 0,
+    void Function(int delayMs)? onStaticDelayPersist,
   }) async {
+    _onStaticDelayPersist = onStaticDelayPersist;
     await _stop();
     if (!enabled || playerName.isEmpty) {
       _updateState(const SendspinPlayerState());
@@ -60,6 +65,7 @@ class SendspinService {
       playerName: playerName,
       clientId: effectiveClientId,
       bufferSeconds: bufferSeconds,
+      initialStaticDelayMs: initialStaticDelayMs,
       deviceInfo: const DeviceInfo(
         productName: 'Hearth',
         manufacturer: 'Hearth',
@@ -85,6 +91,10 @@ class SendspinService {
       },
     );
     _stateSubscription = _client!.stateStream.listen(_updateState);
+    _client!.onStaticDelayChanged = (delayMs) {
+      Log.i('Sendspin', 'Static delay changed: ${delayMs}ms');
+      _onStaticDelayPersist?.call(delayMs);
+    };
 
     if (serverUrl.isNotEmpty) {
       // Client mode: connect outward to the specified server
@@ -146,7 +156,7 @@ class SendspinService {
       _setupWebSocket(socket, onDone: () {
         Log.i('Sendspin', 'Server disconnected '
             '(close=${socket.closeCode} ${socket.closeReason})');
-        _client?.stopClockSync();
+        _client?.resetForNewConnection();
         _stopAudioFeed();
         _audioSink?.stop();
         _audioSink?.dispose();
@@ -179,7 +189,7 @@ class SendspinService {
       _setupWebSocket(_webSocket!, onDone: () {
         Log.w('Sendspin', 'Server disconnected, reconnecting... '
             '(close=${_webSocket?.closeCode} ${_webSocket?.closeReason})');
-        _client?.stopClockSync();
+        _client?.resetForNewConnection();
         _stopAudioFeed();
         _audioSink?.stop();
         _audioSink?.dispose();
@@ -345,6 +355,11 @@ class SendspinService {
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
     _serverUrl = '';
+    if (_client != null && _state.isActive) {
+      try {
+        _client!.sendGoodbye(SendspinGoodbyeReason.shutdown);
+      } catch (_) {}
+    }
     _client?.dispose();
     _client = null;
     _stateSubscription?.cancel();
@@ -386,6 +401,8 @@ final sendspinServiceProvider = Provider<SendspinService>((ref) {
       ref.watch(hubConfigProvider.select((c) => c.sendspinClientId));
   final serverUrl =
       ref.watch(hubConfigProvider.select((c) => c.sendspinServerUrl));
+  final staticDelayMs =
+      ref.read(hubConfigProvider.select((c) => c.sendspinStaticDelayMs));
 
   final service = SendspinService();
   ref.onDispose(() => service.dispose());
@@ -398,6 +415,12 @@ final sendspinServiceProvider = Provider<SendspinService>((ref) {
           bufferSeconds: bufferSeconds,
           clientId: clientId,
           serverUrl: serverUrl,
+          initialStaticDelayMs: staticDelayMs,
+          onStaticDelayPersist: (delayMs) {
+            ref
+                .read(hubConfigProvider.notifier)
+                .update((c) => c.copyWith(sendspinStaticDelayMs: delayMs));
+          },
         )
         .catchError((e) => Log.e('Sendspin', 'Configure failed: $e'));
   }
