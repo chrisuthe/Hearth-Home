@@ -47,6 +47,7 @@ class HubConfig {
   final String sendspinClientId;
   final String sendspinServerUrl;
   final int sendspinStaticDelayMs;
+  final String sendspinAlsaDevice;
   final String displayProfile; // "auto" | "amoled-11" | "rpi-7" | "hdmi"
   final int displayWidth;      // 0 = use profile default
   final int displayHeight;     // 0 = use profile default
@@ -92,6 +93,7 @@ class HubConfig {
     this.sendspinClientId = '',
     this.sendspinServerUrl = '',
     this.sendspinStaticDelayMs = 0,
+    this.sendspinAlsaDevice = 'default',
     this.displayProfile = 'auto',
     this.displayWidth = 0,
     this.displayHeight = 0,
@@ -144,6 +146,7 @@ class HubConfig {
     String? sendspinClientId,
     String? sendspinServerUrl,
     int? sendspinStaticDelayMs,
+    String? sendspinAlsaDevice,
     String? displayProfile,
     int? displayWidth,
     int? displayHeight,
@@ -189,6 +192,7 @@ class HubConfig {
       sendspinClientId: sendspinClientId ?? this.sendspinClientId,
       sendspinServerUrl: sendspinServerUrl ?? this.sendspinServerUrl,
       sendspinStaticDelayMs: sendspinStaticDelayMs ?? this.sendspinStaticDelayMs,
+      sendspinAlsaDevice: sendspinAlsaDevice ?? this.sendspinAlsaDevice,
       displayProfile: displayProfile ?? this.displayProfile,
       displayWidth: displayWidth ?? this.displayWidth,
       displayHeight: displayHeight ?? this.displayHeight,
@@ -236,6 +240,7 @@ class HubConfig {
         'sendspinClientId': sendspinClientId,
         'sendspinServerUrl': sendspinServerUrl,
         'sendspinStaticDelayMs': sendspinStaticDelayMs,
+        'sendspinAlsaDevice': sendspinAlsaDevice,
         'displayProfile': displayProfile,
         'displayWidth': displayWidth,
         'displayHeight': displayHeight,
@@ -282,6 +287,8 @@ class HubConfig {
         sendspinClientId: json['sendspinClientId'] as String? ?? '',
         sendspinServerUrl: json['sendspinServerUrl'] as String? ?? '',
         sendspinStaticDelayMs: json['sendspinStaticDelayMs'] as int? ?? 0,
+        sendspinAlsaDevice:
+            json['sendspinAlsaDevice'] as String? ?? 'default',
         displayProfile: json['displayProfile'] as String? ?? 'auto',
         displayWidth: json['displayWidth'] as int? ?? 0,
         displayHeight: json['displayHeight'] as int? ?? 0,

@@ -60,7 +60,8 @@ class _InitMsg {
   final int sampleRate;
   final int channels;
   final int bitDepth;
-  const _InitMsg(this.sampleRate, this.channels, this.bitDepth);
+  final String device;
+  const _InitMsg(this.sampleRate, this.channels, this.bitDepth, this.device);
 }
 
 class _WriteMsg {
@@ -85,9 +86,13 @@ enum _Cmd { stop, dispose }
 /// Drop-in replacement for [SendspinAudioSink] on Linux systems that use
 /// ALSA directly (e.g. Raspberry Pi with flutter-pi, no PulseAudio).
 class AlsaAudioSink implements AudioSink {
+  final String device;
+
   SendPort? _cmdPort;
   Isolate? _isolate;
   bool _initialized = false;
+
+  AlsaAudioSink({this.device = 'default'});
 
   @override
   Future<void> initialize({
@@ -106,9 +111,9 @@ class AlsaAudioSink implements AudioSink {
     // First message from isolate is its command port.
     _cmdPort = await receivePort.first as SendPort;
 
-    _cmdPort!.send(_InitMsg(sampleRate, channels, bitDepth));
+    _cmdPort!.send(_InitMsg(sampleRate, channels, bitDepth, device));
     _initialized = true;
-    Log.i('Sendspin', 'ALSA sink initialized: '
+    Log.i('Sendspin', 'ALSA sink initialized: device=$device '
         '${sampleRate}Hz ${channels}ch ${bitDepth}bit');
   }
 
@@ -206,7 +211,7 @@ void _alsaIsolateEntry(SendPort mainPort) {
       cleanup();
 
       final pcmPtr = calloc<Pointer<Void>>();
-      final namePtr = 'default'.toNativeUtf8();
+      final namePtr = msg.device.toNativeUtf8();
 
       int err =
           pcmOpen(pcmPtr, namePtr, _sndPcmStreamPlayback, 0);

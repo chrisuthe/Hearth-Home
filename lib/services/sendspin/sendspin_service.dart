@@ -41,6 +41,7 @@ class SendspinService {
   }
 
   void Function(int delayMs)? _onStaticDelayPersist;
+  String _alsaDevice = 'default';
 
   Future<void> configure({
     required bool enabled,
@@ -49,9 +50,11 @@ class SendspinService {
     required String clientId,
     required String serverUrl,
     int initialStaticDelayMs = 0,
+    String alsaDevice = 'default',
     void Function(int delayMs)? onStaticDelayPersist,
   }) async {
     _onStaticDelayPersist = onStaticDelayPersist;
+    _alsaDevice = alsaDevice;
     await _stop();
     if (!enabled || playerName.isEmpty) {
       _updateState(const SendspinPlayerState());
@@ -211,7 +214,9 @@ class SendspinService {
     socket.add(_client!.buildClientHello());
     _client!.onSendText = (message) => socket.add(message);
 
-    _audioSink = Platform.isLinux ? AlsaAudioSink() : SendspinAudioSink();
+    _audioSink = Platform.isLinux
+        ? AlsaAudioSink(device: _alsaDevice)
+        : SendspinAudioSink();
 
     _client!.onStreamStart = (sampleRate, channels, bitDepth) {
       _channels = channels;
@@ -377,7 +382,9 @@ class SendspinService {
 
   void _updateState(SendspinPlayerState newState) {
     _state = newState;
-    _stateController.add(newState);
+    if (!_stateController.isClosed) {
+      _stateController.add(newState);
+    }
   }
 
   Future<void> dispose() async {
@@ -403,6 +410,8 @@ final sendspinServiceProvider = Provider<SendspinService>((ref) {
       ref.watch(hubConfigProvider.select((c) => c.sendspinServerUrl));
   final staticDelayMs =
       ref.read(hubConfigProvider.select((c) => c.sendspinStaticDelayMs));
+  final alsaDevice =
+      ref.watch(hubConfigProvider.select((c) => c.sendspinAlsaDevice));
 
   final service = SendspinService();
   ref.onDispose(() => service.dispose());
@@ -416,6 +425,7 @@ final sendspinServiceProvider = Provider<SendspinService>((ref) {
           clientId: clientId,
           serverUrl: serverUrl,
           initialStaticDelayMs: staticDelayMs,
+          alsaDevice: alsaDevice,
           onStaticDelayPersist: (delayMs) {
             ref
                 .read(hubConfigProvider.notifier)

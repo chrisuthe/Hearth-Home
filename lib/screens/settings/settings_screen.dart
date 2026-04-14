@@ -536,6 +536,21 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
         ),
         _SettingsTile(
+          icon: Icons.speaker,
+          title: 'ALSA Device',
+          subtitle: config.sendspinAlsaDevice,
+          onTap: () => _showTextInputDialog(
+            title: 'ALSA Output Device',
+            currentValue: config.sendspinAlsaDevice,
+            hint: 'default, plughw:CARD=vc4hdmi0,DEV=0, …',
+            onSave: (value) => _updateConfig(
+              (c) => c.copyWith(
+                sendspinAlsaDevice: value.isEmpty ? 'default' : value,
+              ),
+            ),
+          ),
+        ),
+        _SettingsTile(
           icon: Icons.memory,
           title: 'Buffer Size',
           subtitle: '${config.sendspinBufferSeconds}s audio buffer',
