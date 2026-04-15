@@ -1,4 +1,5 @@
 import 'dart:ffi';
+import 'dart:io';
 import 'dart:isolate';
 import 'dart:typed_data';
 
@@ -85,6 +86,14 @@ enum _Cmd { stop, dispose }
 ///
 /// Drop-in replacement for [SendspinAudioSink] on Linux systems that use
 /// ALSA directly (e.g. Raspberry Pi with flutter-pi, no PulseAudio).
+/// A listable ALSA playback device: the device string to pass to ALSA
+/// (e.g. `plughw:CARD=vc4hdmi0,DEV=0`) and a human-readable label.
+class AlsaDevice {
+  final String device;
+  final String label;
+  const AlsaDevice({required this.device, required this.label});
+}
+
 class AlsaAudioSink implements AudioSink {
   final String device;
 
@@ -93,6 +102,53 @@ class AlsaAudioSink implements AudioSink {
   bool _initialized = false;
 
   AlsaAudioSink({this.device = 'default'});
+
+  /// Enumerate ALSA playback devices by reading /proc/asound.
+  ///
+  /// Returns `[AlsaDevice(device:'default', label:'System default')]` plus
+  /// one `plughw:CARD=<id>,DEV=<n>` entry per playback PCM. Returns just the
+  /// default entry on non-Linux or if /proc/asound is unavailable.
+  static List<AlsaDevice> listPlaybackDevices() {
+    final result = <AlsaDevice>[
+      const AlsaDevice(device: 'default', label: 'System default'),
+    ];
+    if (!Platform.isLinux) return result;
+    try {
+      final cardsFile = File('/proc/asound/cards');
+      if (!cardsFile.existsSync()) return result;
+      // Each card occupies two lines:
+      //  " 0 [Device         ]: USB-Audio - PDP Audio Device"
+      //  "                      Performance Designed Products PDP ..."
+      final lines = cardsFile.readAsLinesSync();
+      final header = RegExp(r'^\s*(\d+)\s+\[([^\]]+)\]:\s*(.+)$');
+      for (int i = 0; i < lines.length; i++) {
+        final m = header.firstMatch(lines[i]);
+        if (m == null) continue;
+        final idx = int.parse(m.group(1)!);
+        final id = m.group(2)!.trim();
+        final shortName = m.group(3)!.trim();
+        final cardDir = Directory('/proc/asound/card$idx');
+        if (!cardDir.existsSync()) continue;
+        final pcmRe = RegExp(r'^pcm(\d+)p$');
+        for (final entry in cardDir.listSync()) {
+          final name = entry.uri.pathSegments.lastWhere(
+            (s) => s.isNotEmpty,
+            orElse: () => '',
+          );
+          final pm = pcmRe.firstMatch(name);
+          if (pm == null) continue;
+          final dev = int.parse(pm.group(1)!);
+          result.add(AlsaDevice(
+            device: 'plughw:CARD=$id,DEV=$dev',
+            label: '$id — $shortName',
+          ));
+        }
+      }
+    } catch (_) {
+      // Enumeration is best-effort; fall back to just 'default'.
+    }
+    return result;
+  }
 
   @override
   Future<void> initialize({
