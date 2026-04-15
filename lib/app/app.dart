@@ -2,7 +2,9 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../config/hub_config.dart';
+import '../packages/hearth_osk/hearth_osk.dart';
 import '../screens/setup/setup_wizard.dart';
+import '../services/osk_integration.dart';
 import 'hub_shell.dart';
 
 /// Root widget for the Hearth application.
@@ -22,6 +24,10 @@ class HearthApp extends ConsumerWidget {
     final config = ref.watch(hubConfigProvider);
     final needsSetup = !config.setupComplete;
 
+    // Watch the OSK-enabled provider so changes to the user's preference
+    // immediately re-evaluate `HearthOskControl.enabled`.
+    ref.watch(oskEnabledProvider);
+
     return MaterialApp(
       title: 'Hearth',
       debugShowCheckedModeBanner: false,
@@ -34,6 +40,17 @@ class HearthApp extends ConsumerWidget {
         fontFamily: 'Roboto',
         dialogTheme: const DialogThemeData(backgroundColor: kDialogBackground),
       ),
+      builder: (context, child) {
+        final control = HearthOskControl.instance;
+        if (control == null || child == null) {
+          return child ?? const SizedBox.shrink();
+        }
+        return HearthOskScope(
+          control: control,
+          theme: hearthOskTheme,
+          child: child,
+        );
+      },
       home: Scaffold(
         body: needsSetup ? const SetupWizard() : const HubShell(),
       ),

@@ -6,7 +6,9 @@ import 'utils/alsa_utils.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'app/app.dart';
 import 'config/hub_config.dart';
+import 'packages/hearth_osk/hearth_osk.dart';
 import 'services/local_api_server.dart';
+import 'services/osk_integration.dart';
 import 'services/timezone_service.dart';
 import 'modules/alarm_clock/alarm_service.dart';
 import 'services/sendspin/sendspin_service.dart';
@@ -42,6 +44,15 @@ Future<void> main() async {
 
   final container = ProviderContainer();
   await container.read(hubConfigProvider.notifier).load();
+
+  // Install the on-screen keyboard control before any UI is mounted so that
+  // the very first TextField focus can surface the OSK. The control starts
+  // enabled; oskEnabledProvider will reconcile it against user preference
+  // once the widget tree comes up.
+  final oskControl = HearthOskControl.install();
+  final initialMode = OnScreenKeyboardMode.fromWire(
+      container.read(hubConfigProvider).onScreenKeyboardMode);
+  oskControl.enabled = resolveOskEnabled(initialMode);
 
   // Apply configured timezone before anything else reads the clock.
   // On Linux (Pi), this sets the system timezone via timedatectl or

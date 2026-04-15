@@ -4,6 +4,7 @@ import '../../config/hub_config.dart';
 import '../../models/ha_entity.dart';
 import '../../services/home_assistant_service.dart';
 import '../../services/local_api_server.dart';
+import '../../services/osk_integration.dart';
 import '../../app/app.dart' show kDialogBackground;
 import '../../services/sendspin/alsa_audio_sink.dart';
 import '../../services/sendspin/sendspin_service.dart';
@@ -344,6 +345,23 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
         ),
         const DisplaySettingsSection(),
+        _SettingsTile(
+          icon: Icons.keyboard,
+          title: 'On-Screen Keyboard',
+          subtitle: OnScreenKeyboardMode.fromWire(
+                  config.onScreenKeyboardMode)
+              .label,
+          onTap: () => _showChoiceDialog(
+            title: 'On-Screen Keyboard',
+            options: {
+              for (final mode in OnScreenKeyboardMode.values) mode.wire: mode.label,
+            },
+            currentValue: config.onScreenKeyboardMode,
+            onSave: (value) => _updateConfig(
+              (c) => c.copyWith(onScreenKeyboardMode: value),
+            ),
+          ),
+        ),
 
         // -- Night Mode --
         _SettingsTile(

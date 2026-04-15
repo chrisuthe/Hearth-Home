@@ -48,6 +48,8 @@ class HubConfig {
   final String sendspinServerUrl;
   final int sendspinStaticDelayMs;
   final String sendspinAlsaDevice;
+  /// Wire value for [OnScreenKeyboardMode]: 'auto', 'always', or 'never'.
+  final String onScreenKeyboardMode;
   final String displayProfile; // "auto" | "amoled-11" | "rpi-7" | "hdmi"
   final int displayWidth;      // 0 = use profile default
   final int displayHeight;     // 0 = use profile default
@@ -94,6 +96,7 @@ class HubConfig {
     this.sendspinServerUrl = '',
     this.sendspinStaticDelayMs = 0,
     this.sendspinAlsaDevice = 'default',
+    this.onScreenKeyboardMode = 'auto',
     this.displayProfile = 'auto',
     this.displayWidth = 0,
     this.displayHeight = 0,
@@ -147,6 +150,7 @@ class HubConfig {
     String? sendspinServerUrl,
     int? sendspinStaticDelayMs,
     String? sendspinAlsaDevice,
+    String? onScreenKeyboardMode,
     String? displayProfile,
     int? displayWidth,
     int? displayHeight,
@@ -193,6 +197,8 @@ class HubConfig {
       sendspinServerUrl: sendspinServerUrl ?? this.sendspinServerUrl,
       sendspinStaticDelayMs: sendspinStaticDelayMs ?? this.sendspinStaticDelayMs,
       sendspinAlsaDevice: sendspinAlsaDevice ?? this.sendspinAlsaDevice,
+      onScreenKeyboardMode:
+          onScreenKeyboardMode ?? this.onScreenKeyboardMode,
       displayProfile: displayProfile ?? this.displayProfile,
       displayWidth: displayWidth ?? this.displayWidth,
       displayHeight: displayHeight ?? this.displayHeight,
@@ -241,6 +247,7 @@ class HubConfig {
         'sendspinServerUrl': sendspinServerUrl,
         'sendspinStaticDelayMs': sendspinStaticDelayMs,
         'sendspinAlsaDevice': sendspinAlsaDevice,
+        'onScreenKeyboardMode': onScreenKeyboardMode,
         'displayProfile': displayProfile,
         'displayWidth': displayWidth,
         'displayHeight': displayHeight,
@@ -289,6 +296,8 @@ class HubConfig {
         sendspinStaticDelayMs: json['sendspinStaticDelayMs'] as int? ?? 0,
         sendspinAlsaDevice:
             json['sendspinAlsaDevice'] as String? ?? 'default',
+        onScreenKeyboardMode:
+            json['onScreenKeyboardMode'] as String? ?? 'auto',
         displayProfile: json['displayProfile'] as String? ?? 'auto',
         displayWidth: json['displayWidth'] as int? ?? 0,
         displayHeight: json['displayHeight'] as int? ?? 0,
