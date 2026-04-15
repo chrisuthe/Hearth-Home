@@ -218,12 +218,22 @@ class _HearthOskOverlayState extends State<HearthOskOverlay>
   Widget build(BuildContext context) {
     final theme = widget.theme;
     final control = widget.control;
+    // Wrap in Material so Text widgets inside the overlay inherit a
+    // DefaultTextStyle instead of rendering with the "missing Material"
+    // yellow-underline debug paint. The overlay lives in a Stack alongside
+    // the Navigator and is not otherwise under any Material ancestor.
     return IgnorePointer(
       ignoring: !control.visible && _anim.value == 0,
       child: SlideTransition(
         position: _slide,
-        child: Container(
+        child: Material(
+          type: MaterialType.canvas,
           color: theme.background,
+          textStyle: TextStyle(
+            color: theme.keyLabel,
+            fontSize: theme.keyLabelSize,
+            fontWeight: FontWeight.w500,
+          ),
           child: SafeArea(
             top: false,
             child: HearthOskGrid(
