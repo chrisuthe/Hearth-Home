@@ -28,6 +28,22 @@ class _CamerasScreenState extends ConsumerState<CamerasScreen> {
   HearthVideoPlayer? _videoPlayer;
 
   @override
+  void didUpdateWidget(covariant CamerasScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Releasing the video player the moment we're swiped off-screen avoids
+    // keeping GStreamer V4L2 decode buffers (and their DMA-BUF fences) alive
+    // while the page is invisible. A stalled RTSP decoder in the background
+    // can wedge flutter-pi's raster thread on an unsignalled fence.
+    if (oldWidget.isActive && !widget.isActive && _expandedCamera != null) {
+      // Direct mutation (no setState) because didUpdateWidget runs inside
+      // the parent's build phase; setState here would throw.
+      _disposePlayer();
+      ref.read(idleControllerProvider).unsuppress();
+      _expandedCamera = null;
+    }
+  }
+
+  @override
   void dispose() {
     _disposePlayer();
     super.dispose();
