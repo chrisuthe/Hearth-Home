@@ -175,6 +175,26 @@ class FrigateService {
   String snapshotUrl(String cameraName) =>
       '$_baseUrl/api/$cameraName/latest.jpg';
 
+  /// Queries Frigate's /api/stats and returns the current camera_fps for the
+  /// named camera, or null if unavailable. A value at or near 0 means
+  /// Frigate's ffmpeg is no longer receiving frames from the camera — the
+  /// definitive source-side health signal for stream stall detection.
+  Future<double?> getCameraFps(String cameraName) async {
+    try {
+      await _refreshTokenIfNeeded();
+      final response = await _dio.get('/api/stats');
+      final data = response.data;
+      if (data is! Map<String, dynamic>) return null;
+      final cameras = data['cameras'] as Map<String, dynamic>?;
+      final cam = cameras?[cameraName] as Map<String, dynamic>?;
+      final fps = cam?['camera_fps'];
+      if (fps is num) return fps.toDouble();
+    } catch (e) {
+      Log.w('Frigate', 'getCameraFps($cameraName) failed: $e');
+    }
+    return null;
+  }
+
   void dispose() {
     _entitySub?.cancel();
     _eventController.close();

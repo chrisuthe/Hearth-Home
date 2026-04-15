@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/frigate_event.dart';
 import '../../app/idle_controller.dart';
+import '../../services/toast_service.dart';
 import '../../services/video/hearth_video_player.dart';
+import '../../utils/logger.dart';
 import 'frigate_service.dart';
 
 /// Camera grid screen with live video expansion.
@@ -26,6 +28,22 @@ class _CamerasScreenState extends ConsumerState<CamerasScreen> {
   FrigateCamera? _expandedCamera;
 
   HearthVideoPlayer? _videoPlayer;
+
+  // --- Source-side stall detection ---
+  // Polls Frigate's /api/stats for the expanded camera's `camera_fps` every
+  // [_stallPollInterval]. If fps reads as 0 (or the request fails) for
+  // [_stallGrace] consecutive time, we treat the stream as stalled at the
+  // source and collapse back to the grid with a toast.
+  //
+  // This detects camera-side failures (offline camera, crashed ffmpeg, dead
+  // capture thread) without touching the GStreamer pipeline. It does NOT
+  // detect downstream decoder-side stalls — those are rare, and the
+  // swipe-away dispose in didUpdateWidget already prevents them from wedging
+  // flutter-pi.
+  static const _stallPollInterval = Duration(seconds: 3);
+  static const _stallGrace = Duration(seconds: 10);
+  Timer? _stallWatchdog;
+  DateTime? _lastHealthyAt;
 
   @override
   void didUpdateWidget(covariant CamerasScreen oldWidget) {
@@ -60,6 +78,7 @@ class _CamerasScreenState extends ConsumerState<CamerasScreen> {
         _expandedCamera = camera;
         _videoPlayer = player;
       });
+      _startStallWatchdog(camera);
     } catch (e) {
       ref.read(idleControllerProvider).unsuppress();
       setState(() {
@@ -76,8 +95,45 @@ class _CamerasScreenState extends ConsumerState<CamerasScreen> {
   }
 
   void _disposePlayer() {
+    _stopStallWatchdog();
     _videoPlayer?.dispose();
     _videoPlayer = null;
+  }
+
+  void _startStallWatchdog(FrigateCamera camera) {
+    _stopStallWatchdog();
+    _lastHealthyAt = DateTime.now();
+    _stallWatchdog = Timer.periodic(_stallPollInterval, (_) async {
+      if (!mounted || _expandedCamera?.name != camera.name) return;
+      final fps = await ref
+          .read(frigateServiceProvider)
+          .getCameraFps(camera.name);
+      if (!mounted || _expandedCamera?.name != camera.name) return;
+      // Treat null (API failure) the same as 0 — if we can't confirm the
+      // camera is healthy, we can't confirm it's streaming either.
+      final healthy = fps != null && fps > 0.1;
+      if (healthy) {
+        _lastHealthyAt = DateTime.now();
+        return;
+      }
+      final stalledFor = DateTime.now().difference(_lastHealthyAt!);
+      if (stalledFor >= _stallGrace) {
+        Log.w('Cameras',
+            '${camera.name} stalled at source (${stalledFor.inSeconds}s), collapsing');
+        ref.read(toastProvider.notifier).show(
+              '${camera.name} stream offline',
+              icon: Icons.videocam_off,
+              type: ToastType.warning,
+            );
+        _collapseCamera();
+      }
+    });
+  }
+
+  void _stopStallWatchdog() {
+    _stallWatchdog?.cancel();
+    _stallWatchdog = null;
+    _lastHealthyAt = null;
   }
 
   @override
