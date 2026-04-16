@@ -5,6 +5,7 @@ import '../../models/ha_entity.dart';
 import '../../services/home_assistant_service.dart';
 import '../../services/local_api_server.dart';
 import '../../services/osk_integration.dart';
+import '../../utils/alsa_utils.dart';
 import '../../app/app.dart' show kDialogBackground;
 import '../../services/sendspin/alsa_audio_sink.dart';
 import '../../services/sendspin/sendspin_service.dart';
@@ -15,7 +16,6 @@ import 'display_settings.dart';
 import 'update_settings.dart';
 import '../../modules/module_registry.dart';
 import '../../services/toast_service.dart';
-import '../../services/voice_assistant_service.dart';
 
 /// Settings screen -- configure connections, display, night mode, and music.
 ///
@@ -636,7 +636,27 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           description: 'Visual feedback for Wyoming voice satellite',
         ),
         const SizedBox(height: 8),
-        const _VoiceMuteToggle(),
+        SwitchListTile(
+          secondary: Icon(
+            config.micMuted ? Icons.mic_off : Icons.mic,
+            color: config.micMuted ? Colors.red : Colors.white54,
+          ),
+          title: const Text('Microphone'),
+          subtitle: Text(
+            config.micMuted ? 'Muted — wake word disabled' : 'Listening for wake word',
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
+          ),
+          value: !config.micMuted,
+          onChanged: (listening) {
+            final muted = !listening;
+            _updateConfig((c) => c.copyWith(micMuted: muted));
+            setMicMuted(muted);
+            ref.read(toastProvider.notifier).show(
+              muted ? 'Microphone muted' : 'Microphone unmuted',
+              icon: muted ? Icons.mic_off : Icons.mic,
+            );
+          },
+        ),
         SwitchListTile(
           secondary: const Icon(Icons.mic, color: Colors.white54),
           title: const Text('Show voice feedback'),
@@ -1346,60 +1366,3 @@ class _TimezonePickerDialogState extends State<_TimezonePickerDialog> {
   }
 }
 
-/// Toggle that stops/starts the Wyoming satellite service to mute/unmute
-/// the voice assistant. Checks service state on build.
-class _VoiceMuteToggle extends ConsumerStatefulWidget {
-  const _VoiceMuteToggle();
-
-  @override
-  ConsumerState<_VoiceMuteToggle> createState() => _VoiceMuteToggleState();
-}
-
-class _VoiceMuteToggleState extends ConsumerState<_VoiceMuteToggle> {
-  bool _running = true;
-  bool _loading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _checkStatus();
-  }
-
-  Future<void> _checkStatus() async {
-    final voice = ref.read(voiceAssistantServiceProvider);
-    final running = await voice.isSatelliteRunning;
-    if (mounted) setState(() { _running = running; _loading = false; });
-  }
-
-  Future<void> _toggle(bool enable) async {
-    setState(() => _loading = true);
-    final voice = ref.read(voiceAssistantServiceProvider);
-    final success = enable ? await voice.unmute() : await voice.mute();
-    if (success && mounted) {
-      setState(() { _running = enable; _loading = false; });
-      ref.read(toastProvider.notifier).show(
-        enable ? 'Voice assistant listening' : 'Voice assistant muted',
-        icon: enable ? Icons.record_voice_over : Icons.voice_over_off,
-      );
-    } else if (mounted) {
-      setState(() => _loading = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SwitchListTile(
-      secondary: Icon(
-        _running ? Icons.record_voice_over : Icons.voice_over_off,
-        color: Colors.white54,
-      ),
-      title: const Text('Voice assistant'),
-      subtitle: Text(
-        _loading ? 'Checking...' : _running ? 'Listening for wake word' : 'Muted — not listening',
-        style: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
-      ),
-      value: _running,
-      onChanged: _loading ? null : _toggle,
-    );
-  }
-}
