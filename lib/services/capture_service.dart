@@ -257,8 +257,9 @@ Future<RecordingProcess> gstStartRecording(String outputPath) async {
     'location=$outputPath',
   ]);
   // Drain stdout/stderr so the OS pipe buffer doesn't fill and block
-  // the child on long recordings. Task 5 will attach a ring buffer
-  // for debugging; draining is sufficient correctness for Task 4.
+  // the child on long recordings. GStreamer's stderr messages are
+  // discarded — if we ever need them for debugging, wrap these
+  // streams to capture lines into a ring buffer.
   proc.stdout.drain<void>();
   proc.stderr.drain<void>();
   return _GstProcess(proc);

@@ -184,12 +184,14 @@ void main() {
 
     test('stopRecording escalates to kill after timeout', () async {
       // Replace the spawner with one whose fake never exits on stop().
+      _StubbornProcess? stubborn;
       service = CaptureService(
         capturesDir: tempDir,
         takeScreenshotFn: (_) async {},
         spawnRecordingFn: (path) async {
           await File(path).writeAsBytes([0]);
-          return _StubbornProcess();
+          stubborn = _StubbornProcess();
+          return stubborn!;
         },
         now: () => DateTime(2026, 4, 21, 14, 30, 22),
         stopTimeout: const Duration(milliseconds: 50),
@@ -198,6 +200,8 @@ void main() {
       final meta = await service.stopRecording();
       expect(meta.filename, 'hearth-20260421-143022.mp4');
       expect(service.isRecording, false);
+      expect(stubborn!.killed, true,
+          reason: 'SIGKILL escalation path must invoke kill() when SIGINT is ignored');
     });
   });
 }
