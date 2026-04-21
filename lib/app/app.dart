@@ -5,6 +5,7 @@ import '../config/hub_config.dart';
 import '../packages/hearth_osk/hearth_osk.dart';
 import '../screens/setup/setup_wizard.dart';
 import '../services/osk_integration.dart';
+import '../widgets/touch_indicator_overlay.dart';
 import 'hub_shell.dart';
 
 /// Root widget for the Hearth application.
@@ -52,7 +53,12 @@ class HearthApp extends ConsumerWidget {
         );
       },
       home: Scaffold(
-        body: needsSetup ? const SetupWizard() : const HubShell(),
+        body: needsSetup
+            ? const SetupWizard()
+            : TouchIndicatorOverlay(
+                config: config.touchIndicator,
+                child: const HubShell(),
+              ),
       ),
     );
   }
