@@ -90,7 +90,8 @@ class CaptureService {
 
   Future<CaptureFile> takeScreenshot() async {
     await _ensureDir();
-    final filename = generateFilename(extension: 'png', now: _now());
+    final now = _now();
+    final filename = generateFilename(extension: 'png', now: now);
     final path = '${_capturesDir.path}/$filename';
     await _takeScreenshotFn(path);
     final file = File(path);
@@ -99,7 +100,7 @@ class CaptureService {
       filename: filename,
       path: path,
       sizeBytes: size,
-      createdAt: _now(),
+      createdAt: now,
     );
   }
 }
@@ -145,6 +146,11 @@ Future<RecordingProcess> gstStartRecording(String outputPath) async {
     'filesink',
     'location=$outputPath',
   ]);
+  // Drain stdout/stderr so the OS pipe buffer doesn't fill and block
+  // the child on long recordings. Task 5 will attach a ring buffer
+  // for debugging; draining is sufficient correctness for Task 4.
+  proc.stdout.drain<void>();
+  proc.stderr.drain<void>();
   return _GstProcess(proc);
 }
 

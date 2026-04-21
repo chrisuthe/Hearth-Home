@@ -96,5 +96,30 @@ void main() {
       expect(meta.sizeBytes, 1);
       expect(await File(meta.path).exists(), true);
     });
+
+    test('filename and createdAt use the same timestamp snapshot',
+        () async {
+      // Clock that returns a different time on each call would expose a
+      // double-call bug. This test pins both to the same value via single
+      // _now() capture.
+      var tick = 0;
+      final times = [
+        DateTime(2026, 4, 21, 14, 30, 22),
+        DateTime(2026, 4, 21, 14, 30, 23), // second call would use this
+      ];
+      final localService = CaptureService(
+        capturesDir: tempDir,
+        takeScreenshotFn: (path) async {
+          await File(path).writeAsBytes([0]);
+        },
+        spawnRecordingFn: (path) async => FakeRecordingProcess(),
+        now: () => times[tick++],
+      );
+      final meta = await localService.takeScreenshot();
+      expect(meta.filename, 'hearth-20260421-143022.png');
+      expect(meta.createdAt, DateTime(2026, 4, 21, 14, 30, 22));
+      // If _now() were called twice, createdAt would be 14:30:23 or tick would advance to 2.
+      expect(tick, 1);
+    });
   });
 }
