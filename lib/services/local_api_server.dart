@@ -718,11 +718,9 @@ class LocalApiServer {
   // --- Capture page ---
 
   Future<void> _serveCapturePage(HttpRequest request) async {
-    // HTML body is populated in Task 8. For now serve a minimal placeholder.
     request.response.statusCode = 200;
     request.response.headers.contentType = ContentType.html;
-    request.response.write(
-        '<!DOCTYPE html><html><body><h1>Hearth Captures</h1><p>UI coming soon</p></body></html>');
+    request.response.write(_capturePageHtml);
     await request.response.close();
   }
 
@@ -1651,6 +1649,256 @@ async function unlock() {
     err.textContent = 'Connection error';
   }
 }
+</script>
+</body>
+</html>
+''';
+
+const _capturePageHtml = r'''
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hearth Captures</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #111; color: #e0e0e0;
+    display: flex; flex-direction: column; min-height: 100vh;
+    padding: 16px;
+  }
+  .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+  h1 { font-size: 22px; font-weight: 300; color: #fff; }
+  .nav a { color: #646cff; text-decoration: none; font-size: 13px; margin-left: 12px; }
+  h2 { font-size: 11px; font-weight: 600; letter-spacing: 1.2px; color: #888;
+       text-transform: uppercase; margin: 20px 0 8px; }
+  button { padding: 10px 16px; background: #333; color: #e0e0e0;
+           border: 1px solid #444; border-radius: 6px; cursor: pointer; font-size: 13px; }
+  button.primary { background: #646cff; color: #fff; border: none; }
+  button.primary:hover { background: #535bf2; }
+  button.recording { background: #ef4444; color: #fff; border: none; }
+  .controls { display: flex; gap: 8px; align-items: center; }
+  .recording-status { color: #ef4444; font-family: monospace; font-size: 13px; }
+  label { display: block; font-size: 13px; color: #aaa; margin: 8px 0 4px; }
+  input, select {
+    padding: 8px 10px; background: #1e1e1e; border: 1px solid #333;
+    border-radius: 6px; color: #e0e0e0; font-size: 13px; outline: none;
+  }
+  input[type="range"] { width: 200px; }
+  .row { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid #222;
+           font-size: 13px; }
+  th { color: #888; font-weight: 500; }
+  td a { color: #646cff; text-decoration: none; margin-right: 12px; }
+  td button.del { color: #f87171; background: none; border: none; cursor: pointer; font-size: 14px; }
+  .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+           background: #2a2a2a; color: #4ade80; padding: 10px 20px; border-radius: 6px;
+           opacity: 0; transition: opacity 0.3s; font-size: 13px; }
+  .toast.show { opacity: 1; }
+  .toast.error { color: #f87171; }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>Hearth Captures</h1>
+  <div class="nav"><a href="/">Settings</a><a href="/logs">Logs</a></div>
+</div>
+
+<h2>Controls</h2>
+<div class="controls">
+  <button class="primary" onclick="takeScreenshot()">Take Screenshot</button>
+  <button id="recBtn" onclick="toggleRecording()">Start Recording</button>
+  <span id="recStatus" class="recording-status"></span>
+</div>
+
+<h2>Touch Indicator</h2>
+<div class="row"><label><input type="checkbox" id="ind_enabled"> Enabled</label></div>
+<div class="row"><label>Color (ARGB hex)</label><input type="text" id="ind_color" size="10"></div>
+<div class="row"><label>Radius <span id="ind_radius_v"></span> px</label>
+  <input type="range" id="ind_radius" min="10" max="80" step="1"></div>
+<div class="row"><label>Fade <span id="ind_fade_v"></span> ms</label>
+  <input type="range" id="ind_fade" min="200" max="2000" step="50"></div>
+<div class="row"><label>Style</label>
+  <select id="ind_style">
+    <option value="ripple">Ripple</option>
+    <option value="solid">Solid</option>
+    <option value="trail">Trail</option>
+  </select></div>
+
+<h2>Captures</h2>
+<table>
+  <thead><tr><th>Filename</th><th>Type</th><th>Size</th><th>Created</th><th></th></tr></thead>
+  <tbody id="gallery"></tbody>
+</table>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let API_KEY = '';
+let recStart = null;
+let recTimer = null;
+
+function headers() { return {'Authorization': 'Bearer ' + API_KEY, 'Content-Type': 'application/json'}; }
+function toast(msg, err) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (err ? ' error' : '');
+  setTimeout(() => t.className = 'toast', 2000);
+}
+
+async function initAuth() {
+  const r = await fetch('/api/session/key');
+  if (r.ok) { API_KEY = (await r.json()).apiKey; }
+}
+
+async function takeScreenshot() {
+  try {
+    const r = await fetch('/api/capture/screenshot', {method: 'POST', headers: headers()});
+    if (!r.ok) throw 0;
+    toast('Screenshot saved');
+    loadGallery();
+  } catch (e) { toast('Screenshot failed', true); }
+}
+
+async function toggleRecording() {
+  const btn = document.getElementById('recBtn');
+  if (!recStart) {
+    try {
+      const r = await fetch('/api/capture/recording/start', {method: 'POST', headers: headers()});
+      if (!r.ok) throw 0;
+      recStart = Date.now();
+      btn.textContent = 'Stop Recording';
+      btn.className = 'recording';
+      recTimer = setInterval(updateTimer, 1000);
+      updateTimer();
+    } catch (e) { toast('Start failed', true); }
+  } else {
+    try {
+      const r = await fetch('/api/capture/recording/stop', {method: 'POST', headers: headers()});
+      if (!r.ok) throw 0;
+      toast('Recording saved');
+    } catch (e) { toast('Stop failed', true); }
+    recStart = null;
+    btn.textContent = 'Start Recording';
+    btn.className = '';
+    clearInterval(recTimer);
+    document.getElementById('recStatus').textContent = '';
+    loadGallery();
+  }
+}
+
+function updateTimer() {
+  if (!recStart) return;
+  const secs = Math.floor((Date.now() - recStart) / 1000);
+  const mm = String(Math.floor(secs / 60)).padStart(2, '0');
+  const ss = String(secs % 60).padStart(2, '0');
+  document.getElementById('recStatus').textContent = 'Recording ' + mm + ':' + ss;
+}
+
+function fmtSize(b) {
+  if (b < 1024) return b + ' B';
+  if (b < 1024 * 1024) return (b / 1024).toFixed(1) + ' KB';
+  return (b / 1024 / 1024).toFixed(1) + ' MB';
+}
+
+async function loadGallery() {
+  try {
+    const r = await fetch('/api/capture/list', {headers: headers()});
+    const items = await r.json();
+    const tb = document.getElementById('gallery');
+    tb.textContent = '';
+    if (!items.length) {
+      const tr = document.createElement('tr');
+      const td = document.createElement('td');
+      td.colSpan = 5;
+      td.style.color = '#666';
+      td.style.textAlign = 'center';
+      td.style.padding = '24px';
+      td.textContent = 'No captures yet.';
+      tr.appendChild(td);
+      tb.appendChild(tr);
+      return;
+    }
+    for (const it of items) {
+      const tr = document.createElement('tr');
+      const td1 = document.createElement('td');
+      td1.textContent = it.filename;
+      const td2 = document.createElement('td');
+      td2.textContent = it.type.toUpperCase();
+      const td3 = document.createElement('td');
+      td3.textContent = fmtSize(it.sizeBytes);
+      const td4 = document.createElement('td');
+      td4.textContent = new Date(it.createdAt).toLocaleString();
+      const td5 = document.createElement('td');
+      const dl = document.createElement('a');
+      dl.href = '/api/capture/file?name=' + encodeURIComponent(it.filename);
+      dl.textContent = 'Download';
+      const delBtn = document.createElement('button');
+      delBtn.className = 'del';
+      delBtn.textContent = 'Delete';
+      delBtn.addEventListener('click', () => deleteFile(it.filename));
+      td5.appendChild(dl);
+      td5.appendChild(delBtn);
+      tr.appendChild(td1); tr.appendChild(td2); tr.appendChild(td3); tr.appendChild(td4); tr.appendChild(td5);
+      tb.appendChild(tr);
+    }
+  } catch (e) { toast('Failed to load gallery', true); }
+}
+
+async function deleteFile(name) {
+  try {
+    const r = await fetch('/api/capture/file?name=' + encodeURIComponent(name),
+      {method: 'DELETE', headers: headers()});
+    if (!r.ok) throw 0;
+    loadGallery();
+  } catch (e) { toast('Delete failed', true); }
+}
+
+async function loadIndicator() {
+  try {
+    const r = await fetch('/api/capture/indicator-config', {headers: headers()});
+    const c = await r.json();
+    document.getElementById('ind_enabled').checked = c.enabled;
+    document.getElementById('ind_color').value = '0x' + (c.colorArgb >>> 0).toString(16).toUpperCase().padStart(8, '0');
+    document.getElementById('ind_radius').value = c.radius;
+    document.getElementById('ind_radius_v').textContent = c.radius;
+    document.getElementById('ind_fade').value = c.fadeMs;
+    document.getElementById('ind_fade_v').textContent = c.fadeMs;
+    document.getElementById('ind_style').value = c.style;
+  } catch (e) {}
+}
+
+let saveTimer = null;
+function scheduleSave() {
+  if (saveTimer) clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveIndicator, 300);
+}
+
+async function saveIndicator() {
+  const body = {
+    enabled: document.getElementById('ind_enabled').checked,
+    colorArgb: parseInt(document.getElementById('ind_color').value.replace(/^0x/i, ''), 16),
+    radius: parseFloat(document.getElementById('ind_radius').value),
+    fadeMs: parseInt(document.getElementById('ind_fade').value),
+    style: document.getElementById('ind_style').value,
+  };
+  document.getElementById('ind_radius_v').textContent = body.radius;
+  document.getElementById('ind_fade_v').textContent = body.fadeMs;
+  try {
+    await fetch('/api/capture/indicator-config',
+      {method: 'POST', headers: headers(), body: JSON.stringify(body)});
+  } catch (e) { toast('Save failed', true); }
+}
+
+['ind_enabled','ind_color','ind_radius','ind_fade','ind_style'].forEach(id => {
+  document.getElementById(id).addEventListener('input', scheduleSave);
+  document.getElementById(id).addEventListener('change', scheduleSave);
+});
+
+initAuth().then(() => { loadIndicator(); loadGallery(); });
 </script>
 </body>
 </html>

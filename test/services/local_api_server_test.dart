@@ -455,6 +455,29 @@ void main() {
         expect(json['enabled'], true);
         expect(json['radius'], 50.0);
       });
+
+      test('GET /capture serves HTML with valid session', () async {
+        final pin = server.webPin;
+        final authResp =
+            await post('/auth/pin', body: jsonEncode({'pin': pin}));
+        final setCookie = authResp.headers['set-cookie']!.first;
+        final match =
+            RegExp(r'hearth_session=(\w+)').firstMatch(setCookie);
+        final cookie = 'hearth_session=${match!.group(1)}';
+
+        final r = await get('/capture', headers: {'Cookie': cookie});
+        expect(r.statusCode, 200);
+        final body = await readBody(r);
+        expect(body, contains('Hearth Captures'));
+        expect(body, contains('Take Screenshot'));
+      });
+
+      test('GET /capture without session returns PIN page', () async {
+        final r = await get('/capture');
+        expect(r.statusCode, 200);
+        final body = await readBody(r);
+        expect(body, contains('Enter the PIN'));
+      });
     });
   });
 }
