@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'app/app.dart';
 import 'config/hub_config.dart';
 import 'packages/hearth_osk/hearth_osk.dart';
+import 'services/capture_service.dart';
 import 'services/local_api_server.dart';
 import 'services/osk_integration.dart';
 import 'services/timezone_service.dart';
@@ -42,7 +43,19 @@ Future<void> main() async {
     }
   }
 
-  final container = ProviderContainer();
+  // Build the capture service before the container so we can override
+  // its provider. The captures directory is resolved asynchronously.
+  CaptureService? captureService;
+  if (!kIsWeb) {
+    captureService = await CaptureServiceBootstrap.build();
+  }
+
+  final container = ProviderContainer(
+    overrides: [
+      if (captureService != null)
+        captureServiceProvider.overrideWithValue(captureService),
+    ],
+  );
   await container.read(hubConfigProvider.notifier).load();
 
   // Install the on-screen keyboard control before any UI is mounted so that

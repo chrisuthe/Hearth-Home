@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import '../utils/logger.dart';
 
@@ -269,4 +270,34 @@ Future<RecordingProcess> gstStartRecording(String outputPath) async {
 Future<Directory> defaultCapturesDir() async {
   final support = await getApplicationSupportDirectory();
   return Directory('${support.path}/captures');
+}
+
+/// Provider for the app's singleton [CaptureService].
+///
+/// Must be overridden at [ProviderContainer] construction using
+/// [CaptureServiceBootstrap.build], since the captures directory has to
+/// be resolved asynchronously before the container is built.
+final captureServiceProvider = Provider<CaptureService>((ref) {
+  throw UnimplementedError(
+    'captureServiceProvider must be overridden at ProviderContainer '
+    'construction. Call CaptureServiceBootstrap.build() before runApp() '
+    'and pass the result via '
+    'ProviderContainer(overrides: [captureServiceProvider.overrideWithValue(service)]).',
+  );
+});
+
+/// Builds a production-wired [CaptureService] with the default captures
+/// directory and Pi-specific GStreamer pipelines.
+class CaptureServiceBootstrap {
+  static Future<CaptureService> build() async {
+    final dir = await defaultCapturesDir();
+    if (!await dir.exists()) {
+      await dir.create(recursive: true);
+    }
+    return CaptureService(
+      capturesDir: dir,
+      takeScreenshotFn: gstScreenshot,
+      spawnRecordingFn: gstStartRecording,
+    );
+  }
 }
