@@ -11,6 +11,68 @@ import 'package:path_provider/path_provider.dart';
 /// Sentinel value for copyWith to distinguish "not provided" from "set to null".
 const _undefined = Object();
 
+enum TouchIndicatorStyle { ripple, solid, trail }
+
+/// Configuration for the on-screen touch indicator overlay.
+///
+/// Not persisted separately — lives as a nested object inside [HubConfig].
+/// Intended for marketing captures; defaults are "off" so production kiosks
+/// are unaffected.
+class TouchIndicatorConfig {
+  final bool enabled;
+  final int colorArgb;
+  final double radius;
+  final int fadeMs;
+  final TouchIndicatorStyle style;
+
+  const TouchIndicatorConfig({
+    this.enabled = false,
+    this.colorArgb = 0x80FFFFFF,
+    this.radius = 40.0,
+    this.fadeMs = 600,
+    this.style = TouchIndicatorStyle.ripple,
+  });
+
+  TouchIndicatorConfig copyWith({
+    bool? enabled,
+    int? colorArgb,
+    double? radius,
+    int? fadeMs,
+    TouchIndicatorStyle? style,
+  }) {
+    return TouchIndicatorConfig(
+      enabled: enabled ?? this.enabled,
+      colorArgb: colorArgb ?? this.colorArgb,
+      radius: radius ?? this.radius,
+      fadeMs: fadeMs ?? this.fadeMs,
+      style: style ?? this.style,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'enabled': enabled,
+        'colorArgb': colorArgb,
+        'radius': radius,
+        'fadeMs': fadeMs,
+        'style': style.name,
+      };
+
+  factory TouchIndicatorConfig.fromJson(Map<String, dynamic> json) {
+    final styleName = json['style'] as String?;
+    final style = TouchIndicatorStyle.values.firstWhere(
+      (s) => s.name == styleName,
+      orElse: () => TouchIndicatorStyle.ripple,
+    );
+    return TouchIndicatorConfig(
+      enabled: json['enabled'] as bool? ?? false,
+      colorArgb: json['colorArgb'] as int? ?? 0x80FFFFFF,
+      radius: (json['radius'] as num?)?.toDouble() ?? 40.0,
+      fadeMs: json['fadeMs'] as int? ?? 600,
+      style: style,
+    );
+  }
+}
+
 /// Central configuration for a single Home Hub device.
 ///
 /// Each hub stores its own config locally — there's no shared backend.
@@ -68,6 +130,7 @@ class HubConfig {
   final String bottomSwipeAction; // "menu1" | "menu2" | "settings" | "nextScreen" | "previousScreen"
   final bool showVoiceFeedback;
   final bool micMuted;
+  final TouchIndicatorConfig touchIndicator;
 
   const HubConfig({
     this.apiKey = '',
@@ -115,6 +178,7 @@ class HubConfig {
     this.bottomSwipeAction = 'menu1',
     this.showVoiceFeedback = true,
     this.micMuted = false,
+    this.touchIndicator = const TouchIndicatorConfig(),
   });
 
   static String generateApiKey() {
@@ -169,6 +233,7 @@ class HubConfig {
     String? bottomSwipeAction,
     bool? showVoiceFeedback,
     bool? micMuted,
+    TouchIndicatorConfig? touchIndicator,
   }) {
     return HubConfig(
       apiKey: apiKey ?? this.apiKey,
@@ -217,6 +282,7 @@ class HubConfig {
       bottomSwipeAction: bottomSwipeAction ?? this.bottomSwipeAction,
       showVoiceFeedback: showVoiceFeedback ?? this.showVoiceFeedback,
       micMuted: micMuted ?? this.micMuted,
+      touchIndicator: touchIndicator ?? this.touchIndicator,
     );
   }
 
@@ -266,6 +332,7 @@ class HubConfig {
         'bottomSwipeAction': bottomSwipeAction,
         'showVoiceFeedback': showVoiceFeedback,
         'micMuted': micMuted,
+        'touchIndicator': touchIndicator.toJson(),
       };
 
   factory HubConfig.fromJson(Map<String, dynamic> json) => HubConfig(
@@ -319,6 +386,10 @@ class HubConfig {
         bottomSwipeAction: json['bottomSwipeAction'] as String? ?? 'menu1',
         showVoiceFeedback: json['showVoiceFeedback'] as bool? ?? true,
         micMuted: json['micMuted'] as bool? ?? false,
+        touchIndicator: json['touchIndicator'] is Map
+            ? TouchIndicatorConfig.fromJson(
+                (json['touchIndicator'] as Map).cast<String, dynamic>())
+            : const TouchIndicatorConfig(),
       );
 
   static Map<String, List<String>> _migrateEnabledModules(Map<String, dynamic> json) {

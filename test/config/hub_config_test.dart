@@ -354,5 +354,50 @@ void main() {
       expect(config.frigatePassword, '');
     });
 
+    test('touchIndicator has correct defaults', () {
+      const config = HubConfig();
+      expect(config.touchIndicator.enabled, false);
+      expect(config.touchIndicator.colorArgb, 0x80FFFFFF);
+      expect(config.touchIndicator.radius, 40.0);
+      expect(config.touchIndicator.fadeMs, 600);
+      expect(config.touchIndicator.style, TouchIndicatorStyle.ripple);
+    });
+
+    test('touchIndicator round-trips through JSON', () {
+      const config = HubConfig(
+        touchIndicator: TouchIndicatorConfig(
+          enabled: true,
+          colorArgb: 0xFFFF0000,
+          radius: 60.0,
+          fadeMs: 1200,
+          style: TouchIndicatorStyle.trail,
+        ),
+      );
+      final json = config.toJson();
+      final restored = HubConfig.fromJson(json);
+      expect(restored.touchIndicator.enabled, true);
+      expect(restored.touchIndicator.colorArgb, 0xFFFF0000);
+      expect(restored.touchIndicator.radius, 60.0);
+      expect(restored.touchIndicator.fadeMs, 1200);
+      expect(restored.touchIndicator.style, TouchIndicatorStyle.trail);
+    });
+
+    test('touchIndicator copyWith replaces the whole object', () {
+      const config = HubConfig();
+      final updated = config.copyWith(
+        touchIndicator: const TouchIndicatorConfig(enabled: true),
+      );
+      expect(updated.touchIndicator.enabled, true);
+      // Unspecified fields still get TouchIndicatorConfig defaults, not the old values.
+      expect(updated.touchIndicator.radius, 40.0);
+    });
+
+    test('unknown touchIndicator style falls back to ripple', () {
+      final json = const HubConfig().toJson();
+      (json['touchIndicator'] as Map)['style'] = 'bogus_style';
+      final restored = HubConfig.fromJson(json);
+      expect(restored.touchIndicator.style, TouchIndicatorStyle.ripple);
+    });
+
   });
 }
