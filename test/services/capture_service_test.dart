@@ -122,4 +122,101 @@ void main() {
       expect(tick, 1);
     });
   });
+
+  group('CaptureService.recording', () {
+    late Directory tempDir;
+    late List<String> recordingPaths;
+    late FakeRecordingProcess? activeFake;
+    late CaptureService service;
+
+    setUp(() async {
+      tempDir = await Directory.systemTemp.createTemp('hearth_capture_rec_');
+      recordingPaths = [];
+      activeFake = null;
+      service = CaptureService(
+        capturesDir: tempDir,
+        takeScreenshotFn: (_) async {},
+        spawnRecordingFn: (path) async {
+          recordingPaths.add(path);
+          final fake = FakeRecordingProcess();
+          activeFake = fake;
+          // Simulate the file being created by gst-launch.
+          await File(path).writeAsBytes([0]);
+          return fake;
+        },
+        now: () => DateTime(2026, 4, 21, 14, 30, 22),
+      );
+    });
+
+    tearDown(() async {
+      await tempDir.delete(recursive: true);
+    });
+
+    test('startRecording spawns subprocess with captures-dir path', () async {
+      final started = await service.startRecording();
+      expect(started.filename, 'hearth-20260421-143022.mp4');
+      expect(recordingPaths.single,
+          '${tempDir.path}/hearth-20260421-143022.mp4');
+      expect(service.isRecording, true);
+      expect(service.activeRecordingFilename,
+          'hearth-20260421-143022.mp4');
+    });
+
+    test('second startRecording throws StateError', () async {
+      await service.startRecording();
+      expect(() => service.startRecording(), throwsA(isA<StateError>()));
+    });
+
+    test('stopRecording sends SIGINT and returns metadata', () async {
+      await service.startRecording();
+      final stopFuture = service.stopRecording();
+      // FakeRecordingProcess completes exitCode synchronously on stop().
+      final finished = await stopFuture;
+      expect(activeFake!.stopped, true);
+      expect(finished.filename, 'hearth-20260421-143022.mp4');
+      expect(finished.sizeBytes, 1);
+      expect(service.isRecording, false);
+    });
+
+    test('stopRecording with no active recording throws StateError', () {
+      expect(() => service.stopRecording(), throwsA(isA<StateError>()));
+    });
+
+    test('stopRecording escalates to kill after timeout', () async {
+      // Replace the spawner with one whose fake never exits on stop().
+      service = CaptureService(
+        capturesDir: tempDir,
+        takeScreenshotFn: (_) async {},
+        spawnRecordingFn: (path) async {
+          await File(path).writeAsBytes([0]);
+          return _StubbornProcess();
+        },
+        now: () => DateTime(2026, 4, 21, 14, 30, 22),
+        stopTimeout: const Duration(milliseconds: 50),
+      );
+      await service.startRecording();
+      final meta = await service.stopRecording();
+      expect(meta.filename, 'hearth-20260421-143022.mp4');
+      expect(service.isRecording, false);
+    });
+  });
+}
+
+class _StubbornProcess implements RecordingProcess {
+  final _exit = Completer<int>();
+  bool killed = false;
+
+  @override
+  Future<int> get exitCode => _exit.future;
+
+  @override
+  void stop() {
+    // Ignore — we are stubborn.
+  }
+
+  @override
+  void kill() {
+    killed = true;
+    _exit.complete(-9);
+  }
 }

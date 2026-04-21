@@ -53,19 +53,24 @@ class CaptureService {
 
   final Directory _capturesDir;
   final ScreenshotFn _takeScreenshotFn;
-  // ignore: unused_field — used in Task 5 (recording lifecycle)
   final RecordingSpawner _spawnRecordingFn;
   final DateTime Function() _now;
+  final Duration _stopTimeout;
+  RecordingProcess? _active;
+  String? _activeFilename;
+  DateTime? _activeStartedAt;
 
   CaptureService({
     required Directory capturesDir,
     required ScreenshotFn takeScreenshotFn,
     required RecordingSpawner spawnRecordingFn,
     DateTime Function()? now,
+    Duration? stopTimeout,
   })  : _capturesDir = capturesDir,
         _takeScreenshotFn = takeScreenshotFn,
         _spawnRecordingFn = spawnRecordingFn,
-        _now = now ?? DateTime.now;
+        _now = now ?? DateTime.now,
+        _stopTimeout = stopTimeout ?? const Duration(seconds: 10);
 
   static bool isValidCaptureFilename(String name) => _nameRe.hasMatch(name);
 
@@ -103,6 +108,111 @@ class CaptureService {
       createdAt: now,
     );
   }
+
+  bool get isRecording => _active != null;
+  String? get activeRecordingFilename => _activeFilename;
+  DateTime? get activeRecordingStartedAt => _activeStartedAt;
+
+  Future<RecordingStarted> startRecording() async {
+    if (_active != null) {
+      throw StateError('Recording already active: $_activeFilename');
+    }
+    await _ensureDir();
+    final now = _now();
+    final filename = generateFilename(extension: 'mp4', now: now);
+    final path = '${_capturesDir.path}/$filename';
+    final proc = await _spawnRecordingFn(path);
+    _active = proc;
+    _activeFilename = filename;
+    _activeStartedAt = now;
+    return RecordingStarted(filename: filename, startedAt: now);
+  }
+
+  Future<CaptureFile> stopRecording() async {
+    final proc = _active;
+    final filename = _activeFilename;
+    final startedAt = _activeStartedAt;
+    if (proc == null || filename == null || startedAt == null) {
+      throw StateError('No active recording');
+    }
+    proc.stop();
+    try {
+      await proc.exitCode.timeout(_stopTimeout);
+    } on TimeoutException {
+      Log.e('Capture', 'Recording did not exit within $_stopTimeout; killing');
+      proc.kill();
+      await proc.exitCode;
+    }
+    _active = null;
+    _activeFilename = null;
+    _activeStartedAt = null;
+
+    final path = '${_capturesDir.path}/$filename';
+    final size = await File(path).length();
+    return CaptureFile(
+      filename: filename,
+      path: path,
+      sizeBytes: size,
+      createdAt: startedAt,
+    );
+  }
+
+  Future<void> dispose() async {
+    final proc = _active;
+    if (proc != null) {
+      proc.kill();
+      await proc.exitCode;
+      _active = null;
+      _activeFilename = null;
+      _activeStartedAt = null;
+    }
+  }
+
+  /// Lists PNG and MP4 files in the captures directory that match the
+  /// canonical filename pattern. Malformed names are ignored.
+  Future<List<CaptureFile>> listCaptures() async {
+    if (!await _capturesDir.exists()) return const [];
+    final out = <CaptureFile>[];
+    await for (final entity in _capturesDir.list()) {
+      if (entity is! File) continue;
+      final name = entity.uri.pathSegments.last;
+      if (!isValidCaptureFilename(name)) continue;
+      final stat = await entity.stat();
+      out.add(CaptureFile(
+        filename: name,
+        path: entity.path,
+        sizeBytes: stat.size,
+        createdAt: stat.modified,
+      ));
+    }
+    out.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return out;
+  }
+
+  Future<bool> deleteCapture(String filename) async {
+    if (!isValidCaptureFilename(filename)) {
+      throw ArgumentError('Invalid capture filename: $filename');
+    }
+    final file = File('${_capturesDir.path}/$filename');
+    if (!await file.exists()) return false;
+    await file.delete();
+    return true;
+  }
+
+  File captureFileHandle(String filename) {
+    if (!isValidCaptureFilename(filename)) {
+      throw ArgumentError('Invalid capture filename: $filename');
+    }
+    return File('${_capturesDir.path}/$filename');
+  }
+}
+
+/// Metadata returned by [CaptureService.startRecording].
+class RecordingStarted {
+  final String filename;
+  final DateTime startedAt;
+
+  const RecordingStarted({required this.filename, required this.startedAt});
 }
 
 /// Factory for the production Pi GStreamer screenshot pipeline.
