@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hearth/config/hub_config.dart';
 import 'package:hearth/services/local_api_server.dart';
 import 'package:hearth/services/display_mode_service.dart';
+import 'package:hearth/services/capture_service.dart';
 
 void main() {
   group('LocalApiServer', () {
@@ -31,11 +33,19 @@ void main() {
       return request.close();
     }
 
+    Future<HttpClientResponse> delete(String path,
+        {Map<String, String>? headers}) async {
+      final client = HttpClient();
+      final request = await client.delete('localhost', port, path);
+      headers?.forEach((k, v) => request.headers.add(k, v));
+      return request.close();
+    }
+
     const authHeaders = {'Authorization': 'Bearer $testApiKey'};
 
     setUp(() async {
       displayService = DisplayModeService();
-      configNotifier = HubConfigNotifier();
+      configNotifier = _MemoryHubConfigNotifier();
       configNotifier.state = const HubConfig(apiKey: testApiKey);
       server = LocalApiServer(
         displayModeService: displayService,
@@ -242,5 +252,232 @@ void main() {
       expect(data.containsKey('currentVersion'), true);
       expect(data.containsKey('autoUpdate'), true);
     });
+
+    // --- Capture endpoints ---
+
+    group('capture endpoints', () {
+      late Directory tempDir;
+      late CaptureService captureService;
+      late int nextNow;
+
+      setUp(() async {
+        tempDir =
+            await Directory.systemTemp.createTemp('hearth_api_capture_');
+        nextNow = 0;
+        captureService = CaptureService(
+          capturesDir: tempDir,
+          takeScreenshotFn: (path) async =>
+              File(path).writeAsBytes([0x89, 0x50, 0x4E, 0x47]), // PNG magic
+          spawnRecordingFn: (path) async {
+            await File(path).writeAsBytes([0x00, 0x00, 0x00, 0x18]);
+            return _TestRecording();
+          },
+          now: () =>
+              DateTime(2026, 4, 21, 14, 30, nextNow++),
+        );
+        // Rebuild server with the capture service injected.
+        await server.stop();
+        server = LocalApiServer(
+          displayModeService: displayService,
+          configNotifier: configNotifier,
+          captureService: captureService,
+        );
+        port = await server.start(port: 0);
+      });
+
+      tearDown(() async {
+        await captureService.dispose();
+        await tempDir.delete(recursive: true);
+      });
+
+      test('POST /api/capture/screenshot creates a file', () async {
+        final r = await post('/api/capture/screenshot',
+            body: '', headers: authHeaders);
+        expect(r.statusCode, 200);
+        final json = jsonDecode(await readBody(r)) as Map<String, dynamic>;
+        expect(json['filename'],
+            matches(RegExp(r'^hearth-\d{8}-\d{6}\.png$')));
+        expect(await File('${tempDir.path}/${json['filename']}').exists(),
+            true);
+      });
+
+      test('POST /api/capture/recording/start then /stop', () async {
+        final startResp = await post('/api/capture/recording/start',
+            body: '', headers: authHeaders);
+        expect(startResp.statusCode, 200);
+        final startJson =
+            jsonDecode(await readBody(startResp)) as Map<String, dynamic>;
+        expect(startJson['filename'],
+            matches(RegExp(r'^hearth-\d{8}-\d{6}\.mp4$')));
+
+        final stopResp = await post('/api/capture/recording/stop',
+            body: '', headers: authHeaders);
+        expect(stopResp.statusCode, 200);
+        final stopJson =
+            jsonDecode(await readBody(stopResp)) as Map<String, dynamic>;
+        expect(stopJson['filename'], startJson['filename']);
+        expect(stopJson['sizeBytes'], greaterThan(0));
+      });
+
+      test('POST /api/capture/recording/start twice returns 409', () async {
+        final first = await post('/api/capture/recording/start',
+            body: '', headers: authHeaders);
+        expect(first.statusCode, 200);
+        final second = await post('/api/capture/recording/start',
+            body: '', headers: authHeaders);
+        expect(second.statusCode, 409);
+      });
+
+      test('POST /api/capture/recording/stop with no active returns 400',
+          () async {
+        final r = await post('/api/capture/recording/stop',
+            body: '', headers: authHeaders);
+        expect(r.statusCode, 400);
+      });
+
+      test('GET /api/capture/list enumerates captures and ignores garbage',
+          () async {
+        await post('/api/capture/screenshot',
+            body: '', headers: authHeaders);
+        await post('/api/capture/screenshot',
+            body: '', headers: authHeaders);
+        // Drop a malformed file — must be ignored.
+        await File('${tempDir.path}/garbage.png').writeAsBytes([0]);
+
+        final r = await get('/api/capture/list', headers: authHeaders);
+        expect(r.statusCode, 200);
+        final list = jsonDecode(await readBody(r)) as List<dynamic>;
+        expect(list, hasLength(2));
+        for (final entry in list) {
+          final m = entry as Map<String, dynamic>;
+          expect(m['filename'],
+              matches(RegExp(r'^hearth-\d{8}-\d{6}\.png$')));
+          expect(m['type'], 'png');
+        }
+      });
+
+      test('GET /api/capture/file?name=... streams the file bytes',
+          () async {
+        final screenshotResp = await post('/api/capture/screenshot',
+            body: '', headers: authHeaders);
+        final name = (jsonDecode(await readBody(screenshotResp))
+            as Map<String, dynamic>)['filename'] as String;
+
+        final r = await get('/api/capture/file?name=$name',
+            headers: authHeaders);
+        expect(r.statusCode, 200);
+        final bytes = await r.fold<List<int>>(
+            [], (acc, chunk) => acc..addAll(chunk));
+        expect(bytes, [0x89, 0x50, 0x4E, 0x47]);
+      });
+
+      test('GET /api/capture/file rejects invalid names with 400',
+          () async {
+        final r = await get('/api/capture/file?name=../etc/passwd',
+            headers: authHeaders);
+        expect(r.statusCode, 400);
+      });
+
+      test('GET /api/capture/file returns 404 when file missing', () async {
+        final r = await get(
+            '/api/capture/file?name=hearth-99999999-999999.png',
+            headers: authHeaders);
+        expect(r.statusCode, 404);
+      });
+
+      test(
+          'GET /api/capture/file accepts session cookie instead of Bearer',
+          () async {
+        // First screenshot via Bearer.
+        final screenshotResp = await post('/api/capture/screenshot',
+            body: '', headers: authHeaders);
+        final name = (jsonDecode(await readBody(screenshotResp))
+            as Map<String, dynamic>)['filename'] as String;
+
+        // Now unlock a web session.
+        final pin = server.webPin;
+        final authResp =
+            await post('/auth/pin', body: jsonEncode({'pin': pin}));
+        final setCookie = authResp.headers['set-cookie']!.first;
+        final match =
+            RegExp(r'hearth_session=(\w+)').firstMatch(setCookie);
+        final cookie = 'hearth_session=${match!.group(1)}';
+
+        final r = await get('/api/capture/file?name=$name',
+            headers: {'Cookie': cookie});
+        expect(r.statusCode, 200,
+            reason: 'Session cookie must be accepted on /api/capture/file');
+      });
+
+      test('DELETE /api/capture/file?name=... removes the file', () async {
+        final screenshotResp = await post('/api/capture/screenshot',
+            body: '', headers: authHeaders);
+        final name = (jsonDecode(await readBody(screenshotResp))
+            as Map<String, dynamic>)['filename'] as String;
+
+        final r = await delete('/api/capture/file?name=$name',
+            headers: authHeaders);
+        expect(r.statusCode, 200);
+        expect(await File('${tempDir.path}/$name').exists(), false);
+      });
+
+      test('POST /api/capture/indicator-config updates HubConfig',
+          () async {
+        final r = await post('/api/capture/indicator-config',
+            body: jsonEncode({
+              'enabled': true,
+              'radius': 55.0,
+              'style': 'trail',
+            }),
+            headers: authHeaders);
+        expect(r.statusCode, 200);
+        expect(configNotifier.state.touchIndicator.enabled, true);
+        expect(configNotifier.state.touchIndicator.radius, 55.0);
+        expect(configNotifier.state.touchIndicator.style,
+            TouchIndicatorStyle.trail);
+        // Unchanged fields keep prior values.
+        expect(configNotifier.state.touchIndicator.fadeMs, 600);
+      });
+
+      test('GET /api/capture/indicator-config returns current state',
+          () async {
+        configNotifier.state = const HubConfig(
+          apiKey: testApiKey,
+          touchIndicator: TouchIndicatorConfig(
+            enabled: true,
+            radius: 50.0,
+          ),
+        );
+        final r = await get('/api/capture/indicator-config',
+            headers: authHeaders);
+        expect(r.statusCode, 200);
+        final json = jsonDecode(await readBody(r)) as Map<String, dynamic>;
+        expect(json['enabled'], true);
+        expect(json['radius'], 50.0);
+      });
+    });
   });
+}
+
+class _TestRecording implements RecordingProcess {
+  final _exit = Completer<int>();
+  @override
+  Future<int> get exitCode => _exit.future;
+  @override
+  void stop() {
+    if (!_exit.isCompleted) _exit.complete(0);
+  }
+  @override
+  void kill() {
+    if (!_exit.isCompleted) _exit.complete(-9);
+  }
+}
+
+/// [HubConfigNotifier] subclass that skips disk persistence so tests can
+/// call [update] without initialising the Flutter binding or path_provider.
+class _MemoryHubConfigNotifier extends HubConfigNotifier {
+  @override
+  Future<void> update(HubConfig Function(HubConfig) updater) async {
+    state = updater(state);
+  }
 }

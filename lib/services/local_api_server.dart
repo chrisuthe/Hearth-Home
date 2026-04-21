@@ -7,6 +7,7 @@ import '../modules/alarm_clock/alarm_models.dart';
 import '../modules/alarm_clock/alarm_service.dart';
 import '../utils/logger.dart';
 import '../config/hub_config.dart';
+import 'capture_service.dart';
 import 'display_mode_service.dart';
 import 'timezone_service.dart';
 import 'wifi_service.dart';
@@ -38,6 +39,7 @@ class LocalApiServer {
   final WifiService _wifiService;
   final UpdateService _updateService;
   final AlarmService? _alarmService;
+  final CaptureService? _captureService;
   HttpServer? _server;
 
   static const int _maxBodySize = 64 * 1024; // 64 KB
@@ -57,6 +59,7 @@ class LocalApiServer {
     WifiService? wifiService,
     UpdateService? updateService,
     AlarmService? alarmService,
+    CaptureService? captureService,
     String? webPin,
   })  : _displayModeService = displayModeService,
         _configNotifier = configNotifier,
@@ -64,6 +67,7 @@ class LocalApiServer {
         _wifiService = wifiService ?? WifiService(),
         _updateService = updateService ?? UpdateService(),
         _alarmService = alarmService,
+        _captureService = captureService,
         _webPin = webPin ?? (Random.secure().nextInt(9000) + 1000).toString();
 
   Future<int> start({int port = 8090}) async {
@@ -123,6 +127,15 @@ class LocalApiServer {
         } else {
           await _servePinPage(request);
         }
+      } else if (path == '/capture') {
+        if (_checkSession(request)) {
+          await _serveCapturePage(request);
+        } else {
+          await _servePinPage(request);
+        }
+      } else if (path.startsWith('/api/capture/')) {
+        await _handleCaptureRequest(request, path);
+        return;
       } else if (path == '/api/session/key' && request.method == 'GET') {
         if (!_checkSession(request)) {
           request.response.statusCode = 401;
@@ -702,6 +715,239 @@ class LocalApiServer {
     await request.response.close();
   }
 
+  // --- Capture page ---
+
+  Future<void> _serveCapturePage(HttpRequest request) async {
+    // HTML body is populated in Task 8. For now serve a minimal placeholder.
+    request.response.statusCode = 200;
+    request.response.headers.contentType = ContentType.html;
+    request.response.write(
+        '<!DOCTYPE html><html><body><h1>Hearth Captures</h1><p>UI coming soon</p></body></html>');
+    await request.response.close();
+  }
+
+  // --- Capture endpoints ---
+
+  /// Entry point for all /api/capture/* routes. Enforces auth — most
+  /// endpoints require Bearer, but /api/capture/file also accepts the
+  /// web session cookie so <a href> downloads work.
+  Future<void> _handleCaptureRequest(HttpRequest request, String path) async {
+    final capture = _captureService;
+    if (capture == null) {
+      request.response.statusCode = 503;
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(
+          jsonEncode({'error': 'capture service unavailable'}));
+      await request.response.close();
+      return;
+    }
+
+    // File download/delete accepts cookie OR bearer.
+    if (path == '/api/capture/file') {
+      if (!_checkAuthOrSession(request)) return;
+      if (request.method == 'GET') {
+        await _handleCaptureDownload(request, capture);
+      } else if (request.method == 'DELETE') {
+        await _handleCaptureDelete(request, capture);
+      } else {
+        request.response.statusCode = 405;
+        await request.response.close();
+      }
+      return;
+    }
+
+    // Everything else requires Bearer.
+    if (!_checkAuth(request)) return;
+
+    if (path == '/api/capture/screenshot' && request.method == 'POST') {
+      final file = await capture.takeScreenshot();
+      request.response.statusCode = 200;
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(jsonEncode({
+        'filename': file.filename,
+        'path': file.path,
+        'sizeBytes': file.sizeBytes,
+        'createdAt': file.createdAt.toIso8601String(),
+      }));
+      await request.response.close();
+      return;
+    }
+
+    if (path == '/api/capture/recording/start' && request.method == 'POST') {
+      try {
+        final started = await capture.startRecording();
+        request.response.statusCode = 200;
+        request.response.headers.contentType = ContentType.json;
+        request.response.write(jsonEncode({
+          'filename': started.filename,
+          'startedAt': started.startedAt.toIso8601String(),
+        }));
+      } on StateError catch (e) {
+        request.response.statusCode = 409;
+        request.response.headers.contentType = ContentType.json;
+        request.response.write(jsonEncode({
+          'error': 'recording already active',
+          'activeFilename': capture.activeRecordingFilename,
+          'detail': e.message,
+        }));
+      }
+      await request.response.close();
+      return;
+    }
+
+    if (path == '/api/capture/recording/stop' && request.method == 'POST') {
+      try {
+        final meta = await capture.stopRecording();
+        // meta.createdAt is the recording's startedAt (see CaptureService.stopRecording).
+        final duration =
+            DateTime.now().difference(meta.createdAt).inSeconds;
+        request.response.statusCode = 200;
+        request.response.headers.contentType = ContentType.json;
+        request.response.write(jsonEncode({
+          'filename': meta.filename,
+          'sizeBytes': meta.sizeBytes,
+          'durationSeconds': duration,
+        }));
+      } on StateError catch (e) {
+        request.response.statusCode = 400;
+        request.response.headers.contentType = ContentType.json;
+        request.response
+            .write(jsonEncode({'error': 'no active recording', 'detail': e.message}));
+      }
+      await request.response.close();
+      return;
+    }
+
+    if (path == '/api/capture/list' && request.method == 'GET') {
+      final items = await capture.listCaptures();
+      request.response.statusCode = 200;
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(jsonEncode(items
+          .map((f) => {
+                'filename': f.filename,
+                'type': f.filename.endsWith('.mp4') ? 'mp4' : 'png',
+                'sizeBytes': f.sizeBytes,
+                'createdAt': f.createdAt.toIso8601String(),
+              })
+          .toList()));
+      await request.response.close();
+      return;
+    }
+
+    if (path == '/api/capture/indicator-config' && request.method == 'GET') {
+      request.response.statusCode = 200;
+      request.response.headers.contentType = ContentType.json;
+      request.response
+          .write(jsonEncode(_configNotifier.current.touchIndicator.toJson()));
+      await request.response.close();
+      return;
+    }
+
+    if (path == '/api/capture/indicator-config' && request.method == 'POST') {
+      final body = await _readJsonBody(request);
+      final current = _configNotifier.current.touchIndicator;
+      TouchIndicatorStyle? parsedStyle;
+      if (body['style'] is String) {
+        parsedStyle = TouchIndicatorStyle.values.firstWhere(
+          (s) => s.name == body['style'],
+          orElse: () => current.style,
+        );
+      }
+      final merged = current.copyWith(
+        enabled: body['enabled'] as bool?,
+        colorArgb: body['colorArgb'] as int?,
+        radius: (body['radius'] as num?)?.toDouble(),
+        fadeMs: body['fadeMs'] as int?,
+        style: parsedStyle,
+      );
+      await _configNotifier
+          .update((c) => c.copyWith(touchIndicator: merged));
+      request.response.statusCode = 200;
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(jsonEncode({
+        'status': 'saved',
+        'config': merged.toJson(),
+      }));
+      await request.response.close();
+      return;
+    }
+
+    request.response.statusCode = 404;
+    request.response.headers.contentType = ContentType.json;
+    request.response.write(jsonEncode({'error': 'not found'}));
+    await request.response.close();
+  }
+
+  Future<void> _handleCaptureDownload(
+      HttpRequest request, CaptureService capture) async {
+    final name = request.uri.queryParameters['name'] ?? '';
+    if (!CaptureService.isValidCaptureFilename(name)) {
+      request.response.statusCode = 400;
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(jsonEncode({'error': 'invalid filename'}));
+      await request.response.close();
+      return;
+    }
+    final file = capture.captureFileHandle(name);
+    if (!await file.exists()) {
+      request.response.statusCode = 404;
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(jsonEncode({'error': 'not found'}));
+      await request.response.close();
+      return;
+    }
+    request.response.statusCode = 200;
+    request.response.headers.contentType = name.endsWith('.mp4')
+        ? ContentType('video', 'mp4')
+        : ContentType('image', 'png');
+    request.response.headers
+        .add('Content-Disposition', 'attachment; filename="$name"');
+    await file.openRead().pipe(request.response);
+  }
+
+  Future<void> _handleCaptureDelete(
+      HttpRequest request, CaptureService capture) async {
+    final name = request.uri.queryParameters['name'] ?? '';
+    if (!CaptureService.isValidCaptureFilename(name)) {
+      request.response.statusCode = 400;
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(jsonEncode({'error': 'invalid filename'}));
+      await request.response.close();
+      return;
+    }
+    final removed = await capture.deleteCapture(name);
+    if (!removed) {
+      request.response.statusCode = 404;
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(jsonEncode({'error': 'not found'}));
+      await request.response.close();
+      return;
+    }
+    request.response.statusCode = 200;
+    request.response.headers.contentType = ContentType.json;
+    request.response.write(jsonEncode({'status': 'deleted'}));
+    await request.response.close();
+  }
+
+  /// Cookie-or-bearer gate for endpoints reachable from a web portal
+  /// `<a href>`. Returns true if authorized; otherwise writes 401 and
+  /// returns false.
+  bool _checkAuthOrSession(HttpRequest request) {
+    if (_checkSession(request)) return true;
+    final apiKey = _configNotifier.current.apiKey;
+    final authHeader = request.headers.value('authorization');
+    final token = authHeader != null && authHeader.startsWith('Bearer ')
+        ? authHeader.substring(7)
+        : null;
+    if (token == apiKey) return true;
+
+    request.response.statusCode = 401;
+    request.response.headers.contentType = ContentType.json;
+    request.response.write(jsonEncode({'error': 'unauthorized'}));
+    request.response.close();
+    return false;
+  }
+
   Future<void> stop() async {
     await _server?.close();
   }
@@ -716,6 +962,7 @@ final localApiServerProvider = Provider<LocalApiServer>((ref) {
   final wifiService = ref.read(wifiServiceProvider);
   final updateService = ref.read(updateServiceProvider);
   final alarmService = ref.read(alarmServiceProvider);
+  final captureService = ref.read(captureServiceProvider);
   final server = LocalApiServer(
     displayModeService: displayService,
     configNotifier: configNotifier,
@@ -723,6 +970,7 @@ final localApiServerProvider = Provider<LocalApiServer>((ref) {
     wifiService: wifiService,
     updateService: updateService,
     alarmService: alarmService,
+    captureService: captureService,
   );
   ref.onDispose(() => server.stop());
   return server;
