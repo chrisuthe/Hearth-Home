@@ -1053,7 +1053,10 @@ const _configPageHtml = r'''
 <div class="container">
   <div style="display:flex;justify-content:space-between;align-items:center;">
     <h1>Hearth Setup</h1>
-    <a href="/logs" style="color:#646cff;font-size:13px;text-decoration:none;">View Logs</a>
+    <div style="display:flex;gap:16px;">
+      <a href="/capture" style="color:#646cff;font-size:13px;text-decoration:none;">Captures</a>
+      <a href="/logs" style="color:#646cff;font-size:13px;text-decoration:none;">View Logs</a>
+    </div>
   </div>
   <form id="configForm">
 
@@ -1490,6 +1493,7 @@ const _logsPageHtml = r'''
   <h1>Hearth Logs</h1>
   <div class="controls">
     <a href="/">Settings</a>
+    <a href="/capture">Captures</a>
     <select id="lineCount">
       <option value="50">50 lines</option>
       <option value="100" selected>100 lines</option>
