@@ -46,6 +46,10 @@ jobs:
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           VERSION="${VERSION:-dev}"
+          # Sanitize: branch names like task/screen-capture contain slashes
+          # that break the tarball path. Collapse to dashes.
+          VERSION="${VERSION//\//-}"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
           SRC_DIR=$(find build/flutter-pi -maxdepth 1 -type d ! -name flutter-pi | head -1)
           if [ -z "$SRC_DIR" ] || [ ! -f "$SRC_DIR/app.so" ]; then
             echo "ERROR: Could not find flutter-pi bundle"
