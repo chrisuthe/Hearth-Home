@@ -25,6 +25,7 @@ sudo apt-get install -y -qq \
     gstreamer1.0-plugins-base gstreamer1.0-plugins-good \
     gstreamer1.0-plugins-bad gstreamer1.0-alsa \
     gstreamer1.0-libav gstreamer1.0-tools \
+    ffmpeg \
     network-manager avahi-daemon \
     git wget
 
@@ -140,6 +141,10 @@ sudo tee /etc/systemd/system/hearth.service > /dev/null << 'EOF'
 Description=Hearth Smart Home Kiosk
 After=network-online.target systemd-modules-load.service
 Wants=network-online.target
+# getty@tty1 grabs DRM master on tty1 and prevents flutter-pi from
+# acquiring the display. Conflicting with it tells systemd to stop
+# getty whenever hearth starts (including after reboot).
+Conflicts=getty@tty1.service
 OnFailure=hearth-rollback.service
 
 [Service]
@@ -301,8 +306,11 @@ SATEOF
 # Allow hearth user to trigger OTA updates without password
 echo "hearth ALL=(root) NOPASSWD: /usr/bin/systemctl start hearth-updater.service" | sudo tee /etc/sudoers.d/hearth-updater > /dev/null
 echo "hearth ALL=(root) NOPASSWD: /usr/bin/gst-launch-1.0" | sudo tee /etc/sudoers.d/hearth-gstreamer > /dev/null
+# ffmpeg is used by the screen capture feature for kmsgrab, which
+# requires CAP_SYS_ADMIN to read DRM plane resources.
+echo "hearth ALL=(root) NOPASSWD: /usr/bin/ffmpeg" | sudo tee /etc/sudoers.d/hearth-ffmpeg > /dev/null
 echo "hearth ALL=(root) NOPASSWD: /usr/bin/systemctl stop wyoming-satellite.service, /usr/bin/systemctl start wyoming-satellite.service, /usr/bin/systemctl restart wyoming-satellite.service" | sudo tee /etc/sudoers.d/hearth-voice > /dev/null
-sudo chmod 440 /etc/sudoers.d/hearth-updater /etc/sudoers.d/hearth-gstreamer /etc/sudoers.d/hearth-voice
+sudo chmod 440 /etc/sudoers.d/hearth-updater /etc/sudoers.d/hearth-gstreamer /etc/sudoers.d/hearth-ffmpeg /etc/sudoers.d/hearth-voice
 
 # Allow hearth user (netdev group) to manage WiFi via nmcli
 sudo mkdir -p /etc/polkit-1/rules.d

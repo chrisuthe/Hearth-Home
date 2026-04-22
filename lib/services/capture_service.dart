@@ -216,49 +216,78 @@ class RecordingStarted {
   const RecordingStarted({required this.filename, required this.startedAt});
 }
 
-/// Factory for the production Pi GStreamer screenshot pipeline.
+/// Pi DRM display device. Capture targets the HDMI/panel output. card0
+/// is the v3d render-only device on Pi 5 and has no planes to capture.
+const _kPiDrmDevice = '/dev/dri/card1';
+
+/// Production Pi screenshot pipeline.
+///
+/// Uses `ffmpeg -f kmsgrab` via sudo because DRM plane capture requires
+/// CAP_SYS_ADMIN. Hearth's Pi setup (scripts/setup-pi.sh) configures a
+/// NOPASSWD sudoers rule for /usr/bin/ffmpeg.
+///
+/// On Pi OS Lite, GStreamer's `kmssrc` element is not shipped with
+/// gstreamer1.0-plugins-bad, so ffmpeg is the practical choice.
 Future<void> gstScreenshot(String outputPath) async {
-  final result = await Process.run('gst-launch-1.0', [
-    'kmssrc',
-    'num-buffers=1',
-    '!',
-    'videoconvert',
-    '!',
-    'pngenc',
-    '!',
-    'filesink',
-    'location=$outputPath',
+  final result = await Process.run('sudo', [
+    '-n',
+    'ffmpeg',
+    '-loglevel',
+    'error',
+    '-device',
+    _kPiDrmDevice,
+    '-f',
+    'kmsgrab',
+    '-i',
+    '-',
+    '-vf',
+    'hwdownload,format=bgr0',
+    '-vframes',
+    '1',
+    '-update',
+    '1',
+    '-y',
+    outputPath,
   ]);
   if (result.exitCode != 0) {
-    Log.e('Capture', 'gst-launch screenshot failed: ${result.stderr}');
+    Log.e('Capture', 'ffmpeg kmsgrab screenshot failed: ${result.stderr}');
     throw Exception('Screenshot failed: exit ${result.exitCode}');
   }
 }
 
-/// Factory for the production Pi GStreamer recording pipeline.
+/// Production Pi recording pipeline.
+///
+/// ffmpeg responds to SIGINT by finalizing the MP4 cleanly, the same
+/// graceful-stop contract we relied on with `gst-launch -e`.
 Future<RecordingProcess> gstStartRecording(String outputPath) async {
-  final proc = await Process.start('gst-launch-1.0', [
-    '-e',
-    'kmssrc',
-    '!',
-    'videorate',
-    '!',
-    'video/x-raw,framerate=30/1',
-    '!',
-    'videoconvert',
-    '!',
-    'x264enc',
-    'tune=zerolatency',
-    'bitrate=4000',
-    'speed-preset=ultrafast',
-    '!',
-    'mp4mux',
-    '!',
-    'filesink',
-    'location=$outputPath',
+  final proc = await Process.start('sudo', [
+    '-n',
+    'ffmpeg',
+    '-loglevel',
+    'error',
+    '-device',
+    _kPiDrmDevice,
+    '-f',
+    'kmsgrab',
+    '-framerate',
+    '30',
+    '-i',
+    '-',
+    '-vf',
+    'hwdownload,format=bgr0',
+    '-c:v',
+    'libx264',
+    '-preset',
+    'ultrafast',
+    '-tune',
+    'zerolatency',
+    '-b:v',
+    '4000k',
+    '-y',
+    outputPath,
   ]);
   // Drain stdout/stderr so the OS pipe buffer doesn't fill and block
-  // the child on long recordings. GStreamer's stderr messages are
+  // the child on long recordings. ffmpeg's stderr messages are
   // discarded — if we ever need them for debugging, wrap these
   // streams to capture lines into a ring buffer.
   proc.stdout.drain<void>();
@@ -287,7 +316,7 @@ final captureServiceProvider = Provider<CaptureService>((ref) {
 });
 
 /// Builds a production-wired [CaptureService] with the default captures
-/// directory and Pi-specific GStreamer pipelines.
+/// directory and Pi-specific ffmpeg kmsgrab pipelines.
 class CaptureServiceBootstrap {
   static Future<CaptureService> build() async {
     final dir = await defaultCapturesDir();
