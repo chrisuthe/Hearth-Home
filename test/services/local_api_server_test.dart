@@ -275,6 +275,12 @@ void main() {
           now: () =>
               DateTime(2026, 4, 21, 14, 30, nextNow++),
         );
+        // Capture tools are gated behind HubConfig.captureToolsEnabled — the
+        // endpoints return 404 when it's false (see _handleRequest). Flip it
+        // on so these tests exercise the real endpoint behavior.
+        await configNotifier
+            .update((c) => c.copyWith(captureToolsEnabled: true));
+
         // Rebuild server with the capture service injected.
         await server.stop();
         server = LocalApiServer(
@@ -443,6 +449,7 @@ void main() {
           () async {
         configNotifier.state = const HubConfig(
           apiKey: testApiKey,
+          captureToolsEnabled: true,
           touchIndicator: TouchIndicatorConfig(
             enabled: true,
             radius: 50.0,
@@ -477,6 +484,25 @@ void main() {
         expect(r.statusCode, 200);
         final body = await readBody(r);
         expect(body, contains('Enter the PIN'));
+      });
+
+      test('all capture routes 404 when captureToolsEnabled is false', () async {
+        await configNotifier
+            .update((c) => c.copyWith(captureToolsEnabled: false));
+
+        final page = await get('/capture');
+        expect(page.statusCode, 404);
+
+        final screenshot = await post('/api/capture/screenshot',
+            body: '', headers: authHeaders);
+        expect(screenshot.statusCode, 404);
+
+        final list = await get('/api/capture/list', headers: authHeaders);
+        expect(list.statusCode, 404);
+
+        final indicator =
+            await get('/api/capture/indicator-config', headers: authHeaders);
+        expect(indicator.statusCode, 404);
       });
     });
   });

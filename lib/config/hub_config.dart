@@ -131,6 +131,10 @@ class HubConfig {
   final bool showVoiceFeedback;
   final bool micMuted;
   final TouchIndicatorConfig touchIndicator;
+  /// Master toggle for developer capture tools (screenshots, recording, touch
+  /// indicators). When false the `/capture` web page and `/api/capture/*`
+  /// endpoints return 404, and the portal's "Captures" link is hidden.
+  final bool captureToolsEnabled;
 
   const HubConfig({
     this.apiKey = '',
@@ -179,6 +183,7 @@ class HubConfig {
     this.showVoiceFeedback = true,
     this.micMuted = false,
     this.touchIndicator = const TouchIndicatorConfig(),
+    this.captureToolsEnabled = false,
   });
 
   static String generateApiKey() {
@@ -234,6 +239,7 @@ class HubConfig {
     bool? showVoiceFeedback,
     bool? micMuted,
     TouchIndicatorConfig? touchIndicator,
+    bool? captureToolsEnabled,
   }) {
     return HubConfig(
       apiKey: apiKey ?? this.apiKey,
@@ -283,6 +289,7 @@ class HubConfig {
       showVoiceFeedback: showVoiceFeedback ?? this.showVoiceFeedback,
       micMuted: micMuted ?? this.micMuted,
       touchIndicator: touchIndicator ?? this.touchIndicator,
+      captureToolsEnabled: captureToolsEnabled ?? this.captureToolsEnabled,
     );
   }
 
@@ -333,6 +340,7 @@ class HubConfig {
         'showVoiceFeedback': showVoiceFeedback,
         'micMuted': micMuted,
         'touchIndicator': touchIndicator.toJson(),
+        'captureToolsEnabled': captureToolsEnabled,
       };
 
   factory HubConfig.fromJson(Map<String, dynamic> json) => HubConfig(
@@ -390,6 +398,7 @@ class HubConfig {
             ? TouchIndicatorConfig.fromJson(
                 (json['touchIndicator'] as Map).cast<String, dynamic>())
             : const TouchIndicatorConfig(),
+        captureToolsEnabled: json['captureToolsEnabled'] as bool? ?? false,
       );
 
   static Map<String, List<String>> _migrateEnabledModules(Map<String, dynamic> json) {

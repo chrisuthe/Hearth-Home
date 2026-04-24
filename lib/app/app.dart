@@ -56,7 +56,12 @@ class HearthApp extends ConsumerWidget {
         body: needsSetup
             ? const SetupWizard()
             : TouchIndicatorOverlay(
-                config: config.touchIndicator,
+                // Master toggle gates the overlay entirely — users who haven't
+                // enabled capture tools never pay the overlay cost even if
+                // TouchIndicatorConfig.enabled was somehow true in their config.
+                config: config.captureToolsEnabled
+                    ? config.touchIndicator
+                    : const TouchIndicatorConfig(),
                 child: const HubShell(),
               ),
       ),

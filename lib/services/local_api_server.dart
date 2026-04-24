@@ -128,12 +128,22 @@ class LocalApiServer {
           await _servePinPage(request);
         }
       } else if (path == '/capture') {
+        if (!_configNotifier.current.captureToolsEnabled) {
+          request.response.statusCode = 404;
+          await request.response.close();
+          return;
+        }
         if (_checkSession(request)) {
           await _serveCapturePage(request);
         } else {
           await _servePinPage(request);
         }
       } else if (path.startsWith('/api/capture/')) {
+        if (!_configNotifier.current.captureToolsEnabled) {
+          request.response.statusCode = 404;
+          await request.response.close();
+          return;
+        }
         await _handleCaptureRequest(request, path);
         return;
       } else if (path == '/api/session/key' && request.method == 'GET') {
@@ -378,6 +388,7 @@ class LocalApiServer {
           mealieUrl: json['mealieUrl'] as String?,
           mealieToken: json['mealieToken'] as String?,
           timezone: json['timezone'] as String?,
+          captureToolsEnabled: json['captureToolsEnabled'] as bool?,
         ));
 
     // Apply timezone change immediately on Linux.
@@ -614,10 +625,21 @@ class LocalApiServer {
     await request.response.close();
   }
 
+  /// Rewrites HTML page templates to hide capture-related chrome when
+  /// [HubConfig.captureToolsEnabled] is false.
+  String _gateCaptureUi(String html) {
+    if (_configNotifier.current.captureToolsEnabled) return html;
+    return html
+        .replaceAll(
+          '<a href="/capture" style="color:#646cff;font-size:13px;text-decoration:none;">Captures</a>',
+          '')
+        .replaceAll('<a href="/capture">Captures</a>', '');
+  }
+
   Future<void> _serveLogsPage(HttpRequest request) async {
     request.response.statusCode = 200;
     request.response.headers.contentType = ContentType.html;
-    request.response.write(_logsPageHtml);
+    request.response.write(_gateCaptureUi(_logsPageHtml));
     await request.response.close();
   }
 
@@ -702,7 +724,7 @@ class LocalApiServer {
     request.response.headers.contentType = ContentType.html;
     request.response.headers.add('X-Content-Type-Options', 'nosniff');
     request.response.headers.add('X-Frame-Options', 'DENY');
-    request.response.write(_configPageHtml);
+    request.response.write(_gateCaptureUi(_configPageHtml));
     await request.response.close();
   }
 
@@ -1199,6 +1221,12 @@ const _configPageHtml = r'''
       <button type="button" id="applyBtn" onclick="applyUpdate()" style="flex:1;padding:10px;background:#333;color:#e0e0e0;border:1px solid #444;border-radius:6px;cursor:pointer;font-size:13px;display:none;">Install Update</button>
     </div>
 
+    <h2>Developer Tools</h2>
+    <label for="captureToolsEnabled" class="checkbox-label">
+      <input type="checkbox" id="captureToolsEnabled"> Enable capture tools
+    </label>
+    <div class="hint" style="margin-top:-6px;margin-bottom:16px;">Exposes <code>/capture</code> for screenshots, screen recording, and touch indicators. Intended for demos and marketing captures — leave off for normal use.</div>
+
     <button type="submit" class="save">Save</button>
   </form>
   <div class="toast" id="toast"></div>
@@ -1224,7 +1252,7 @@ const textFields = [
   'sendspinPlayerName','sendspinServerUrl','timezone'
 ];
 const intFields = ['idleTimeoutSeconds','sendspinBufferSeconds'];
-const boolFields = ['use24HourClock','sendspinEnabled','autoUpdate'];
+const boolFields = ['use24HourClock','sendspinEnabled','autoUpdate','captureToolsEnabled'];
 const selectFields = ['nightModeSource','displayProfile','updateSource'];
 const secretFields = ['immichApiKey', 'haToken', 'musicAssistantToken', 'frigatePassword', 'mealieToken', 'giteaApiToken'];
 const REDACTED = '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022';
