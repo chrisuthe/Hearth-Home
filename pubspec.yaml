@@ -43,3 +43,8 @@ flutter:
   uses-material-design: true
   assets:
     - assets/alarm_tones/
+    - assets/fonts/
+  fonts:
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter-Variable.ttf
