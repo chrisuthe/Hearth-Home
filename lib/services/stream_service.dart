@@ -382,11 +382,13 @@ Future<StreamingProcess> ffmpegStartStream(
     '-i',
     'hw:Loopback,1,0',
     // Video processing: bring kmsgrab frames into system memory, convert
-    // to yuv420p, and downscale to 960x720 (4:3, 68% of the native pixel
-    // area). The downscale keeps x264 encode cost well under one Pi 5 core
-    // so the stream stays smooth at 20fps without blocking the muxer.
+    // to yuv420p, and downscale to 720 lines. Width is auto-derived
+    // (`-2`) to preserve the native 1184:864 ≈ 1.37:1 aspect — anything
+    // else squishes round UI elements. `-2` forces an even number for
+    // the encoder. Result is ~986x720, about 68% of native pixel area,
+    // which keeps x264 encode cost well under one Pi 5 core.
     '-vf',
-    'hwdownload,format=bgr0,format=yuv420p,scale=960:720',
+    'hwdownload,format=bgr0,format=yuv420p,scale=-2:720',
     // Constant output framerate — prevents the muxer from re-deriving
     // a higher effective rate from kmsgrab's vsync-locked delivery.
     '-r',
