@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart' show kIsWeb, visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../models/ha_entity.dart';
 import '../utils/logger.dart';
 import 'home_assistant_service.dart';
 
@@ -54,8 +55,10 @@ class VoiceAssistantState {
 /// The assist_satellite.hearth entity transitions through states:
 /// idle → listening → processing → responding → idle
 ///
-/// This is simpler and more reliable than subscribing to pipeline events,
-/// which are internal to HA and not exposed via the standard event bus.
+/// If HA exposes multiple `assist_satellite.*` entities (e.g. a local Wyoming
+/// satellite plus an offline Voice PE device), this service picks the first
+/// one that is not `unavailable` and will switch to a healthy alternative if
+/// the current selection goes unavailable.
 class VoiceAssistantService {
   final HomeAssistantService _ha;
   final _stateController = StreamController<VoiceAssistantState>.broadcast();
@@ -64,6 +67,11 @@ class VoiceAssistantService {
   StreamSubscription? _entitySub;
   bool _disposed = false;
   String? _satelliteEntityId;
+
+  /// Every `assist_satellite.*` entity we've observed, keyed by entity ID.
+  /// Owned by this service so selection logic doesn't have to reach back
+  /// into HA's entity cache.
+  final Map<String, HaEntity> _candidates = {};
 
   /// Duration before auto-resetting to idle after the last state change.
   static const Duration idleTimeout = Duration(seconds: 5);
@@ -75,31 +83,71 @@ class VoiceAssistantService {
 
   /// Starts watching the assist_satellite entity for state changes.
   void start() {
-    // Find the satellite entity ID — look for any assist_satellite entity.
-    _entitySub = _ha.entityStream.listen((entity) {
-      if (_satelliteEntityId == null &&
-          entity.entityId.startsWith('assist_satellite.')) {
-        _satelliteEntityId = entity.entityId;
-        Log.i('Voice', 'Found satellite entity: $_satelliteEntityId');
-      }
-      if (entity.entityId == _satelliteEntityId) {
-        _onSatelliteStateChanged(entity.state);
-      }
-    });
+    _entitySub = _ha.entityStream.listen(_onEntityUpdate);
 
-    // Check if entity is already in cache.
+    // Seed from HA's existing entity cache in case we started after connection.
     for (final entity in _ha.entities.values) {
-      if (entity.entityId.startsWith('assist_satellite.')) {
-        _satelliteEntityId = entity.entityId;
-        Log.i('Voice', 'Found satellite entity in cache: $_satelliteEntityId');
-        _onSatelliteStateChanged(entity.state);
-        break;
-      }
+      _onEntityUpdate(entity);
     }
 
     if (_satelliteEntityId == null) {
-      Log.i('Voice', 'No assist_satellite entity found yet, waiting...');
+      Log.i('Voice', 'No available assist_satellite entity yet, waiting...');
     }
+  }
+
+  void _onEntityUpdate(HaEntity entity) {
+    if (_disposed) return;
+    if (!entity.entityId.startsWith('assist_satellite.')) return;
+
+    _candidates[entity.entityId] = entity;
+
+    // No selection yet — pick this entity if it's available.
+    if (_satelliteEntityId == null) {
+      if (entity.state != 'unavailable') {
+        _satelliteEntityId = entity.entityId;
+        Log.i('Voice', 'Selected satellite entity: $_satelliteEntityId');
+        _onSatelliteStateChanged(entity.state);
+      }
+      return;
+    }
+
+    // Update for our current selection — dispatch, and repick if it just
+    // went unavailable.
+    if (entity.entityId == _satelliteEntityId) {
+      _onSatelliteStateChanged(entity.state);
+      if (entity.state == 'unavailable') _repickSelection();
+      return;
+    }
+
+    // Update for a different candidate — only take over if our current
+    // selection is unavailable and this one is healthy.
+    final current = _candidates[_satelliteEntityId];
+    if (current != null &&
+        current.state == 'unavailable' &&
+        entity.state != 'unavailable') {
+      Log.i('Voice',
+          'Switching from unavailable ${_satelliteEntityId!} to ${entity.entityId}');
+      _satelliteEntityId = entity.entityId;
+      _onSatelliteStateChanged(entity.state);
+    }
+  }
+
+  /// Called when the current selection just transitioned to unavailable.
+  /// Searches known candidates for a healthy replacement.
+  void _repickSelection() {
+    final previous = _satelliteEntityId;
+    _satelliteEntityId = null;
+    for (final candidate in _candidates.values) {
+      if (candidate.entityId == previous) continue;
+      if (candidate.state == 'unavailable') continue;
+      _satelliteEntityId = candidate.entityId;
+      Log.i('Voice',
+          'Switched from unavailable $previous to $_satelliteEntityId');
+      _onSatelliteStateChanged(candidate.state);
+      return;
+    }
+    Log.i('Voice',
+        'Previously-selected $previous is unavailable, no healthy replacement yet');
   }
 
   void _onSatelliteStateChanged(String haState) {
@@ -205,6 +253,16 @@ class VoiceAssistantService {
   void handleStateChangeForTest(String haState) {
     _onSatelliteStateChanged(haState);
   }
+
+  /// Exposed for testing — drives the full entity-update pathway
+  /// (selection + state dispatch) without needing a live HA connection.
+  @visibleForTesting
+  void handleEntityUpdateForTest(HaEntity entity) => _onEntityUpdate(entity);
+
+  /// Exposed for testing — the currently-selected satellite entity ID, or
+  /// null if none has been chosen yet.
+  @visibleForTesting
+  String? get selectedEntityIdForTest => _satelliteEntityId;
 }
 
 final voiceAssistantServiceProvider = Provider<VoiceAssistantService>((ref) {
