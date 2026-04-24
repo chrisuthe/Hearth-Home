@@ -672,6 +672,15 @@ void main() {
             body: '', headers: authHeaders);
         expect(r.statusCode, 409);
       });
+
+      test('POST /api/stream/start persists host+port to HubConfig', () async {
+        await post('/api/stream/start',
+            body: jsonEncode({'host': '10.0.0.7', 'port': 4200}),
+            headers: {...authHeaders, 'Content-Type': 'application/json'});
+
+        expect(configNotifier.state.streamTargetHost, '10.0.0.7');
+        expect(configNotifier.state.streamTargetPort, 4200);
+      });
     });
   });
 }

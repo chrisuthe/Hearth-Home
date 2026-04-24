@@ -1058,6 +1058,11 @@ class LocalApiServer {
       return;
     }
 
+    await _configNotifier.update((c) => c.copyWith(
+          streamTargetHost: host,
+          streamTargetPort: port,
+        ));
+
     request.response.statusCode = 200;
     request.response.headers.contentType = ContentType.json;
     request.response.write(jsonEncode({
