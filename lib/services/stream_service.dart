@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 /// Lifecycle phases of a single streaming session.
 enum StreamPhase {
@@ -69,4 +70,119 @@ class StreamState {
   @override
   int get hashCode => Object.hash(
       phase, filename, startedAt, targetHost, targetPort, errorMessage);
+}
+
+/// Abstract handle over a streaming subprocess — test seam so we don't
+/// depend on real [Process] instances in unit tests.
+abstract class StreamingProcess {
+  Future<int> get exitCode;
+
+  /// Graceful stop — ffmpeg responds to SIGINT by finalizing the MP4
+  /// cleanly (same contract the recording service relies on).
+  void stop();
+
+  /// Hard kill — SIGKILL.
+  void kill();
+}
+
+/// Spawner: given the destination MP4 path and SRT target, return a handle
+/// to the running process. Injected so tests can replace it with a fake.
+typedef StreamSpawner = Future<StreamingProcess> Function(
+    String mp4Path, String host, int port);
+
+/// Owns the single-active-stream invariant, filename policy, state
+/// machine, and ffmpeg subprocess lifecycle for the "Stream to OBS"
+/// capture feature.
+///
+/// Mutually exclusive with `CaptureService.startRecording` at the HTTP
+/// layer (see `LocalApiServer`) because kmsgrab cannot be attached to
+/// two ffmpegs simultaneously.
+class StreamService {
+  static final _nameRe = RegExp(r'^hearth-\d{8}-\d{6}\.mp4$');
+
+  final Directory _capturesDir;
+  final StreamSpawner _spawnStreamFn;
+  final DateTime Function() _now;
+
+  StreamingProcess? _active;
+  String? _activeFilename;
+  DateTime? _activeStartedAt;
+  String? _activeHost;
+  int? _activePort;
+
+  final _stateController = StreamController<StreamState>.broadcast();
+  StreamState _state = const StreamState();
+
+  StreamService({
+    required Directory capturesDir,
+    required StreamSpawner spawnStreamFn,
+    DateTime Function()? now,
+  })  : _capturesDir = capturesDir,
+        _spawnStreamFn = spawnStreamFn,
+        _now = now ?? DateTime.now;
+
+  Stream<StreamState> get stateStream => _stateController.stream;
+  StreamState get currentState => _state;
+  bool get isStreaming =>
+      _state.phase == StreamPhase.starting ||
+      _state.phase == StreamPhase.active ||
+      _state.phase == StreamPhase.stopping;
+
+  String? get activeFilename => _activeFilename;
+  DateTime? get activeStartedAt => _activeStartedAt;
+  String? get activeHost => _activeHost;
+  int? get activePort => _activePort;
+
+  static bool isValidStreamFilename(String name) => _nameRe.hasMatch(name);
+
+  static String generateFilename({DateTime? now}) {
+    final t = now ?? DateTime.now();
+    String two(int n) => n.toString().padLeft(2, '0');
+    final date = '${t.year}${two(t.month)}${two(t.day)}';
+    final time = '${two(t.hour)}${two(t.minute)}${two(t.second)}';
+    return 'hearth-$date-$time.mp4';
+  }
+
+  /// Start a new streaming session. Throws [StateError] if a session is
+  /// already active. Reserves the MP4 file on disk before spawning so the
+  /// capture gallery can list it immediately.
+  Future<void> start({required String host, required int port}) async {
+    if (_active != null) {
+      throw StateError('A stream is already active.');
+    }
+
+    final filename = generateFilename(now: _now());
+    final path = '${_capturesDir.path}/$filename';
+
+    // Reserve the file on disk so /api/capture/list picks it up even
+    // before ffmpeg has written the first byte.
+    await File(path).writeAsBytes(const []);
+
+    _activeFilename = filename;
+    _activeStartedAt = _now();
+    _activeHost = host;
+    _activePort = port;
+
+    _setState(_state.copyWith(
+      phase: StreamPhase.starting,
+      filename: filename,
+      startedAt: _activeStartedAt,
+      targetHost: host,
+      targetPort: port,
+      errorMessage: null,
+    ));
+
+    _active = await _spawnStreamFn(path, host, port);
+  }
+
+  void _setState(StreamState next) {
+    _state = next;
+    if (!_stateController.isClosed) _stateController.add(next);
+  }
+
+  Future<void> dispose() async {
+    _active?.kill();
+    _active = null;
+    await _stateController.close();
+  }
 }
