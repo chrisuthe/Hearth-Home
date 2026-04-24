@@ -77,10 +77,19 @@ c=json.load(open('$CONFIG'))
 print(c.get('sendspinAlsaDevice',''))")
     if [ "$CURRENT" = "plughw:CARD=vc4hdmi0,DEV=0" ]; then
         log "Updating sendspinAlsaDevice to hdmi_tee"
-        sudo python3 -c "import json
+        sudo python3 -c "import json, os, tempfile
 c=json.load(open('$CONFIG'))
 c['sendspinAlsaDevice']='hdmi_tee'
-open('$CONFIG','w').write(json.dumps(c))"
+d=os.path.dirname('$CONFIG')
+fd, tmp=tempfile.mkstemp(dir=d, prefix='.hub_config-')
+try:
+    with os.fdopen(fd,'w') as f:
+        f.write(json.dumps(c))
+    os.replace(tmp,'$CONFIG')
+except Exception:
+    os.unlink(tmp)
+    raise"
+        sudo chown hearth:hearth "$CONFIG"
         sudo systemctl restart hearth.service
     else
         log "Sendspin ALSA device customized (=$CURRENT) — leaving alone"
