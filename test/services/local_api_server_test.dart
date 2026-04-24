@@ -592,6 +592,27 @@ void main() {
             headers: {...authHeaders, 'Content-Type': 'application/json'});
         expect(r.statusCode, 404);
       });
+
+      test('POST /api/stream/stop returns 200 with metadata', () async {
+        await post('/api/stream/start',
+            body: jsonEncode({'host': 'a', 'port': 1234}),
+            headers: {...authHeaders, 'Content-Type': 'application/json'});
+
+        final r = await post('/api/stream/stop',
+            body: '', headers: authHeaders);
+        expect(r.statusCode, 200);
+        final json = jsonDecode(await readBody(r)) as Map<String, dynamic>;
+        expect(json['filename'],
+            matches(RegExp(r'^hearth-\d{8}-\d{6}\.mp4$')));
+        expect(json, containsPair('durationSeconds', isA<num>()));
+        expect(json, containsPair('sizeBytes', isA<int>()));
+      });
+
+      test('POST /api/stream/stop with no active stream returns 400', () async {
+        final r = await post('/api/stream/stop',
+            body: '', headers: authHeaders);
+        expect(r.statusCode, 400);
+      });
     });
   });
 }

@@ -981,6 +981,11 @@ class LocalApiServer {
       return;
     }
 
+    if (path == '/api/stream/stop' && request.method == 'POST') {
+      await _handleStreamStop(request, stream);
+      return;
+    }
+
     request.response.statusCode = 404;
     await request.response.close();
   }
@@ -1030,6 +1035,26 @@ class LocalApiServer {
       'startedAt': stream.activeStartedAt?.toIso8601String(),
     }));
     await request.response.close();
+  }
+
+  Future<void> _handleStreamStop(
+      HttpRequest request, StreamService stream) async {
+    try {
+      final meta = await stream.stop();
+      request.response.statusCode = 200;
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(jsonEncode({
+        'filename': meta.filename,
+        'durationSeconds': meta.duration.inSeconds,
+        'sizeBytes': meta.sizeBytes,
+      }));
+      await request.response.close();
+    } on StateError {
+      request.response.statusCode = 400;
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(jsonEncode({'error': 'no active stream'}));
+      await request.response.close();
+    }
   }
 
   /// Cookie-or-bearer gate for endpoints reachable from a web portal
