@@ -9,6 +9,7 @@ import '../utils/logger.dart';
 import '../config/hub_config.dart';
 import 'capture_service.dart';
 import 'display_mode_service.dart';
+import 'stream_service.dart';
 import 'timezone_service.dart';
 import 'wifi_service.dart';
 import 'update_service.dart';
@@ -40,6 +41,8 @@ class LocalApiServer {
   final UpdateService _updateService;
   final AlarmService? _alarmService;
   final CaptureService? _captureService;
+  // ignore: unused_field
+  final StreamService? _streamService;
   HttpServer? _server;
 
   static const int _maxBodySize = 64 * 1024; // 64 KB
@@ -60,6 +63,7 @@ class LocalApiServer {
     UpdateService? updateService,
     AlarmService? alarmService,
     CaptureService? captureService,
+    StreamService? streamService,
     String? webPin,
   })  : _displayModeService = displayModeService,
         _configNotifier = configNotifier,
@@ -68,6 +72,7 @@ class LocalApiServer {
         _updateService = updateService ?? UpdateService(),
         _alarmService = alarmService,
         _captureService = captureService,
+        _streamService = streamService,
         _webPin = webPin ?? (Random.secure().nextInt(9000) + 1000).toString();
 
   Future<int> start({int port = 8090}) async {
@@ -983,6 +988,7 @@ final localApiServerProvider = Provider<LocalApiServer>((ref) {
   final updateService = ref.read(updateServiceProvider);
   final alarmService = ref.read(alarmServiceProvider);
   final captureService = ref.read(captureServiceProvider);
+  final streamService = ref.read(streamServiceProvider);
   final server = LocalApiServer(
     displayModeService: displayService,
     configNotifier: configNotifier,
@@ -991,6 +997,7 @@ final localApiServerProvider = Provider<LocalApiServer>((ref) {
     updateService: updateService,
     alarmService: alarmService,
     captureService: captureService,
+    streamService: streamService,
   );
   ref.onDispose(() => server.stop());
   return server;

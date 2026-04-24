@@ -10,6 +10,7 @@ import 'packages/hearth_osk/hearth_osk.dart';
 import 'services/capture_service.dart';
 import 'services/local_api_server.dart';
 import 'services/osk_integration.dart';
+import 'services/stream_service.dart';
 import 'services/timezone_service.dart';
 import 'modules/alarm_clock/alarm_service.dart';
 import 'services/sendspin/sendspin_service.dart';
@@ -46,14 +47,18 @@ Future<void> main() async {
   // Build the capture service before the container so we can override
   // its provider. The captures directory is resolved asynchronously.
   CaptureService? captureService;
+  StreamService? streamService;
   if (!kIsWeb) {
     captureService = await CaptureServiceBootstrap.build();
+    streamService = await StreamServiceBootstrap.build();
   }
 
   final container = ProviderContainer(
     overrides: [
       if (captureService != null)
         captureServiceProvider.overrideWithValue(captureService),
+      if (streamService != null)
+        streamServiceProvider.overrideWithValue(streamService),
     ],
   );
   await container.read(hubConfigProvider.notifier).load();
