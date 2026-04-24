@@ -95,5 +95,43 @@ void main() {
           await File('${tempDir.path}/hearth-20260424-143022.mp4').exists(),
           true);
     });
+
+    test(
+        'transitions to active after the liveness delay when ffmpeg is still running',
+        () async {
+      await service.start(host: 'a', port: 1);
+      expect(service.currentState.phase, StreamPhase.starting);
+
+      // Liveness window is 1 second; advance fake-time isn't available so
+      // we await real time here.
+      await Future<void>.delayed(const Duration(milliseconds: 1100));
+
+      expect(service.currentState.phase, StreamPhase.active);
+    });
+
+    test(
+        'transitions to error when ffmpeg exits non-zero before liveness window',
+        () async {
+      // Override spawner so we get a handle to force early exit.
+      late FakeStreamingProcess proc;
+      service = StreamService(
+        capturesDir: tempDir,
+        spawnStreamFn: (path, host, port) async {
+          proc = FakeStreamingProcess();
+          return proc;
+        },
+        now: () => DateTime(2026, 4, 24, 14, 30, 23),
+      );
+
+      await service.start(host: 'a', port: 1);
+      // Force the process to "exit non-zero" immediately.
+      proc.kill();
+
+      // Give the listener a microtask to observe the exit.
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      expect(service.currentState.phase, StreamPhase.error);
+      expect(service.currentState.errorMessage, isNotNull);
+    });
   });
 }

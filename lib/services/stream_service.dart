@@ -173,6 +173,44 @@ class StreamService {
     ));
 
     _active = await _spawnStreamFn(path, host, port);
+
+    // Observe ffmpeg exit. Non-zero exit before stop() was requested is
+    // treated as an error — typically "OBS isn't listening" or ALSA / DRM
+    // contention.
+    unawaited(_active!.exitCode.then((code) {
+      if (_state.phase == StreamPhase.stopping) {
+        _onExitedCleanly();
+      } else {
+        _onExitedUnexpectedly(code);
+      }
+    }));
+
+    // Liveness check: if ffmpeg is still running 1 second after spawn,
+    // declare the stream active. ffmpeg's SRT caller exits within ~1-3s
+    // when the listener is unreachable, so surviving this window is a
+    // reasonable proxy for "connected".
+    Timer(const Duration(seconds: 1), () {
+      if (_state.phase == StreamPhase.starting) {
+        _setState(_state.copyWith(phase: StreamPhase.active));
+      }
+    });
+  }
+
+  void _onExitedCleanly() {
+    _active = null;
+    _setState(const StreamState());
+    _activeFilename = null;
+    _activeStartedAt = null;
+    _activeHost = null;
+    _activePort = null;
+  }
+
+  void _onExitedUnexpectedly(int code) {
+    _active = null;
+    _setState(_state.copyWith(
+      phase: StreamPhase.error,
+      errorMessage: 'ffmpeg exited with code $code',
+    ));
   }
 
   void _setState(StreamState next) {
