@@ -138,6 +138,14 @@ void main() {
       expect(() => service.stop(), throwsStateError);
     });
 
+    test('second start() while streaming throws StateError', () async {
+      await service.start(host: 'a', port: 1);
+      expect(
+        () => service.start(host: 'b', port: 2),
+        throwsStateError,
+      );
+    });
+
     test(
         'transitions to error when ffmpeg exits non-zero before liveness window',
         () async {
