@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../utils/logger.dart';
 import 'capture_service.dart' show defaultCapturesDir;
 
 /// Lifecycle phases of a single streaming session.
@@ -103,6 +105,10 @@ abstract class StreamingProcess {
 
   /// Hard kill — SIGKILL.
   void kill();
+
+  /// Recent stderr lines (if the implementation captures them). Default
+  /// is empty so test fakes don't have to implement it.
+  String get stderrTail => '';
 }
 
 /// Spawner: given the destination MP4 path and SRT target, return a handle
@@ -129,6 +135,7 @@ class StreamService {
   DateTime? _activeStartedAt;
   String? _activeHost;
   int? _activePort;
+  Timer? _livenessTimer;
 
   final _stateController = StreamController<StreamState>.broadcast();
   StreamState _state = const StreamState();
@@ -192,7 +199,27 @@ class StreamService {
       errorMessage: null,
     ));
 
-    _active = await _spawnStreamFn(path, host, port);
+    try {
+      _active = await _spawnStreamFn(path, host, port);
+    } catch (e) {
+      // Clean up stub + in-memory state; propagate so the caller sees
+      // the failure.
+      try {
+        await File(path).delete();
+      } catch (_) {
+        // best effort
+      }
+      _activeFilename = null;
+      _activeStartedAt = null;
+      _activeHost = null;
+      _activePort = null;
+      _setState(_state.copyWith(
+        phase: StreamPhase.error,
+        errorMessage: 'Failed to spawn ffmpeg: $e',
+      ));
+      Log.e('Stream', 'Spawn failed: $e');
+      rethrow;
+    }
 
     // Observe ffmpeg exit. Non-zero exit before stop() was requested is
     // treated as an error — typically "OBS isn't listening" or ALSA / DRM
@@ -209,7 +236,7 @@ class StreamService {
     // declare the stream active. ffmpeg's SRT caller exits within ~1-3s
     // when the listener is unreachable, so surviving this window is a
     // reasonable proxy for "connected".
-    Timer(const Duration(seconds: 1), () {
+    _livenessTimer = Timer(const Duration(seconds: 1), () {
       if (_state.phase == StreamPhase.starting) {
         _setState(_state.copyWith(phase: StreamPhase.active));
       }
@@ -238,9 +265,13 @@ class StreamService {
     try {
       await active.exitCode.timeout(_stopTimeout);
     } on TimeoutException {
+      Log.w('Stream',
+          'ffmpeg did not exit within $_stopTimeout, sending SIGKILL');
       active.kill();
       await active.exitCode;
     }
+
+    _cancelLivenessTimer();
 
     final path = '${_capturesDir.path}/$filename';
     final size = await File(path).length();
@@ -262,6 +293,7 @@ class StreamService {
 
   void _onExitedCleanly() {
     _active = null;
+    _cancelLivenessTimer();
     _setState(const StreamState());
     _activeFilename = null;
     _activeStartedAt = null;
@@ -270,11 +302,22 @@ class StreamService {
   }
 
   void _onExitedUnexpectedly(int code) {
+    final tail = _active?.stderrTail ?? '';
     _active = null;
+    _cancelLivenessTimer();
+    final msg = tail.isEmpty
+        ? 'ffmpeg exited with code $code'
+        : 'ffmpeg exited with code $code: $tail';
+    Log.e('Stream', msg);
     _setState(_state.copyWith(
       phase: StreamPhase.error,
-      errorMessage: 'ffmpeg exited with code $code',
+      errorMessage: msg,
     ));
+  }
+
+  void _cancelLivenessTimer() {
+    _livenessTimer?.cancel();
+    _livenessTimer = null;
   }
 
   void _setState(StreamState next) {
@@ -283,8 +326,17 @@ class StreamService {
   }
 
   Future<void> dispose() async {
-    _active?.kill();
+    _cancelLivenessTimer();
+    final proc = _active;
     _active = null;
+    proc?.kill();
+    if (proc != null) {
+      try {
+        await proc.exitCode.timeout(const Duration(seconds: 3));
+      } catch (_) {
+        // Best effort — we're shutting down.
+      }
+    }
     await _stateController.close();
   }
 }
@@ -354,17 +406,30 @@ Future<StreamingProcess> ffmpegStartStream(
     tee,
   ]);
 
-  // Drain pipes so the kernel buffer doesn't back up ffmpeg on long
-  // sessions. Matches the recording service's approach.
-  proc.stdout.drain<void>();
-  proc.stderr.drain<void>();
-
+  // Drain stdout so the kernel buffer doesn't back up ffmpeg on long
+  // sessions. stderr is captured into a bounded ring buffer inside
+  // _FfmpegStreamProcess for error diagnostics.
   return _FfmpegStreamProcess(proc);
 }
 
 class _FfmpegStreamProcess implements StreamingProcess {
   final Process _proc;
-  _FfmpegStreamProcess(this._proc);
+  final List<String> _stderrTail = [];
+  static const int _stderrKeep = 20;
+
+  _FfmpegStreamProcess(this._proc) {
+    _proc.stderr
+        .transform(const SystemEncoding().decoder)
+        .transform(const LineSplitter())
+        .listen((line) {
+      _stderrTail.add(line);
+      if (_stderrTail.length > _stderrKeep) _stderrTail.removeAt(0);
+    });
+    _proc.stdout.drain<void>();
+  }
+
+  @override
+  String get stderrTail => _stderrTail.join('\n');
 
   @override
   Future<int> get exitCode => _proc.exitCode;

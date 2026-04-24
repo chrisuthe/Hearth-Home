@@ -24,6 +24,9 @@ class FakeStreamingProcess implements StreamingProcess {
     killed = true;
     if (!_exit.isCompleted) _exit.complete(-9);
   }
+
+  @override
+  String get stderrTail => '';
 }
 
 void main() {
@@ -169,6 +172,44 @@ void main() {
 
       expect(service.currentState.phase, StreamPhase.error);
       expect(service.currentState.errorMessage, isNotNull);
+    });
+
+    test(
+        'spawner throwing cleans up stub file and state, next start() succeeds',
+        () async {
+      var shouldThrow = true;
+      service = StreamService(
+        capturesDir: tempDir,
+        spawnStreamFn: (path, host, port) async {
+          if (shouldThrow) {
+            throw Exception('boom');
+          }
+          return FakeStreamingProcess();
+        },
+        now: () => DateTime(2026, 4, 24, 14, 30, 30),
+      );
+
+      await expectLater(
+        () => service.start(host: 'h', port: 1),
+        throwsA(isA<Exception>()),
+      );
+
+      // Error state is surfaced.
+      expect(service.currentState.phase, StreamPhase.error);
+      expect(service.currentState.errorMessage, contains('Failed to spawn'));
+
+      // Stub file was cleaned up.
+      expect(
+          await File('${tempDir.path}/hearth-20260424-143030.mp4').exists(),
+          false);
+      expect(service.activeFilename, isNull);
+      expect(service.activeStartedAt, isNull);
+
+      // Subsequent start() succeeds.
+      shouldThrow = false;
+      await service.start(host: 'h2', port: 2);
+      expect(service.currentState.phase, StreamPhase.starting);
+      expect(service.activeFilename, 'hearth-20260424-143030.mp4');
     });
   });
 }
