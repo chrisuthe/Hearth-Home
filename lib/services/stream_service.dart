@@ -1,6 +1,10 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'capture_service.dart' show defaultCapturesDir;
+
 /// Lifecycle phases of a single streaming session.
 enum StreamPhase {
   /// No ffmpeg subprocess is active.
@@ -282,5 +286,118 @@ class StreamService {
     _active?.kill();
     _active = null;
     await _stateController.close();
+  }
+}
+
+/// Production Pi streaming pipeline.
+///
+/// Mirrors [CaptureService]'s `gstStartRecording` but adds an ALSA audio
+/// input (the `hdmi_tee` → `Loopback` route provisioned by setup-pi.sh)
+/// and uses `-f tee` to emit both an MP4 file and an SRT output.
+///
+/// `onfail=ignore` on the SRT leg means an OBS disconnect doesn't tear
+/// down the MP4 leg — the local recording keeps running until stop()
+/// sends SIGINT.
+Future<StreamingProcess> ffmpegStartStream(
+    String mp4Path, String host, int port) async {
+  final tee = '[f=mp4]$mp4Path|'
+      '[f=mpegts:onfail=ignore]'
+      'srt://$host:$port?mode=caller&pkt_size=1316&transtype=live';
+
+  final proc = await Process.start('sudo', [
+    '-n',
+    'ffmpeg',
+    '-loglevel',
+    'error',
+    // Video input: DRM plane via kmsgrab (same device CaptureService uses).
+    '-device',
+    '/dev/dri/card1',
+    '-f',
+    'kmsgrab',
+    '-framerate',
+    '30',
+    '-i',
+    '-',
+    // Audio input: ALSA loopback capture end.
+    '-f',
+    'alsa',
+    '-ac',
+    '2',
+    '-ar',
+    '48000',
+    '-i',
+    'hw:Loopback,1,0',
+    // Video processing: bring kmsgrab frames into system memory as yuv420p.
+    '-vf',
+    'hwdownload,format=bgr0,format=yuv420p',
+    // Video encode.
+    '-c:v',
+    'libx264',
+    '-preset',
+    'ultrafast',
+    '-tune',
+    'zerolatency',
+    '-b:v',
+    '4000k',
+    // Audio encode.
+    '-c:a',
+    'aac',
+    '-b:a',
+    '128k',
+    // Tee output.
+    '-map',
+    '0:v',
+    '-map',
+    '1:a',
+    '-f',
+    'tee',
+    tee,
+  ]);
+
+  // Drain pipes so the kernel buffer doesn't back up ffmpeg on long
+  // sessions. Matches the recording service's approach.
+  proc.stdout.drain<void>();
+  proc.stderr.drain<void>();
+
+  return _FfmpegStreamProcess(proc);
+}
+
+class _FfmpegStreamProcess implements StreamingProcess {
+  final Process _proc;
+  _FfmpegStreamProcess(this._proc);
+
+  @override
+  Future<int> get exitCode => _proc.exitCode;
+
+  @override
+  void stop() => _proc.kill(ProcessSignal.sigint);
+
+  @override
+  void kill() => _proc.kill(ProcessSignal.sigkill);
+}
+
+/// Provider for the app's singleton [StreamService].
+///
+/// Bootstrap pattern mirrors `captureServiceProvider`: overridden at
+/// [ProviderContainer] construction with the resolved captures directory.
+final streamServiceProvider = Provider<StreamService>((ref) {
+  throw UnimplementedError(
+    'streamServiceProvider must be overridden at ProviderContainer '
+    'construction. Call StreamServiceBootstrap.build() and pass the '
+    'result via '
+    'ProviderContainer(overrides: [streamServiceProvider.overrideWithValue(service)]).',
+  );
+});
+
+class StreamServiceBootstrap {
+  static Future<StreamService> build() async {
+    final dir = await defaultCapturesDir();
+    if (!await dir.exists()) {
+      await dir.create(recursive: true);
+    }
+    return StreamService(
+      capturesDir: dir,
+      spawnStreamFn: ffmpegStartStream,
+    );
   }
 }
