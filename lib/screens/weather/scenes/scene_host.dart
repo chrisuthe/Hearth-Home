@@ -20,27 +20,25 @@ class SceneHost extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return RepaintBoundary(
-      child: LayoutBuilder(builder: (ctx, cons) {
-        return AnimatedSwitcher(
-          duration: const Duration(milliseconds: 600),
-          child: KeyedSubtree(
-            key: ValueKey('$cond/$intensity'),
-            child: SizedBox.expand(
-              child: switch (cond) {
-                WxCond.sunny => const SunScene(),
-                WxCond.partlyCloudy => const PartlyCloudyScene(),
-                WxCond.cloudy => const CloudyScene(),
-                WxCond.rain => RainScene(intensity: intensity),
-                WxCond.thunder => const ThunderScene(),
-                WxCond.snow => SnowScene(intensity: intensity),
-                WxCond.fog => const FogScene(),
-                WxCond.clearNight => const ClearNightScene(),
-                WxCond.wind => const CloudyScene(), // wind has no dedicated scene
-              },
-            ),
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 600),
+        child: KeyedSubtree(
+          key: ValueKey('$cond/$intensity'),
+          child: SizedBox.expand(
+            child: switch (cond) {
+              WxCond.sunny => const SunScene(),
+              WxCond.partlyCloudy => const PartlyCloudyScene(),
+              WxCond.cloudy => const CloudyScene(),
+              WxCond.rain => RainScene(intensity: intensity),
+              WxCond.thunder => const ThunderScene(),
+              WxCond.snow => SnowScene(intensity: intensity),
+              WxCond.fog => const FogScene(),
+              WxCond.clearNight => const ClearNightScene(),
+              WxCond.wind => const CloudyScene(), // wind has no dedicated scene
+            },
           ),
-        );
-      }),
+        ),
+      ),
     );
   }
 }
