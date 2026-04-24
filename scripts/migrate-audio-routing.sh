@@ -75,7 +75,13 @@ if [ -f "$CONFIG" ]; then
     CURRENT=$(sudo python3 -c "import json,sys
 c=json.load(open('$CONFIG'))
 print(c.get('sendspinAlsaDevice',''))")
-    if [ "$CURRENT" = "plughw:CARD=vc4hdmi0,DEV=0" ]; then
+    case "$CURRENT" in
+        "plughw:CARD=vc4hdmi0,DEV=0" | "default" | "")
+            _migrate_sendspin=true ;;
+        *)
+            _migrate_sendspin=false ;;
+    esac
+    if [ "$_migrate_sendspin" = "true" ]; then
         log "Updating sendspinAlsaDevice to hdmi_tee"
         sudo python3 -c "import json, os, tempfile
 c=json.load(open('$CONFIG'))
