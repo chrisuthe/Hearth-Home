@@ -143,14 +143,14 @@ class _PillContent extends StatelessWidget {
           FadeTransition(
             opacity: Tween<double>(begin: 0.4, end: 1.0)
                 .animate(pulseAnimation),
-            child: const Icon(Icons.mic, color: _accent, size: 22),
+            child: const Icon(Icons.mic, color: _accent, size: 44),
           ),
           const SizedBox(width: 10),
           const Text(
             'Listening...',
             style: TextStyle(
               color: Colors.white,
-              fontSize: 14,
+              fontSize: 28,
               fontWeight: FontWeight.w400,
             ),
           ),
@@ -163,7 +163,7 @@ class _PillContent extends StatelessWidget {
               state.transcription ?? 'Processing...',
               style: const TextStyle(
                 color: Colors.white,
-                fontSize: 14,
+                fontSize: 28,
                 fontWeight: FontWeight.w400,
               ),
               maxLines: 2,
@@ -172,10 +172,10 @@ class _PillContent extends StatelessWidget {
           ),
           const SizedBox(width: 10),
           const SizedBox(
-            width: 16,
-            height: 16,
+            width: 32,
+            height: 32,
             child: CircularProgressIndicator(
-              strokeWidth: 2,
+              strokeWidth: 4,
               color: _accent,
             ),
           ),
@@ -183,14 +183,14 @@ class _PillContent extends StatelessWidget {
 
       case VoiceState.responding:
         return [
-          const Icon(Icons.volume_up, color: _accent, size: 22),
+          const Icon(Icons.volume_up, color: _accent, size: 44),
           const SizedBox(width: 10),
           Flexible(
             child: Text(
               state.responseText ?? '',
               style: const TextStyle(
                 color: Colors.white,
-                fontSize: 14,
+                fontSize: 28,
                 fontWeight: FontWeight.w400,
               ),
               maxLines: 2,
@@ -201,14 +201,14 @@ class _PillContent extends StatelessWidget {
 
       case VoiceState.error:
         return [
-          const Icon(Icons.error_outline, color: Color(0xFFFF6B6B), size: 22),
+          const Icon(Icons.error_outline, color: Color(0xFFFF6B6B), size: 44),
           const SizedBox(width: 10),
           Flexible(
             child: Text(
               state.errorMessage ?? 'An error occurred',
               style: const TextStyle(
                 color: Color(0xFFFF6B6B),
-                fontSize: 14,
+                fontSize: 28,
                 fontWeight: FontWeight.w400,
               ),
               maxLines: 2,
