@@ -399,5 +399,27 @@ void main() {
       expect(restored.touchIndicator.style, TouchIndicatorStyle.ripple);
     });
 
+    test('stream target defaults to empty host and port 9999', () {
+      const c = HubConfig();
+      expect(c.streamTargetHost, '');
+      expect(c.streamTargetPort, 9999);
+    });
+
+    test('stream target round-trips through JSON', () {
+      const c = HubConfig(
+        streamTargetHost: '192.168.1.42',
+        streamTargetPort: 9000,
+      );
+      final restored = HubConfig.fromJson(c.toJson());
+      expect(restored.streamTargetHost, '192.168.1.42');
+      expect(restored.streamTargetPort, 9000);
+    });
+
+    test('stream target missing from JSON falls back to defaults', () {
+      final restored = HubConfig.fromJson({});
+      expect(restored.streamTargetHost, '');
+      expect(restored.streamTargetPort, 9999);
+    });
+
   });
 }
