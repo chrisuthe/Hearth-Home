@@ -367,10 +367,12 @@ Future<StreamingProcess> ffmpegStartStream(
     '-f',
     'kmsgrab',
     '-framerate',
-    '30',
+    '20',
     '-i',
     '-',
     // Audio input: ALSA loopback capture end.
+    '-thread_queue_size',
+    '512',
     '-f',
     'alsa',
     '-ac',
@@ -382,7 +384,15 @@ Future<StreamingProcess> ffmpegStartStream(
     // Video processing: bring kmsgrab frames into system memory as yuv420p.
     '-vf',
     'hwdownload,format=bgr0,format=yuv420p',
-    // Video encode.
+    // Constant output framerate — prevents the muxer from re-deriving
+    // a higher effective rate from kmsgrab's vsync-locked delivery.
+    '-r',
+    '20',
+    '-fps_mode',
+    'cfr',
+    // Video encode. Pi 5 has no hardware H.264 encoder, so these settings
+    // are tuned to keep software x264 under ~150% CPU at 1184x864@20fps
+    // while still leaving headroom for hwdownload and A/V muxing.
     '-c:v',
     'libx264',
     '-preset',
@@ -390,7 +400,7 @@ Future<StreamingProcess> ffmpegStartStream(
     '-tune',
     'zerolatency',
     '-b:v',
-    '4000k',
+    '2500k',
     // Audio encode.
     '-c:a',
     'aac',
