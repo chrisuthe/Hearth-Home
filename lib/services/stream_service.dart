@@ -72,6 +72,22 @@ class StreamState {
       phase, filename, startedAt, targetHost, targetPort, errorMessage);
 }
 
+/// Metadata returned by [StreamService.stop] describing the finalized
+/// local MP4 of the session that just ended.
+class StreamSessionMeta {
+  final String filename;
+  final Duration duration;
+  final int sizeBytes;
+  final DateTime startedAt;
+
+  const StreamSessionMeta({
+    required this.filename,
+    required this.duration,
+    required this.sizeBytes,
+    required this.startedAt,
+  });
+}
+
 /// Abstract handle over a streaming subprocess — test seam so we don't
 /// depend on real [Process] instances in unit tests.
 abstract class StreamingProcess {
@@ -194,6 +210,50 @@ class StreamService {
         _setState(_state.copyWith(phase: StreamPhase.active));
       }
     });
+  }
+
+  static const Duration _stopTimeout = Duration(seconds: 10);
+
+  /// Stop the active stream. Sends SIGINT, waits up to [_stopTimeout] for
+  /// ffmpeg to finalize the MP4; if it times out, escalates to SIGKILL
+  /// and the MP4 may be truncated (still kept — same convention as the
+  /// recording service).
+  ///
+  /// Throws [StateError] if no stream is active.
+  Future<StreamSessionMeta> stop() async {
+    final active = _active;
+    final filename = _activeFilename;
+    final startedAt = _activeStartedAt;
+    if (active == null || filename == null || startedAt == null) {
+      throw StateError('No active stream to stop.');
+    }
+
+    _setState(_state.copyWith(phase: StreamPhase.stopping));
+    active.stop();
+
+    try {
+      await active.exitCode.timeout(_stopTimeout);
+    } on TimeoutException {
+      active.kill();
+      await active.exitCode;
+    }
+
+    final path = '${_capturesDir.path}/$filename';
+    final size = await File(path).length();
+    final duration = _now().difference(startedAt);
+
+    // _onExitedCleanly handler (registered in start()) may have already
+    // reset state when exitCode resolved — call idempotently here.
+    if (_state.phase != StreamPhase.idle) {
+      _onExitedCleanly();
+    }
+
+    return StreamSessionMeta(
+      filename: filename,
+      duration: duration,
+      sizeBytes: size,
+      startedAt: startedAt,
+    );
   }
 
   void _onExitedCleanly() {

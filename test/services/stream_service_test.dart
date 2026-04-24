@@ -109,6 +109,35 @@ void main() {
       expect(service.currentState.phase, StreamPhase.active);
     });
 
+    test('stop() sends SIGINT and returns the finalized file metadata',
+        () async {
+      late FakeStreamingProcess proc;
+      service = StreamService(
+        capturesDir: tempDir,
+        spawnStreamFn: (path, host, port) async {
+          proc = FakeStreamingProcess();
+          return proc;
+        },
+        now: () => DateTime(2026, 4, 24, 14, 30, 25),
+      );
+
+      await service.start(host: 'a', port: 1);
+      // Write some bytes into the stub so we have a non-zero size.
+      await File('${tempDir.path}/hearth-20260424-143025.mp4')
+          .writeAsBytes(List.filled(1024, 0));
+
+      final meta = await service.stop();
+
+      expect(proc.stopped, true);
+      expect(meta.filename, 'hearth-20260424-143025.mp4');
+      expect(meta.sizeBytes, 1024);
+      expect(service.currentState.phase, StreamPhase.idle);
+    });
+
+    test('stop() when no stream is active throws StateError', () async {
+      expect(() => service.stop(), throwsStateError);
+    });
+
     test(
         'transitions to error when ffmpeg exits non-zero before liveness window',
         () async {
