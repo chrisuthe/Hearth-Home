@@ -53,17 +53,21 @@ class _ThunderSceneState extends State<ThunderScene> {
   @override
   Widget build(BuildContext context) {
     final pal = palettes[WxCond.thunder]!;
-    return Stack(children: [
-      SkyGradient(pal.sky),
-      const DriftCloud(topPct: -0.05, scale: 1.8, opacity: 0.95, durationSeconds: 140,
-          top: Color(0xFF4A5272), bottom: Color(0xFF1E2238)),
-      const DriftCloud(topPct: 0.00, scale: 2.0, opacity: 0.96, durationSeconds: 170, phaseOffset: 0.3,
-          top: Color(0xFF3F4766), bottom: Color(0xFF181D30)),
-      const DriftCloud(topPct: 0.05, scale: 1.6, opacity: 0.95, durationSeconds: 160, phaseOffset: 0.55,
-          top: Color(0xFF454D6E), bottom: Color(0xFF1A2036)),
-      const Positioned.fill(
-        child: ParticleField(count: 80, kind: ParticleKind.rain),
-      ),
+    return LayoutBuilder(builder: (ctx, cons) {
+      return Stack(children: [
+        SkyGradient(pal.sky),
+        DriftCloud(topPct: -0.05, scale: 1.8, opacity: 0.95, durationSeconds: 140,
+            top: const Color(0xFF4A5272), bottom: const Color(0xFF1E2238),
+            parentWidth: cons.maxWidth, parentHeight: cons.maxHeight),
+        DriftCloud(topPct: 0.00, scale: 2.0, opacity: 0.96, durationSeconds: 170, phaseOffset: 0.3,
+            top: const Color(0xFF3F4766), bottom: const Color(0xFF181D30),
+            parentWidth: cons.maxWidth, parentHeight: cons.maxHeight),
+        DriftCloud(topPct: 0.05, scale: 1.6, opacity: 0.95, durationSeconds: 160, phaseOffset: 0.55,
+            top: const Color(0xFF454D6E), bottom: const Color(0xFF1A2036),
+            parentWidth: cons.maxWidth, parentHeight: cons.maxHeight),
+        const Positioned.fill(
+          child: ParticleField(count: 80, kind: ParticleKind.rain),
+        ),
       // Flash overlay
       if (_flash > 0)
         Positioned.fill(child: IgnorePointer(
@@ -92,7 +96,8 @@ class _ThunderSceneState extends State<ThunderScene> {
             colors: [Colors.transparent, const Color(0xFF0A0C18).withValues(alpha: 0.5)]),
         )),
       ),
-    ]);
+      ]);
+    });
   }
 }
 
