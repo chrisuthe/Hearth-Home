@@ -1967,6 +1967,7 @@ async function toggleRecording() {
       btn.className = 'recording';
       recTimer = setInterval(updateTimer, 1000);
       updateTimer();
+      applyRecordMutualDisable();
     } catch (e) { toast('Start failed', true); }
   } else {
     try {
@@ -1980,6 +1981,7 @@ async function toggleRecording() {
     clearInterval(recTimer);
     document.getElementById('recStatus').textContent = '';
     loadGallery();
+    applyRecordMutualDisable();
   }
 }
 
@@ -2191,8 +2193,27 @@ async function pollStreamStatus() {
       status.textContent = `⚠ ${s.errorMessage || 'Stream error'}`;
       status.style.color = '#ff6b6b';
     }
+
+    // Mutual disable with the Record button — the existing capture UI uses
+    // id 'recBtn'. Tolerate absence; if the element is missing or named
+    // differently, skip gracefully.
+    const recBtn = document.getElementById('recBtn');
+    if (recBtn) {
+      recBtn.disabled = streamActive;
+      recBtn.title = streamActive ? 'Stop the stream first' : '';
+    }
   } catch (e) {
     // Swallow — polling keeps going.
+  }
+}
+
+function applyRecordMutualDisable() {
+  // Mutual disable with the Stream button.
+  const recordingActive = recStart !== null;
+  const streamBtn = document.getElementById('streamBtn');
+  if (streamBtn) {
+    streamBtn.disabled = recordingActive;
+    streamBtn.title = recordingActive ? 'Stop the recording first' : '';
   }
 }
 
