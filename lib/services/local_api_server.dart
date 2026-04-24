@@ -986,6 +986,22 @@ class LocalApiServer {
       return;
     }
 
+    if (path == '/api/stream/status' && request.method == 'GET') {
+      final s = stream.currentState;
+      request.response.statusCode = 200;
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(jsonEncode({
+        'phase': s.phase.name,
+        'filename': s.filename,
+        'startedAt': s.startedAt?.toIso8601String(),
+        'targetHost': s.targetHost,
+        'targetPort': s.targetPort,
+        'errorMessage': s.errorMessage,
+      }));
+      await request.response.close();
+      return;
+    }
+
     request.response.statusCode = 404;
     await request.response.close();
   }

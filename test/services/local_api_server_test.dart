@@ -613,6 +613,24 @@ void main() {
             body: '', headers: authHeaders);
         expect(r.statusCode, 400);
       });
+
+      test('GET /api/stream/status reports phase and target', () async {
+        final idle = await get('/api/stream/status', headers: authHeaders);
+        expect(idle.statusCode, 200);
+        expect(
+            jsonDecode(await readBody(idle)) as Map<String, dynamic>,
+            containsPair('phase', 'idle'));
+
+        await post('/api/stream/start',
+            body: jsonEncode({'host': '10.0.0.5', 'port': 7777}),
+            headers: {...authHeaders, 'Content-Type': 'application/json'});
+
+        final active = await get('/api/stream/status', headers: authHeaders);
+        final json = jsonDecode(await readBody(active)) as Map<String, dynamic>;
+        expect(['starting', 'active'], contains(json['phase']));
+        expect(json['targetHost'], '10.0.0.5');
+        expect(json['targetPort'], 7777);
+      });
     });
   });
 }
