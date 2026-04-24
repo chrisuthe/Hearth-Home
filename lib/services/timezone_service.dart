@@ -39,16 +39,21 @@ class TimezoneService {
     if (kIsWeb || !Platform.isLinux || timezone.isEmpty) return false;
 
     try {
-      // Try timedatectl first (works on systemd-based distros).
+      // Hearth runs as a non-root user; timedatectl set-timezone requires
+      // privilege. setup-pi.sh provisions a NOPASSWD sudoers entry for this
+      // exact command — see /etc/sudoers.d/hearth-timezone. The -n flag
+      // fails fast if the rule isn't in place instead of blocking on a
+      // password prompt that would never be answered.
       final result = await Process.run(
-        'timedatectl',
-        ['set-timezone', timezone],
+        'sudo',
+        ['-n', 'timedatectl', 'set-timezone', timezone],
       );
       if (result.exitCode == 0) {
         Log.i(_tag, 'Set timezone to $timezone via timedatectl');
         return true;
       }
-      Log.w(_tag, 'timedatectl failed (exit ${result.exitCode}), trying /etc/localtime fallback');
+      Log.w(_tag,
+          'sudo timedatectl failed (exit ${result.exitCode}): ${result.stderr}. Falling back to /etc/localtime.');
     } catch (e) {
       Log.w(_tag, 'timedatectl not available: $e');
     }

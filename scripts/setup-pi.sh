@@ -310,7 +310,10 @@ echo "hearth ALL=(root) NOPASSWD: /usr/bin/gst-launch-1.0" | sudo tee /etc/sudoe
 # requires CAP_SYS_ADMIN to read DRM plane resources.
 echo "hearth ALL=(root) NOPASSWD: /usr/bin/ffmpeg" | sudo tee /etc/sudoers.d/hearth-ffmpeg > /dev/null
 echo "hearth ALL=(root) NOPASSWD: /usr/bin/systemctl stop wyoming-satellite.service, /usr/bin/systemctl start wyoming-satellite.service, /usr/bin/systemctl restart wyoming-satellite.service" | sudo tee /etc/sudoers.d/hearth-voice > /dev/null
-sudo chmod 440 /etc/sudoers.d/hearth-updater /etc/sudoers.d/hearth-gstreamer /etc/sudoers.d/hearth-ffmpeg /etc/sudoers.d/hearth-voice
+# Timezone changes from Settings require writing /etc/localtime — gate the
+# exact timedatectl invocation so Hearth can apply the configured zone.
+echo "hearth ALL=(root) NOPASSWD: /usr/bin/timedatectl set-timezone *" | sudo tee /etc/sudoers.d/hearth-timezone > /dev/null
+sudo chmod 440 /etc/sudoers.d/hearth-updater /etc/sudoers.d/hearth-gstreamer /etc/sudoers.d/hearth-ffmpeg /etc/sudoers.d/hearth-voice /etc/sudoers.d/hearth-timezone
 
 # Allow hearth user (netdev group) to manage WiFi via nmcli
 sudo mkdir -p /etc/polkit-1/rules.d
