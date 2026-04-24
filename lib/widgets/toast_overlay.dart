@@ -110,7 +110,7 @@ class _ToastPill extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (toast.icon != null) ...[
-            Icon(toast.icon, color: _iconColor(), size: 22),
+            Icon(toast.icon, color: _iconColor(), size: 44),
             const SizedBox(width: 10),
           ],
           Flexible(
@@ -118,7 +118,7 @@ class _ToastPill extends StatelessWidget {
               toast.message,
               style: const TextStyle(
                 color: Colors.white,
-                fontSize: 14,
+                fontSize: 28,
                 fontWeight: FontWeight.w400,
               ),
               maxLines: 2,
