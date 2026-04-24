@@ -97,6 +97,16 @@ void main() {
       expect(config.sendspinClientId, '');
     });
 
+    test('sendspinAlsaDevice defaults to hdmi_tee on fresh install', () {
+      const c = HubConfig();
+      expect(c.sendspinAlsaDevice, 'hdmi_tee');
+    });
+
+    test('existing sendspinAlsaDevice values survive JSON load', () {
+      final c = HubConfig.fromJson({'sendspinAlsaDevice': 'plughw:CARD=vc4hdmi0,DEV=0'});
+      expect(c.sendspinAlsaDevice, 'plughw:CARD=vc4hdmi0,DEV=0');
+    });
+
     test('sendspin fields round-trip through JSON', () {
       final config = HubConfig(
         sendspinEnabled: true,

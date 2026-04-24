@@ -170,7 +170,7 @@ class HubConfig {
     this.sendspinClientId = '',
     this.sendspinServerUrl = '',
     this.sendspinStaticDelayMs = 0,
-    this.sendspinAlsaDevice = 'default',
+    this.sendspinAlsaDevice = 'hdmi_tee',
     this.onScreenKeyboardMode = 'auto',
     this.displayProfile = 'auto',
     this.displayWidth = 0,
@@ -386,7 +386,7 @@ class HubConfig {
         sendspinServerUrl: json['sendspinServerUrl'] as String? ?? '',
         sendspinStaticDelayMs: json['sendspinStaticDelayMs'] as int? ?? 0,
         sendspinAlsaDevice:
-            json['sendspinAlsaDevice'] as String? ?? 'default',
+            json['sendspinAlsaDevice'] as String? ?? 'hdmi_tee',
         onScreenKeyboardMode:
             json['onScreenKeyboardMode'] as String? ?? 'auto',
         displayProfile: json['displayProfile'] as String? ?? 'auto',
