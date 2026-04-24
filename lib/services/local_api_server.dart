@@ -1905,6 +1905,22 @@ const _capturePageHtml = r'''
     <option value="trail">Trail</option>
   </select></div>
 
+<h2>Stream to OBS</h2>
+<div class="stream-panel" style="margin-bottom:20px;">
+  <label>OBS Host</label>
+  <input type="text" id="streamHost" placeholder="192.168.1.x">
+  <label>OBS Port</label>
+  <input type="number" id="streamPort" value="9999" min="1" max="65535">
+  <div style="display:flex;gap:12px;align-items:center;margin-top:12px;">
+    <button type="button" id="streamBtn" onclick="toggleStream()"
+            style="padding:10px 16px;background:#646cff;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:14px;">
+      ● Start streaming
+    </button>
+    <span id="streamStatus" style="font-size:13px;color:#888;">○ Idle</span>
+  </div>
+  <div class="hint" id="streamHint" style="margin-top:8px;"></div>
+</div>
+
 <h2>Captures</h2>
 <table>
   <thead><tr><th>Filename</th><th>Type</th><th>Size</th><th>Created</th><th></th></tr></thead>
@@ -2075,7 +2091,118 @@ async function saveIndicator() {
   document.getElementById(id).addEventListener('change', scheduleSave);
 });
 
-initAuth().then(() => { loadIndicator(); loadGallery(); });
+let streamActive = false;
+
+async function loadStreamConfig() {
+  const r = await fetch('/api/config', {headers: headers()});
+  if (!r.ok) return;
+  const cfg = await r.json();
+  if (cfg.streamTargetHost) {
+    document.getElementById('streamHost').value = cfg.streamTargetHost;
+  }
+  if (cfg.streamTargetPort) {
+    document.getElementById('streamPort').value = cfg.streamTargetPort;
+  }
+}
+
+async function toggleStream() {
+  const btn = document.getElementById('streamBtn');
+  btn.disabled = true;
+  try {
+    if (streamActive) {
+      const r = await fetch('/api/stream/stop', {
+        method: 'POST', headers: headers(),
+      });
+      if (!r.ok) {
+        const body = await r.json().catch(() => ({}));
+        showStreamHint(body.error || `Stop failed (${r.status})`, true);
+      }
+    } else {
+      const host = document.getElementById('streamHost').value.trim();
+      const port = parseInt(document.getElementById('streamPort').value, 10);
+      if (!host) {
+        showStreamHint('OBS host is required', true);
+        return;
+      }
+      const r = await fetch('/api/stream/start', {
+        method: 'POST',
+        headers: {...headers(), 'Content-Type': 'application/json'},
+        body: JSON.stringify({host, port}),
+      });
+      if (!r.ok) {
+        const body = await r.json().catch(() => ({}));
+        showStreamHint(body.error || `Start failed (${r.status})`, true);
+      }
+    }
+  } finally {
+    btn.disabled = false;
+    // pollStreamStatus is called on an interval; next tick will re-sync.
+  }
+}
+
+function showStreamHint(msg, isError) {
+  const el = document.getElementById('streamHint');
+  el.textContent = msg;
+  el.style.color = isError ? '#ff6b6b' : '#888';
+}
+
+function formatDuration(ms) {
+  const s = Math.floor(ms / 1000);
+  const hh = String(Math.floor(s / 3600)).padStart(2, '0');
+  const mm = String(Math.floor((s % 3600) / 60)).padStart(2, '0');
+  const ss = String(s % 60).padStart(2, '0');
+  return `${hh}:${mm}:${ss}`;
+}
+
+async function pollStreamStatus() {
+  try {
+    const r = await fetch('/api/stream/status', {headers: headers()});
+    if (!r.ok) return;
+    const s = await r.json();
+    const btn = document.getElementById('streamBtn');
+    const status = document.getElementById('streamStatus');
+    const host = document.getElementById('streamHost');
+    const port = document.getElementById('streamPort');
+
+    const active = s.phase === 'active' || s.phase === 'starting';
+    streamActive = active;
+    host.disabled = active;
+    port.disabled = active;
+
+    if (s.phase === 'idle') {
+      btn.textContent = '● Start streaming';
+      btn.style.background = '#646cff';
+      status.textContent = '○ Idle';
+      status.style.color = '#888';
+    } else if (s.phase === 'starting' || s.phase === 'active') {
+      btn.textContent = '■ Stop streaming';
+      btn.style.background = '#cc4444';
+      const since = s.startedAt ? (Date.now() - new Date(s.startedAt).getTime()) : 0;
+      status.textContent =
+        `● ${s.phase === 'starting' ? 'Connecting…' : formatDuration(since)} · ${s.targetHost}:${s.targetPort}`;
+      status.style.color = '#4caf50';
+    } else if (s.phase === 'stopping') {
+      btn.textContent = 'Stopping…';
+      status.textContent = 'Finalizing MP4';
+      status.style.color = '#888';
+    } else if (s.phase === 'error') {
+      btn.textContent = '● Start streaming';
+      btn.style.background = '#646cff';
+      status.textContent = `⚠ ${s.errorMessage || 'Stream error'}`;
+      status.style.color = '#ff6b6b';
+    }
+  } catch (e) {
+    // Swallow — polling keeps going.
+  }
+}
+
+initAuth().then(() => {
+  loadIndicator();
+  loadGallery();
+  loadStreamConfig();
+  setInterval(pollStreamStatus, 1000);
+  pollStreamStatus();
+});
 </script>
 </body>
 </html>
