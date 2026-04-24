@@ -73,8 +73,9 @@ class _ClearNightSceneState extends State<ClearNightScene> with SingleTickerProv
               stops: [0.0, 0.7, 1.0]),
           )),
         ),
-        const DriftCloud(topPct: 0.30, scale: 0.9, opacity: 0.18, durationSeconds: 240,
-            top: Color(0xFF3A406A), bottom: Color(0xFF1E2244)),
+        DriftCloud(topPct: 0.30, scale: 0.9, opacity: 0.18, durationSeconds: 240,
+            top: const Color(0xFF3A406A), bottom: const Color(0xFF1E2244),
+            parentWidth: cons.maxWidth, parentHeight: cons.maxHeight),
       ]);
     });
   }

@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 /// A single slow-drifting cloud. Sits absolutely positioned in a Stack.
 /// Animates horizontally from -20% → 110% of the parent width over
 /// [durationSeconds]. [topPct] is a fraction (0..1) of parent height.
+/// [parentWidth] and [parentHeight] provide the bounds for animation
+/// calculation, avoiding the need for LayoutBuilder nesting.
 class DriftCloud extends StatefulWidget {
   final double topPct;
   final double scale;
@@ -11,6 +13,8 @@ class DriftCloud extends StatefulWidget {
   final double phaseOffset; // 0..1, lets multiple clouds be out of phase
   final Color top;
   final Color bottom;
+  final double? parentWidth; // If null, will use LayoutBuilder (fallback)
+  final double? parentHeight;
 
   const DriftCloud({
     super.key,
@@ -21,6 +25,8 @@ class DriftCloud extends StatefulWidget {
     this.phaseOffset = 0.0,
     this.top = const Color(0xFFFFFFFF),
     this.bottom = const Color(0xFFD8DDE8),
+    this.parentWidth,
+    this.parentHeight,
   });
 
   @override
@@ -49,30 +55,38 @@ class _DriftCloudState extends State<DriftCloud> with SingleTickerProviderStateM
 
   @override
   Widget build(BuildContext context) {
+    if (widget.parentWidth != null && widget.parentHeight != null) {
+      return _buildWithDimensions(widget.parentWidth!, widget.parentHeight!);
+    }
+    // Fallback to LayoutBuilder if dimensions not provided
     return LayoutBuilder(builder: (ctx, cons) {
-      return AnimatedBuilder(
-        animation: _ctrl,
-        builder: (context, child) {
-          final cloudW = 260.0 * widget.scale;
-          // Travel from -20% → 110% of parent width.
-          final startX = -cons.maxWidth * 0.2 - cloudW;
-          final endX = cons.maxWidth * 1.1;
-          final x = startX + (endX - startX) * _ctrl.value;
-          final y = cons.maxHeight * widget.topPct;
-          return Positioned(
-            left: x,
-            top: y,
-            child: Opacity(
-              opacity: widget.opacity,
-              child: CustomPaint(
-                size: Size(260 * widget.scale, 120 * widget.scale),
-                painter: _DriftCloudPainter(top: widget.top, bottom: widget.bottom, scale: widget.scale),
-              ),
-            ),
-          );
-        },
-      );
+      return _buildWithDimensions(cons.maxWidth, cons.maxHeight);
     });
+  }
+
+  Widget _buildWithDimensions(double maxWidth, double maxHeight) {
+    return AnimatedBuilder(
+      animation: _ctrl,
+      builder: (context, child) {
+        final cloudW = 260.0 * widget.scale;
+        // Travel from -20% → 110% of parent width.
+        final startX = -maxWidth * 0.2 - cloudW;
+        final endX = maxWidth * 1.1;
+        final x = startX + (endX - startX) * _ctrl.value;
+        final y = maxHeight * widget.topPct;
+        return Positioned(
+          left: x,
+          top: y,
+          child: Opacity(
+            opacity: widget.opacity,
+            child: CustomPaint(
+              size: Size(260 * widget.scale, 120 * widget.scale),
+              painter: _DriftCloudPainter(top: widget.top, bottom: widget.bottom, scale: widget.scale),
+            ),
+          ),
+        );
+      },
+    );
   }
 }
 

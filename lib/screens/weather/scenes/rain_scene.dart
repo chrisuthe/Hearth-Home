@@ -13,32 +13,37 @@ class RainScene extends StatelessWidget {
   Widget build(BuildContext context) {
     final pal = palettes[WxCond.rain]!;
     final cfg = _cfgFor(intensity);
-    return Stack(children: [
-      SkyGradient(pal.sky),
-      if (cfg.darken > 0)
-        Positioned.fill(child: ColoredBox(color: Color.fromRGBO(15, 20, 36, cfg.darken))),
-      DriftCloud(topPct: 0.00, scale: 1.6, opacity: cfg.cloudOpacity, durationSeconds: 120,
-          top: const Color(0xFF6C7795), bottom: const Color(0xFF3A4260)),
-      DriftCloud(topPct: -0.05, scale: 1.8, opacity: cfg.cloudOpacity, durationSeconds: 150, phaseOffset: 0.3,
-          top: const Color(0xFF5E6885), bottom: const Color(0xFF2E3550)),
-      DriftCloud(topPct: 0.10, scale: 1.4, opacity: cfg.cloudOpacity, durationSeconds: 140, phaseOffset: 0.55,
-          top: const Color(0xFF66708E), bottom: const Color(0xFF343B58)),
-      Positioned.fill(
-        child: ParticleField(
-          count: cfg.count,
-          kind: ParticleKind.rain,
-          speedMult: cfg.speed,
-          tint: cfg.tint,
+    return LayoutBuilder(builder: (ctx, cons) {
+      return Stack(children: [
+        SkyGradient(pal.sky),
+        if (cfg.darken > 0)
+          Positioned.fill(child: ColoredBox(color: Color.fromRGBO(15, 20, 36, cfg.darken))),
+        DriftCloud(topPct: 0.00, scale: 1.6, opacity: cfg.cloudOpacity, durationSeconds: 120,
+            top: const Color(0xFF6C7795), bottom: const Color(0xFF3A4260),
+            parentWidth: cons.maxWidth, parentHeight: cons.maxHeight),
+        DriftCloud(topPct: -0.05, scale: 1.8, opacity: cfg.cloudOpacity, durationSeconds: 150, phaseOffset: 0.3,
+            top: const Color(0xFF5E6885), bottom: const Color(0xFF2E3550),
+            parentWidth: cons.maxWidth, parentHeight: cons.maxHeight),
+        DriftCloud(topPct: 0.10, scale: 1.4, opacity: cfg.cloudOpacity, durationSeconds: 140, phaseOffset: 0.55,
+            top: const Color(0xFF66708E), bottom: const Color(0xFF343B58),
+            parentWidth: cons.maxWidth, parentHeight: cons.maxHeight),
+        Positioned.fill(
+          child: ParticleField(
+            count: cfg.count,
+            kind: ParticleKind.rain,
+            speedMult: cfg.speed,
+            tint: cfg.tint,
+          ),
         ),
-      ),
-      Positioned(
-        left: 0, right: 0, bottom: 0, height: 200,
-        child: DecoratedBox(decoration: BoxDecoration(
-          gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter,
-            colors: [Colors.transparent, const Color(0xFF141A2A).withValues(alpha: 0.35)]),
-        )),
-      ),
-    ]);
+        Positioned(
+          left: 0, right: 0, bottom: 0, height: 200,
+          child: DecoratedBox(decoration: BoxDecoration(
+            gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter,
+              colors: [Colors.transparent, const Color(0xFF141A2A).withValues(alpha: 0.35)]),
+          )),
+        ),
+      ]);
+    });
   }
 }
 
