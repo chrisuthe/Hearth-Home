@@ -74,35 +74,45 @@ log "Downloading $BUNDLE_URL ..."
 
 rm -rf "$STAGING_DIR"
 mkdir -p "$STAGING_DIR"
-wget -q -O /tmp/hearth-bundle.tar.gz "$BUNDLE_URL" || {
+
+# Preserve the bundle's versioned filename locally — the release's .sha256
+# file references the exact asset name (e.g. "hearth-bundle-1.4.7.tar.gz"),
+# so `sha256sum -c` needs to find the file under that name.
+BUNDLE_FILENAME=$(basename "$BUNDLE_URL")
+LOCAL_BUNDLE="/tmp/${BUNDLE_FILENAME}"
+
+wget -q -O "$LOCAL_BUNDLE" "$BUNDLE_URL" || {
     log "Download failed"
+    rm -f "$LOCAL_BUNDLE"
     rm -rf "$STAGING_DIR"
     exit 1
 }
 
-# Download checksum (delete on failure so the -f check below works)
 CHECKSUM_URL="${BUNDLE_URL%.tar.gz}.sha256"
-wget -q -O /tmp/hearth-bundle.sha256 "$CHECKSUM_URL" || {
-    rm -f /tmp/hearth-bundle.sha256
+CHECKSUM_FILENAME=$(basename "$CHECKSUM_URL")
+LOCAL_CHECKSUM="/tmp/${CHECKSUM_FILENAME}"
+
+# Download checksum (delete on failure so the -s check below skips it)
+wget -q -O "$LOCAL_CHECKSUM" "$CHECKSUM_URL" || {
+    rm -f "$LOCAL_CHECKSUM"
     log "Checksum file not found, skipping verification"
 }
 
-# Verify if checksum was downloaded successfully
-if [ -f /tmp/hearth-bundle.sha256 ] && [ -s /tmp/hearth-bundle.sha256 ]; then
-    cd /tmp && sha256sum -c hearth-bundle.sha256 || {
+if [ -f "$LOCAL_CHECKSUM" ] && [ -s "$LOCAL_CHECKSUM" ]; then
+    cd /tmp && sha256sum -c "$CHECKSUM_FILENAME" || {
         log "Checksum verification failed — aborting update"
-        rm -f /tmp/hearth-bundle.tar.gz /tmp/hearth-bundle.sha256
+        rm -f "$LOCAL_BUNDLE" "$LOCAL_CHECKSUM"
         exit 1
     }
 fi
 
-tar xzf /tmp/hearth-bundle.tar.gz -C "$STAGING_DIR" || {
+tar xzf "$LOCAL_BUNDLE" -C "$STAGING_DIR" || {
     log "Extract failed"
     rm -rf "$STAGING_DIR"
-    rm -f /tmp/hearth-bundle.tar.gz
+    rm -f "$LOCAL_BUNDLE" "$LOCAL_CHECKSUM"
     exit 1
 }
-rm -f /tmp/hearth-bundle.tar.gz
+rm -f "$LOCAL_BUNDLE" "$LOCAL_CHECKSUM"
 
 rm -rf "$PREV_DIR"
 if [ -d "$BUNDLE_DIR" ]; then
