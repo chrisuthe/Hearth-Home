@@ -390,17 +390,18 @@ Future<StreamingProcess> ffmpegStartStream(
     '20',
     '-fps_mode',
     'cfr',
-    // Video encode. Pi 5 has no hardware H.264 encoder, so these settings
-    // are tuned to keep software x264 under ~150% CPU at 1184x864@20fps
-    // while still leaving headroom for hwdownload and A/V muxing.
+    // Video encode: MJPEG. Each frame encodes independently (no inter-frame
+    // prediction) so CPU cost is a fraction of x264 on Pi 5 (which has no
+    // hardware H.264 encoder). Tradeoff is higher bandwidth (~8-15 Mbps at
+    // 1184x864@20fps) — fine on gigabit LAN. `-q:v 5` is near-lossless.
+    //
+    // Note: ffmpeg muxes MJPEG into MPEG-TS as a "private data stream"
+    // rather than a standard stream type. OBS's Media Source usually
+    // demuxes it correctly via its ffmpeg backend.
     '-c:v',
-    'libx264',
-    '-preset',
-    'ultrafast',
-    '-tune',
-    'zerolatency',
-    '-b:v',
-    '2500k',
+    'mjpeg',
+    '-q:v',
+    '5',
     // Audio encode.
     '-c:a',
     'aac',
