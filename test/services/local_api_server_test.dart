@@ -513,6 +513,8 @@ void main() {
       late Directory streamTempDir;
       late StreamService streamService;
       late List<({String mp4Path, String host, int port})> spawnCalls;
+      late Directory captureTempDir;
+      late CaptureService captureService;
 
       setUp(() async {
         streamTempDir =
@@ -527,6 +529,17 @@ void main() {
           now: () => DateTime(2026, 4, 24, 14, 30, 30),
         );
 
+        // Also inject a capture service for cross-exclusion tests.
+        captureTempDir =
+            await Directory.systemTemp.createTemp('hearth_api_stream_cap_');
+        captureService = CaptureService(
+          capturesDir: captureTempDir,
+          takeScreenshotFn: (path) async =>
+              File(path).writeAsBytes([0x89, 0x50, 0x4E, 0x47]),
+          spawnRecordingFn: (path) async => _TestRecording(),
+          now: () => DateTime(2026, 4, 24, 14, 30, 30),
+        );
+
         await configNotifier
             .update((c) => c.copyWith(captureToolsEnabled: true));
 
@@ -535,13 +548,16 @@ void main() {
           displayModeService: displayService,
           configNotifier: configNotifier,
           streamService: streamService,
+          captureService: captureService,
         );
         port = await server.start(port: 0);
       });
 
       tearDown(() async {
         await streamService.dispose();
+        await captureService.dispose();
         await streamTempDir.delete(recursive: true);
+        await captureTempDir.delete(recursive: true);
       });
 
       test('POST /api/stream/start returns 200 and spawns ffmpeg', () async {
@@ -630,6 +646,31 @@ void main() {
         expect(['starting', 'active'], contains(json['phase']));
         expect(json['targetHost'], '10.0.0.5');
         expect(json['targetPort'], 7777);
+      });
+
+      test('POST /api/stream/start returns 409 when a recording is active',
+          () async {
+        await post('/api/capture/recording/start',
+            body: '', headers: authHeaders);
+
+        final r = await post('/api/stream/start',
+            body: jsonEncode({'host': 'a', 'port': 1234}),
+            headers: {...authHeaders, 'Content-Type': 'application/json'});
+        expect(r.statusCode, 409);
+        expect(
+            jsonDecode(await readBody(r)) as Map<String, dynamic>,
+            containsPair('error', 'recording is active'));
+      });
+
+      test('POST /api/capture/recording/start returns 409 when a stream is active',
+          () async {
+        await post('/api/stream/start',
+            body: jsonEncode({'host': 'a', 'port': 1234}),
+            headers: {...authHeaders, 'Content-Type': 'application/json'});
+
+        final r = await post('/api/capture/recording/start',
+            body: '', headers: authHeaders);
+        expect(r.statusCode, 409);
       });
     });
   });

@@ -806,6 +806,14 @@ class LocalApiServer {
     }
 
     if (path == '/api/capture/recording/start' && request.method == 'POST') {
+      if (_streamService?.isStreaming == true) {
+        request.response.statusCode = 409;
+        request.response.headers.contentType = ContentType.json;
+        request.response
+            .write(jsonEncode({'error': 'stream is active'}));
+        await request.response.close();
+        return;
+      }
       try {
         final started = await capture.startRecording();
         request.response.statusCode = 200;
@@ -1026,7 +1034,13 @@ class LocalApiServer {
       return;
     }
 
-    // Cross-exclusion with recording is added in Task 12.
+    if (_captureService?.isRecording == true) {
+      request.response.statusCode = 409;
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(jsonEncode({'error': 'recording is active'}));
+      await request.response.close();
+      return;
+    }
 
     try {
       await stream.start(host: host, port: port);
