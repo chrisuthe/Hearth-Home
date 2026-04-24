@@ -7,7 +7,7 @@ import '../../services/weather_service.dart';
 import '../../utils/weather_icon_mapping.dart';
 import '../../utils/weather_utils.dart';
 import '../timer/timer_screen.dart';
-import '../weather/forecast_overlay.dart';
+import '../weather/weather_screen.dart';
 import '../../services/timer_service.dart';
 import '../../utils/time_format.dart';
 
@@ -186,7 +186,7 @@ class _WeatherDisplay extends StatelessWidget {
     return GestureDetector(
       onTap: () => showDialog(
         context: context,
-        builder: (_) => ForecastOverlay(weather: weather),
+        builder: (_) => WeatherScreen(weather: weather),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.end,
