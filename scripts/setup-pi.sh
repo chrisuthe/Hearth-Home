@@ -257,6 +257,44 @@ fi
 
 echo "Detected audio: mic=$MIC_CARD, speaker=$SPEAKER_CARD"
 
+# --- Audio routing: tee HDMI output through snd-aloop for stream capture ---
+sudo tee /etc/modules-load.d/hearth-loopback.conf > /dev/null << 'EOF'
+snd-aloop
+EOF
+sudo modprobe snd-aloop
+
+sudo tee /etc/asound.conf > /dev/null << 'EOF'
+pcm.hdmi_tee {
+  type plug
+  slave.pcm "hdmi_tee_multi"
+}
+pcm.hdmi_tee_multi {
+  type multi
+  slaves.a.pcm "hw:vc4hdmi0,0"
+  slaves.b.pcm "hw:Loopback,0,0"
+  slaves.a.channels 2
+  slaves.b.channels 2
+  bindings.0 { slave a; channel 0; }
+  bindings.1 { slave a; channel 1; }
+  bindings.2 { slave b; channel 0; }
+  bindings.3 { slave b; channel 1; }
+}
+EOF
+
+# Sanity: play a 1s tone via hdmi_tee, capture from the loopback end,
+# verify the file is non-empty. Non-fatal — prints a warning if it fails.
+speaker-test -D hdmi_tee -t sine -f 440 -l 1 > /dev/null 2>&1 &
+SPK_PID=$!
+sleep 0.3
+arecord -D hw:Loopback,1,0 -d 1 -f S16_LE -r 48000 -c 2 \
+    /tmp/hearth-audio-check.wav > /dev/null 2>&1 || true
+wait $SPK_PID 2>/dev/null || true
+if [ ! -s /tmp/hearth-audio-check.wav ]; then
+    echo "WARNING: hdmi_tee → loopback capture test produced no data."
+    echo "         snd-aloop may have failed to load. Run 'lsmod | grep snd_aloop'."
+fi
+rm -f /tmp/hearth-audio-check.wav
+
 # Wyoming openWakeWord service
 sudo tee /etc/systemd/system/wyoming-openwakeword.service > /dev/null << 'EOF'
 [Unit]
@@ -291,7 +329,7 @@ ExecStart=/opt/wyoming/satellite-env/bin/python3 -m wyoming_satellite \\
     --name "Hearth" \\
     --uri tcp://0.0.0.0:10700 \\
     --mic-command "arecord -D plughw:CARD=${MIC_CARD},DEV=0 -r 16000 -c 1 -f S16_LE -t raw" \\
-    --snd-command "aplay -D plughw:CARD=${SPEAKER_CARD},DEV=0 -r 22050 -c 1 -f S16_LE -t raw" \\
+    --snd-command "aplay -D hdmi_tee -r 22050 -c 1 -f S16_LE -t raw" \\
     --wake-uri tcp://127.0.0.1:10400 \\
     --wake-word-name ok_nabu
 Restart=on-failure
