@@ -6,6 +6,7 @@ import 'package:hearth/config/hub_config.dart';
 import 'package:hearth/services/local_api_server.dart';
 import 'package:hearth/services/display_mode_service.dart';
 import 'package:hearth/services/capture_service.dart';
+import 'package:hearth/services/stream_service.dart';
 
 void main() {
   group('LocalApiServer', () {
@@ -505,6 +506,93 @@ void main() {
         expect(indicator.statusCode, 404);
       });
     });
+
+    // --- Stream endpoints ---
+
+    group('stream endpoints', () {
+      late Directory streamTempDir;
+      late StreamService streamService;
+      late List<({String mp4Path, String host, int port})> spawnCalls;
+
+      setUp(() async {
+        streamTempDir =
+            await Directory.systemTemp.createTemp('hearth_api_stream_');
+        spawnCalls = [];
+        streamService = StreamService(
+          capturesDir: streamTempDir,
+          spawnStreamFn: (mp4Path, host, port) async {
+            spawnCalls.add((mp4Path: mp4Path, host: host, port: port));
+            return _TestStreamingProcess();
+          },
+          now: () => DateTime(2026, 4, 24, 14, 30, 30),
+        );
+
+        await configNotifier
+            .update((c) => c.copyWith(captureToolsEnabled: true));
+
+        await server.stop();
+        server = LocalApiServer(
+          displayModeService: displayService,
+          configNotifier: configNotifier,
+          streamService: streamService,
+        );
+        port = await server.start(port: 0);
+      });
+
+      tearDown(() async {
+        await streamService.dispose();
+        await streamTempDir.delete(recursive: true);
+      });
+
+      test('POST /api/stream/start returns 200 and spawns ffmpeg', () async {
+        final r = await post('/api/stream/start',
+            body: jsonEncode({'host': '192.168.1.42', 'port': 9999}),
+            headers: {...authHeaders, 'Content-Type': 'application/json'});
+        expect(r.statusCode, 200);
+        final json = jsonDecode(await readBody(r)) as Map<String, dynamic>;
+        expect(json['filename'],
+            matches(RegExp(r'^hearth-\d{8}-\d{6}\.mp4$')));
+        expect(spawnCalls, hasLength(1));
+        expect(spawnCalls.single.host, '192.168.1.42');
+        expect(spawnCalls.single.port, 9999);
+      });
+
+      test('POST /api/stream/start without host returns 400', () async {
+        final r = await post('/api/stream/start',
+            body: jsonEncode({'port': 9999}),
+            headers: {...authHeaders, 'Content-Type': 'application/json'});
+        expect(r.statusCode, 400);
+      });
+
+      test('POST /api/stream/start with out-of-range port returns 400',
+          () async {
+        final r = await post('/api/stream/start',
+            body: jsonEncode({'host': 'a', 'port': 99999}),
+            headers: {...authHeaders, 'Content-Type': 'application/json'});
+        expect(r.statusCode, 400);
+      });
+
+      test('POST /api/stream/start twice returns 409', () async {
+        await post('/api/stream/start',
+            body: jsonEncode({'host': 'a', 'port': 1234}),
+            headers: {...authHeaders, 'Content-Type': 'application/json'});
+        final r = await post('/api/stream/start',
+            body: jsonEncode({'host': 'a', 'port': 1234}),
+            headers: {...authHeaders, 'Content-Type': 'application/json'});
+        expect(r.statusCode, 409);
+      });
+
+      test('stream routes return 404 when captureToolsEnabled is false',
+          () async {
+        await configNotifier
+            .update((c) => c.copyWith(captureToolsEnabled: false));
+
+        final r = await post('/api/stream/start',
+            body: jsonEncode({'host': 'a', 'port': 1234}),
+            headers: {...authHeaders, 'Content-Type': 'application/json'});
+        expect(r.statusCode, 404);
+      });
+    });
   });
 }
 
@@ -520,6 +608,22 @@ class _TestRecording implements RecordingProcess {
   void kill() {
     if (!_exit.isCompleted) _exit.complete(-9);
   }
+}
+
+class _TestStreamingProcess implements StreamingProcess {
+  final _exit = Completer<int>();
+  @override
+  Future<int> get exitCode => _exit.future;
+  @override
+  void stop() {
+    if (!_exit.isCompleted) _exit.complete(0);
+  }
+  @override
+  void kill() {
+    if (!_exit.isCompleted) _exit.complete(-9);
+  }
+  @override
+  String get stderrTail => '';
 }
 
 /// [HubConfigNotifier] subclass that skips disk persistence so tests can

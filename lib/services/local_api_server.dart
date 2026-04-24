@@ -41,7 +41,6 @@ class LocalApiServer {
   final UpdateService _updateService;
   final AlarmService? _alarmService;
   final CaptureService? _captureService;
-  // ignore: unused_field
   final StreamService? _streamService;
   HttpServer? _server;
 
@@ -150,6 +149,14 @@ class LocalApiServer {
           return;
         }
         await _handleCaptureRequest(request, path);
+        return;
+      } else if (path.startsWith('/api/stream/')) {
+        if (!_configNotifier.current.captureToolsEnabled) {
+          request.response.statusCode = 404;
+          await request.response.close();
+          return;
+        }
+        await _handleStreamRequest(request, path);
         return;
       } else if (path == '/api/session/key' && request.method == 'GET') {
         if (!_checkSession(request)) {
@@ -951,6 +958,77 @@ class LocalApiServer {
     request.response.statusCode = 200;
     request.response.headers.contentType = ContentType.json;
     request.response.write(jsonEncode({'status': 'deleted'}));
+    await request.response.close();
+  }
+
+  // --- Stream endpoints ---
+
+  Future<void> _handleStreamRequest(HttpRequest request, String path) async {
+    final stream = _streamService;
+    if (stream == null) {
+      request.response.statusCode = 503;
+      request.response.headers.contentType = ContentType.json;
+      request.response
+          .write(jsonEncode({'error': 'stream service unavailable'}));
+      await request.response.close();
+      return;
+    }
+
+    if (!_checkAuth(request)) return;
+
+    if (path == '/api/stream/start' && request.method == 'POST') {
+      await _handleStreamStart(request, stream);
+      return;
+    }
+
+    request.response.statusCode = 404;
+    await request.response.close();
+  }
+
+  Future<void> _handleStreamStart(
+      HttpRequest request, StreamService stream) async {
+    final json = await _readJsonBody(request);
+    final host = json['host'] as String?;
+    final port = json['port'] as int?;
+    if (host == null || host.isEmpty) {
+      request.response.statusCode = 400;
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(jsonEncode({'error': 'host required'}));
+      await request.response.close();
+      return;
+    }
+    if (port == null || port < 1 || port > 65535) {
+      request.response.statusCode = 400;
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(jsonEncode({'error': 'port out of range'}));
+      await request.response.close();
+      return;
+    }
+
+    // Cross-exclusion with recording is added in Task 12.
+
+    try {
+      await stream.start(host: host, port: port);
+    } on StateError {
+      request.response.statusCode = 409;
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(jsonEncode({'error': 'stream already active'}));
+      await request.response.close();
+      return;
+    } catch (e) {
+      request.response.statusCode = 500;
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(jsonEncode({'error': 'stream start failed: $e'}));
+      await request.response.close();
+      return;
+    }
+
+    request.response.statusCode = 200;
+    request.response.headers.contentType = ContentType.json;
+    request.response.write(jsonEncode({
+      'filename': stream.activeFilename,
+      'startedAt': stream.activeStartedAt?.toIso8601String(),
+    }));
     await request.response.close();
   }
 
