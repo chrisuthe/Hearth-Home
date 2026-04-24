@@ -381,27 +381,31 @@ Future<StreamingProcess> ffmpegStartStream(
     '48000',
     '-i',
     'hw:Loopback,1,0',
-    // Video processing: bring kmsgrab frames into system memory as yuv420p.
+    // Video processing: bring kmsgrab frames into system memory, convert
+    // to yuv420p, and downscale to 960x720 (4:3, 68% of the native pixel
+    // area). The downscale keeps x264 encode cost well under one Pi 5 core
+    // so the stream stays smooth at 20fps without blocking the muxer.
     '-vf',
-    'hwdownload,format=bgr0,format=yuv420p',
+    'hwdownload,format=bgr0,format=yuv420p,scale=960:720',
     // Constant output framerate — prevents the muxer from re-deriving
     // a higher effective rate from kmsgrab's vsync-locked delivery.
     '-r',
     '20',
     '-fps_mode',
     'cfr',
-    // Video encode: MJPEG. Each frame encodes independently (no inter-frame
-    // prediction) so CPU cost is a fraction of x264 on Pi 5 (which has no
-    // hardware H.264 encoder). Tradeoff is higher bandwidth (~8-15 Mbps at
-    // 1184x864@20fps) — fine on gigabit LAN. `-q:v 5` is near-lossless.
-    //
-    // Note: ffmpeg muxes MJPEG into MPEG-TS as a "private data stream"
-    // rather than a standard stream type. OBS's Media Source usually
-    // demuxes it correctly via its ffmpeg backend.
+    // Video encode. Pi 5 has no hardware H.264 encoder. After the 960x720
+    // downscale + 20fps cap, software x264 at ultrafast stays under ~100%
+    // CPU, leaving headroom for the muxer and the simultaneous MP4 leg.
+    // MJPEG was tried as an alternative but OBS's Media Source couldn't
+    // demux MJPEG-in-MPEG-TS (ffmpeg muxes it as a private data stream).
     '-c:v',
-    'mjpeg',
-    '-q:v',
-    '5',
+    'libx264',
+    '-preset',
+    'ultrafast',
+    '-tune',
+    'zerolatency',
+    '-b:v',
+    '2500k',
     // Audio encode.
     '-c:a',
     'aac',
