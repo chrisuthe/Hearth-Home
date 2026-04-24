@@ -177,7 +177,7 @@ class _WeatherDisplay extends StatelessWidget {
       return const Text(
         '--\u00B0',
         style: TextStyle(
-          fontSize: 48,
+          fontSize: 96,
           fontWeight: FontWeight.w200,
           shadows: _textShadows,
         ),
@@ -197,15 +197,15 @@ class _WeatherDisplay extends StatelessWidget {
             children: [
               Icon(
                 weatherIconForCondition(weather.condition),
-                size: 36,
+                size: 72,
                 color: Colors.white70,
                 shadows: _iconShadows,
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 24),
               Text(
                 '${weather.temperature.round()}\u00B0',
                 style: const TextStyle(
-                  fontSize: 48,
+                  fontSize: 96,
                   fontWeight: FontWeight.w200,
                   shadows: _textShadows,
                 ),
@@ -216,7 +216,7 @@ class _WeatherDisplay extends StatelessWidget {
             Text(
               '${conditionLabel(weather.condition)} \u00B7 H:${weather.dailyForecast.first.high.round()}\u00B0 L:${weather.dailyForecast.first.low.round()}\u00B0',
               style: TextStyle(
-                fontSize: 14,
+                fontSize: 28,
                 color: Colors.white.withValues(alpha: 0.6),
                 shadows: _textShadows,
               ),
