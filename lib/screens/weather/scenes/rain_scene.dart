@@ -62,10 +62,10 @@ class _RainCfg {
 // dark backgrounds). Speeds intentionally slower than the handoff caps
 // so individual streaks are perceptible falling, not a blur of motion.
 _RainCfg _cfgFor(WxIntensity i) => switch (i) {
-  WxIntensity.light => const _RainCfg(count: 60, speed: 0.55, cloudOpacity: 0.75,
+  WxIntensity.light => const _RainCfg(count: 60, speed: 0.40, cloudOpacity: 0.75,
       darken: 0.0, tint: Color(0xFFD4E4FF)),
-  WxIntensity.moderate => const _RainCfg(count: 130, speed: 0.75, cloudOpacity: 0.92,
+  WxIntensity.moderate => const _RainCfg(count: 130, speed: 0.55, cloudOpacity: 0.92,
       darken: 0.12, tint: Color(0xFFC8DCFF)),
-  WxIntensity.heavy => const _RainCfg(count: 200, speed: 1.05, cloudOpacity: 1.0,
+  WxIntensity.heavy => const _RainCfg(count: 200, speed: 0.75, cloudOpacity: 1.0,
       darken: 0.28, tint: Color(0xFFB8D4FF)),
 };
