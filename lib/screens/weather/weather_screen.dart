@@ -33,9 +33,12 @@ class WeatherScreen extends ConsumerWidget {
           if ((d.primaryVelocity ?? 0) > 300) Navigator.of(context).pop();
         },
         child: Stack(children: [
-          // Scene layer behind hero (top 620px, fades into page bg)
-          Positioned(
-            top: 0, left: 0, right: 0, height: 620,
+          // Scene layer fills the whole dialog so rain/snow particles fall
+          // the full screen height. Cards above paint their own translucent
+          // backgrounds for legibility — rain shows through the gaps. The
+          // bottom-120 gradient softens the scene's natural sky-bottom into
+          // the page background under the forecast cards.
+          Positioned.fill(
             child: IgnorePointer(
               child: Stack(children: [
                 Positioned.fill(child: SceneHost(cond: cond, intensity: intensity)),
