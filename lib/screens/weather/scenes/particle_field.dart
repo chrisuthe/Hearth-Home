@@ -142,18 +142,22 @@ class _ParticlePainter extends CustomPainter {
       final cy = p.y * size.height;
       if (kind == ParticleKind.rain) {
         // 3 px wide rect with a transparent→tint gradient down its length.
-        // Wider than the original 1.4 px so streaks read clearly against
-        // dark translucent card backgrounds without cranking opacity to
-        // the point of looking like static.
+        // The shader rect MUST be in the same local coordinate system as the
+        // drawn rect — i.e. (-1.5, 0, 3, p.size) — because shaders sample in
+        // the canvas-local space after translate/rotate. Using world coords
+        // (cx, cy) here used to leave streaks below the top of the screen
+        // entirely outside the gradient's clamp range, rendering them fully
+        // transparent. That was the "rain only at the top" symptom.
+        final localRect = Rect.fromLTWH(-1.5, 0, 3, p.size);
         final paint = Paint()
           ..shader = LinearGradient(
             begin: Alignment.topCenter, end: Alignment.bottomCenter,
             colors: [Colors.transparent, tint.withValues(alpha: p.opacity)],
-          ).createShader(Rect.fromLTWH(cx, cy, 3, p.size));
+          ).createShader(localRect);
         canvas.save();
         canvas.translate(cx, cy);
         canvas.rotate(p.rot);
-        canvas.drawRect(Rect.fromLTWH(-1.5, 0, 3, p.size), paint);
+        canvas.drawRect(localRect, paint);
         canvas.restore();
       } else {
         final paint = Paint()
