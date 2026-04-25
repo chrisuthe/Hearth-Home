@@ -3,6 +3,8 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../utils/logger.dart';
+import '../models/immich_album.dart';
+import '../models/immich_person.dart';
 import '../models/photo_memory.dart';
 
 // dart:io and path_provider are native-only, guarded by kIsWeb at runtime.
@@ -151,6 +153,40 @@ class ImmichService {
     );
     await file.writeAsBytes(response.data as List<int>);
     return filePath;
+  }
+
+  /// Fetch the full album list for the Settings picker.
+  /// Returns albums sorted by `assetCount` descending so users see their
+  /// biggest curated albums first. Auto-imports like "Camera" and
+  /// "Screenshots" are intentionally not filtered out — sorting handles
+  /// discoverability.
+  Future<List<ImmichAlbum>> listAlbums() async {
+    final response = await _dio.get<List<dynamic>>('/api/albums');
+    final raw = (response.data ?? []).cast<Map<String, dynamic>>();
+    final albums = raw.map(ImmichAlbum.fromJson).toList();
+    albums.sort((a, b) => b.assetCount.compareTo(a.assetCount));
+    return albums;
+  }
+
+  /// Fetch the named-people list for the Settings picker.
+  /// Filters out unnamed face clusters (Immich auto-creates these for every
+  /// detected face) and sorts by `numberOfAssets` descending so the most-
+  /// photographed people appear first. `withHidden=false` excludes people
+  /// the user has explicitly hidden in Immich.
+  Future<List<ImmichPerson>> listNamedPeople() async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/api/people',
+      queryParameters: {'withHidden': false, 'size': 500},
+    );
+    final body = response.data ?? const <String, dynamic>{};
+    final people = (body['people'] as List<dynamic>?) ?? const [];
+    final named = people
+        .cast<Map<String, dynamic>>()
+        .map(ImmichPerson.fromJson)
+        .where((p) => p.name.isNotEmpty)
+        .toList();
+    named.sort((a, b) => b.numberOfAssets.compareTo(a.numberOfAssets));
+    return named;
   }
 
   /// Pre-downloads the next N photos to disk so transitions are instant.

@@ -1,4 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hearth/models/immich_album.dart';
+import 'package:hearth/models/immich_person.dart';
 import 'package:hearth/services/immich_service.dart';
 
 void main() {
@@ -64,6 +66,44 @@ void main() {
     test('buildAuthHeaders returns correct x-api-key header', () {
       final headers = ImmichService.buildAuthHeaders('my-api-key');
       expect(headers['x-api-key'], 'my-api-key');
+    });
+  });
+
+  group('ImmichAlbum.fromJson', () {
+    test('parses fields and defaults missing assetCount to 0', () {
+      final a = ImmichAlbum.fromJson({
+        'id': 'abc',
+        'albumName': 'Vacation',
+        'assetCount': 42,
+      });
+      expect(a.id, 'abc');
+      expect(a.name, 'Vacation');
+      expect(a.assetCount, 42);
+
+      final b = ImmichAlbum.fromJson({'id': 'x'});
+      expect(b.name, '(unnamed album)');
+      expect(b.assetCount, 0);
+    });
+  });
+
+  group('ImmichPerson.fromJson', () {
+    test('parses fields, trims name, defaults missing numbers to 0', () {
+      final p = ImmichPerson.fromJson({
+        'id': 'p1',
+        'name': '  Arlo  ',
+        'numberOfAssets': 17,
+        'thumbnailPath': '/upload/thumb/...',
+      });
+      expect(p.id, 'p1');
+      expect(p.name, 'Arlo');
+      expect(p.numberOfAssets, 17);
+      expect(p.thumbnailPath, '/upload/thumb/...');
+    });
+
+    test('defaults numberOfAssets when absent', () {
+      final p = ImmichPerson.fromJson({'id': 'x', 'name': 'Y'});
+      expect(p.numberOfAssets, 0);
+      expect(p.thumbnailPath, isNull);
     });
   });
 }
