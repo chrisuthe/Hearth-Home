@@ -80,7 +80,6 @@ class WeatherScreen extends ConsumerWidget {
                     _forecastRow(context, weather, weather.dailyForecast, use24h),
                   ]),
                 ),
-                _footer(),
               ]),
             ),
           ),
@@ -125,10 +124,4 @@ class WeatherScreen extends ConsumerWidget {
     ]);
   }
 
-  Widget _footer() => const Padding(
-    padding: EdgeInsets.fromLTRB(0, 40, 0, 24),
-    child: Text('HEARTH · WEATHER', textAlign: TextAlign.center, style: TextStyle(
-      fontFamily: 'Inter', fontSize: 17, color: Color(0x59E8EEFC), letterSpacing: 1,
-    )),
-  );
 }
