@@ -137,6 +137,16 @@ class _ParticlePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    // DEBUG: paint a 25%-opacity red overlay covering the painter's entire
+    // canvas. This shows the *actual* paint area unambiguously: if the
+    // overlay reaches the bottom of the screen, the layout is correct and
+    // the rain Y-math is the bug. If the overlay stops at the top region,
+    // the painter genuinely isn't getting a full-screen canvas. Revert
+    // after diagnosing.
+    canvas.drawRect(
+      Rect.fromLTWH(0, 0, size.width, size.height),
+      Paint()..color = const Color(0x40FF0000),
+    );
     for (final p in particles) {
       final cx = p.x * size.width;
       final cy = p.y * size.height;
