@@ -57,15 +57,16 @@ class _RainCfg {
       required this.darken, required this.tint});
 }
 
-// Tuned for visibility on the kiosk. Rain particles are short streaks
-// drawn over the hourly strip and forecast cards (which paint translucent
-// dark backgrounds), so we need higher counts and brighter opacity than
-// the original handoff caps to read clearly.
+// DEBUG: tint is bright red so we can definitively see whether rain
+// streaks reach the full screen height. If red appears top-to-bottom,
+// the layout is correct and the prior bluish tint was just hard to read
+// against translucent dark cards. If red is still confined to the top,
+// there's a remaining layout bug. Revert the tint after diagnosing.
 _RainCfg _cfgFor(WxIntensity i) => switch (i) {
   WxIntensity.light => const _RainCfg(count: 60, speed: 0.85, cloudOpacity: 0.75,
-      darken: 0.0, tint: Color(0xFFD4E4FF)),
+      darken: 0.0, tint: Color(0xFFFF0000)),
   WxIntensity.moderate => const _RainCfg(count: 130, speed: 1.1, cloudOpacity: 0.92,
-      darken: 0.12, tint: Color(0xFFC8DCFF)),
+      darken: 0.12, tint: Color(0xFFFF0000)),
   WxIntensity.heavy => const _RainCfg(count: 200, speed: 1.5, cloudOpacity: 1.0,
-      darken: 0.28, tint: Color(0xFFB8D4FF)),
+      darken: 0.28, tint: Color(0xFFFF0000)),
 };
