@@ -137,29 +137,24 @@ class _ParticlePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // DEBUG: paint a 25%-opacity red overlay covering the painter's entire
-    // canvas. This shows the *actual* paint area unambiguously: if the
-    // overlay reaches the bottom of the screen, the layout is correct and
-    // the rain Y-math is the bug. If the overlay stops at the top region,
-    // the painter genuinely isn't getting a full-screen canvas. Revert
-    // after diagnosing.
-    canvas.drawRect(
-      Rect.fromLTWH(0, 0, size.width, size.height),
-      Paint()..color = const Color(0x40FF0000),
-    );
     for (final p in particles) {
       final cx = p.x * size.width;
       final cy = p.y * size.height;
       if (kind == ParticleKind.rain) {
-        // DEBUG: draw a fat solid yellow dot at each particle's position
-        // instead of the gradient streak. This isolates "are particles
-        // distributed across the canvas" from "is the streak rendering
-        // visibly". Revert after diagnosing.
-        canvas.drawCircle(
-          Offset(cx, cy),
-          12,
-          Paint()..color = const Color(0xFFFFFF00),
-        );
+        // 3 px wide rect with a transparent→tint gradient down its length.
+        // Wider than the original 1.4 px so streaks read clearly against
+        // dark translucent card backgrounds without cranking opacity to
+        // the point of looking like static.
+        final paint = Paint()
+          ..shader = LinearGradient(
+            begin: Alignment.topCenter, end: Alignment.bottomCenter,
+            colors: [Colors.transparent, tint.withValues(alpha: p.opacity)],
+          ).createShader(Rect.fromLTWH(cx, cy, 3, p.size));
+        canvas.save();
+        canvas.translate(cx, cy);
+        canvas.rotate(p.rot);
+        canvas.drawRect(Rect.fromLTWH(-1.5, 0, 3, p.size), paint);
+        canvas.restore();
       } else {
         final paint = Paint()
           ..color = Colors.white.withValues(alpha: p.opacity)
