@@ -5,7 +5,6 @@ import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../utils/logger.dart';
-import 'capture_service.dart' show defaultCapturesDir;
 
 /// Lifecycle phases of a single streaming session.
 enum StreamPhase {
@@ -29,7 +28,6 @@ enum StreamPhase {
 /// Immutable snapshot of the streaming state, consumed by the UI status poll.
 class StreamState {
   final StreamPhase phase;
-  final String? filename;
   final DateTime? startedAt;
   final String? targetHost;
   final int? targetPort;
@@ -37,7 +35,6 @@ class StreamState {
 
   const StreamState({
     this.phase = StreamPhase.idle,
-    this.filename,
     this.startedAt,
     this.targetHost,
     this.targetPort,
@@ -46,7 +43,6 @@ class StreamState {
 
   StreamState copyWith({
     StreamPhase? phase,
-    String? filename,
     DateTime? startedAt,
     String? targetHost,
     int? targetPort,
@@ -54,7 +50,6 @@ class StreamState {
   }) {
     return StreamState(
       phase: phase ?? this.phase,
-      filename: filename ?? this.filename,
       startedAt: startedAt ?? this.startedAt,
       targetHost: targetHost ?? this.targetHost,
       targetPort: targetPort ?? this.targetPort,
@@ -67,7 +62,6 @@ class StreamState {
       identical(this, other) ||
       other is StreamState &&
           phase == other.phase &&
-          filename == other.filename &&
           startedAt == other.startedAt &&
           targetHost == other.targetHost &&
           targetPort == other.targetPort &&
@@ -75,21 +69,17 @@ class StreamState {
 
   @override
   int get hashCode => Object.hash(
-      phase, filename, startedAt, targetHost, targetPort, errorMessage);
+      phase, startedAt, targetHost, targetPort, errorMessage);
 }
 
 /// Metadata returned by [StreamService.stop] describing the finalized
 /// local MP4 of the session that just ended.
 class StreamSessionMeta {
-  final String filename;
   final Duration duration;
-  final int sizeBytes;
   final DateTime startedAt;
 
   const StreamSessionMeta({
-    required this.filename,
     required this.duration,
-    required this.sizeBytes,
     required this.startedAt,
   });
 }
@@ -111,10 +101,10 @@ abstract class StreamingProcess {
   String get stderrTail => '';
 }
 
-/// Spawner: given the destination MP4 path and SRT target, return a handle
-/// to the running process. Injected so tests can replace it with a fake.
+/// Spawner: given the SRT target, return a handle to the running process.
+/// Injected so tests can replace it with a fake.
 typedef StreamSpawner = Future<StreamingProcess> Function(
-    String mp4Path, String host, int port);
+    String host, int port);
 
 /// Owns the single-active-stream invariant, filename policy, state
 /// machine, and ffmpeg subprocess lifecycle for the "Stream to OBS"
@@ -124,14 +114,10 @@ typedef StreamSpawner = Future<StreamingProcess> Function(
 /// layer (see `LocalApiServer`) because kmsgrab cannot be attached to
 /// two ffmpegs simultaneously.
 class StreamService {
-  static final _nameRe = RegExp(r'^hearth-\d{8}-\d{6}\.mp4$');
-
-  final Directory _capturesDir;
   final StreamSpawner _spawnStreamFn;
   final DateTime Function() _now;
 
   StreamingProcess? _active;
-  String? _activeFilename;
   DateTime? _activeStartedAt;
   String? _activeHost;
   int? _activePort;
@@ -141,11 +127,9 @@ class StreamService {
   StreamState _state = const StreamState();
 
   StreamService({
-    required Directory capturesDir,
     required StreamSpawner spawnStreamFn,
     DateTime Function()? now,
-  })  : _capturesDir = capturesDir,
-        _spawnStreamFn = spawnStreamFn,
+  })  : _spawnStreamFn = spawnStreamFn,
         _now = now ?? DateTime.now;
 
   Stream<StreamState> get stateStream => _stateController.stream;
@@ -155,44 +139,25 @@ class StreamService {
       _state.phase == StreamPhase.active ||
       _state.phase == StreamPhase.stopping;
 
-  String? get activeFilename => _activeFilename;
   DateTime? get activeStartedAt => _activeStartedAt;
   String? get activeHost => _activeHost;
   int? get activePort => _activePort;
 
-  static bool isValidStreamFilename(String name) => _nameRe.hasMatch(name);
-
-  static String generateFilename({DateTime? now}) {
-    final t = now ?? DateTime.now();
-    String two(int n) => n.toString().padLeft(2, '0');
-    final date = '${t.year}${two(t.month)}${two(t.day)}';
-    final time = '${two(t.hour)}${two(t.minute)}${two(t.second)}';
-    return 'hearth-$date-$time.mp4';
-  }
-
   /// Start a new streaming session. Throws [StateError] if a session is
-  /// already active. Reserves the MP4 file on disk before spawning so the
-  /// capture gallery can list it immediately.
+  /// already active. The stream is SRT-only — no local MP4 backup is
+  /// produced. Use the separate `CaptureService.startRecording` flow if
+  /// you want a recording.
   Future<void> start({required String host, required int port}) async {
     if (_active != null) {
       throw StateError('A stream is already active.');
     }
 
-    final filename = generateFilename(now: _now());
-    final path = '${_capturesDir.path}/$filename';
-
-    // Reserve the file on disk so /api/capture/list picks it up even
-    // before ffmpeg has written the first byte.
-    await File(path).writeAsBytes(const []);
-
-    _activeFilename = filename;
     _activeStartedAt = _now();
     _activeHost = host;
     _activePort = port;
 
     _setState(_state.copyWith(
       phase: StreamPhase.starting,
-      filename: filename,
       startedAt: _activeStartedAt,
       targetHost: host,
       targetPort: port,
@@ -200,16 +165,8 @@ class StreamService {
     ));
 
     try {
-      _active = await _spawnStreamFn(path, host, port);
+      _active = await _spawnStreamFn(host, port);
     } catch (e) {
-      // Clean up stub + in-memory state; propagate so the caller sees
-      // the failure.
-      try {
-        await File(path).delete();
-      } catch (_) {
-        // best effort
-      }
-      _activeFilename = null;
       _activeStartedAt = null;
       _activeHost = null;
       _activePort = null;
@@ -246,16 +203,13 @@ class StreamService {
   static const Duration _stopTimeout = Duration(seconds: 10);
 
   /// Stop the active stream. Sends SIGINT, waits up to [_stopTimeout] for
-  /// ffmpeg to finalize the MP4; if it times out, escalates to SIGKILL
-  /// and the MP4 may be truncated (still kept — same convention as the
-  /// recording service).
+  /// ffmpeg to exit cleanly; if it times out, escalates to SIGKILL.
   ///
   /// Throws [StateError] if no stream is active.
   Future<StreamSessionMeta> stop() async {
     final active = _active;
-    final filename = _activeFilename;
     final startedAt = _activeStartedAt;
-    if (active == null || filename == null || startedAt == null) {
+    if (active == null || startedAt == null) {
       throw StateError('No active stream to stop.');
     }
 
@@ -273,8 +227,6 @@ class StreamService {
 
     _cancelLivenessTimer();
 
-    final path = '${_capturesDir.path}/$filename';
-    final size = await File(path).length();
     final duration = _now().difference(startedAt);
 
     // _onExitedCleanly handler (registered in start()) may have already
@@ -284,9 +236,7 @@ class StreamService {
     }
 
     return StreamSessionMeta(
-      filename: filename,
       duration: duration,
-      sizeBytes: size,
       startedAt: startedAt,
     );
   }
@@ -295,7 +245,6 @@ class StreamService {
     _active = null;
     _cancelLivenessTimer();
     _setState(const StreamState());
-    _activeFilename = null;
     _activeStartedAt = null;
     _activeHost = null;
     _activePort = null;
@@ -343,19 +292,11 @@ class StreamService {
 
 /// Production Pi streaming pipeline.
 ///
-/// Mirrors [CaptureService]'s `gstStartRecording` but adds an ALSA audio
-/// input (the `hdmi_tee` → `Loopback` route provisioned by setup-pi.sh)
-/// and uses `-f tee` to emit both an MP4 file and an SRT output.
-///
-/// `onfail=ignore` on the SRT leg means an OBS disconnect doesn't tear
-/// down the MP4 leg — the local recording keeps running until stop()
-/// sends SIGINT.
-Future<StreamingProcess> ffmpegStartStream(
-    String mp4Path, String host, int port) async {
-  final tee = '[f=mp4]$mp4Path|'
-      '[f=mpegts:onfail=ignore]'
-      'srt://$host:$port?mode=caller&pkt_size=1316&transtype=live';
-
+/// Captures the DRM plane via kmsgrab + system audio via the ALSA
+/// loopback (provisioned by setup-pi.sh's `hdmi_tee` route) and emits a
+/// single MPEG-TS over SRT. No local recording — use the separate
+/// `CaptureService.startRecording` flow if you want an MP4.
+Future<StreamingProcess> ffmpegStartStream(String host, int port) async {
   final proc = await Process.start('sudo', [
     '-n',
     'ffmpeg',
@@ -395,11 +336,11 @@ Future<StreamingProcess> ffmpegStartStream(
     '20',
     '-fps_mode',
     'cfr',
-    // Video encode. Pi 5 has no hardware H.264 encoder. After the 960x720
-    // downscale + 20fps cap, software x264 at ultrafast stays under ~100%
-    // CPU, leaving headroom for the muxer and the simultaneous MP4 leg.
-    // MJPEG was tried as an alternative but OBS's Media Source couldn't
-    // demux MJPEG-in-MPEG-TS (ffmpeg muxes it as a private data stream).
+    // Video encode. Pi 5 has no hardware H.264 encoder. After the
+    // ~986x720 downscale + 20fps cap, software x264 at ultrafast stays
+    // under ~100% CPU. MJPEG was tried as an alternative but OBS's
+    // Media Source couldn't demux MJPEG-in-MPEG-TS (ffmpeg muxes it
+    // as a private data stream).
     '-c:v',
     'libx264',
     '-preset',
@@ -413,14 +354,17 @@ Future<StreamingProcess> ffmpegStartStream(
     'aac',
     '-b:a',
     '128k',
-    // Tee output.
+    // Single MPEG-TS output to OBS over SRT. No local recording leg —
+    // the simultaneous MP4 was previously costing measurable CPU and
+    // disk-write contention without enough quality benefit for the
+    // primary live-demo workflow.
     '-map',
     '0:v',
     '-map',
     '1:a',
     '-f',
-    'tee',
-    tee,
+    'mpegts',
+    'srt://$host:$port?mode=caller&pkt_size=1316&transtype=live',
   ]);
 
   // Drain stdout so the kernel buffer doesn't back up ffmpeg on long
@@ -473,13 +417,6 @@ final streamServiceProvider = Provider<StreamService>((ref) {
 
 class StreamServiceBootstrap {
   static Future<StreamService> build() async {
-    final dir = await defaultCapturesDir();
-    if (!await dir.exists()) {
-      await dir.create(recursive: true);
-    }
-    return StreamService(
-      capturesDir: dir,
-      spawnStreamFn: ffmpegStartStream,
-    );
+    return StreamService(spawnStreamFn: ffmpegStartStream);
   }
 }

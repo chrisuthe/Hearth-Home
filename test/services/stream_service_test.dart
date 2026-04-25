@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hearth/services/stream_service.dart';
@@ -34,7 +33,6 @@ void main() {
     test('starts in idle phase with null fields', () {
       const s = StreamState();
       expect(s.phase, StreamPhase.idle);
-      expect(s.filename, isNull);
       expect(s.startedAt, isNull);
       expect(s.targetHost, isNull);
       expect(s.targetPort, isNull);
@@ -58,17 +56,14 @@ void main() {
   });
 
   group('StreamService.start', () {
-    late Directory tempDir;
-    late List<({String mp4Path, String host, int port})> spawnCalls;
+    late List<({String host, int port})> spawnCalls;
     late StreamService service;
 
-    setUp(() async {
-      tempDir = await Directory.systemTemp.createTemp('hearth_stream_test_');
+    setUp(() {
       spawnCalls = [];
       service = StreamService(
-        capturesDir: tempDir,
-        spawnStreamFn: (mp4Path, host, port) async {
-          spawnCalls.add((mp4Path: mp4Path, host: host, port: port));
+        spawnStreamFn: (host, port) async {
+          spawnCalls.add((host: host, port: port));
           return FakeStreamingProcess();
         },
         now: () => DateTime(2026, 4, 24, 14, 30, 22),
@@ -77,26 +72,14 @@ void main() {
 
     tearDown(() async {
       await service.dispose();
-      await tempDir.delete(recursive: true);
     });
 
-    test('start() invokes spawner with host, port, and timestamped mp4 path',
-        () async {
+    test('start() invokes spawner with host and port', () async {
       await service.start(host: '192.168.1.42', port: 9999);
 
       expect(spawnCalls, hasLength(1));
       expect(spawnCalls.single.host, '192.168.1.42');
       expect(spawnCalls.single.port, 9999);
-      expect(spawnCalls.single.mp4Path,
-          '${tempDir.path}/hearth-20260424-143022.mp4');
-    });
-
-    test('start() reserves the mp4 stub file on disk before returning',
-        () async {
-      await service.start(host: '10.0.0.5', port: 9000);
-      expect(
-          await File('${tempDir.path}/hearth-20260424-143022.mp4').exists(),
-          true);
     });
 
     test(
@@ -112,12 +95,10 @@ void main() {
       expect(service.currentState.phase, StreamPhase.active);
     });
 
-    test('stop() sends SIGINT and returns the finalized file metadata',
-        () async {
+    test('stop() sends SIGINT and returns the session duration', () async {
       late FakeStreamingProcess proc;
       service = StreamService(
-        capturesDir: tempDir,
-        spawnStreamFn: (path, host, port) async {
+        spawnStreamFn: (host, port) async {
           proc = FakeStreamingProcess();
           return proc;
         },
@@ -125,15 +106,11 @@ void main() {
       );
 
       await service.start(host: 'a', port: 1);
-      // Write some bytes into the stub so we have a non-zero size.
-      await File('${tempDir.path}/hearth-20260424-143025.mp4')
-          .writeAsBytes(List.filled(1024, 0));
-
       final meta = await service.stop();
 
       expect(proc.stopped, true);
-      expect(meta.filename, 'hearth-20260424-143025.mp4');
-      expect(meta.sizeBytes, 1024);
+      expect(meta.duration, isA<Duration>());
+      expect(meta.startedAt, DateTime(2026, 4, 24, 14, 30, 25));
       expect(service.currentState.phase, StreamPhase.idle);
     });
 
@@ -155,8 +132,7 @@ void main() {
       // Override spawner so we get a handle to force early exit.
       late FakeStreamingProcess proc;
       service = StreamService(
-        capturesDir: tempDir,
-        spawnStreamFn: (path, host, port) async {
+        spawnStreamFn: (host, port) async {
           proc = FakeStreamingProcess();
           return proc;
         },
@@ -175,12 +151,11 @@ void main() {
     });
 
     test(
-        'spawner throwing cleans up stub file and state, next start() succeeds',
+        'spawner throwing leaves the service idle so the next start() succeeds',
         () async {
       var shouldThrow = true;
       service = StreamService(
-        capturesDir: tempDir,
-        spawnStreamFn: (path, host, port) async {
+        spawnStreamFn: (host, port) async {
           if (shouldThrow) {
             throw Exception('boom');
           }
@@ -197,19 +172,13 @@ void main() {
       // Error state is surfaced.
       expect(service.currentState.phase, StreamPhase.error);
       expect(service.currentState.errorMessage, contains('Failed to spawn'));
-
-      // Stub file was cleaned up.
-      expect(
-          await File('${tempDir.path}/hearth-20260424-143030.mp4').exists(),
-          false);
-      expect(service.activeFilename, isNull);
       expect(service.activeStartedAt, isNull);
 
       // Subsequent start() succeeds.
       shouldThrow = false;
       await service.start(host: 'h2', port: 2);
       expect(service.currentState.phase, StreamPhase.starting);
-      expect(service.activeFilename, 'hearth-20260424-143030.mp4');
+      expect(service.activeStartedAt, isNotNull);
     });
   });
 }

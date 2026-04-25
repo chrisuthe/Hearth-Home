@@ -512,7 +512,7 @@ void main() {
     group('stream endpoints', () {
       late Directory streamTempDir;
       late StreamService streamService;
-      late List<({String mp4Path, String host, int port})> spawnCalls;
+      late List<({String host, int port})> spawnCalls;
       late Directory captureTempDir;
       late CaptureService captureService;
 
@@ -521,9 +521,8 @@ void main() {
             await Directory.systemTemp.createTemp('hearth_api_stream_');
         spawnCalls = [];
         streamService = StreamService(
-          capturesDir: streamTempDir,
-          spawnStreamFn: (mp4Path, host, port) async {
-            spawnCalls.add((mp4Path: mp4Path, host: host, port: port));
+          spawnStreamFn: (host, port) async {
+            spawnCalls.add((host: host, port: port));
             return _TestStreamingProcess();
           },
           now: () => DateTime(2026, 4, 24, 14, 30, 30),
@@ -566,8 +565,7 @@ void main() {
             headers: {...authHeaders, 'Content-Type': 'application/json'});
         expect(r.statusCode, 200);
         final json = jsonDecode(await readBody(r)) as Map<String, dynamic>;
-        expect(json['filename'],
-            matches(RegExp(r'^hearth-\d{8}-\d{6}\.mp4$')));
+        expect(json, containsPair('startedAt', isA<String>()));
         expect(spawnCalls, hasLength(1));
         expect(spawnCalls.single.host, '192.168.1.42');
         expect(spawnCalls.single.port, 9999);
@@ -609,7 +607,7 @@ void main() {
         expect(r.statusCode, 404);
       });
 
-      test('POST /api/stream/stop returns 200 with metadata', () async {
+      test('POST /api/stream/stop returns 200 with duration', () async {
         await post('/api/stream/start',
             body: jsonEncode({'host': 'a', 'port': 1234}),
             headers: {...authHeaders, 'Content-Type': 'application/json'});
@@ -618,10 +616,7 @@ void main() {
             body: '', headers: authHeaders);
         expect(r.statusCode, 200);
         final json = jsonDecode(await readBody(r)) as Map<String, dynamic>;
-        expect(json['filename'],
-            matches(RegExp(r'^hearth-\d{8}-\d{6}\.mp4$')));
         expect(json, containsPair('durationSeconds', isA<num>()));
-        expect(json, containsPair('sizeBytes', isA<int>()));
       });
 
       test('POST /api/stream/stop with no active stream returns 400', () async {

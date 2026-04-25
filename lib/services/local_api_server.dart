@@ -1000,7 +1000,6 @@ class LocalApiServer {
       request.response.headers.contentType = ContentType.json;
       request.response.write(jsonEncode({
         'phase': s.phase.name,
-        'filename': s.filename,
         'startedAt': s.startedAt?.toIso8601String(),
         'targetHost': s.targetHost,
         'targetPort': s.targetPort,
@@ -1066,7 +1065,6 @@ class LocalApiServer {
     request.response.statusCode = 200;
     request.response.headers.contentType = ContentType.json;
     request.response.write(jsonEncode({
-      'filename': stream.activeFilename,
       'startedAt': stream.activeStartedAt?.toIso8601String(),
     }));
     await request.response.close();
@@ -1079,9 +1077,7 @@ class LocalApiServer {
       request.response.statusCode = 200;
       request.response.headers.contentType = ContentType.json;
       request.response.write(jsonEncode({
-        'filename': meta.filename,
         'durationSeconds': meta.duration.inSeconds,
-        'sizeBytes': meta.sizeBytes,
       }));
       await request.response.close();
     } on StateError {
