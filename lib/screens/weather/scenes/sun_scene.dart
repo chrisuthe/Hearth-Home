@@ -31,7 +31,7 @@ class _SunSceneState extends State<SunScene> with SingleTickerProviderStateMixin
     return LayoutBuilder(builder: (ctx, cons) {
       final cx = cons.maxWidth * 0.80;
       final cy = cons.maxHeight * 0.29;
-      return Stack(children: [
+      return Stack(fit: StackFit.expand, children: [
         SkyGradient(pal.sky),
         // Halo
         Positioned(

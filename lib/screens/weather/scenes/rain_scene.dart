@@ -14,7 +14,14 @@ class RainScene extends StatelessWidget {
     final pal = palettes[WxCond.rain]!;
     final cfg = _cfgFor(intensity);
     return LayoutBuilder(builder: (ctx, cons) {
-      return Stack(children: [
+      // StackFit.expand forces the Stack to fill the LayoutBuilder's
+      // constraints regardless of children. All children are Positioned
+      // (SkyGradient/DriftCloud/ColoredBox/ParticleField wrap themselves
+      // in Positioned), and a Stack with only positioned children under
+      // loose constraints from above (AnimatedSwitcher's internal Stack
+      // is StackFit.loose) would otherwise collapse vertically — exactly
+      // why rain was visible only in the top ~100 px.
+      return Stack(fit: StackFit.expand, children: [
         SkyGradient(pal.sky),
         if (cfg.darken > 0)
           Positioned.fill(child: ColoredBox(color: Color.fromRGBO(15, 20, 36, cfg.darken))),

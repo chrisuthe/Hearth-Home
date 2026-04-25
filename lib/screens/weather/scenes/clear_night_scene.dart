@@ -49,7 +49,7 @@ class _ClearNightSceneState extends State<ClearNightScene> with SingleTickerProv
     return LayoutBuilder(builder: (ctx, cons) {
       final mcx = cons.maxWidth * 0.79;
       final mcy = cons.maxHeight * 0.28;
-      return Stack(children: [
+      return Stack(fit: StackFit.expand, children: [
         SkyGradient(pal.sky),
         AnimatedBuilder(animation: _ctrl, builder: (_, __) {
           return CustomPaint(

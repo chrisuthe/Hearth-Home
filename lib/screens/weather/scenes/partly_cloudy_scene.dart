@@ -11,7 +11,7 @@ class PartlyCloudyScene extends StatelessWidget {
   Widget build(BuildContext context) {
     final pal = palettes[WxCond.partlyCloudy]!;
     return LayoutBuilder(builder: (ctx, cons) {
-      return Stack(children: [
+      return Stack(fit: StackFit.expand, children: [
         SkyGradient(pal.sky),
         _SunGlow(pal: pal, maxWidth: cons.maxWidth, maxHeight: cons.maxHeight),
         DriftCloud(topPct: 0.10, scale: 1.2, opacity: 0.95, durationSeconds: 120,
@@ -37,7 +37,7 @@ class _SunGlow extends StatelessWidget {
   Widget build(BuildContext context) {
     final cx = maxWidth * 0.75;
     final cy = maxHeight * 0.26;
-    return Stack(children: [
+    return Stack(fit: StackFit.expand, children: [
       Positioned(
         left: cx - 260, top: cy - 260,
         child: Container(width: 520, height: 520, decoration: const BoxDecoration(

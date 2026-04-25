@@ -29,11 +29,11 @@ class _FogSceneState extends State<FogScene> with SingleTickerProviderStateMixin
   Widget build(BuildContext context) {
     final pal = palettes[WxCond.fog]!;
     return LayoutBuilder(builder: (ctx, cons) {
-      return Stack(children: [
+      return Stack(fit: StackFit.expand, children: [
         SkyGradient(pal.sky),
         AnimatedBuilder(animation: _ctrl, builder: (_, __) {
           final t = _ctrl.value * 2 - 1; // -1..1 for ease-in-out feel
-          return Stack(children: [
+          return Stack(fit: StackFit.expand, children: [
             for (int i = 0; i < 5; i++) _fogBand(i, t, cons.maxWidth, cons.maxHeight),
           ]);
         }),

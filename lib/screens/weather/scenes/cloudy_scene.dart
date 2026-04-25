@@ -11,7 +11,7 @@ class CloudyScene extends StatelessWidget {
   Widget build(BuildContext context) {
     final pal = palettes[WxCond.cloudy]!;
     return LayoutBuilder(builder: (ctx, cons) {
-      return Stack(children: [
+      return Stack(fit: StackFit.expand, children: [
         SkyGradient(pal.sky),
         DriftCloud(topPct: 0.05, scale: 1.5, opacity: 0.95, durationSeconds: 180,
             top: const Color(0xFFF0F2F7), bottom: const Color(0xFFC2C8D6),

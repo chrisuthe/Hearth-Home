@@ -14,7 +14,7 @@ class SnowScene extends StatelessWidget {
     final pal = palettes[WxCond.snow]!;
     final cfg = _cfgFor(intensity);
     return LayoutBuilder(builder: (ctx, cons) {
-      return Stack(children: [
+      return Stack(fit: StackFit.expand, children: [
         SkyGradient(pal.sky),
         DriftCloud(topPct: 0.00, scale: 1.5, opacity: cfg.cloudOpacity, durationSeconds: 180,
             top: const Color(0xFFD8DDEA), bottom: const Color(0xFF939CB4),

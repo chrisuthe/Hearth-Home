@@ -54,7 +54,7 @@ class _ThunderSceneState extends State<ThunderScene> {
   Widget build(BuildContext context) {
     final pal = palettes[WxCond.thunder]!;
     return LayoutBuilder(builder: (ctx, cons) {
-      return Stack(children: [
+      return Stack(fit: StackFit.expand, children: [
         SkyGradient(pal.sky),
         DriftCloud(topPct: -0.05, scale: 1.8, opacity: 0.95, durationSeconds: 140,
             top: const Color(0xFF4A5272), bottom: const Color(0xFF1E2238),
