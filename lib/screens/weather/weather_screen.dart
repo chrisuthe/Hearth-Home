@@ -87,8 +87,13 @@ class WeatherScreen extends ConsumerWidget {
 
   Widget _sectionLabel(String t) => Text(t, style: const TextStyle(
     fontFamily: 'Inter', fontSize: 17, fontWeight: FontWeight.w700,
-    letterSpacing: 1.5, color: Color(0xCCE8EEFC),
-    shadows: [Shadow(color: Color(0xA6000000), blurRadius: 6, offset: Offset(0, 1))],
+    letterSpacing: 1.5, color: Colors.white,
+    // Heavy multi-layer shadow acts as an outline so the label stays
+    // readable when it lands over the bright top of any scene.
+    shadows: [
+      Shadow(color: Color(0xCC000000), blurRadius: 4),
+      Shadow(color: Color(0x99000000), blurRadius: 12, offset: Offset(0, 2)),
+    ],
   ));
 
   Widget _forecastRow(List<DailyForecast> days) {

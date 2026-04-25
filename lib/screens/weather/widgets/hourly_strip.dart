@@ -30,7 +30,7 @@ class HourlyStrip extends StatelessWidget {
           borderRadius: const BorderRadius.all(Radius.circular(22)),
           border: Border.all(color: Colors.white.withValues(alpha: 0.14), width: 1),
         ),
-        padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 4),
+        padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
         child: Row(
           mainAxisSize: MainAxisSize.max,
           children: [
