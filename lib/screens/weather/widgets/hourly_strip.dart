@@ -4,8 +4,10 @@ import '../icons/wx_icon.dart';
 import '../palette.dart';
 import '../wx_cond.dart';
 
-/// Glass pill: 24 equal-width columns, each with hour label, icon, temp.
-/// Night cells get a darker tinted background + moon dot.
+/// Glass pill of hour cells, scrollable horizontally. HA returns ~168 hours
+/// (7 days); this strip shows whatever it gets, fixed-width per cell, so
+/// the user can drag to peek into tomorrow and beyond. Night cells get a
+/// darker tinted background + moon dot.
 class HourlyStrip extends StatelessWidget {
   final List<HourlyForecast> hours;
   final ScenePalette palette;
@@ -17,9 +19,18 @@ class HourlyStrip extends StatelessWidget {
     this.use24h = false,
   });
 
+  // Roughly fits ~13 cells in the visible strip on a 1184-wide kiosk; wider
+  // than the previous 24-equal-width layout so cells breathe at the new
+  // larger label format ("12 PM" vs "12P").
+  static const double _cellWidth = 76;
+  // Cell content is label + 8 + icon (32) + 8 + temp + cell padding +
+  // border. Real measured height in the test renderer is ~144 due to text
+  // line metrics being larger than nominal fontSize. 148 leaves a small
+  // breathing room without looking cramped.
+  static const double _stripHeight = 148;
+
   @override
   Widget build(BuildContext context) {
-    final items = hours.take(24).toList();
     return RepaintBoundary(
       child: Container(
         decoration: BoxDecoration(
@@ -31,11 +42,16 @@ class HourlyStrip extends StatelessWidget {
           border: Border.all(color: Colors.white.withValues(alpha: 0.14), width: 1),
         ),
         padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
-        child: Row(
-          mainAxisSize: MainAxisSize.max,
-          children: [
-            for (final h in items) Expanded(child: _HourCell(h: h, use24h: use24h)),
-          ],
+        child: SizedBox(
+          height: _stripHeight,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            itemCount: hours.length,
+            itemBuilder: (_, i) => SizedBox(
+              width: _cellWidth,
+              child: _HourCell(h: hours[i], use24h: use24h),
+            ),
+          ),
         ),
       ),
     );
@@ -50,10 +66,10 @@ class _HourCell extends StatelessWidget {
   String get _label {
     final hr = h.time.hour;
     if (use24h) return '${hr.toString().padLeft(2, '0')}:00';
-    if (hr == 0) return '12a';
-    if (hr < 12) return '${hr}a';
-    if (hr == 12) return '12p';
-    return '${hr - 12}p';
+    if (hr == 0) return '12 AM';
+    if (hr < 12) return '$hr AM';
+    if (hr == 12) return '12 PM';
+    return '${hr - 12} PM';
   }
 
   @override
@@ -73,9 +89,9 @@ class _HourCell extends StatelessWidget {
             ? Border.all(color: const Color(0x247882C8), width: 1)
             : Border.all(color: Colors.transparent, width: 1),
       ),
-      child: Stack(children: [
+      child: Stack(alignment: Alignment.topCenter, children: [
         Column(mainAxisSize: MainAxisSize.min, children: [
-          Text(_label.toUpperCase(), style: TextStyle(
+          Text(_label, style: TextStyle(
             fontFamily: 'Inter',
             fontSize: 17, fontWeight: FontWeight.w600, letterSpacing: 0.4,
             color: night ? const Color(0xFFC7CCE8) : Colors.white.withValues(alpha: 0.85),

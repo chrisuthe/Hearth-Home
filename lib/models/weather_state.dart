@@ -17,8 +17,15 @@ class DailyForecast {
   final double high;
   final double low;
   final String condition;
-  final double? precipitation; // probability %, 0–100
+  /// Chance of precipitation, 0–100. Despite the field name (kept for
+  /// backward compat with existing call sites), this is a *probability*,
+  /// not an amount. Use [precipitationAmount] for the amount.
+  final double? precipitation;
+  /// Predicted total precipitation amount for the day, in inches.
+  final double? precipitationAmount;
   final double? windSpeed;
+  /// Average humidity for the day, 0–100.
+  final double? humidity;
 
   const DailyForecast({
     required this.date,
@@ -26,7 +33,9 @@ class DailyForecast {
     required this.low,
     required this.condition,
     this.precipitation,
+    this.precipitationAmount,
     this.windSpeed,
+    this.humidity,
   });
 }
 
@@ -100,7 +109,9 @@ class WeatherState {
         high: (map['temperature'] as num).toDouble(),
         low: (map['templow'] as num).toDouble(),
         precipitation: (map['precipitation_probability'] as num?)?.toDouble(),
+        precipitationAmount: (map['precipitation'] as num?)?.toDouble(),
         windSpeed: (map['wind_speed'] as num?)?.toDouble(),
+        humidity: (map['humidity'] as num?)?.toDouble(),
       );
     }).toList();
   }

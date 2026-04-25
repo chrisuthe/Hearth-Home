@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../config/hub_config.dart';
 import '../../models/weather_state.dart';
 import '../../utils/weather_utils.dart';
+import 'day_detail_screen.dart';
 import 'scenes/scene_host.dart';
 import 'widgets/forecast_card.dart';
 import 'widgets/hero_block.dart';
@@ -76,7 +77,7 @@ class WeatherScreen extends ConsumerWidget {
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     _sectionLabel('8-DAY FORECAST'),
                     const SizedBox(height: 12),
-                    _forecastRow(weather.dailyForecast),
+                    _forecastRow(context, weather, weather.dailyForecast, use24h),
                   ]),
                 ),
                 _footer(),
@@ -99,7 +100,8 @@ class WeatherScreen extends ConsumerWidget {
     ],
   ));
 
-  Widget _forecastRow(List<DailyForecast> days) {
+  Widget _forecastRow(
+      BuildContext context, WeatherState weather, List<DailyForecast> days, bool use24h) {
     const dayCodes = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
     final today = DateTime.now();
     final take = days.take(8).toList();
@@ -110,6 +112,13 @@ class WeatherScreen extends ConsumerWidget {
           dayCode: i == 0 ? 'TODAY' : dayCodes[take[i].date.weekday - 1],
           isToday: i == 0 ||
               (take[i].date.day == today.day && take[i].date.month == today.month),
+          onTap: () => Navigator.of(context).push(MaterialPageRoute(
+            builder: (_) => DayDetailScreen(
+              day: take[i],
+              allHours: weather.hourlyForecast,
+              use24h: use24h,
+            ),
+          )),
         )),
         if (i != take.length - 1) const SizedBox(width: 10),
       ],

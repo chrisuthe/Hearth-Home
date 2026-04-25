@@ -100,7 +100,10 @@ class WeatherService {
         Log.d('Weather', 'Hourly entityData keys=${entityData?.keys}, '
             'forecast items=${forecastList?.length}');
         if (forecastList != null) {
-          hourly = WeatherState.parseHourlyForecast(forecastList).take(24).toList();
+          // Keep all hours HA returns (typically 168 = 7 days). The strip
+          // is scrollable; the user can drag to peek into tomorrow and
+          // beyond, and the day-detail view filters by date.
+          hourly = WeatherState.parseHourlyForecast(forecastList);
         }
       }
 

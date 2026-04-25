@@ -9,11 +9,15 @@ class ForecastCard extends StatelessWidget {
   final DailyForecast day;
   final String dayCode;    // "TODAY" or "SAT" etc
   final bool isToday;
+  /// Called when the card is tapped. Caller is responsible for navigation
+  /// (typically pushes a [DayDetailScreen]). Null disables the tap target.
+  final VoidCallback? onTap;
   const ForecastCard({
     super.key,
     required this.day,
     required this.dayCode,
     this.isToday = false,
+    this.onTap,
   });
 
   @override
@@ -29,7 +33,7 @@ class ForecastCard extends StatelessWidget {
           )
         : null;
 
-    return Container(
+    final card = Container(
       decoration: BoxDecoration(
         gradient: bg,
         color: isToday ? null : Colors.white.withValues(alpha: 0.055),
@@ -82,12 +86,25 @@ class ForecastCard extends StatelessWidget {
           _metricRow(WeatherIcons.raindrop,
               day.precipitation == null ? '--' : '${day.precipitation!.round()}%',
               color: const Color(0xFF7EB8FF)),
+          if (day.precipitationAmount != null && day.precipitationAmount! > 0) ...[
+            const SizedBox(height: 6),
+            _metricRow(WeatherIcons.umbrella,
+                '${day.precipitationAmount!.toStringAsFixed(2)}"',
+                color: const Color(0xFF7EB8FF)),
+          ],
           const SizedBox(height: 6),
           _metricRow(WeatherIcons.strong_wind,
               day.windSpeed == null ? '--' : '${day.windSpeed!.round()}',
               color: textInk.withValues(alpha: 0.7)),
         ]),
       ]),
+    );
+
+    if (onTap == null) return card;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: card,
     );
   }
 
