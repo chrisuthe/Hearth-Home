@@ -13,6 +13,7 @@ import '../../services/timezone_service.dart';
 import 'package:sendspin_dart/sendspin_dart.dart';
 import 'wifi_settings.dart';
 import 'display_settings.dart';
+import 'photo_sources_section.dart';
 import 'update_settings.dart';
 import '../../modules/module_registry.dart';
 import '../../services/toast_service.dart';
@@ -166,6 +167,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             onSave: (value) => _updateConfig((c) => c.copyWith(immichApiKey: value)),
           ),
         ),
+        const SizedBox(height: 16),
+        const PhotoSourcesSection(),
 
         // -- Music Assistant --
         const _ServiceSubHeader(title: 'Music Assistant'),
