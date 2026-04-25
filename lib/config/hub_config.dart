@@ -73,6 +73,63 @@ class TouchIndicatorConfig {
   }
 }
 
+/// Configuration for which Immich photo sources feed the ambient carousel.
+///
+/// Sources are stackable: each enabled source contributes up to 50 photos,
+/// and the union is shuffled into the rotation. Unconfigured-but-enabled
+/// sources (e.g. albumEnabled true but albumId empty) contribute zero.
+///
+/// Default state matches the pre-multi-source behavior: Memories only.
+class PhotoSourcesConfig {
+  final bool memoriesEnabled;
+  final bool albumEnabled;
+  final String albumId;
+  final bool peopleEnabled;
+  final List<String> personIds;
+
+  const PhotoSourcesConfig({
+    this.memoriesEnabled = true,
+    this.albumEnabled = false,
+    this.albumId = '',
+    this.peopleEnabled = false,
+    this.personIds = const [],
+  });
+
+  PhotoSourcesConfig copyWith({
+    bool? memoriesEnabled,
+    bool? albumEnabled,
+    String? albumId,
+    bool? peopleEnabled,
+    List<String>? personIds,
+  }) {
+    return PhotoSourcesConfig(
+      memoriesEnabled: memoriesEnabled ?? this.memoriesEnabled,
+      albumEnabled: albumEnabled ?? this.albumEnabled,
+      albumId: albumId ?? this.albumId,
+      peopleEnabled: peopleEnabled ?? this.peopleEnabled,
+      personIds: personIds ?? this.personIds,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'memoriesEnabled': memoriesEnabled,
+        'albumEnabled': albumEnabled,
+        'albumId': albumId,
+        'peopleEnabled': peopleEnabled,
+        'personIds': personIds,
+      };
+
+  factory PhotoSourcesConfig.fromJson(Map<String, dynamic> json) =>
+      PhotoSourcesConfig(
+        memoriesEnabled: json['memoriesEnabled'] as bool? ?? true,
+        albumEnabled: json['albumEnabled'] as bool? ?? false,
+        albumId: json['albumId'] as String? ?? '',
+        peopleEnabled: json['peopleEnabled'] as bool? ?? false,
+        personIds: (json['personIds'] as List<dynamic>?)?.cast<String>() ??
+            const [],
+      );
+}
+
 /// Central configuration for a single Home Hub device.
 ///
 /// Each hub stores its own config locally — there's no shared backend.
@@ -144,6 +201,8 @@ class HubConfig {
   /// port number is allowed.
   final int streamTargetPort;
 
+  final PhotoSourcesConfig photoSources;
+
   const HubConfig({
     this.apiKey = '',
     this.immichUrl = '',
@@ -194,6 +253,7 @@ class HubConfig {
     this.captureToolsEnabled = false,
     this.streamTargetHost = '',
     this.streamTargetPort = 9999,
+    this.photoSources = const PhotoSourcesConfig(),
   });
 
   static String generateApiKey() {
@@ -252,6 +312,7 @@ class HubConfig {
     bool? captureToolsEnabled,
     String? streamTargetHost,
     int? streamTargetPort,
+    PhotoSourcesConfig? photoSources,
   }) {
     return HubConfig(
       apiKey: apiKey ?? this.apiKey,
@@ -304,6 +365,7 @@ class HubConfig {
       captureToolsEnabled: captureToolsEnabled ?? this.captureToolsEnabled,
       streamTargetHost: streamTargetHost ?? this.streamTargetHost,
       streamTargetPort: streamTargetPort ?? this.streamTargetPort,
+      photoSources: photoSources ?? this.photoSources,
     );
   }
 
@@ -357,6 +419,7 @@ class HubConfig {
         'captureToolsEnabled': captureToolsEnabled,
         'streamTargetHost': streamTargetHost,
         'streamTargetPort': streamTargetPort,
+        'photoSources': photoSources.toJson(),
       };
 
   factory HubConfig.fromJson(Map<String, dynamic> json) => HubConfig(
@@ -417,6 +480,10 @@ class HubConfig {
         captureToolsEnabled: json['captureToolsEnabled'] as bool? ?? false,
         streamTargetHost: json['streamTargetHost'] as String? ?? '',
         streamTargetPort: json['streamTargetPort'] as int? ?? 9999,
+        photoSources: json['photoSources'] is Map
+            ? PhotoSourcesConfig.fromJson(
+                (json['photoSources'] as Map).cast<String, dynamic>())
+            : const PhotoSourcesConfig(),
       );
 
   static Map<String, List<String>> _migrateEnabledModules(Map<String, dynamic> json) {

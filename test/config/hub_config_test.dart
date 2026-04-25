@@ -432,4 +432,72 @@ void main() {
     });
 
   });
+
+  group('PhotoSourcesConfig', () {
+    test('defaults to memories-only', () {
+      const c = PhotoSourcesConfig();
+      expect(c.memoriesEnabled, true);
+      expect(c.albumEnabled, false);
+      expect(c.albumId, '');
+      expect(c.peopleEnabled, false);
+      expect(c.personIds, isEmpty);
+    });
+
+    test('copyWith updates specified fields', () {
+      const c = PhotoSourcesConfig();
+      final next = c.copyWith(albumEnabled: true, albumId: 'abc');
+      expect(next.albumEnabled, true);
+      expect(next.albumId, 'abc');
+      expect(next.memoriesEnabled, true); // unchanged
+    });
+
+    test('JSON round-trip preserves all fields', () {
+      const c = PhotoSourcesConfig(
+        memoriesEnabled: false,
+        albumEnabled: true,
+        albumId: 'album-uuid',
+        peopleEnabled: true,
+        personIds: ['p1', 'p2'],
+      );
+      final restored = PhotoSourcesConfig.fromJson(c.toJson());
+      expect(restored.memoriesEnabled, false);
+      expect(restored.albumEnabled, true);
+      expect(restored.albumId, 'album-uuid');
+      expect(restored.peopleEnabled, true);
+      expect(restored.personIds, ['p1', 'p2']);
+    });
+
+    test('fromJson empty map yields memories-only defaults', () {
+      final c = PhotoSourcesConfig.fromJson({});
+      expect(c.memoriesEnabled, true);
+      expect(c.albumEnabled, false);
+      expect(c.personIds, isEmpty);
+    });
+  });
+
+  group('HubConfig.photoSources', () {
+    test('defaults to PhotoSourcesConfig with memoriesEnabled true', () {
+      const c = HubConfig();
+      expect(c.photoSources.memoriesEnabled, true);
+      expect(c.photoSources.albumEnabled, false);
+      expect(c.photoSources.peopleEnabled, false);
+    });
+
+    test('photoSources missing from JSON falls back to defaults (backward compat)', () {
+      final c = HubConfig.fromJson({});
+      expect(c.photoSources.memoriesEnabled, true);
+    });
+
+    test('photoSources round-trip through HubConfig JSON', () {
+      const c = HubConfig(
+        photoSources: PhotoSourcesConfig(
+          albumEnabled: true,
+          albumId: 'album-x',
+        ),
+      );
+      final restored = HubConfig.fromJson(c.toJson());
+      expect(restored.photoSources.albumEnabled, true);
+      expect(restored.photoSources.albumId, 'album-x');
+    });
+  });
 }
