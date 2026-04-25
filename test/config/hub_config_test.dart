@@ -473,6 +473,15 @@ void main() {
       expect(c.albumEnabled, false);
       expect(c.personIds, isEmpty);
     });
+
+    test('equality is structural', () {
+      const a = PhotoSourcesConfig(albumEnabled: true, personIds: ['p1', 'p2']);
+      const b = PhotoSourcesConfig(albumEnabled: true, personIds: ['p1', 'p2']);
+      const c = PhotoSourcesConfig(albumEnabled: true, personIds: ['p1']);
+      expect(a, equals(b));
+      expect(a, isNot(equals(c)));
+      expect(a.hashCode, equals(b.hashCode));
+    });
   });
 
   group('HubConfig.photoSources', () {

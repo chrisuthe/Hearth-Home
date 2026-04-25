@@ -128,6 +128,25 @@ class PhotoSourcesConfig {
         personIds: (json['personIds'] as List<dynamic>?)?.cast<String>() ??
             const [],
       );
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is PhotoSourcesConfig &&
+          memoriesEnabled == other.memoriesEnabled &&
+          albumEnabled == other.albumEnabled &&
+          albumId == other.albumId &&
+          peopleEnabled == other.peopleEnabled &&
+          listEquals(personIds, other.personIds);
+
+  @override
+  int get hashCode => Object.hash(
+        memoriesEnabled,
+        albumEnabled,
+        albumId,
+        peopleEnabled,
+        Object.hashAll(personIds),
+      );
 }
 
 /// Central configuration for a single Home Hub device.
