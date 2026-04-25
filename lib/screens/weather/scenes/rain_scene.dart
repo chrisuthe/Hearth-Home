@@ -35,13 +35,6 @@ class RainScene extends StatelessWidget {
             tint: cfg.tint,
           ),
         ),
-        Positioned(
-          left: 0, right: 0, bottom: 0, height: 200,
-          child: DecoratedBox(decoration: BoxDecoration(
-            gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter,
-              colors: [Colors.transparent, const Color(0xFF141A2A).withValues(alpha: 0.35)]),
-          )),
-        ),
       ]);
     });
   }
@@ -57,12 +50,15 @@ class _RainCfg {
       required this.darken, required this.tint});
 }
 
-// Flutter-pi caps (handoff §05). Using pi caps universally so look is consistent.
+// Tuned for visibility on the kiosk. Rain particles are short streaks
+// drawn over the hourly strip and forecast cards (which paint translucent
+// dark backgrounds), so we need higher counts and brighter opacity than
+// the original handoff caps to read clearly.
 _RainCfg _cfgFor(WxIntensity i) => switch (i) {
-  WxIntensity.light => const _RainCfg(count: 30, speed: 0.75, cloudOpacity: 0.75,
-      darken: 0.0, tint: Color(0xFFC8DCFF)),
-  WxIntensity.moderate => const _RainCfg(count: 70, speed: 1.0, cloudOpacity: 0.92,
-      darken: 0.12, tint: Color(0xFFB8D4FF)),
-  WxIntensity.heavy => const _RainCfg(count: 110, speed: 1.4, cloudOpacity: 1.0,
-      darken: 0.28, tint: Color(0xFF9FC2FF)),
+  WxIntensity.light => const _RainCfg(count: 60, speed: 0.85, cloudOpacity: 0.75,
+      darken: 0.0, tint: Color(0xFFD4E4FF)),
+  WxIntensity.moderate => const _RainCfg(count: 130, speed: 1.1, cloudOpacity: 0.92,
+      darken: 0.12, tint: Color(0xFFC8DCFF)),
+  WxIntensity.heavy => const _RainCfg(count: 200, speed: 1.5, cloudOpacity: 1.0,
+      darken: 0.28, tint: Color(0xFFB8D4FF)),
 };

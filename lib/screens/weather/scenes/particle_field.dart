@@ -61,8 +61,10 @@ class _ParticleFieldState extends State<ParticleField> with SingleTickerProvider
         y: offscreen ? -0.1 : _rng.nextDouble(),
         vx: 0,
         vy: (1.1 + _rng.nextDouble() * 0.8) * widget.speedMult, // fall 1.1..1.9 fractions/sec
-        size: 14 + _rng.nextDouble() * 18, // length in px
-        opacity: 0.35 + _rng.nextDouble() * 0.4,
+        // Longer + brighter streaks so rain reads against the hourly strip
+        // and forecast cards, which paint dark translucent backgrounds.
+        size: 22 + _rng.nextDouble() * 22, // length 22..44 px
+        opacity: 0.6 + _rng.nextDouble() * 0.4, // 0.6..1.0
         rot: 14 * math.pi / 180, // 14° from vertical
       );
     } else {
