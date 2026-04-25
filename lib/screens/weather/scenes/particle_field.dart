@@ -109,13 +109,20 @@ class _ParticleFieldState extends State<ParticleField> with SingleTickerProvider
 
   @override
   Widget build(BuildContext context) {
+    // SizedBox.expand forces tight infinite constraints down to CustomPaint.
+    // Previously this used CustomPaint(size: Size.infinite) directly, but
+    // RenderCustomPaint's intrinsic-height calculation returns 0 for
+    // Size.infinite, which can make ancestors that consult intrinsics
+    // (or Stack layouts that fall back to intrinsics) collapse the paint
+    // area to a small height — exactly the "rain only at the top" symptom.
     return IgnorePointer(
-      child: CustomPaint(
-        size: Size.infinite,
-        painter: _ParticlePainter(
-          particles: _particles,
-          kind: widget.kind,
-          tint: widget.tint,
+      child: SizedBox.expand(
+        child: CustomPaint(
+          painter: _ParticlePainter(
+            particles: _particles,
+            kind: widget.kind,
+            tint: widget.tint,
+          ),
         ),
       ),
     );
