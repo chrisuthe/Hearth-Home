@@ -50,7 +50,9 @@ class ControlsScreen extends ConsumerWidget {
     return Container(
       color: Colors.black.withValues(alpha: 0.7),
       child: ListView(
-        padding: const EdgeInsets.all(24),
+        // Top padding clears the always-visible mic mute icon at top:24,
+        // size 33 + IconButton chrome (≈y0–70). 80 gives a small buffer.
+        padding: const EdgeInsets.fromLTRB(24, 80, 24, 24),
         children: [
           if (lights.isNotEmpty) ...[
             const _SectionHeader(title: 'Lights'),
