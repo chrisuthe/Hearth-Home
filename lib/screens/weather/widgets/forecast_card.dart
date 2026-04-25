@@ -57,8 +57,11 @@ class ForecastCard extends StatelessWidget {
         ),
         Column(mainAxisSize: MainAxisSize.min, children: [
           Text(dayCode, style: TextStyle(
-            fontFamily: 'Inter', fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.2,
-            color: isToday ? pal.ink : Colors.white.withValues(alpha: 0.5),
+            fontFamily: 'Inter',
+            fontSize: isToday ? 12 : 11,
+            fontWeight: isToday ? FontWeight.w800 : FontWeight.w700,
+            letterSpacing: isToday ? 1.4 : 1.2,
+            color: isToday ? pal.ink : Colors.white.withValues(alpha: 0.7),
           )),
           const SizedBox(height: 14),
           WxIcon(cond: cond, size: 56),

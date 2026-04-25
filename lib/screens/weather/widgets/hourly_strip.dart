@@ -23,9 +23,12 @@ class HourlyStrip extends StatelessWidget {
     return RepaintBoundary(
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.04),
+          // Self-contrasting dark panel: bright scenes (sunny, partly-cloudy)
+          // would otherwise wash out the cell text; this dim ensures white
+          // text is legible regardless of what's behind.
+          color: const Color(0xFF0B1220).withValues(alpha: 0.55),
           borderRadius: const BorderRadius.all(Radius.circular(22)),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.08), width: 1),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.14), width: 1),
         ),
         padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 4),
         child: Row(
@@ -75,7 +78,7 @@ class _HourCell extends StatelessWidget {
           Text(_label.toUpperCase(), style: TextStyle(
             fontFamily: 'Inter',
             fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 0.4,
-            color: night ? const Color(0xFFC7CCE8) : Colors.white.withValues(alpha: 0.55),
+            color: night ? const Color(0xFFC7CCE8) : Colors.white.withValues(alpha: 0.85),
           )),
           const SizedBox(height: 8),
           WxIcon(cond: cond, size: 32, night: night),

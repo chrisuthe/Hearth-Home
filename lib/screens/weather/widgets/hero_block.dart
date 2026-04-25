@@ -58,7 +58,7 @@ class HeroBlock extends StatelessWidget {
               Text(_hiLoLine,
                 style: TextStyle(
                   fontFamily: 'Inter', fontWeight: FontWeight.w500,
-                  fontSize: 15, color: pal.inkSoft,
+                  fontSize: 15, color: pal.ink.withValues(alpha: 0.85),
                   fontFeatures: const [FontFeature.tabularFigures()],
                 )),
             ],
