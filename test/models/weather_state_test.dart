@@ -88,7 +88,7 @@ void main() {
       expect(forecasts[0].condition, 'sunny');
     });
 
-    test('parses datetime into DateTime', () {
+    test('parses datetime into local-time DateTime preserving the UTC instant', () {
       final forecasts = WeatherState.parseHourlyForecast([
         {
           'datetime': '2026-04-06T14:00:00+00:00',
@@ -97,7 +97,10 @@ void main() {
         },
       ]);
       expect(forecasts[0].time, isA<DateTime>());
-      expect(forecasts[0].time.hour, 14);
+      // The instant is preserved (14:00 UTC), but .hour reflects local
+      // time so the hourly strip labels show the user's wall clock.
+      expect(forecasts[0].time.toUtc().hour, 14);
+      expect(forecasts[0].time.isUtc, isFalse);
     });
   });
 

@@ -92,7 +92,10 @@ class WeatherState {
     return data.map((item) {
       final map = item as Map<String, dynamic>;
       return DailyForecast(
-        date: DateTime.parse(map['datetime'] as String),
+        // HA returns ISO datetimes with `+00:00` (UTC); .toLocal() rebases to
+        // the device timezone so callers reading .hour / .weekday get the
+        // hour the user actually expects to see on the kiosk.
+        date: DateTime.parse(map['datetime'] as String).toLocal(),
         condition: map['condition'] as String,
         high: (map['temperature'] as num).toDouble(),
         low: (map['templow'] as num).toDouble(),
@@ -108,7 +111,10 @@ class WeatherState {
     return data.map((item) {
       final map = item as Map<String, dynamic>;
       return HourlyForecast(
-        time: DateTime.parse(map['datetime'] as String),
+        // HA returns ISO datetimes with `+00:00` (UTC); .toLocal() rebases
+        // to the device timezone so the hourly strip labels the hour the
+        // user expects (e.g. 14:00 UTC → 9 AM in CDT).
+        time: DateTime.parse(map['datetime'] as String).toLocal(),
         condition: map['condition'] as String,
         temperature: (map['temperature'] as num).toDouble(),
       );
