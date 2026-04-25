@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../config/hub_config.dart';
 import '../../models/photo_memory.dart';
 import '../../services/immich_service.dart';
 import '../../utils/logger.dart';
@@ -72,7 +73,7 @@ class AmbientScreenState extends ConsumerState<AmbientScreen> {
   Future<void> _refreshMemories() async {
     try {
       final immich = ref.read(immichServiceProvider);
-      await immich.loadMemories();
+      await immich.refresh(ref.read(hubConfigProvider).photoSources);
       await immich.prefetchPhotos();
     } catch (e) {
       Log.w('Immich', 'Memory refresh failed: $e');

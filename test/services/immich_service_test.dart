@@ -1,7 +1,32 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hearth/models/immich_album.dart';
 import 'package:hearth/models/immich_person.dart';
+import 'package:hearth/models/photo_memory.dart';
 import 'package:hearth/services/immich_service.dart';
+import 'package:hearth/services/immich_sources.dart';
+
+class _FakeSource implements PhotoSource {
+  final List<PhotoMemory> result;
+  final Object? throwsError;
+  _FakeSource(this.result, {this.throwsError});
+
+  @override
+  Future<List<PhotoMemory>> fetch({required int limit}) async {
+    if (throwsError != null) throw throwsError!;
+    if (result.length > limit) return result.sublist(0, limit);
+    return result;
+  }
+}
+
+PhotoMemory _photo(String id) => PhotoMemory.fromImmichAsset(
+      {
+        'id': id,
+        'originalFileName': '$id.jpg',
+        'fileCreatedAt': '2024-01-01T00:00:00.000Z',
+      },
+      immichBaseUrl: 'http://x',
+      yearsAgo: 0,
+    );
 
 void main() {
   group('ImmichService', () {
@@ -104,6 +129,41 @@ void main() {
       final p = ImmichPerson.fromJson({'id': 'x', 'name': 'Y'});
       expect(p.numberOfAssets, 0);
       expect(p.thumbnailPath, isNull);
+    });
+  });
+
+  group('ImmichService.mergeSources', () {
+    test('returns union shuffled across sources, capped per source', () async {
+      final a = _FakeSource([_photo('a1'), _photo('a2'), _photo('a3')]);
+      final b = _FakeSource([_photo('b1'), _photo('b2')]);
+      final merged = await mergeSources([a, b], limitPerSource: 50);
+      expect(merged, hasLength(5));
+      final ids = merged.map((p) => p.assetId).toSet();
+      expect(ids, {'a1', 'a2', 'a3', 'b1', 'b2'});
+    });
+
+    test('caps each source at limitPerSource', () async {
+      final big =
+          _FakeSource(List.generate(200, (i) => _photo('asset-$i')));
+      final merged = await mergeSources([big], limitPerSource: 50);
+      expect(merged, hasLength(50));
+    });
+
+    test('failed source is logged and contributes zero', () async {
+      final ok = _FakeSource([_photo('ok-1')]);
+      final bad = _FakeSource(const [], throwsError: Exception('fail'));
+      final merged = await mergeSources([ok, bad], limitPerSource: 50);
+      expect(merged, hasLength(1));
+      expect(merged.first.assetId, 'ok-1');
+    });
+
+    test('all-empty result is empty list (caller decides what to do)',
+        () async {
+      final merged = await mergeSources(
+        [_FakeSource(const [])],
+        limitPerSource: 50,
+      );
+      expect(merged, isEmpty);
     });
   });
 }

@@ -6,6 +6,7 @@ import '../utils/logger.dart';
 import '../models/immich_album.dart';
 import '../models/immich_person.dart';
 import '../models/photo_memory.dart';
+import 'immich_sources.dart';
 
 // dart:io and path_provider are native-only, guarded by kIsWeb at runtime.
 import 'dart:io' if (dart.library.html) 'dart:io';
@@ -51,25 +52,52 @@ class ImmichService {
         'x-api-key': apiKey,
       };
 
-  /// Loads today's memories from Immich and shuffles them for the display rotation.
-  Future<void> loadMemories() async {
-    final today = DateTime.now();
-    final response = await _dio.get('/api/memories', queryParameters: {
-      'for': today.toIso8601String(),
-    });
-    final memoriesJson = response.data as List<dynamic>;
-    // Build the new list before replacing — preserves the old cache on failure.
-    final newMemories = parseMemories(
-      memoriesJson: memoriesJson.cast<Map<String, dynamic>>(),
-      baseUrl: _baseUrl,
-      today: DateTime.now(),
-    );
-    newMemories.shuffle();
-    _cachedMemories.clear();
-    _cachedMemories.addAll(newMemories);
+  /// Per-source quota for the merged carousel. 50 is enough variety per
+  /// source to keep the rotation interesting without letting a 3,000-asset
+  /// album drown out a 30-photo memory set.
+  static const int kSourceQuota = 50;
+
+  /// (Re)build the photo cache from the currently-enabled sources.
+  /// Replaces [loadMemories]. Reads [PhotoSourcesConfig], constructs the
+  /// enabled sources, fetches in parallel, and replaces [_cachedMemories]
+  /// only if the union is non-empty (so a transient failure doesn't blank
+  /// the carousel).
+  Future<void> refresh(PhotoSourcesConfig config) async {
+    final sources = <PhotoSource>[];
+    if (config.memoriesEnabled) {
+      sources.add(MemoriesSource(dio: _dio, baseUrl: _baseUrl));
+    }
+    if (config.albumEnabled && config.albumId.isNotEmpty) {
+      sources.add(AlbumSource(
+        dio: _dio,
+        baseUrl: _baseUrl,
+        albumId: config.albumId,
+      ));
+    }
+    if (config.peopleEnabled && config.personIds.isNotEmpty) {
+      sources.add(PeopleSource(
+        dio: _dio,
+        baseUrl: _baseUrl,
+        personIds: config.personIds,
+      ));
+    }
+    final merged = await mergeSources(sources, limitPerSource: kSourceQuota);
+    if (merged.isEmpty) {
+      Log.w('Immich',
+          'All sources returned zero photos; keeping prior cache');
+      return;
+    }
+    _cachedMemories
+      ..clear()
+      ..addAll(merged);
     _currentIndex = 0;
     if (!kIsWeb) _evictOldCache();
   }
+
+  /// Deprecated. Use [refresh]. Retained as a thin wrapper for any internal
+  /// caller still on the old name; prefer migrating to [refresh].
+  @Deprecated('Use refresh(PhotoSourcesConfig) instead')
+  Future<void> loadMemories() => refresh(const PhotoSourcesConfig());
 
   /// Evicts cached photos beyond the 200 most recent by modification time.
   Future<void> _evictOldCache() async {
@@ -216,18 +244,47 @@ class ImmichService {
   }
 }
 
+/// Run every source's fetch in parallel, log failures (don't propagate),
+/// and return the unioned + shuffled list. Each source is capped at
+/// [limitPerSource] (typically 50).
+Future<List<PhotoMemory>> mergeSources(
+  List<PhotoSource> sources, {
+  required int limitPerSource,
+}) async {
+  if (sources.isEmpty) return const [];
+  final results = await Future.wait(sources.map((s) async {
+    try {
+      return await s.fetch(limit: limitPerSource);
+    } catch (e) {
+      Log.w('Immich', 'Source ${s.runtimeType} failed: $e');
+      return const <PhotoMemory>[];
+    }
+  }));
+  final union = <PhotoMemory>[];
+  for (final list in results) {
+    union.addAll(list);
+  }
+  union.shuffle();
+  return union;
+}
+
 final immichServiceProvider = Provider<ImmichService>((ref) {
   final immichUrl = ref.watch(hubConfigProvider.select((c) => c.immichUrl));
-  final immichApiKey = ref.watch(hubConfigProvider.select((c) => c.immichApiKey));
+  final immichApiKey =
+      ref.watch(hubConfigProvider.select((c) => c.immichApiKey));
+  final photoSources =
+      ref.watch(hubConfigProvider.select((c) => c.photoSources));
   final service = ImmichService(
     baseUrl: immichUrl,
     apiKey: immichApiKey,
   );
   ref.onDispose(() => service.dispose());
   if (immichUrl.isNotEmpty && immichApiKey.isNotEmpty) {
-    service.loadMemories().then((_) {
+    service.refresh(photoSources).then((_) {
       if (!kIsWeb) service.prefetchPhotos();
-    }).catchError((e) { Log.e('Immich', 'Load failed: $e'); });
+    }).catchError((e) {
+      Log.e('Immich', 'Refresh failed: $e');
+    });
   }
   return service;
 });
