@@ -23,7 +23,7 @@ class StatChip extends StatelessWidget {
       alpha: (palette.chipBg.a + 0.06).clamp(0.0, 1.0),
     );
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 11),
       decoration: BoxDecoration(
         color: bg,
         borderRadius: const BorderRadius.all(Radius.circular(999)),
@@ -32,17 +32,17 @@ class StatChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: palette.chipText.withValues(alpha: 0.7)),
-          const SizedBox(width: 8),
+          Icon(icon, size: 21, color: palette.chipText.withValues(alpha: 0.7)),
+          const SizedBox(width: 10),
           Text(label, style: TextStyle(
             color: palette.chipText.withValues(alpha: 0.75),
-            fontSize: 13, fontWeight: FontWeight.w500,
+            fontSize: 20, fontWeight: FontWeight.w500,
             fontFamily: 'Inter',
           )),
-          const SizedBox(width: 6),
+          const SizedBox(width: 8),
           Text(value, style: TextStyle(
             color: palette.chipText,
-            fontSize: 13, fontWeight: FontWeight.w600,
+            fontSize: 20, fontWeight: FontWeight.w600,
             fontFamily: 'Inter',
             fontFeatures: const [FontFeature.tabularFigures()],
           )),

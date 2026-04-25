@@ -77,14 +77,14 @@ class _HourCell extends StatelessWidget {
         Column(mainAxisSize: MainAxisSize.min, children: [
           Text(_label.toUpperCase(), style: TextStyle(
             fontFamily: 'Inter',
-            fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 0.4,
+            fontSize: 17, fontWeight: FontWeight.w600, letterSpacing: 0.4,
             color: night ? const Color(0xFFC7CCE8) : Colors.white.withValues(alpha: 0.85),
           )),
           const SizedBox(height: 8),
           WxIcon(cond: cond, size: 32, night: night),
           const SizedBox(height: 8),
           Text('${h.temperature.round()}°', style: TextStyle(
-            fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.w600,
+            fontFamily: 'Inter', fontSize: 21, fontWeight: FontWeight.w600,
             color: night ? const Color(0xFFE8EEFC) : Colors.white,
             fontFeatures: const [FontFeature.tabularFigures()],
           )),

@@ -51,14 +51,14 @@ class HeroBlock extends StatelessWidget {
             Text(conditionLabel,
               style: TextStyle(
                 fontFamily: 'Inter', fontWeight: FontWeight.w500,
-                fontSize: 28, letterSpacing: -0.4, color: pal.ink,
+                fontSize: 42, letterSpacing: -0.6, color: pal.ink,
               )),
             if (_hiLoLine.isNotEmpty) ...[
               const SizedBox(height: 6),
               Text(_hiLoLine,
                 style: TextStyle(
                   fontFamily: 'Inter', fontWeight: FontWeight.w500,
-                  fontSize: 15, color: pal.ink.withValues(alpha: 0.85),
+                  fontSize: 23, color: pal.ink.withValues(alpha: 0.85),
                   fontFeatures: const [FontFeature.tabularFigures()],
                 )),
             ],
@@ -91,7 +91,7 @@ class HeroBlock extends StatelessWidget {
       )),
       const SizedBox(width: 10),
       Text('NOW', style: TextStyle(
-        fontFamily: 'Inter', fontSize: 13, fontWeight: FontWeight.w600,
+        fontFamily: 'Inter', fontSize: 20, fontWeight: FontWeight.w600,
         letterSpacing: 1.5, color: pal.ink.withValues(alpha: 0.75),
       )),
     ]);

@@ -86,7 +86,7 @@ class WeatherScreen extends ConsumerWidget {
   }
 
   Widget _sectionLabel(String t) => Text(t, style: const TextStyle(
-    fontFamily: 'Inter', fontSize: 11, fontWeight: FontWeight.w700,
+    fontFamily: 'Inter', fontSize: 17, fontWeight: FontWeight.w700,
     letterSpacing: 1.5, color: Color(0xCCE8EEFC),
     shadows: [Shadow(color: Color(0xA6000000), blurRadius: 6, offset: Offset(0, 1))],
   ));
@@ -111,7 +111,7 @@ class WeatherScreen extends ConsumerWidget {
   Widget _footer() => const Padding(
     padding: EdgeInsets.fromLTRB(0, 40, 0, 24),
     child: Text('HEARTH · WEATHER', textAlign: TextAlign.center, style: TextStyle(
-      fontFamily: 'Inter', fontSize: 11, color: Color(0x59E8EEFC), letterSpacing: 1,
+      fontFamily: 'Inter', fontSize: 17, color: Color(0x59E8EEFC), letterSpacing: 1,
     )),
   );
 }

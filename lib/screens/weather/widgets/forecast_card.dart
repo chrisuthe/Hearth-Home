@@ -58,7 +58,7 @@ class ForecastCard extends StatelessWidget {
         Column(mainAxisSize: MainAxisSize.min, children: [
           Text(dayCode, style: TextStyle(
             fontFamily: 'Inter',
-            fontSize: isToday ? 12 : 11,
+            fontSize: isToday ? 18 : 17,
             fontWeight: isToday ? FontWeight.w800 : FontWeight.w700,
             letterSpacing: isToday ? 1.4 : 1.2,
             color: isToday ? pal.ink : Colors.white.withValues(alpha: 0.7),
@@ -67,12 +67,12 @@ class ForecastCard extends StatelessWidget {
           WxIcon(cond: cond, size: 56),
           const SizedBox(height: 14),
           Text('${day.high.round()}°', style: TextStyle(
-            fontFamily: 'Inter', fontSize: 30, fontWeight: FontWeight.w600,
-            letterSpacing: -0.5, color: textInk,
+            fontFamily: 'Inter', fontSize: 45, fontWeight: FontWeight.w600,
+            letterSpacing: -0.7, color: textInk,
             fontFeatures: const [FontFeature.tabularFigures()],
           )),
           Text('${day.low.round()}°', style: TextStyle(
-            fontFamily: 'Inter', fontSize: 15, fontWeight: FontWeight.w500,
+            fontFamily: 'Inter', fontSize: 23, fontWeight: FontWeight.w500,
             color: textInk.withValues(alpha: 0.55),
             fontFeatures: const [FontFeature.tabularFigures()],
           )),
@@ -93,10 +93,10 @@ class ForecastCard extends StatelessWidget {
 
   Widget _metricRow(IconData icon, String value, {required Color color}) {
     return Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-      Icon(icon, size: 12, color: color),
-      const SizedBox(width: 6),
+      Icon(icon, size: 18, color: color),
+      const SizedBox(width: 8),
       Text(value, style: TextStyle(
-        fontFamily: 'Inter', fontSize: 11, fontWeight: FontWeight.w600,
+        fontFamily: 'Inter', fontSize: 17, fontWeight: FontWeight.w600,
         color: color,
         fontFeatures: const [FontFeature.tabularFigures()],
       )),
