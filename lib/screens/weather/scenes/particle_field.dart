@@ -151,17 +151,15 @@ class _ParticlePainter extends CustomPainter {
       final cx = p.x * size.width;
       final cy = p.y * size.height;
       if (kind == ParticleKind.rain) {
-        final paint = Paint()
-          ..shader = LinearGradient(
-            begin: Alignment.topCenter, end: Alignment.bottomCenter,
-            colors: [Colors.transparent, tint.withValues(alpha: p.opacity)],
-          ).createShader(Rect.fromLTWH(cx, cy, 2, p.size))
-          ..strokeWidth = 1.4;
-        canvas.save();
-        canvas.translate(cx, cy);
-        canvas.rotate(p.rot);
-        canvas.drawRect(Rect.fromLTWH(-0.7, 0, 1.4, p.size), paint);
-        canvas.restore();
+        // DEBUG: draw a fat solid yellow dot at each particle's position
+        // instead of the gradient streak. This isolates "are particles
+        // distributed across the canvas" from "is the streak rendering
+        // visibly". Revert after diagnosing.
+        canvas.drawCircle(
+          Offset(cx, cy),
+          12,
+          Paint()..color = const Color(0xFFFFFF00),
+        );
       } else {
         final paint = Paint()
           ..color = Colors.white.withValues(alpha: p.opacity)
