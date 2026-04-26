@@ -116,7 +116,3 @@ final displayModeServiceProvider = Provider<DisplayModeService>((ref) {
   return service;
 });
 
-final displayModeProvider = StreamProvider<DisplayMode>((ref) {
-  final service = ref.watch(displayModeServiceProvider);
-  return service.modeStream;
-});
