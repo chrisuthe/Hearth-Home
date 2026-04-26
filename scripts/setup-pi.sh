@@ -22,6 +22,7 @@ sudo apt-get install -y -qq \
     libdrm-dev libgbm-dev libinput-dev libudev-dev libsystemd-dev \
     libxkbcommon-dev libvulkan-dev \
     libasound2 \
+    pipewire pipewire-pulse pipewire-alsa wireplumber \
     gstreamer1.0-plugins-base gstreamer1.0-plugins-good \
     gstreamer1.0-plugins-bad gstreamer1.0-alsa \
     gstreamer1.0-libav gstreamer1.0-tools \
@@ -35,6 +36,16 @@ if ! id hearth &>/dev/null; then
     echo "Created hearth user"
 fi
 sudo usermod -aG video,input,render,audio,netdev,systemd-journal hearth
+
+# --- PipeWire under the hearth user ---
+# Enable lingering so the hearth user's systemd --user instance survives
+# without an active session. The pipewire/pipewire-pulse/wireplumber
+# packages install user-default wants symlinks, so once the user instance
+# is up the daemons auto-start. We also force-start them here for the
+# already-running session that triggered this script.
+sudo loginctl enable-linger hearth
+sudo -u hearth XDG_RUNTIME_DIR=/run/user/$(id -u hearth) \
+    systemctl --user enable --now pipewire pipewire-pulse wireplumber 2>&1 | head -3 || true
 
 # --- flutter-pi (patched for live pipeline support) ---
 echo "Building flutter-pi with live pipeline patch..."
