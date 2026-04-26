@@ -57,15 +57,20 @@ fi
 rm -f /tmp/hearth-audio-check.wav
 
 # --- Update Wyoming service ---
+# Wyoming voice playback is mono 22050 Hz, which the hdmi_tee multi plugin
+# (4-channel: 2 HDMI + 2 loopback) cannot accept — aplay errors with "Slave
+# PCM not usable / Broken configuration". And there's no good reason to
+# route voice responses through the OBS-streaming tee anyway: voice prompts
+# aren't content the user is recording. Pin Wyoming to plughw direct HDMI.
 WYOMING_UNIT=/etc/systemd/system/wyoming-satellite.service
 if [ -f "$WYOMING_UNIT" ]; then
-    if grep -q 'plughw:CARD=vc4hdmi0,DEV=0' "$WYOMING_UNIT"; then
-        log "Updating Wyoming --snd-command to hdmi_tee"
-        sudo sed -i 's|plughw:CARD=vc4hdmi0,DEV=0|hdmi_tee|g' "$WYOMING_UNIT"
+    if grep -q 'aplay -D hdmi_tee' "$WYOMING_UNIT"; then
+        log "Reverting Wyoming --snd-command from hdmi_tee to plughw HDMI direct"
+        sudo sed -i 's|aplay -D hdmi_tee|aplay -D plughw:CARD=vc4hdmi0,DEV=0|g' "$WYOMING_UNIT"
         sudo systemctl daemon-reload
         sudo systemctl restart wyoming-satellite.service
     else
-        log "Wyoming already using non-default snd device — leaving alone"
+        log "Wyoming snd-command already direct HDMI — leaving alone"
     fi
 fi
 
