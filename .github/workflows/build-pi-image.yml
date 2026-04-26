@@ -4,18 +4,10 @@ on:
   push:
     tags: ['v*']
   workflow_dispatch:
-    inputs:
-      buildroot_version:
-        description: 'Buildroot version tag (e.g., 2024.11)'
-        required: false
-        default: '2024.11'
 
 concurrency:
   group: pi-image-${{ github.ref }}
   cancel-in-progress: true
-
-env:
-  BUILDROOT_VERSION: ${{ github.event.inputs.buildroot_version || '2024.11' }}
 
 jobs:
   build-bundle:
@@ -70,9 +62,6 @@ jobs:
           path: |
             hearth-bundle-*.tar.gz
             hearth-bundle-*.sha256
-
-  # Buildroot image build disabled — using Pi OS + setup script for now.
-  # Re-enable when Buildroot defconfig is fully validated.
 
   release:
     name: Publish to GitHub Release

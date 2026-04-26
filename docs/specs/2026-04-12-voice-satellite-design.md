@@ -245,10 +245,10 @@ lib/widgets/voice_pill.dart                 # Floating feedback overlay
 scripts/setup-pi.sh                         # Updated: Wyoming install section
 ```
 
-Systemd units for the Buildroot image:
+Systemd units are written directly by `setup-pi.sh` to:
 ```
-buildroot-hearth/board/hearth-pi5/overlay/etc/systemd/system/wyoming-satellite.service
-buildroot-hearth/board/hearth-pi5/overlay/etc/systemd/system/wyoming-openwakeword.service
+/etc/systemd/system/wyoming-satellite.service
+/etc/systemd/system/wyoming-openwakeword.service
 ```
 
 ## Scope Boundaries

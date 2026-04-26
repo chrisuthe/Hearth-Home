@@ -189,7 +189,7 @@ EOF
 
 # OTA updater service (runs as root for privileged file operations)
 echo "Installing OTA updater..."
-sudo wget -qO /usr/bin/hearth-updater https://raw.githubusercontent.com/chrisuthe/Hearth-Home/main/buildroot-hearth/package/hearth-updater/hearth-updater.sh
+sudo wget -qO /usr/bin/hearth-updater https://raw.githubusercontent.com/chrisuthe/Hearth-Home/main/scripts/hearth-updater.sh
 sudo chmod +x /usr/bin/hearth-updater
 
 sudo tee /etc/systemd/system/hearth-updater.service > /dev/null << 'EOF'
