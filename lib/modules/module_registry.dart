@@ -50,5 +50,3 @@ List<HearthModule> menuModules(WidgetRef ref, String menuId) {
   return modules;
 }
 
-/// Keep backward compat alias — returns swipe modules.
-final enabledModulesProvider = swipeModulesProvider;
