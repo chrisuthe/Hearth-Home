@@ -156,20 +156,6 @@ class WifiService {
     }
   }
 
-  /// Finds the first WiFi device name, falling back to wlan0.
-  Future<String> _findWifiInterface() async {
-    try {
-      final devResult = await Process.run(
-          'nmcli', ['-t', '-f', 'DEVICE,TYPE', 'device', 'status']);
-      for (final line in (devResult.stdout as String).split('\n')) {
-        if (line.contains(':wifi')) {
-          return line.split(':').first;
-        }
-      }
-    } catch (_) {}
-    return 'wlan0';
-  }
-
   /// Parses raw nmcli scan output into a deduplicated, sorted list.
   ///
   /// Deduplicates by SSID (keeps strongest signal), filters blank SSIDs,
