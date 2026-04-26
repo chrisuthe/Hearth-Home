@@ -15,8 +15,6 @@ class FakeWifiService extends WifiService {
   Future<bool> connectOpen(String ssid) async => false;
   @override
   Future<String?> activeConnection() async => null;
-  @override
-  Future<bool> disconnect() async => false;
 }
 
 void main() {
