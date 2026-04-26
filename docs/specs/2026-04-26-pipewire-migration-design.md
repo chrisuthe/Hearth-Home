@@ -24,7 +24,8 @@ Three converging reasons:
 | 3 | openWakeWord | Wyoming protocol — receives audio from Wyoming satellite, no direct hardware access | n/a | 16 kHz, mono |
 | 4 | Sendspin (Spotify Connect FLAC) | Custom Dart isolate, FFI to `libasound.so.2`, opens PCM with `snd_pcm_open` | `sendspinAlsaDevice` config (default `hdmi_tee`) | 44.1 kHz, stereo, S16_LE |
 | 5 | Music Assistant playback | Flutter `media_kit` plugin → libmpv | libmpv auto-detect (ALSA fallback on Pi) | varies |
-| 6 | Camera RTSP playback (rare) | Same `media_kit` libmpv path | libmpv auto-detect | varies |
+| 6 | Camera RTSP playback (Pi) | `flutterpi_gstreamer_video_player` with hand-rolled GStreamer pipeline (`rtspsrc ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! appsink`). **Video-only by design — no audio pad.** Implementer notes: avoiding decodebin's audio-track-linking bugs with RTSP/MP4. | n/a (no audio) | n/a |
+| 6b | Camera RTSP playback (Windows dev) | `media_kit` libmpv path — would play audio if RTSP source has any | libmpv auto-detect | varies |
 | 7 | Alarm/timer tones | `gst-launch-1.0 ... ! autoaudiosink` (subprocess) | GStreamer autoaudiosink (picks ALSA on this Pi) | OGG decoded |
 | 8 | Stream-to-OBS audio capture | `ffmpeg -f alsa -i hw:Loopback,1,0` (subprocess via `sudo`) | Snd-aloop read end, fed by `hdmi_tee` multi → Loopback,0,0 | 48 kHz, stereo |
 
@@ -184,6 +185,8 @@ Phase 1 is non-destructive (PipeWire installs alongside ALSA-direct, doesn't cha
 - **Bluetooth speaker support.** PipeWire enables it; adding a "pair speaker" UX is feature work.
 - **Multi-room audio.** Same — capability unlocked but UX is separate.
 - **Native libpipewire FFI for sendspin.** Phase 4 keeps sendspin on the ALSA bridge. The native rewrite is a future cleanup once we have a baseline working.
+
+- **Frigate camera audio.** The Pi GStreamer pipeline (`gstreamer_player.dart`) is currently video-only — no audio pad linked, by design. PipeWire migration does not change this. *Unblocked* by it though: once PipeWire is in place, adding camera audio is just appending an audio branch to the pipeline (`... rtpmp4adepay ! aacparse ! avdec_aac ! audioconvert ! pipewiresink` or similar, depending on camera codec) plus a per-camera "play audio" toggle in HubConfig. Keep this as a separate feature project after PipeWire — it has its own design questions (which cameras audibly stream by default? doorbells yes, baby monitors yes, backyard cam probably no).
 
 ## Open questions
 
