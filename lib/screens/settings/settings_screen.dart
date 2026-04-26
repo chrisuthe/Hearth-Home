@@ -15,6 +15,7 @@ import 'wifi_settings.dart';
 import 'display_settings.dart';
 import 'photo_sources_section.dart';
 import 'update_settings.dart';
+import '../../modules/hearth_module.dart';
 import '../../modules/module_registry.dart';
 import '../../services/toast_service.dart';
 
@@ -46,54 +47,22 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           description: 'Manage screens and their order',
         ),
         const SizedBox(height: 8),
-        ...allModules.map((module) {
-          final placements = List<String>.from(
-              config.modulePlacements[module.id] ?? []);
-          return ListTile(
-            leading: Icon(module.icon, color: Colors.white54),
-            title: Text(module.name),
-            subtitle: Wrap(
-              spacing: 6,
-              children: [
-                for (final placement in ['swipe', 'menu1', 'menu2'])
-                  FilterChip(
-                    label: Text(
-                      placement == 'swipe' ? 'Swipe' :
-                      placement == 'menu1' ? 'Menu 1' : 'Menu 2',
-                      style: const TextStyle(fontSize: 11),
-                    ),
-                    selected: placements.contains(placement),
-                    onSelected: (selected) {
-                      final updated = Map<String, List<String>>.from(
-                          config.modulePlacements);
-                      final list = List<String>.from(updated[module.id] ?? []);
-                      if (selected) {
-                        list.add(placement);
-                      } else {
-                        list.remove(placement);
-                      }
-                      if (list.isEmpty) {
-                        updated.remove(module.id);
-                      } else {
-                        updated[module.id] = list;
-                      }
-                      _updateConfig((c) => c.copyWith(modulePlacements: updated));
-                    },
-                    selectedColor: const Color(0xFF646CFF),
-                    backgroundColor: const Color(0xFF1E1E1E),
-                    labelStyle: TextStyle(
-                      color: placements.contains(placement)
-                          ? Colors.white : Colors.white70,
-                      fontSize: 11,
-                    ),
-                    side: BorderSide.none,
-                    visualDensity: VisualDensity.compact,
-                  ),
-              ],
+        ...allModules.where((m) => !m.isCommunity).map(
+            (module) => _modulePlacementTile(module, config)),
+        if (allModules.any((m) => m.isCommunity)) ...[
+          const SizedBox(height: 16),
+          const _ServiceSubHeader(title: 'Community Contributed'),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 8),
+            child: Text(
+              'Modules contributed by the community. Disabled by default — enable at your own discretion.',
+              style: TextStyle(color: Colors.white54, fontSize: 12),
             ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-          );
-        }),
+          ),
+          const SizedBox(height: 4),
+          ...allModules.where((m) => m.isCommunity).map(
+              (module) => _modulePlacementTile(module, config)),
+        ],
         const SizedBox(height: 12),
         _ModuleReorderList(
           config: config,
@@ -706,6 +675,55 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             .whereType<Widget>(),
       ],
       ),
+    );
+  }
+
+  Widget _modulePlacementTile(HearthModule module, HubConfig config) {
+    final placements = List<String>.from(
+        config.modulePlacements[module.id] ?? []);
+    return ListTile(
+      leading: Icon(module.icon, color: Colors.white54),
+      title: Text(module.name),
+      subtitle: Wrap(
+        spacing: 6,
+        children: [
+          for (final placement in ['swipe', 'menu1', 'menu2'])
+            FilterChip(
+              label: Text(
+                placement == 'swipe' ? 'Swipe' :
+                placement == 'menu1' ? 'Menu 1' : 'Menu 2',
+                style: const TextStyle(fontSize: 11),
+              ),
+              selected: placements.contains(placement),
+              onSelected: (selected) {
+                final updated = Map<String, List<String>>.from(
+                    config.modulePlacements);
+                final list = List<String>.from(updated[module.id] ?? []);
+                if (selected) {
+                  list.add(placement);
+                } else {
+                  list.remove(placement);
+                }
+                if (list.isEmpty) {
+                  updated.remove(module.id);
+                } else {
+                  updated[module.id] = list;
+                }
+                _updateConfig((c) => c.copyWith(modulePlacements: updated));
+              },
+              selectedColor: const Color(0xFF646CFF),
+              backgroundColor: const Color(0xFF1E1E1E),
+              labelStyle: TextStyle(
+                color: placements.contains(placement)
+                    ? Colors.white : Colors.white70,
+                fontSize: 11,
+              ),
+              side: BorderSide.none,
+              visualDensity: VisualDensity.compact,
+            ),
+        ],
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 8),
     );
   }
 

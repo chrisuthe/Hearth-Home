@@ -29,4 +29,11 @@ abstract class HearthModule {
 
   /// Settings section widget, or null if the module needs no settings.
   Widget? buildSettingsSection();
+
+  /// True for modules contributed by the community (third-party authored,
+  /// merged in via PR). Surfaced in Settings as a separate "Community
+  /// Contributed" section so users can distinguish first-party modules
+  /// from community ones. Required — first-party modules return false,
+  /// community modules return true.
+  bool get isCommunity;
 }

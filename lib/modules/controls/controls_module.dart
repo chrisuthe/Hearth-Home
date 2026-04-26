@@ -18,4 +18,7 @@ class ControlsModule implements HearthModule {
 
   @override
   Widget? buildSettingsSection() => null;
+
+  @override
+  bool get isCommunity => false;
 }
