@@ -28,7 +28,7 @@ class PartlyCloudyScene extends StatelessWidget {
 }
 
 class _SunGlow extends StatelessWidget {
-  final dynamic pal;
+  final ScenePalette pal;
   final double maxWidth;
   final double maxHeight;
   const _SunGlow({required this.pal, required this.maxWidth, required this.maxHeight});
@@ -37,14 +37,21 @@ class _SunGlow extends StatelessWidget {
   Widget build(BuildContext context) {
     final cx = maxWidth * 0.75;
     final cy = maxHeight * 0.26;
+    // Outer halo blends a near-white-with-accent-tint inner glow into a
+    // fully-transparent rim of the scene's accent color, so the haze around
+    // the sun picks up the palette without losing the warm "sun light" feel.
+    final haloInner = Color.lerp(Colors.white, pal.accent, 0.30)!
+        .withValues(alpha: 0.75);
+    final haloOuter = pal.accent.withValues(alpha: 0.0);
     return Stack(fit: StackFit.expand, children: [
       Positioned(
         left: cx - 260, top: cy - 260,
-        child: Container(width: 520, height: 520, decoration: const BoxDecoration(
+        child: Container(width: 520, height: 520, decoration: BoxDecoration(
           shape: BoxShape.circle,
-          gradient: RadialGradient(colors: [Color(0xBFFFF3C4), Color(0x00FFB946)]),
+          gradient: RadialGradient(colors: [haloInner, haloOuter]),
         )),
       ),
+      // Sun core stays warm regardless of palette — it's sun-intrinsic.
       Positioned(
         left: cx - 100, top: cy - 100,
         child: Container(width: 200, height: 200, decoration: const BoxDecoration(
