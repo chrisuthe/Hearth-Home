@@ -187,6 +187,12 @@ User=hearth
 Group=hearth
 RuntimeDirectory=hearth
 Environment=XDG_RUNTIME_DIR=/run/hearth
+# PipeWire's daemon socket lives at /run/user/999/pipewire-0 (where the
+# hearth user's per-user systemd manager runs PipeWire under linger).
+# flutter-pi's libasound otherwise looks at \$XDG_RUNTIME_DIR/pipewire-0
+# which doesn't exist, and the connection silently fails — clients open
+# default, get no errors, but never register with the daemon.
+Environment=PIPEWIRE_RUNTIME_DIR=/run/user/999
 ExecStart=/usr/local/bin/flutter-pi --release /opt/hearth/bundle
 Environment=LD_LIBRARY_PATH=/opt/hearth/bundle
 Environment=HEARTH_NO_MEDIAKIT=1

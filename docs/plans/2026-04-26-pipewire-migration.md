@@ -32,7 +32,7 @@ Expected: both report `User=hearth`.
 
 If both run as `hearth`, the conventional path is per-user PipeWire with linger enabled. If they run as different users, a system-wide daemon is required (more complex). Document the decision inline below before proceeding.
 
-**DECISION (fill in):** _per-user / system-wide_
+**DECISION:** **per-user**, with `loginctl enable-linger hearth`. Verified 2026-04-26: `hearth.service`, `wyoming-satellite.service`, and `wyoming-openwakeword.service` all run as `User=hearth` (uid 999, member of the `audio` group). Single PipeWire daemon under uid 999 serves all three.
 
 ### Task 1.2: Install PipeWire packages
 
@@ -139,7 +139,7 @@ Trigger a voice command on the kiosk: "ok nabu, what's the weather". Expected: r
 
 - [ ] **Step 5: Test sendspin (libasound FFI)**
 
-Use Spotify Connect to play a track to the Hearth kiosk. Expected: audible playback, no glitches over a 60-second test track.
+Stream a Sendspin track to the Hearth kiosk. Expected: audible playback, no glitches over a 60-second test track.
 
 - [ ] **Step 6: Test alarm tones (gst-launch autoaudiosink)**
 
@@ -520,7 +520,7 @@ Run all the smoke tests from Phase 1.4 one more time. Goal: confirm the deployed
 - [ ] `aplay -D default <somefile>` plays through HDMI
 - [ ] `aplay -D plughw:CARD=vc4hdmi0,DEV=0 <somefile>` still works
 - [ ] Wyoming voice command: full mic→TTS→audible response cycle
-- [ ] Sendspin: 60-second Spotify Connect track plays without glitches
+- [ ] Sendspin: 60-second track plays without glitches
 - [ ] Music Assistant: full track plays from Hearth UI
 - [ ] Alarm tones fire on schedule, audible
 - [ ] OBS streaming: video + audio reach OBS, sync stays correct over a 60s stream

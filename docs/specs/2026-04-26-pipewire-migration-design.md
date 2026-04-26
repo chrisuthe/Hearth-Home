@@ -22,7 +22,7 @@ Three converging reasons:
 | 1 | Wyoming mic input | `arecord -D plughw:CARD=Device,DEV=0` (subprocess) | USB mic, plughw direct | 16 kHz, mono, S16_LE |
 | 2 | Wyoming TTS playback | `aplay -D plughw:CARD=vc4hdmi0,DEV=0` (subprocess) | HDMI direct | 22.05 kHz, mono, S16_LE |
 | 3 | openWakeWord | Wyoming protocol — receives audio from Wyoming satellite, no direct hardware access | n/a | 16 kHz, mono |
-| 4 | Sendspin (Spotify Connect FLAC) | Custom Dart isolate, FFI to `libasound.so.2`, opens PCM with `snd_pcm_open` | `sendspinAlsaDevice` config (default `hdmi_tee`) | 44.1 kHz, stereo, S16_LE |
+| 4 | Sendspin (multi-room audio protocol — Music Assistant / ESPHome ecosystem, FLAC-based) | Custom Dart isolate, FFI to `libasound.so.2`, opens PCM with `snd_pcm_open` | `sendspinAlsaDevice` config (default `hdmi_tee`) | 44.1 kHz, stereo, S16_LE |
 | 5 | Music Assistant playback | Flutter `media_kit` plugin → libmpv | libmpv auto-detect (ALSA fallback on Pi) | varies |
 | 6 | Camera RTSP playback (Pi) | `flutterpi_gstreamer_video_player` with hand-rolled GStreamer pipeline (`rtspsrc ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! appsink`). **Video-only by design — no audio pad.** Implementer notes: avoiding decodebin's audio-track-linking bugs with RTSP/MP4. | n/a (no audio) | n/a |
 | 6b | Camera RTSP playback (Windows dev) | `media_kit` libmpv path — would play audio if RTSP source has any | libmpv auto-detect | varies |
