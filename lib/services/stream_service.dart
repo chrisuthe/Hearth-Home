@@ -72,16 +72,12 @@ class StreamState {
       phase, startedAt, targetHost, targetPort, errorMessage);
 }
 
-/// Metadata returned by [StreamService.stop] describing the finalized
-/// local MP4 of the session that just ended.
+/// Metadata returned by [StreamService.stop] describing the streaming
+/// session that just ended.
 class StreamSessionMeta {
   final Duration duration;
-  final DateTime startedAt;
 
-  const StreamSessionMeta({
-    required this.duration,
-    required this.startedAt,
-  });
+  const StreamSessionMeta({required this.duration});
 }
 
 /// Abstract handle over a streaming subprocess — test seam so we don't
@@ -119,8 +115,6 @@ class StreamService {
 
   StreamingProcess? _active;
   DateTime? _activeStartedAt;
-  String? _activeHost;
-  int? _activePort;
   Timer? _livenessTimer;
 
   final _stateController = StreamController<StreamState>.broadcast();
@@ -140,8 +134,6 @@ class StreamService {
       _state.phase == StreamPhase.stopping;
 
   DateTime? get activeStartedAt => _activeStartedAt;
-  String? get activeHost => _activeHost;
-  int? get activePort => _activePort;
 
   /// Start a new streaming session. Throws [StateError] if a session is
   /// already active. The stream is SRT-only — no local MP4 backup is
@@ -153,8 +145,6 @@ class StreamService {
     }
 
     _activeStartedAt = _now();
-    _activeHost = host;
-    _activePort = port;
 
     _setState(_state.copyWith(
       phase: StreamPhase.starting,
@@ -168,8 +158,6 @@ class StreamService {
       _active = await _spawnStreamFn(host, port);
     } catch (e) {
       _activeStartedAt = null;
-      _activeHost = null;
-      _activePort = null;
       _setState(_state.copyWith(
         phase: StreamPhase.error,
         errorMessage: 'Failed to spawn ffmpeg: $e',
@@ -235,10 +223,7 @@ class StreamService {
       _onExitedCleanly();
     }
 
-    return StreamSessionMeta(
-      duration: duration,
-      startedAt: startedAt,
-    );
+    return StreamSessionMeta(duration: duration);
   }
 
   void _onExitedCleanly() {
@@ -246,8 +231,6 @@ class StreamService {
     _cancelLivenessTimer();
     _setState(const StreamState());
     _activeStartedAt = null;
-    _activeHost = null;
-    _activePort = null;
   }
 
   void _onExitedUnexpectedly(int code) {

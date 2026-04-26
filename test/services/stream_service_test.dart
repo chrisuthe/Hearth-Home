@@ -110,7 +110,6 @@ void main() {
 
       expect(proc.stopped, true);
       expect(meta.duration, isA<Duration>());
-      expect(meta.startedAt, DateTime(2026, 4, 24, 14, 30, 25));
       expect(service.currentState.phase, StreamPhase.idle);
     });
 
