@@ -58,10 +58,9 @@ class ImmichService {
   static const int kSourceQuota = 50;
 
   /// (Re)build the photo cache from the currently-enabled sources.
-  /// Replaces [loadMemories]. Reads [PhotoSourcesConfig], constructs the
-  /// enabled sources, fetches in parallel, and replaces [_cachedMemories]
-  /// only if the union is non-empty (so a transient failure doesn't blank
-  /// the carousel).
+  /// Reads [PhotoSourcesConfig], constructs the enabled sources, fetches
+  /// in parallel, and replaces [_cachedMemories] only if the union is
+  /// non-empty (so a transient failure doesn't blank the carousel).
   Future<void> refresh(PhotoSourcesConfig config) async {
     final sources = <PhotoSource>[];
     if (config.memoriesEnabled) {
@@ -93,11 +92,6 @@ class ImmichService {
     _currentIndex = 0;
     if (!kIsWeb) _evictOldCache();
   }
-
-  /// Deprecated. Use [refresh]. Retained as a thin wrapper for any internal
-  /// caller still on the old name; prefer migrating to [refresh].
-  @Deprecated('Use refresh(PhotoSourcesConfig) instead')
-  Future<void> loadMemories() => refresh(const PhotoSourcesConfig());
 
   /// Evicts cached photos beyond the 200 most recent by modification time.
   Future<void> _evictOldCache() async {
