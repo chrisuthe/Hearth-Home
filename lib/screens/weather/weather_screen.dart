@@ -21,7 +21,13 @@ class WeatherScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final use24h = ref.watch(hubConfigProvider.select((c) => c.use24HourClock));
-    final cond = mapHaToWx(weather.condition);
+    // Swap sunny→clearNight when the wall clock says it's night (solar time,
+    // not the user's DisplayMode preference). The hourly strip already does
+    // this per-cell; the main scene needed it too.
+    final cond = effectiveCond(
+      mapHaToWx(weather.condition),
+      night: isNightHour(DateTime.now().hour),
+    );
     final intensity = deriveIntensity(weather.condition);
     final pal = palettes[cond]!;
 
