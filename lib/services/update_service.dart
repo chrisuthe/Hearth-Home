@@ -129,10 +129,3 @@ final latestUpdateProvider = FutureProvider<UpdateInfo?>((ref) async {
   final service = ref.read(updateServiceProvider);
   return service.checkForUpdate();
 });
-
-final updateAvailableProvider = Provider<bool>((ref) {
-  final current = ref.watch(hubConfigProvider).currentVersion;
-  final latest = ref.watch(latestUpdateProvider).valueOrNull;
-  if (latest == null) return false;
-  return latest.isNewerThan(current);
-});
