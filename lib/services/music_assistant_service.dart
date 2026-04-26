@@ -105,10 +105,6 @@ class MusicAssistantService {
   void setRepeat(String queueId, String mode) => sendCommand(
       'player_queues/repeat', {'queue_id': queueId, 'repeat_mode': mode});
 
-  void seek(String queueId, int positionSeconds) => sendCommand(
-      'player_queues/seek',
-      {'queue_id': queueId, 'seek_position': positionSeconds});
-
   // --- Queue & Library ---
 
   Future<List<MaQueueItem>> getQueueItems(String queueId,
