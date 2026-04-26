@@ -47,6 +47,29 @@ sudo loginctl enable-linger hearth
 sudo -u hearth XDG_RUNTIME_DIR=/run/user/$(id -u hearth) \
     systemctl --user enable --now pipewire pipewire-pulse wireplumber 2>&1 | head -3 || true
 
+# Pin the HDMI sink and USB mic as defaults. WirePlumber's auto-selection
+# can pick the snd-aloop loopback or the USB device's headphone jack as
+# default, neither of which is what we want on a kiosk. wpctl set-default
+# writes to ~/.local/state/wireplumber/default-nodes with stable node
+# names that survive reboots and device-id renumbering.
+sleep 2  # Let WirePlumber finish initial enumeration
+HDMI_SINK=$(sudo -u hearth XDG_RUNTIME_DIR=/run/user/$(id -u hearth) \
+    wpctl status 2>/dev/null | awk '/Sinks:/,/Sources:/' \
+    | grep -i "hdmi" | head -1 | grep -oE '[0-9]+' | head -1)
+USB_SOURCE=$(sudo -u hearth XDG_RUNTIME_DIR=/run/user/$(id -u hearth) \
+    wpctl status 2>/dev/null | awk '/Sources:/,/Filters:/' \
+    | grep -iE "usb|pdp|audio device" | head -1 | grep -oE '[0-9]+' | head -1)
+if [ -n "$HDMI_SINK" ]; then
+    sudo -u hearth XDG_RUNTIME_DIR=/run/user/$(id -u hearth) \
+        wpctl set-default "$HDMI_SINK"
+    echo "PipeWire default sink -> HDMI (id $HDMI_SINK)"
+fi
+if [ -n "$USB_SOURCE" ]; then
+    sudo -u hearth XDG_RUNTIME_DIR=/run/user/$(id -u hearth) \
+        wpctl set-default "$USB_SOURCE"
+    echo "PipeWire default source -> USB mic (id $USB_SOURCE)"
+fi
+
 # --- flutter-pi (patched for live pipeline support) ---
 echo "Building flutter-pi with live pipeline patch..."
 cd /tmp
