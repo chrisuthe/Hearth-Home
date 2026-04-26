@@ -58,7 +58,7 @@ void main() {
       expect(memories.length, 2);
       expect(memories[0].assetId, 'asset-1');
       expect(memories[0].yearsAgo, 3);
-      expect(memories[0].memoryLabel, '3 years ago today');
+      expect(memories[0].dateLabel, '3 years ago today');
       expect(memories[1].assetId, 'asset-2');
       expect(memories[1].description, isNull);
     });

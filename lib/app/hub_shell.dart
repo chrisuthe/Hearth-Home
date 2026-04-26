@@ -301,7 +301,7 @@ class _HubShellState extends ConsumerState<HubShell> {
       ...leftModules.map((m) => m.buildScreen(
           isActive: _currentPage == leftModules.indexOf(m))),
       HomeScreen(
-        memoryLabel: _currentMemory?.memoryLabel,
+        dateLabel: _currentMemory?.dateLabel,
         onSkipPhoto: () => _ambientKey.currentState?.skipForward(),
         onSkipPhotoBack: () => _ambientKey.currentState?.skipBack(),
         onChevronTap: () => _onUserActivity(),

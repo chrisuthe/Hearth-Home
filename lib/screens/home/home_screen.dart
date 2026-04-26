@@ -21,7 +21,7 @@ const _iconShadows = _textShadows;
 
 /// The home screen — transparent overlay on the photo carousel.
 class HomeScreen extends ConsumerWidget {
-  final String? memoryLabel;
+  final String? dateLabel;
   final VoidCallback? onSkipPhoto;
   final VoidCallback? onSkipPhotoBack;
   final VoidCallback? onChevronTap;
@@ -29,7 +29,7 @@ class HomeScreen extends ConsumerWidget {
 
   const HomeScreen({
     super.key,
-    this.memoryLabel,
+    this.dateLabel,
     this.onSkipPhoto,
     this.onSkipPhotoBack,
     this.onChevronTap,
@@ -73,7 +73,7 @@ class HomeScreen extends ConsumerWidget {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Expanded(child: _ClockDisplay(memoryLabel: memoryLabel)),
+                  Expanded(child: _ClockDisplay(dateLabel: dateLabel)),
                   _WeatherDisplay(weather: weather),
                 ],
               ),
@@ -98,8 +98,8 @@ class HomeScreen extends ConsumerWidget {
 }
 
 class _ClockDisplay extends ConsumerStatefulWidget {
-  final String? memoryLabel;
-  const _ClockDisplay({this.memoryLabel});
+  final String? dateLabel;
+  const _ClockDisplay({this.dateLabel});
 
   @override
   ConsumerState<_ClockDisplay> createState() => _ClockDisplayState();
@@ -151,10 +151,10 @@ class _ClockDisplayState extends ConsumerState<_ClockDisplay> {
             shadows: _textShadows,
           ),
         ),
-        if (widget.memoryLabel != null) ...[
+        if (widget.dateLabel != null) ...[
           const SizedBox(height: 4),
           Text(
-            widget.memoryLabel!,
+            widget.dateLabel!,
             style: TextStyle(
               fontSize: 14,
               color: Colors.white.withValues(alpha: 0.7),

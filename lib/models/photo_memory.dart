@@ -20,10 +20,26 @@ class PhotoMemory {
     this.description,
   });
 
-  /// Human-readable label like "3 years ago today" for the ambient overlay.
-  /// Handles the singular/plural distinction for proper English.
-  String get memoryLabel =>
-      yearsAgo == 1 ? '1 year ago today' : '$yearsAgo years ago today';
+  /// Human-readable label for the ambient overlay.
+  ///
+  /// For Immich "On This Day" memories (yearsAgo >= 1): renders as
+  /// "3 years ago today" / "1 year ago today" with proper singular/plural.
+  ///
+  /// For album- or people-source photos (yearsAgo == 0): the "X years ago"
+  /// framing doesn't apply, so fall back to the photo's month and year
+  /// (e.g., "August 2023"). Also catches memories where Immich didn't
+  /// report a year, since those would otherwise render "0 years ago today".
+  String get dateLabel {
+    if (yearsAgo >= 1) {
+      return yearsAgo == 1 ? '1 year ago today' : '$yearsAgo years ago today';
+    }
+    return '${_monthNames[memoryDate.month - 1]} ${memoryDate.year}';
+  }
+
+  static const _monthNames = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December',
+  ];
 
   /// Parses from an Immich asset JSON object within a memories response.
   ///
