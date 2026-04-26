@@ -13,20 +13,20 @@ class DriftCloud extends StatefulWidget {
   final double phaseOffset; // 0..1, lets multiple clouds be out of phase
   final Color top;
   final Color bottom;
-  final double? parentWidth; // If null, will use LayoutBuilder (fallback)
-  final double? parentHeight;
+  final double parentWidth;
+  final double parentHeight;
 
   const DriftCloud({
     super.key,
     required this.topPct,
+    required this.parentWidth,
+    required this.parentHeight,
     this.scale = 1.0,
     this.opacity = 0.9,
     this.durationSeconds = 120,
     this.phaseOffset = 0.0,
     this.top = const Color(0xFFFFFFFF),
     this.bottom = const Color(0xFFD8DDE8),
-    this.parentWidth,
-    this.parentHeight,
   });
 
   @override
@@ -55,16 +55,8 @@ class _DriftCloudState extends State<DriftCloud> with SingleTickerProviderStateM
 
   @override
   Widget build(BuildContext context) {
-    if (widget.parentWidth != null && widget.parentHeight != null) {
-      return _buildWithDimensions(widget.parentWidth!, widget.parentHeight!);
-    }
-    // Fallback to LayoutBuilder if dimensions not provided
-    return LayoutBuilder(builder: (ctx, cons) {
-      return _buildWithDimensions(cons.maxWidth, cons.maxHeight);
-    });
-  }
-
-  Widget _buildWithDimensions(double maxWidth, double maxHeight) {
+    final maxWidth = widget.parentWidth;
+    final maxHeight = widget.parentHeight;
     return AnimatedBuilder(
       animation: _ctrl,
       builder: (context, child) {
