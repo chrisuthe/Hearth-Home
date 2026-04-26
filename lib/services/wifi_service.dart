@@ -156,30 +156,6 @@ class WifiService {
     }
   }
 
-  /// Disconnects the active WiFi interface.
-  ///
-  /// Detects the WiFi device name via nmcli instead of hardcoding wlan0.
-  /// Returns false on non-Linux platforms.
-  Future<bool> disconnect() async {
-    if (!Platform.isLinux) return false;
-    try {
-      final iface = await _findWifiInterface();
-      final result = await Process.run('nmcli', [
-        'device',
-        'disconnect',
-        iface,
-      ]);
-      if (result.exitCode != 0) {
-        Log.e('WiFi', 'Disconnect nmcli error: ${result.stderr}');
-        return false;
-      }
-      return true;
-    } catch (e) {
-      Log.e('WiFi', 'Disconnect error: $e');
-      return false;
-    }
-  }
-
   /// Finds the first WiFi device name, falling back to wlan0.
   Future<String> _findWifiInterface() async {
     try {
