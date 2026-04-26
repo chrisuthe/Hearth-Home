@@ -26,6 +26,7 @@ void main() {
     test('rainy -> moderate', () => expect(deriveIntensity('rainy'), WxIntensity.moderate));
     test('snowy -> moderate', () => expect(deriveIntensity('snowy'), WxIntensity.moderate));
     test('hail -> heavy', () => expect(deriveIntensity('hail'), WxIntensity.heavy));
+    test('snowy-rainy (sleet) -> light', () => expect(deriveIntensity('snowy-rainy'), WxIntensity.light));
     test('lightning-rainy -> moderate', () => expect(deriveIntensity('lightning-rainy'), WxIntensity.moderate));
     test('sunny -> moderate (default, unused)', () => expect(deriveIntensity('sunny'), WxIntensity.moderate));
   });

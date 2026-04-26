@@ -65,10 +65,15 @@ WxCond mapHaToWx(String haCondition) {
   }
 }
 
-/// Derives intensity for rain/snow scenes from the HA string. Other
-/// conditions return [WxIntensity.moderate] (unused by their scenes).
+/// Derives intensity for rain/snow scenes from the HA string. Sleet
+/// (`snowy-rainy`) renders as [WxIntensity.light] since mixed precipitation
+/// rates are typically below full rain. `pouring`/`hail` are heavy. Anything
+/// else (including non-precip conditions) defaults to moderate; non-precip
+/// scenes ignore the value.
 WxIntensity deriveIntensity(String haCondition) {
   switch (haCondition) {
+    case 'snowy-rainy':
+      return WxIntensity.light;
     case 'pouring':
     case 'hail':
       return WxIntensity.heavy;
