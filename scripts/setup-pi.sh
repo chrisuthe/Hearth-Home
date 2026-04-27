@@ -355,7 +355,12 @@ RestartSec=5
 WantedBy=multi-user.target
 EOF
 
-# Wyoming satellite service (substitute detected card numbers)
+# Wyoming satellite service. Routes mic and TTS playback through PipeWire's
+# ALSA bridge (`-D default` resolves to PipeWire when pipewire-alsa is
+# installed). PIPEWIRE_RUNTIME_DIR points the bridge at the hearth user's
+# PipeWire socket — without it, the bridge falls back and silently fails.
+# Going through PipeWire instead of direct plughw also avoids EBUSY when
+# any other client (sendspin, media_kit) is actively streaming to HDMI.
 sudo tee /etc/systemd/system/wyoming-satellite.service > /dev/null << SATEOF
 [Unit]
 Description=Wyoming Voice Satellite
@@ -365,11 +370,12 @@ Requires=wyoming-openwakeword.service
 [Service]
 Type=simple
 User=hearth
+Environment=PIPEWIRE_RUNTIME_DIR=/run/user/999
 ExecStart=/opt/wyoming/satellite-env/bin/python3 -m wyoming_satellite \\
     --name "Hearth" \\
     --uri tcp://0.0.0.0:10700 \\
-    --mic-command "arecord -D plughw:CARD=${MIC_CARD},DEV=0 -r 16000 -c 1 -f S16_LE -t raw" \\
-    --snd-command "aplay -D plughw:CARD=vc4hdmi0,DEV=0 -r 22050 -c 1 -f S16_LE -t raw" \\
+    --mic-command "arecord -D default -r 16000 -c 1 -f S16_LE -t raw" \\
+    --snd-command "aplay -D default -r 22050 -c 1 -f S16_LE -t raw" \\
     --wake-uri tcp://127.0.0.1:10400 \\
     --wake-word-name ok_nabu
 Restart=on-failure
