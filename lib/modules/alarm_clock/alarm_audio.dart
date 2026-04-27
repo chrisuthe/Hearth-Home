@@ -7,13 +7,14 @@ class AlarmAudioPlayer {
   Process? _process;
   bool _looping = false;
 
-  /// Available builtin tone IDs.
+  /// Available builtin tone IDs. Each must have a corresponding OGG file
+  /// in `assets/alarm_tones/<id>.ogg`. Adding a new tone = drop the OGG +
+  /// add a row here + bump the assets list in pubspec.yaml.
   static const builtinTones = {
     'gentle_morning': 'Gentle Morning',
     'birds': 'Birdsong',
     'classic': 'Classic',
     'bright': 'Bright Day',
-    'urgent': 'Wake Up',
   };
 
   /// Start playing a looping alarm tone.
@@ -33,9 +34,11 @@ class AlarmAudioPlayer {
     while (_looping) {
       try {
         // Use gst-launch-1.0 for OGG playback with volume control.
+        // flutter-pi bundles assets directly under /opt/hearth/bundle/assets/
+        // (no `flutter_assets/` prefix that vanilla Flutter desktop uses).
         _process = await Process.start('gst-launch-1.0', [
           'filesrc',
-          'location=/opt/hearth/bundle/flutter_assets/assets/alarm_tones/$toneId.ogg',
+          'location=/opt/hearth/bundle/assets/alarm_tones/$toneId.ogg',
           '!', 'oggdemux', '!', 'vorbisdec',
           '!', 'volume', 'volume=${volume.toStringAsFixed(2)}',
           '!', 'autoaudiosink',

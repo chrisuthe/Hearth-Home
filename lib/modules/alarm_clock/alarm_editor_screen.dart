@@ -5,13 +5,14 @@ import '../../app/app.dart' show kDialogBackground;
 import 'alarm_models.dart';
 import 'alarm_service.dart';
 
-/// Available builtin alarm tones.
+/// Available builtin alarm tones. Must match [AlarmAudioPlayer.builtinTones]
+/// in alarm_audio.dart — both lists exist for layering reasons but ought to
+/// be consolidated. If you add/remove a tone, update BOTH.
 const builtinTones = <String, String>{
   'gentle_morning': 'Gentle Morning',
   'birds': 'Birdsong',
   'classic': 'Classic',
   'bright': 'Bright Day',
-  'urgent': 'Wake Up',
 };
 
 /// Full-screen editor for creating or editing an alarm.
