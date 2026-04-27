@@ -19,9 +19,10 @@ class VoiceDucker {
   StreamSubscription<VoiceAssistantState>? _sub;
   bool _ducked = false;
 
-  /// Multiplier applied while voice is active. 0.50 = music plays at half
-  /// the user's set volume during voice exchanges.
-  static const double _duckFactor = 0.50;
+  /// Multiplier applied while voice is active. 0.20 ≈ -14 dB — music
+  /// stays audible enough that the user knows it didn't stop, but quiet
+  /// enough that TTS sits clearly over it without competing.
+  static const double _duckFactor = 0.20;
 
   VoiceDucker(this._sendspin);
 
