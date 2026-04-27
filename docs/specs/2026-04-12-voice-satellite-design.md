@@ -1,5 +1,15 @@
 # Wyoming Voice Satellite Integration Design
 
+> **Superseded — historical record.**
+> This describes the wyoming-satellite + wyoming-openwakeword setup that
+> shipped 2026-04-12 through 2026-04-27. As of 2026-04-27, Hearth migrated
+> to OHF's [Linux Voice Assistant](https://github.com/OHF-Voice/linux-voice-assistant)
+> — see [`2026-04-26-linux-voice-assistant-migration-design.md`](2026-04-26-linux-voice-assistant-migration-design.md).
+> The Wyoming services, /opt/wyoming Python venvs, and /etc/sudoers.d/hearth-voice
+> entry are no longer present. The Hearth UI integration via HA's
+> `assist_satellite` entity (the design's most useful invariant) is unchanged
+> because that entity domain is protocol-agnostic.
+
 ## Overview
 
 Integrate Hearth with Home Assistant's voice assistant ecosystem by running a Wyoming voice satellite on the Pi. The satellite handles wake word detection and audio capture/playback as an independent systemd service. Hearth provides visual feedback via a floating pill overlay by watching HA's `assist_pipeline` events over the existing WebSocket connection.

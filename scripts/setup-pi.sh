@@ -258,108 +258,17 @@ Persistent=true
 WantedBy=timers.target
 EOF
 
-# --- Voice Satellite (Wyoming) ---
-echo "Installing Wyoming voice satellite..."
-sudo apt-get install -y -qq python3-venv alsa-utils
-
-# Create Wyoming directory
-sudo mkdir -p /opt/wyoming
-sudo chown hearth:hearth /opt/wyoming
-
-# Install wyoming-satellite from git (PyPI version is outdated 1.0.0, need 1.4+)
-if [ ! -d /opt/wyoming/satellite-env ]; then
-    sudo -u hearth python3 -m venv /opt/wyoming/satellite-env
-fi
-sudo -u hearth /opt/wyoming/satellite-env/bin/pip install --quiet --upgrade 'git+https://github.com/rhasspy/wyoming-satellite.git'
-
-# Install wyoming-openwakeword (clone + setup script to avoid pip dependency conflicts)
-if [ ! -d /opt/wyoming/wyoming-openwakeword ]; then
-    sudo -u hearth git clone https://github.com/rhasspy/wyoming-openwakeword.git /opt/wyoming/wyoming-openwakeword
-fi
-cd /opt/wyoming/wyoming-openwakeword
-sudo -u hearth git pull --quiet
-sudo -u hearth python3 script/setup
-cd /tmp
-
-# Auto-detect USB microphone ALSA card name (survives card number changes across reboots)
-MIC_CARD=$(grep -l 'USB' /proc/asound/card*/id 2>/dev/null | head -1 | xargs cat 2>/dev/null)
-if [ -z "$MIC_CARD" ]; then
-    echo "WARNING: No USB microphone detected. Wyoming satellite may not capture audio."
-    echo "         Plug in a USB mic and re-run this script, or edit the service manually:"
-    echo "         /etc/systemd/system/wyoming-satellite.service"
-    MIC_CARD="0"
-fi
-
-# Auto-detect HDMI speaker ALSA card name (prefer HDMI over USB for TTS output)
-SPEAKER_CARD=$(grep -l 'hdmi' /proc/asound/card*/id 2>/dev/null | head -1 | xargs cat 2>/dev/null)
-if [ -z "$SPEAKER_CARD" ]; then
-    SPEAKER_CARD=$(aplay -l 2>/dev/null | grep -oP 'card \K\d+' | head -1)
-    SPEAKER_CARD="${SPEAKER_CARD:-0}"
-fi
-
-echo "Detected audio: mic=$MIC_CARD, speaker=$SPEAKER_CARD"
-
 # Audio routing: PipeWire owns HDMI; OBS streaming captures from the
 # HDMI sink's auto-generated .monitor port (see lib/services/stream_service.dart).
 # No /etc/asound.conf or snd-aloop loopback needed — every PipeWire sink
 # carries everything mixed to it on its monitor port regardless of source.
 
-# Wyoming openWakeWord service
-sudo tee /etc/systemd/system/wyoming-openwakeword.service > /dev/null << 'EOF'
-[Unit]
-Description=Wyoming openWakeWord
-After=network.target
-
-[Service]
-Type=simple
-User=hearth
-ExecStart=/opt/wyoming/wyoming-openwakeword/.venv/bin/python3 -m wyoming_openwakeword \
-    --uri tcp://127.0.0.1:10400 \
-    --preload-model ok_nabu \
-    --threshold 0.3
-Restart=on-failure
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-# Wyoming satellite service. Routes mic and TTS playback through PipeWire's
-# ALSA bridge (`-D default` resolves to PipeWire when pipewire-alsa is
-# installed). PIPEWIRE_RUNTIME_DIR points the bridge at the hearth user's
-# PipeWire socket — without it, the bridge falls back and silently fails.
-# Going through PipeWire instead of direct plughw also avoids EBUSY when
-# any other client (sendspin, media_kit) is actively streaming to HDMI.
-sudo tee /etc/systemd/system/wyoming-satellite.service > /dev/null << SATEOF
-[Unit]
-Description=Wyoming Voice Satellite
-After=network.target wyoming-openwakeword.service
-Requires=wyoming-openwakeword.service
-
-[Service]
-Type=simple
-User=hearth
-Environment=PIPEWIRE_RUNTIME_DIR=/run/user/999
-ExecStart=/opt/wyoming/satellite-env/bin/python3 -m wyoming_satellite \\
-    --name "Hearth" \\
-    --uri tcp://0.0.0.0:10700 \\
-    --mic-command "arecord -D default -r 16000 -c 1 -f S16_LE -t raw" \\
-    --snd-command "aplay -D default -r 22050 -c 1 -f S16_LE -t raw" \\
-    --wake-uri tcp://127.0.0.1:10400 \\
-    --wake-word-name ok_nabu
-Restart=on-failure
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-SATEOF
-
-# --- Linux Voice Assistant (replaces wyoming-satellite — Phase 1: side-by-side) ---
-# OHF's official successor to wyoming-satellite. Talks to HA via the
-# ESPHome protocol (port 6053, mDNS auto-discovered). Bundles
-# openWakeWord; `okay_nabu` is the default and matches the existing
-# Wyoming wake phrase. Uses PipeWire's pulse-compat socket directly —
-# no aplay/arecord subprocesses.
+# --- Linux Voice Assistant ---
+# OHF's voice satellite (replaced wyoming-satellite in 2026-04 migration —
+# see docs/specs/2026-04-26-linux-voice-assistant-migration-design.md).
+# Talks to HA via the ESPHome protocol (port 6053, mDNS auto-discovered).
+# Bundles openWakeWord with `okay_nabu` as the default. Uses PipeWire's
+# pulse-compat socket directly — no aplay/arecord subprocesses.
 echo "Installing Linux Voice Assistant..."
 sudo install -d -o hearth -g hearth /opt/lva
 if [ ! -d /opt/lva/linux-voice-assistant ]; then
@@ -413,11 +322,10 @@ echo "hearth ALL=(root) NOPASSWD: /usr/bin/gst-launch-1.0" | sudo tee /etc/sudoe
 # ffmpeg is used by the screen capture feature for kmsgrab, which
 # requires CAP_SYS_ADMIN to read DRM plane resources.
 echo "hearth ALL=(root) NOPASSWD: /usr/bin/ffmpeg" | sudo tee /etc/sudoers.d/hearth-ffmpeg > /dev/null
-echo "hearth ALL=(root) NOPASSWD: /usr/bin/systemctl stop wyoming-satellite.service, /usr/bin/systemctl start wyoming-satellite.service, /usr/bin/systemctl restart wyoming-satellite.service" | sudo tee /etc/sudoers.d/hearth-voice > /dev/null
 # Timezone changes from Settings require writing /etc/localtime — gate the
 # exact timedatectl invocation so Hearth can apply the configured zone.
 echo "hearth ALL=(root) NOPASSWD: /usr/bin/timedatectl set-timezone *" | sudo tee /etc/sudoers.d/hearth-timezone > /dev/null
-sudo chmod 440 /etc/sudoers.d/hearth-updater /etc/sudoers.d/hearth-gstreamer /etc/sudoers.d/hearth-ffmpeg /etc/sudoers.d/hearth-voice /etc/sudoers.d/hearth-timezone
+sudo chmod 440 /etc/sudoers.d/hearth-updater /etc/sudoers.d/hearth-gstreamer /etc/sudoers.d/hearth-ffmpeg /etc/sudoers.d/hearth-timezone
 
 # Allow hearth user (netdev group) to manage WiFi via nmcli
 sudo mkdir -p /etc/polkit-1/rules.d
@@ -457,10 +365,6 @@ sudo systemctl enable hearth.service
 sudo systemctl enable hearth-updater.timer
 sudo systemctl enable avahi-daemon
 sudo systemctl restart avahi-daemon
-sudo systemctl enable wyoming-openwakeword.service
-sudo systemctl enable wyoming-satellite.service
-sudo systemctl restart wyoming-openwakeword.service
-sudo systemctl restart wyoming-satellite.service
 
 echo ""
 echo "=== Hearth setup complete ==="
@@ -471,5 +375,5 @@ echo "Web portal: http://hearth.local:8090"
 echo ""
 echo "The PIN to access the web portal is shown on the kiosk display."
 echo ""
-echo "Wyoming voice satellite is running on tcp://0.0.0.0:10700"
-echo "Go to Home Assistant > Settings > Devices to add the satellite."
+echo "Linux Voice Assistant is running on 0.0.0.0:6053 (ESPHome protocol)."
+echo "Home Assistant should auto-discover it via mDNS — check Settings > Devices."
