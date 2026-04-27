@@ -46,11 +46,12 @@ PipeWire owns all audio devices. A WirePlumber policy assigns the default sink (
 
 | Endpoint | Type | Purpose |
 |---|---|---|
-| `alsa_output.platform-soc_sound.HiFi` (or similar — name auto-detected) | Sink | HDMI playback |
-| `alsa_input.usb-Performance_Designed_Products_PDP_Audio_Device-...` | Source | USB mic |
-| `hearth_obs_capture` | Null sink | Receives audio destined for the OBS stream; producers route here in addition to the default HDMI sink. ffmpeg reads from this null sink's monitor port. |
+| `alsa_output.platform-107c701400.hdmi.hdmi-stereo` | Sink | HDMI playback. Its automatic `.monitor` port carries everything mixed to HDMI — used as the OBS stream audio source. |
+| `alsa_input.usb-Performance_Designed_Products_PDP_Audio_Device-00.mono-fallback` | Source | USB mic |
 
-The "tee" disappears. Instead of a multi-slave bindings table, producers that should be streamed (sendspin, media_kit) link to *both* the HDMI sink and the `hearth_obs_capture` null sink — a routing-graph concern PipeWire handles natively.
+**Decision:** all kiosk audio is OBS-eligible. Rather than building a routing graph that selectively duplicates streams to a null-sink (the original Option A vs B in the early draft of this spec), ffmpeg simply reads the HDMI sink's auto-generated monitor port. Every PipeWire sink exposes one and it captures everything mixed to that sink, regardless of source. After Phase 1, every audio source on the kiosk goes through PipeWire (Wyoming, sendspin, media_kit, alarm/timer tones), so the HDMI monitor sees them all.
+
+The "tee" plus its routing rule complexity disappears. No null-sink, no WirePlumber rules, no module-loopback. ffmpeg's audio input becomes a single string change.
 
 ### Producers
 

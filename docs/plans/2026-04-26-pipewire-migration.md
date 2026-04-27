@@ -157,11 +157,13 @@ If any of steps 1-8 fail, stop here and fix before proceeding to Phase 2. Phase 
 
 ---
 
-## Phase 2 — Replace the OBS-tee routing with a PipeWire null-sink
+## Phase 2 — Point ffmpeg at the HDMI sink's monitor port
 
-Goal: stop using snd-aloop for streaming. Producers tagged for streaming send to both HDMI sink + a PipeWire null-sink; ffmpeg reads from the null-sink's monitor.
+Goal: stop using snd-aloop for streaming. Since we decided all audio sources are OBS-eligible, we don't need a null-sink or routing rules — ffmpeg reads from the HDMI sink's automatic `.monitor` port, which captures everything mixed to HDMI regardless of source.
 
-### Task 2.1: Define the null-sink and routing rules
+This collapses what was originally Tasks 2.1 + 2.2 (null-sink config + routing rules + ffmpeg update) into a single ffmpeg argument change. Validated live: `ffmpeg -f pulse -i alsa_output.platform-107c701400.hdmi.hdmi-stereo.monitor` captures sustained tone audio at -8 dB mean / -1.9 dB peak.
+
+### Task 2.1: ~~Define the null-sink and routing rules~~ (NOT NEEDED — see above)
 
 **Files:**
 - Create: `/etc/pipewire/pipewire.conf.d/10-hearth-obs-capture.conf` (on the Pi; tracked in setup-pi.sh)
