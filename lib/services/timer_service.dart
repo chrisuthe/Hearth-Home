@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../utils/logger.dart';
 
 /// A single countdown timer managed by [TimerService].
 ///
@@ -86,6 +88,7 @@ class TimerService extends ChangeNotifier {
     timer._dismissed = true;
     _alreadyFired.remove(id);
     _timers.removeWhere((t) => t.isDismissed);
+    if (firedTimers.isEmpty) _stopAlarmSound();
     if (_timers.isEmpty) _stopTicking();
     notifyListeners();
   }
@@ -97,6 +100,7 @@ class TimerService extends ChangeNotifier {
       _alreadyFired.remove(t.id);
     }
     _timers.removeWhere((t) => t.isDismissed);
+    _stopAlarmSound();
     if (_timers.isEmpty) _stopTicking();
     notifyListeners();
   }
@@ -126,17 +130,51 @@ class TimerService extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// TODO: Play an alarm sound when a timer fires.
-  ///
-  /// Options to implement later:
-  /// - audioplayers package for a bundled .wav/.mp3 asset
-  /// - Platform channel to trigger system notification sound
-  /// - HDMI audio output on the Pi's connected display speakers
-  ///
-  /// For now this is a no-op stub. When implemented, the sound should
-  /// loop until the user dismisses the timer alert.
+  Process? _alarmProcess;
+  bool _alarmLooping = false;
+
+  /// Play a looping beep when a timer fires. Uses GStreamer's audiotestsrc
+  /// to generate a sine tone (no asset bundle dependency) and routes through
+  /// autoaudiosink, which picks pipewiresink/alsasink based on what's
+  /// available. Loops until [_stopAlarmSound] is called by dismissTimer
+  /// or dismissAllFired.
   void _playAlarmSound() {
-    // Stub — wire up audio playback here
+    if (!Platform.isLinux) {
+      Log.i('Timer', 'Would play alarm tone (non-Linux platform)');
+      return;
+    }
+    if (_alarmLooping) return; // already beeping for an earlier timer
+    _alarmLooping = true;
+    _alarmLoop();
+  }
+
+  Future<void> _alarmLoop() async {
+    // 880 Hz sine, ~0.46s tone via num-buffers=20 (20 * 1024 / 44100), then
+    // ~0.4s of silence in Dart-land before the next subprocess. Result is
+    // a "beep ... beep ... beep" pattern at ~1.2 Hz.
+    while (_alarmLooping) {
+      try {
+        _alarmProcess = await Process.start('gst-launch-1.0', [
+          'audiotestsrc', 'wave=sine', 'freq=880', 'num-buffers=20',
+          '!', 'audioconvert',
+          '!', 'volume', 'volume=0.5',
+          '!', 'autoaudiosink',
+        ]);
+        await _alarmProcess!.exitCode;
+        if (!_alarmLooping) break;
+        await Future.delayed(const Duration(milliseconds: 400));
+      } catch (e) {
+        Log.e('Timer', 'Alarm playback failed: $e');
+        break;
+      }
+    }
+    _alarmProcess = null;
+  }
+
+  void _stopAlarmSound() {
+    _alarmLooping = false;
+    _alarmProcess?.kill();
+    _alarmProcess = null;
   }
 
   void _stopTicking() {
@@ -146,6 +184,7 @@ class TimerService extends ChangeNotifier {
 
   @override
   void dispose() {
+    _stopAlarmSound();
     _stopTicking();
     super.dispose();
   }
