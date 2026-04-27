@@ -72,6 +72,7 @@ class VoiceAssistantState {
 class VoiceAssistantService {
   final HomeAssistantService _ha;
   String _pinnedEntityId; // mutable so auto-detect can fill it in when empty
+  bool _autoDetectAttempted = false;
   final _stateController = StreamController<VoiceAssistantState>.broadcast();
   VoiceAssistantState _currentState = const VoiceAssistantState();
   Timer? _idleResetTimer;
@@ -111,15 +112,10 @@ class VoiceAssistantService {
       }
     }
 
-    // If config didn't pin an entity, try to identify the local LVA's
-    // entity by matching the Pi's wlan0/eth0 MAC against entity_registry's
-    // unique_id. ESPHome's assist_satellite uses `<mac>-assist_satellite`
-    // for the unique_id, so this is a deterministic mapping for the LVA
-    // running on this same device. Best-effort: if MAC reading fails or
-    // entity_registry is unreachable, fall through to auto-pick behavior.
-    if (_pinnedEntityId.isEmpty) {
-      unawaited(_autoDetectByMac());
-    }
+    // Auto-detect by MAC happens lazily inside _onEntityUpdate — see
+    // comment there. We can't fire it here because HA's WS handshake may
+    // still be in flight at start() time and entity_registry/list would
+    // be rejected as unauthenticated.
   }
 
   Future<void> _autoDetectByMac() async {
@@ -192,6 +188,16 @@ class VoiceAssistantService {
 
   void _onEntityUpdate(HaEntity entity) {
     if (_disposed) return;
+
+    // First time we see ANY entity update means HA finished auth and is
+    // streaming state. That's our cue to try the MAC-based auto-detect:
+    // entity_registry/list needs an authenticated WS, and at start()
+    // time the handshake may not have finished yet.
+    if (!_autoDetectAttempted && _pinnedEntityId.isEmpty) {
+      _autoDetectAttempted = true;
+      unawaited(_autoDetectByMac());
+    }
+
     if (!entity.entityId.startsWith('assist_satellite.')) return;
 
     // Pinned mode: ignore everything except the configured entity. No
