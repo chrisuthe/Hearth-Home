@@ -40,6 +40,20 @@ class SendspinService {
     _client?.updateVolume(volume);
   }
 
+  /// Local-only attenuation (0.0–1.0). Used by the voice ducker to dim
+  /// sendspin while a voice exchange is active without telling the
+  /// Sendspin server (which would otherwise dim other rooms in the
+  /// same multi-room group).
+  void setLocalDuckFactor(double factor) {
+    final sink = _audioSink;
+    if (sink is AlsaAudioSink) {
+      sink.setDuckFactor(factor);
+    }
+    // Non-Linux audio sinks (SendspinAudioSink) currently don't implement
+    // a separate duck channel — falls through silently. Adding it for
+    // desktop dev parity is a follow-up if needed.
+  }
+
   void Function(int delayMs)? _onStaticDelayPersist;
 
   Future<void> configure({

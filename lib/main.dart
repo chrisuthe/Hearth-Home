@@ -14,6 +14,7 @@ import 'services/stream_service.dart';
 import 'services/timezone_service.dart';
 import 'modules/alarm_clock/alarm_service.dart';
 import 'services/sendspin/sendspin_service.dart';
+import 'services/voice_ducker.dart';
 import 'services/video/media_kit_player.dart';
 import 'services/video/gstreamer_player.dart';
 // media_kit uses native libmpv — not available on web.
@@ -114,6 +115,10 @@ Future<void> main() async {
   // to start mDNS advertisement when config says enabled.
   if (!kIsWeb) {
     container.read(sendspinServiceProvider);
+    // Voice ducker subscribes to assist_satellite state and dims sendspin
+    // while voice is active. Eager-read so it starts listening before
+    // the first voice exchange.
+    container.read(voiceDuckerProvider);
   }
 
   // Eager-load AlarmService so persisted alarms are loaded and the

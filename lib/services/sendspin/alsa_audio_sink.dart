@@ -85,6 +85,16 @@ class _VolumeMsg {
   const _VolumeMsg(this.volume, this.muted);
 }
 
+/// Local-only duck attenuation. Multiplied with [_VolumeMsg.volume] inside
+/// the isolate to compute the effective output level. Used by the voice
+/// ducker to dim sendspin while a voice exchange is active without
+/// reporting the volume change back to the Sendspin server (which would
+/// also dim other rooms in a multi-room group).
+class _DuckMsg {
+  final double factor; // 0.0–1.0
+  const _DuckMsg(this.factor);
+}
+
 enum _Cmd { stop, dispose }
 
 // ---------------------------------------------------------------------------
@@ -178,6 +188,12 @@ class AlsaAudioSink implements AudioSink {
     _cmdPort?.send(_VolumeMsg(-1, muted));
   }
 
+  /// Local-only attenuation (0.0–1.0). Independent of [setVolume]; doesn't
+  /// round-trip to the Sendspin server. Used by the voice ducker.
+  Future<void> setDuckFactor(double factor) async {
+    _cmdPort?.send(_DuckMsg(factor.clamp(0.0, 1.0)));
+  }
+
   @override
   Future<void> dispose() async {
     if (_isolate != null) {
@@ -237,6 +253,7 @@ void _alsaIsolateEntry(SendPort mainPort) {
   Pointer<Void> pcm = nullptr;
   int bytesPerFrame = 4; // 2 channels * 16-bit
   double volume = 1.0;
+  double duckFactor = 1.0;
   bool muted = false;
 
   void cleanup() {
@@ -305,11 +322,17 @@ void _alsaIsolateEntry(SendPort mainPort) {
       final data = msg.data;
       if (data.isEmpty) return;
 
+      // Effective software volume: server-reported user volume × local
+      // duck factor. Server volume is what the user / multi-room group
+      // expects; duck factor is a transient local-only attenuation set
+      // by the voice ducker so other rooms aren't affected.
+      final effective = volume * duckFactor;
+
       // Apply software volume (matching the PulseAudio C implementation).
       Uint8List processed;
-      if (muted || volume <= 0.0) {
+      if (muted || effective <= 0.0) {
         processed = Uint8List(data.length); // zeros = silence
-      } else if (volume < 1.0) {
+      } else if (effective < 1.0) {
         processed = Uint8List(data.length);
         final src = ByteData.sublistView(data);
         final dst = ByteData.sublistView(processed);
@@ -317,7 +340,7 @@ void _alsaIsolateEntry(SendPort mainPort) {
         for (int i = 0; i < sampleCount; i++) {
           final sample = src.getInt16(i * 2, Endian.little);
           dst.setInt16(
-              i * 2, (sample * volume).toInt(), Endian.little);
+              i * 2, (sample * effective).toInt(), Endian.little);
         }
       } else {
         processed = data;
@@ -346,6 +369,8 @@ void _alsaIsolateEntry(SendPort mainPort) {
     } else if (msg is _VolumeMsg) {
       if (msg.volume >= 0) volume = msg.volume.clamp(0.0, 1.0);
       muted = msg.muted;
+    } else if (msg is _DuckMsg) {
+      duckFactor = msg.factor.clamp(0.0, 1.0);
     } else if (msg == _Cmd.stop) {
       if (pcm != nullptr) {
         pcmDrain(pcm);
