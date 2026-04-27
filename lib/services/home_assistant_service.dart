@@ -27,7 +27,11 @@ class HomeAssistantService {
   bool _authRejected = false;
   int? _getStatesId;
 
-  final Map<int, Completer<Map<String, dynamic>?>> _pendingResponses = {};
+  /// Completers for any WS message expecting a typed response. The result
+  /// can be a Map (call_service with return_response, get_states-shaped
+  /// requests) or a List (entity_registry/list, device_registry/list);
+  /// callers cast to the type they expect.
+  final Map<int, Completer<dynamic>> _pendingResponses = {};
 
   // Reconnection state
   String? _url;
@@ -175,12 +179,16 @@ class HomeAssistantService {
     if (id != null && _pendingResponses.containsKey(id)) {
       final completer = _pendingResponses.remove(id)!;
       if (msg['success'] == true) {
-        // call_service with return_response nests data under result.response
         final result = msg['result'];
+        // call_service with return_response nests data under result.response;
+        // unwrap that shape when present so callers always see the payload.
         if (result is Map<String, dynamic>) {
           final response = result['response'];
           completer.complete(
               response is Map<String, dynamic> ? response : result);
+        } else if (result is List<dynamic>) {
+          // entity_registry/list, device_registry/list, etc.
+          completer.complete(result);
         } else {
           completer.complete(null);
         }
@@ -277,6 +285,34 @@ class HomeAssistantService {
         return null;
       },
     );
+  }
+
+  /// Fetches HA's entity registry. Returns the raw list of registry entries
+  /// (one per entity), each a map with `entity_id`, `unique_id`, `platform`,
+  /// `device_id`, etc.  Useful when the live state stream's attributes
+  /// don't carry enough metadata to identify an entity (e.g. matching an
+  /// ESPHome device by its MAC, which lives only in the registry's
+  /// `unique_id`, not in entity attributes).
+  Future<List<Map<String, dynamic>>?> getEntityRegistry() async {
+    if (!_authenticated) {
+      Log.w('HA', 'getEntityRegistry dropped (not authenticated)');
+      return null;
+    }
+    final id = _nextId;
+    final completer = Completer<dynamic>();
+    _pendingResponses[id] = completer;
+    _send({'id': id, 'type': 'config/entity_registry/list'});
+    final result = await completer.future.timeout(
+      const Duration(seconds: 10),
+      onTimeout: () {
+        _pendingResponses.remove(id);
+        return null;
+      },
+    );
+    if (result is List) {
+      return result.cast<Map<String, dynamic>>();
+    }
+    return null;
   }
 
 

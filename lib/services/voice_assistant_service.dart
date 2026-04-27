@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../config/hub_config.dart';
@@ -70,7 +71,7 @@ class VoiceAssistantState {
 ///    single-Hearth setups; risky as soon as a second satellite appears.
 class VoiceAssistantService {
   final HomeAssistantService _ha;
-  final String _pinnedEntityId;
+  String _pinnedEntityId; // mutable so auto-detect can fill it in when empty
   final _stateController = StreamController<VoiceAssistantState>.broadcast();
   VoiceAssistantState _currentState = const VoiceAssistantState();
   Timer? _idleResetTimer;
@@ -109,6 +110,84 @@ class VoiceAssistantService {
         Log.i('Voice', 'No available assist_satellite entity yet, waiting...');
       }
     }
+
+    // If config didn't pin an entity, try to identify the local LVA's
+    // entity by matching the Pi's wlan0/eth0 MAC against entity_registry's
+    // unique_id. ESPHome's assist_satellite uses `<mac>-assist_satellite`
+    // for the unique_id, so this is a deterministic mapping for the LVA
+    // running on this same device. Best-effort: if MAC reading fails or
+    // entity_registry is unreachable, fall through to auto-pick behavior.
+    if (_pinnedEntityId.isEmpty) {
+      unawaited(_autoDetectByMac());
+    }
+  }
+
+  Future<void> _autoDetectByMac() async {
+    final mac = await _readPiMacAddress();
+    if (mac == null) {
+      Log.d('Voice', 'No MAC available for auto-detect; using auto-pick');
+      return;
+    }
+    final registry = await _ha.getEntityRegistry();
+    if (registry == null) {
+      Log.d('Voice', 'entity_registry unavailable; using auto-pick');
+      return;
+    }
+    final wantedUniqueId = '$mac-assist_satellite'.toLowerCase();
+    Map<String, dynamic>? match;
+    for (final entry in registry) {
+      if (entry['platform'] != 'esphome') continue;
+      final entityId = entry['entity_id'] as String? ?? '';
+      if (!entityId.startsWith('assist_satellite.')) continue;
+      final uniqueId =
+          (entry['unique_id'] as String? ?? '').toLowerCase();
+      if (uniqueId == wantedUniqueId) {
+        match = entry;
+        break;
+      }
+    }
+    if (match == null) {
+      Log.i('Voice',
+          'No entity_registry entry matches MAC $mac — staying in auto-pick mode');
+      return;
+    }
+    if (_disposed) return;
+    final detectedEntityId = match['entity_id'] as String;
+    Log.i('Voice',
+        'Auto-detected satellite via MAC $mac -> $detectedEntityId');
+    // Switch into pinned mode against the detected entity.
+    _pinnedEntityId = detectedEntityId;
+    // If we'd already auto-picked a different entity, drop it; the next
+    // _onEntityUpdate (or the seeded re-scan below) will lock onto the
+    // detected one.
+    if (_satelliteEntityId != detectedEntityId) {
+      _satelliteEntityId = null;
+    }
+    // Re-scan entities now that we're in pinned mode, so we lock on
+    // immediately if the right entity is already in cache.
+    for (final entity in _ha.entities.values) {
+      _onEntityUpdate(entity);
+    }
+  }
+
+  /// Reads the kiosk's primary MAC address (wlan0 first, then eth0).
+  /// Returns null on non-Linux platforms or if neither interface exists.
+  static Future<String?> _readPiMacAddress() async {
+    if (!Platform.isLinux) return null;
+    for (final iface in const ['wlan0', 'eth0']) {
+      try {
+        final f = File('/sys/class/net/$iface/address');
+        if (await f.exists()) {
+          final mac = (await f.readAsString()).trim();
+          if (mac.isNotEmpty && mac != '00:00:00:00:00:00') {
+            return mac.toLowerCase();
+          }
+        }
+      } catch (_) {
+        // Try the next interface.
+      }
+    }
+    return null;
   }
 
   void _onEntityUpdate(HaEntity entity) {

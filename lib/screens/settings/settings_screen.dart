@@ -284,14 +284,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               .toList()
             ..sort((a, b) => a.entityId.compareTo(b.entityId));
           final options = <String, String>{
-            '': 'Auto-pick (first available)',
+            '': "Auto-detect (match this Pi's MAC)",
             for (final e in assistEntities)
               e.entityId:
                   '${e.name.isNotEmpty ? e.name : e.entityId} (${e.entityId})',
           };
           final current = config.voiceAssistantEntityId;
           final currentLabel = options[current] ??
-              (current.isEmpty ? 'Auto-pick (first available)' : current);
+              (current.isEmpty ? "Auto-detect (match this Pi's MAC)" : current);
           return _SettingsTile(
             icon: Icons.record_voice_over,
             title: 'Satellite Entity',
