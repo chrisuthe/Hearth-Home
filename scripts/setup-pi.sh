@@ -297,43 +297,10 @@ fi
 
 echo "Detected audio: mic=$MIC_CARD, speaker=$SPEAKER_CARD"
 
-# --- Audio routing: tee HDMI output through snd-aloop for stream capture ---
-sudo tee /etc/modules-load.d/hearth-loopback.conf > /dev/null << 'EOF'
-snd-aloop
-EOF
-sudo modprobe snd-aloop
-
-sudo tee /etc/asound.conf > /dev/null << 'EOF'
-pcm.hdmi_tee {
-  type plug
-  slave.pcm "hdmi_tee_multi"
-}
-pcm.hdmi_tee_multi {
-  type multi
-  slaves.a.pcm "hw:vc4hdmi0,0"
-  slaves.b.pcm "hw:Loopback,0,0"
-  slaves.a.channels 2
-  slaves.b.channels 2
-  bindings.0 { slave a; channel 0; }
-  bindings.1 { slave a; channel 1; }
-  bindings.2 { slave b; channel 0; }
-  bindings.3 { slave b; channel 1; }
-}
-EOF
-
-# Sanity: play a 1s tone via hdmi_tee, capture from the loopback end,
-# verify the file is non-empty. Non-fatal — prints a warning if it fails.
-speaker-test -D hdmi_tee -t sine -f 440 -l 1 > /dev/null 2>&1 &
-SPK_PID=$!
-sleep 0.3
-arecord -D hw:Loopback,1,0 -d 1 -f S16_LE -r 48000 -c 2 \
-    /tmp/hearth-audio-check.wav > /dev/null 2>&1 || true
-wait $SPK_PID 2>/dev/null || true
-if [ ! -s /tmp/hearth-audio-check.wav ]; then
-    echo "WARNING: hdmi_tee → loopback capture test produced no data."
-    echo "         snd-aloop may have failed to load. Run 'lsmod | grep snd_aloop'."
-fi
-rm -f /tmp/hearth-audio-check.wav
+# Audio routing: PipeWire owns HDMI; OBS streaming captures from the
+# HDMI sink's auto-generated .monitor port (see lib/services/stream_service.dart).
+# No /etc/asound.conf or snd-aloop loopback needed — every PipeWire sink
+# carries everything mixed to it on its monitor port regardless of source.
 
 # Wyoming openWakeWord service
 sudo tee /etc/systemd/system/wyoming-openwakeword.service > /dev/null << 'EOF'

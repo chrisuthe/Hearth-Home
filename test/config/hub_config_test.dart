@@ -97,14 +97,27 @@ void main() {
       expect(config.sendspinClientId, '');
     });
 
-    test('sendspinAlsaDevice defaults to hdmi_tee on fresh install', () {
+    test('sendspinAlsaDevice defaults to default (PipeWire bridge) on fresh install', () {
       const c = HubConfig();
-      expect(c.sendspinAlsaDevice, 'hdmi_tee');
+      expect(c.sendspinAlsaDevice, 'default');
     });
 
     test('existing sendspinAlsaDevice values survive JSON load', () {
       final c = HubConfig.fromJson({'sendspinAlsaDevice': 'plughw:CARD=vc4hdmi0,DEV=0'});
       expect(c.sendspinAlsaDevice, 'plughw:CARD=vc4hdmi0,DEV=0');
+    });
+
+    test('legacy hdmi_tee sendspinAlsaDevice gets normalized to default', () {
+      // Forward-migration: PipeWire migration removed /etc/asound.conf so
+      // 'hdmi_tee' no longer resolves. Existing configs with that value
+      // must read as 'default' instead.
+      final c = HubConfig.fromJson({'sendspinAlsaDevice': 'hdmi_tee'});
+      expect(c.sendspinAlsaDevice, 'default');
+    });
+
+    test('missing sendspinAlsaDevice falls back to default', () {
+      final c = HubConfig.fromJson(<String, dynamic>{});
+      expect(c.sendspinAlsaDevice, 'default');
     });
 
     test('sendspin fields round-trip through JSON', () {
