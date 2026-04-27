@@ -164,4 +164,65 @@ void main() {
       expect(emitted, [VoiceState.listening]);
     });
   });
+
+  group('VoiceAssistantService pinned-entity mode', () {
+    late VoiceAssistantService service;
+
+    setUp(() {
+      service = VoiceAssistantService(
+        HomeAssistantService(),
+        pinnedEntityId: 'assist_satellite.hearth_assist_satellite',
+      );
+    });
+
+    tearDown(() => service.dispose());
+
+    test('ignores all assist_satellite entities except the pinned one', () {
+      service.handleEntityUpdateForTest(
+          _entity('assist_satellite.hearth', 'idle'));
+      service.handleEntityUpdateForTest(
+          _entity('assist_satellite.voice_pe', 'idle'));
+      expect(service.selectedEntityIdForTest, isNull);
+
+      service.handleEntityUpdateForTest(_entity(
+          'assist_satellite.hearth_assist_satellite', 'idle'));
+      expect(service.selectedEntityIdForTest,
+          'assist_satellite.hearth_assist_satellite');
+    });
+
+    test('does NOT auto-fall-back to a different entity if pinned goes unavailable',
+        () {
+      service.handleEntityUpdateForTest(_entity(
+          'assist_satellite.hearth_assist_satellite', 'idle'));
+      service.handleEntityUpdateForTest(_entity(
+          'assist_satellite.hearth_assist_satellite', 'unavailable'));
+      // Pinned mode must NOT fall back — the user explicitly chose this
+      // entity. A second satellite appearing later (kitchen Hearth, etc)
+      // should never silently take over the pin.
+      service.handleEntityUpdateForTest(
+          _entity('assist_satellite.kitchen_hearth', 'idle'));
+      expect(service.selectedEntityIdForTest,
+          'assist_satellite.hearth_assist_satellite');
+    });
+
+    test('emits state changes only when the pinned entity transitions',
+        () async {
+      final emitted = <VoiceState>[];
+      final sub = service.stateStream.listen((s) => emitted.add(s.state));
+
+      // Other satellites' state changes must not leak into our voice pill.
+      service.handleEntityUpdateForTest(
+          _entity('assist_satellite.kitchen_hearth', 'listening'));
+      service.handleEntityUpdateForTest(
+          _entity('assist_satellite.voice_pe', 'responding'));
+      // Pinned entity transitions → these DO emit.
+      service.handleEntityUpdateForTest(_entity(
+          'assist_satellite.hearth_assist_satellite', 'listening'));
+
+      await Future<void>.delayed(Duration.zero);
+      await sub.cancel();
+
+      expect(emitted, [VoiceState.listening]);
+    });
+  });
 }

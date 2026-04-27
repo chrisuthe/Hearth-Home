@@ -179,6 +179,13 @@ class HubConfig {
   final bool use24HourClock;
   final List<String> pinnedEntityIds;
   final String weatherEntityId;
+  /// HA assist_satellite entity ID to lock onto for the voice pill UI.
+  /// Empty string means "auto-pick the first available" (legacy behavior,
+  /// fine for single-Hearth setups). When multiple voice satellites exist
+  /// on the same HA — multiple Hearth kiosks, a Voice PE, additional LVA
+  /// devices — set this explicitly so each kiosk only reflects its own
+  /// satellite's state instead of grabbing whichever entity loads first.
+  final String voiceAssistantEntityId;
   final bool sendspinEnabled;
   final String sendspinPlayerName;
   final int sendspinBufferSeconds;
@@ -241,6 +248,7 @@ class HubConfig {
     this.use24HourClock = false,
     this.pinnedEntityIds = const [],
     this.weatherEntityId = '',
+    this.voiceAssistantEntityId = '',
     this.sendspinEnabled = false,
     this.sendspinPlayerName = '',
     this.sendspinBufferSeconds = 5,
@@ -299,6 +307,7 @@ class HubConfig {
     bool? use24HourClock,
     List<String>? pinnedEntityIds,
     String? weatherEntityId,
+    String? voiceAssistantEntityId,
     bool? sendspinEnabled,
     String? sendspinPlayerName,
     int? sendspinBufferSeconds,
@@ -350,6 +359,8 @@ class HubConfig {
       use24HourClock: use24HourClock ?? this.use24HourClock,
       pinnedEntityIds: pinnedEntityIds ?? this.pinnedEntityIds,
       weatherEntityId: weatherEntityId ?? this.weatherEntityId,
+      voiceAssistantEntityId:
+          voiceAssistantEntityId ?? this.voiceAssistantEntityId,
       sendspinEnabled: sendspinEnabled ?? this.sendspinEnabled,
       sendspinPlayerName: sendspinPlayerName ?? this.sendspinPlayerName,
       sendspinBufferSeconds: sendspinBufferSeconds ?? this.sendspinBufferSeconds,
@@ -404,6 +415,7 @@ class HubConfig {
         'use24HourClock': use24HourClock,
         'pinnedEntityIds': pinnedEntityIds,
         'weatherEntityId': weatherEntityId,
+        'voiceAssistantEntityId': voiceAssistantEntityId,
         'sendspinEnabled': sendspinEnabled,
         'sendspinPlayerName': sendspinPlayerName,
         'sendspinBufferSeconds': sendspinBufferSeconds,
@@ -456,6 +468,8 @@ class HubConfig {
         use24HourClock: json['use24HourClock'] as bool? ?? false,
         pinnedEntityIds: (json['pinnedEntityIds'] as List<dynamic>?)?.cast<String>() ?? const [],
         weatherEntityId: json['weatherEntityId'] as String? ?? '',
+        voiceAssistantEntityId:
+            json['voiceAssistantEntityId'] as String? ?? '',
         sendspinEnabled: json['sendspinEnabled'] as bool? ?? false,
         sendspinPlayerName: json['sendspinPlayerName'] as String? ?? '',
         sendspinBufferSeconds: json['sendspinBufferSeconds'] as int? ?? 5,

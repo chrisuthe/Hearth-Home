@@ -272,6 +272,41 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
         ),
 
+        // -- Voice Assistant --
+        // Pin to a specific assist_satellite entity. Empty = auto-pick the
+        // first available one (fine for single-Hearth setups, breaks the
+        // moment another satellite — second Hearth, Voice PE, etc — joins HA).
+        const _ServiceSubHeader(title: 'Voice Assistant'),
+        Builder(builder: (context) {
+          final ha = ref.read(homeAssistantServiceProvider);
+          final assistEntities = ha.entities.values
+              .where((e) => e.entityId.startsWith('assist_satellite.'))
+              .toList()
+            ..sort((a, b) => a.entityId.compareTo(b.entityId));
+          final options = <String, String>{
+            '': 'Auto-pick (first available)',
+            for (final e in assistEntities)
+              e.entityId:
+                  '${e.name.isNotEmpty ? e.name : e.entityId} (${e.entityId})',
+          };
+          final current = config.voiceAssistantEntityId;
+          final currentLabel = options[current] ??
+              (current.isEmpty ? 'Auto-pick (first available)' : current);
+          return _SettingsTile(
+            icon: Icons.record_voice_over,
+            title: 'Satellite Entity',
+            subtitle: currentLabel,
+            onTap: () => _showChoiceDialog(
+              title: 'Voice Assistant Satellite',
+              options: options,
+              currentValue: current,
+              onSave: (value) => _updateConfig(
+                (c) => c.copyWith(voiceAssistantEntityId: value),
+              ),
+            ),
+          );
+        }),
+
         const SizedBox(height: 24),
 
         // ── 3. Display & Behavior ────────────────────────────────────

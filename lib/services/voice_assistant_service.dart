@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../config/hub_config.dart';
 import '../models/ha_entity.dart';
 import '../utils/logger.dart';
 import 'home_assistant_service.dart';
@@ -51,15 +52,25 @@ class VoiceAssistantState {
 
 /// Watches the assist_satellite HA entity state to drive the voice feedback UI.
 ///
-/// The assist_satellite.hearth entity transitions through states:
+/// The assist_satellite entity transitions through states:
 /// idle → listening → processing → responding → idle
 ///
-/// If HA exposes multiple `assist_satellite.*` entities (e.g. a local Wyoming
-/// satellite plus an offline Voice PE device), this service picks the first
-/// one that is not `unavailable` and will switch to a healthy alternative if
-/// the current selection goes unavailable.
+/// Selection has two modes:
+///
+/// 1. **Pinned** ([pinnedEntityId] non-empty): only this exact entity ID is
+///    tracked. Required when multiple satellites exist on the same HA
+///    (multiple Hearths, a Voice PE, additional LVAs) — otherwise this
+///    service might lock onto a different kiosk's satellite and show its
+///    state in the wrong voice pill. User configures via
+///    `HubConfig.voiceAssistantEntityId` / Settings → Voice Assistant.
+///
+/// 2. **Auto-pick** ([pinnedEntityId] empty): legacy behavior — picks the
+///    first non-unavailable `assist_satellite.*` and switches to a healthy
+///    alternative if the current selection goes unavailable. Fine for
+///    single-Hearth setups; risky as soon as a second satellite appears.
 class VoiceAssistantService {
   final HomeAssistantService _ha;
+  final String _pinnedEntityId;
   final _stateController = StreamController<VoiceAssistantState>.broadcast();
   VoiceAssistantState _currentState = const VoiceAssistantState();
   Timer? _idleResetTimer;
@@ -78,7 +89,8 @@ class VoiceAssistantService {
   Stream<VoiceAssistantState> get stateStream => _stateController.stream;
   VoiceAssistantState get currentState => _currentState;
 
-  VoiceAssistantService(this._ha);
+  VoiceAssistantService(this._ha, {String pinnedEntityId = ''})
+      : _pinnedEntityId = pinnedEntityId;
 
   /// Starts watching the assist_satellite entity for state changes.
   void start() {
@@ -90,7 +102,12 @@ class VoiceAssistantService {
     }
 
     if (_satelliteEntityId == null) {
-      Log.i('Voice', 'No available assist_satellite entity yet, waiting...');
+      if (_pinnedEntityId.isNotEmpty) {
+        Log.i('Voice',
+            'Waiting for pinned assist_satellite entity: $_pinnedEntityId');
+      } else {
+        Log.i('Voice', 'No available assist_satellite entity yet, waiting...');
+      }
     }
   }
 
@@ -98,6 +115,22 @@ class VoiceAssistantService {
     if (_disposed) return;
     if (!entity.entityId.startsWith('assist_satellite.')) return;
 
+    // Pinned mode: ignore everything except the configured entity. No
+    // auto-pick fallback — if the user pinned X, X is the only thing
+    // we ever react to. This is the safe default for multi-satellite HA
+    // setups where auto-pick could land on the wrong kiosk's satellite.
+    if (_pinnedEntityId.isNotEmpty) {
+      if (entity.entityId != _pinnedEntityId) return;
+      _candidates[entity.entityId] = entity;
+      if (_satelliteEntityId == null) {
+        _satelliteEntityId = entity.entityId;
+        Log.i('Voice', 'Locked to pinned satellite entity: $_satelliteEntityId');
+      }
+      _onSatelliteStateChanged(entity.state);
+      return;
+    }
+
+    // Auto-pick mode (no pin configured) — original behavior.
     _candidates[entity.entityId] = entity;
 
     // No selection yet — pick this entity if it's available.
@@ -224,7 +257,11 @@ class VoiceAssistantService {
 
 final voiceAssistantServiceProvider = Provider<VoiceAssistantService>((ref) {
   final ha = ref.watch(homeAssistantServiceProvider);
-  final service = VoiceAssistantService(ha);
+  // Watch only the pinned-entity field. Changing it in Settings rebuilds
+  // the service against the new pin without disturbing other config.
+  final pinnedEntityId = ref.watch(
+      hubConfigProvider.select((c) => c.voiceAssistantEntityId));
+  final service = VoiceAssistantService(ha, pinnedEntityId: pinnedEntityId);
   service.start();
   ref.onDispose(() => service.dispose());
   return service;
