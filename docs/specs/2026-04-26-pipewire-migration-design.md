@@ -188,6 +188,8 @@ Phase 1 is non-destructive (PipeWire installs alongside ALSA-direct, doesn't cha
 
 - **Frigate camera audio.** The Pi GStreamer pipeline (`gstreamer_player.dart`) is currently video-only — no audio pad linked, by design. PipeWire migration does not change this. *Unblocked* by it though: once PipeWire is in place, adding camera audio is just appending an audio branch to the pipeline (`... rtpmp4adepay ! aacparse ! avdec_aac ! audioconvert ! pipewiresink` or similar, depending on camera codec) plus a per-camera "play audio" toggle in HubConfig. Keep this as a separate feature project after PipeWire — it has its own design questions (which cameras audibly stream by default? doorbells yes, baby monitors yes, backyard cam probably no).
 
+- **Voice ducking** (auto-attenuate music while voice listens/speaks). Architecturally clean once Linux Voice Assistant ships — LVA tags its TTS streams with `media.role=communication`, and a WirePlumber rule can apply -12dB to other streams while a `communication` stream is active. ~5-10 lines of WP config, no Hearth code. Defer to after LVA migration since wyoming-satellite's per-response `aplay` subprocesses don't give PipeWire stable stream lifetimes to react against.
+
 ## Open questions
 
 1. **System vs. user PipeWire daemon?** Per-user is conventional; system-wide is sometimes done for kiosks. We need to confirm Wyoming and Hearth both run as the same user (`hearth`), and if so, per-user with linger is the right answer. Verify before Phase 1.
