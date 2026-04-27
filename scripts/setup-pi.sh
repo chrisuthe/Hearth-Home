@@ -22,6 +22,8 @@ sudo apt-get install -y -qq \
     libdrm-dev libgbm-dev libinput-dev libudev-dev libsystemd-dev \
     libxkbcommon-dev libvulkan-dev \
     libasound2 \
+    libffi-dev libssl-dev python3-dev python3-venv \
+    libmpv2 pulseaudio-utils \
     pipewire pipewire-pulse pipewire-alsa wireplumber \
     gstreamer1.0-plugins-base gstreamer1.0-plugins-good \
     gstreamer1.0-plugins-bad gstreamer1.0-alsa \
@@ -351,6 +353,57 @@ RestartSec=5
 [Install]
 WantedBy=multi-user.target
 SATEOF
+
+# --- Linux Voice Assistant (replaces wyoming-satellite — Phase 1: side-by-side) ---
+# OHF's official successor to wyoming-satellite. Talks to HA via the
+# ESPHome protocol (port 6053, mDNS auto-discovered). Bundles
+# openWakeWord; `okay_nabu` is the default and matches the existing
+# Wyoming wake phrase. Uses PipeWire's pulse-compat socket directly —
+# no aplay/arecord subprocesses.
+echo "Installing Linux Voice Assistant..."
+sudo install -d -o hearth -g hearth /opt/lva
+if [ ! -d /opt/lva/linux-voice-assistant ]; then
+    sudo -u hearth git clone --depth 1 \
+        https://github.com/OHF-Voice/linux-voice-assistant.git \
+        /opt/lva/linux-voice-assistant
+fi
+(cd /opt/lva/linux-voice-assistant && \
+    sudo -u hearth git pull --ff-only 2>/dev/null || true)
+(cd /opt/lva/linux-voice-assistant && sudo -u hearth ./script/setup --dev)
+
+sudo tee /etc/systemd/system/linux-voice-assistant.service > /dev/null << 'LVAEOF'
+[Unit]
+Description=Linux Voice Assistant (Hearth)
+After=network.target user@999.service
+
+[Service]
+Type=simple
+User=hearth
+Group=hearth
+WorkingDirectory=/opt/lva/linux-voice-assistant
+# LVA's docker-entrypoint.sh expects PULSE_SERVER / XDG_RUNTIME_DIR
+# directly (not the LVA_-prefixed Docker variants). PULSE_COOKIE=DISABLED
+# skips its cookie-creation block, which defaults to /run/user/1000 and
+# fails under our hearth (uid 999) user. PREFERENCES_FILE is set to a
+# writable location since LVA defaults to /app/configuration (Docker-only).
+Environment=PULSE_SERVER=unix:/run/user/999/pulse/native
+Environment=XDG_RUNTIME_DIR=/run/user/999
+Environment=PULSE_COOKIE=DISABLED
+Environment=PREFERENCES_FILE=/opt/lva/preferences.json
+Environment=PORT=6053
+Environment=WAKE_MODEL=okay_nabu
+Environment=CLIENT_NAME=Hearth
+ExecStart=/opt/lva/linux-voice-assistant/docker-entrypoint.sh
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+LVAEOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable linux-voice-assistant.service
+sudo systemctl restart linux-voice-assistant.service
 
 # --- Permissions ---
 
