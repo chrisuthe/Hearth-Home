@@ -1,5 +1,5 @@
+import 'dart:async';
 import 'dart:ffi';
-import 'dart:io';
 import 'dart:isolate';
 import 'dart:typed_data';
 
@@ -70,6 +70,15 @@ class _WriteMsg {
   const _WriteMsg(this.data);
 }
 
+/// Sent from isolate -> main after handling _InitMsg. [error] is null
+/// on success; otherwise carries a human-readable failure reason so
+/// upstream callers (and logs) can see WHY the sink didn't open.
+class _InitAck {
+  final String? error;
+  const _InitAck({this.error});
+  bool get ok => error == null;
+}
+
 class _VolumeMsg {
   final double volume;
   final bool muted;
@@ -86,14 +95,6 @@ enum _Cmd { stop, dispose }
 ///
 /// Drop-in replacement for [SendspinAudioSink] on Linux systems that use
 /// ALSA directly (e.g. Raspberry Pi with flutter-pi, no PulseAudio).
-/// A listable ALSA playback device: the device string to pass to ALSA
-/// (e.g. `plughw:CARD=vc4hdmi0,DEV=0`) and a human-readable label.
-class AlsaDevice {
-  final String device;
-  final String label;
-  const AlsaDevice({required this.device, required this.label});
-}
-
 class AlsaAudioSink implements AudioSink {
   final String device;
 
@@ -101,54 +102,12 @@ class AlsaAudioSink implements AudioSink {
   Isolate? _isolate;
   bool _initialized = false;
 
+  /// Constructs a sink that opens the named ALSA device. The default
+  /// `'default'` resolves to the PipeWire ALSA bridge on the kiosk
+  /// (and to the system default elsewhere). PipeWire then routes to
+  /// whatever WirePlumber has selected as the default sink (HDMI on
+  /// the Pi 5).
   AlsaAudioSink({this.device = 'default'});
-
-  /// Enumerate ALSA playback devices by reading /proc/asound.
-  ///
-  /// Returns `[AlsaDevice(device:'default', label:'System default')]` plus
-  /// one `plughw:CARD=<id>,DEV=<n>` entry per playback PCM. Returns just the
-  /// default entry on non-Linux or if /proc/asound is unavailable.
-  static List<AlsaDevice> listPlaybackDevices() {
-    final result = <AlsaDevice>[
-      const AlsaDevice(device: 'default', label: 'System default'),
-    ];
-    if (!Platform.isLinux) return result;
-    try {
-      final cardsFile = File('/proc/asound/cards');
-      if (!cardsFile.existsSync()) return result;
-      // Each card occupies two lines:
-      //  " 0 [Device         ]: USB-Audio - PDP Audio Device"
-      //  "                      Performance Designed Products PDP ..."
-      final lines = cardsFile.readAsLinesSync();
-      final header = RegExp(r'^\s*(\d+)\s+\[([^\]]+)\]:\s*(.+)$');
-      for (int i = 0; i < lines.length; i++) {
-        final m = header.firstMatch(lines[i]);
-        if (m == null) continue;
-        final idx = int.parse(m.group(1)!);
-        final id = m.group(2)!.trim();
-        final shortName = m.group(3)!.trim();
-        final cardDir = Directory('/proc/asound/card$idx');
-        if (!cardDir.existsSync()) continue;
-        final pcmRe = RegExp(r'^pcm(\d+)p$');
-        for (final entry in cardDir.listSync()) {
-          final name = entry.uri.pathSegments.lastWhere(
-            (s) => s.isNotEmpty,
-            orElse: () => '',
-          );
-          final pm = pcmRe.firstMatch(name);
-          if (pm == null) continue;
-          final dev = int.parse(pm.group(1)!);
-          result.add(AlsaDevice(
-            device: 'plughw:CARD=$id,DEV=$dev',
-            label: '$id — $shortName',
-          ));
-        }
-      }
-    } catch (_) {
-      // Enumeration is best-effort; fall back to just 'default'.
-    }
-    return result;
-  }
 
   @override
   Future<void> initialize({
@@ -164,10 +123,29 @@ class AlsaAudioSink implements AudioSink {
       receivePort.sendPort,
     );
 
-    // First message from isolate is its command port.
-    _cmdPort = await receivePort.first as SendPort;
+    // The isolate sends a stream of messages: first its command SendPort,
+    // then an _InitAck after each _InitMsg we send. Use a StreamIterator
+    // so we can await each in sequence without losing messages.
+    final iter = StreamIterator(receivePort);
+
+    if (!await iter.moveNext()) {
+      throw StateError('ALSA isolate exited before sending command port');
+    }
+    _cmdPort = iter.current as SendPort;
 
     _cmdPort!.send(_InitMsg(sampleRate, channels, bitDepth, device));
+    if (!await iter.moveNext()) {
+      throw StateError('ALSA isolate exited before _InitAck');
+    }
+    final ack = iter.current as _InitAck;
+    if (!ack.ok) {
+      Log.e('Sendspin',
+          'ALSA sink init failed: device=$device — ${ack.error}');
+      await dispose();
+      throw StateError(
+          'ALSA sink init failed: device=$device — ${ack.error}');
+    }
+
     _initialized = true;
     Log.i('Sendspin', 'ALSA sink initialized: device=$device '
         '${sampleRate}Hz ${channels}ch ${bitDepth}bit');
@@ -227,7 +205,14 @@ void _alsaIsolateEntry(SendPort mainPort) {
     try {
       lib = DynamicLibrary.open('libasound.so');
     } catch (e) {
-      // Can't log from isolate easily, just exit.
+      // libasound isn't installed. Surface this so the main thread sees
+      // the failure on the *next* _InitMsg attempt instead of hanging.
+      cmdPort.listen((msg) {
+        if (msg is _InitMsg) {
+          mainPort.send(const _InitAck(
+              error: 'libasound.so.2 / libasound.so not available'));
+        }
+      });
       return;
     }
   }
@@ -275,6 +260,8 @@ void _alsaIsolateEntry(SendPort mainPort) {
 
       if (err < 0) {
         calloc.free(pcmPtr);
+        mainPort.send(_InitAck(
+            error: 'snd_pcm_open("${msg.device}") returned $err'));
         return;
       }
       pcm = pcmPtr.value;
@@ -304,10 +291,14 @@ void _alsaIsolateEntry(SendPort mainPort) {
       if (err < 0) {
         pcmClose(pcm);
         pcm = nullptr;
+        mainPort.send(_InitAck(error:
+            'snd_pcm_set_params returned $err '
+            '(${msg.sampleRate}Hz ${msg.channels}ch ${msg.bitDepth}bit)'));
         return;
       }
 
       bytesPerFrame = msg.channels * (msg.bitDepth ~/ 8);
+      mainPort.send(const _InitAck());
     } else if (msg is _WriteMsg) {
       if (pcm == nullptr) return;
 

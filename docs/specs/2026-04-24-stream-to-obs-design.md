@@ -1,5 +1,15 @@
 # Stream Hearth Screen + Audio to OBS
 
+> **Superseded — historical record.**
+> The audio-routing portions of this spec (snd-aloop loopback, `/etc/asound.conf`
+> `hdmi_tee` multi-plugin, ffmpeg `-f alsa -i hw:Loopback,1,0`) describe the
+> architecture that shipped 2026-04-24. As of 2026-04-26, the kiosk has migrated
+> to PipeWire — see [`2026-04-26-pipewire-migration-design.md`](2026-04-26-pipewire-migration-design.md).
+> Current state: ffmpeg captures from the HDMI sink's PipeWire monitor port,
+> `/etc/asound.conf` is deleted, `snd-aloop` is no longer loaded.
+>
+> The video / kmsgrab / SRT / OBS ingest portions of this spec remain accurate.
+
 ## Summary
 
 Add a live streaming output to Hearth's capture tools so a workstation running OBS on the LAN can receive the Pi's screen and system audio as a network source. Intended for on-demand live demos and marketing recordings where OBS composes the final video. Target protocol is SRT with the Pi as caller and OBS as listener, chosen for its native ffmpeg + OBS support, low latency, and WiFi packet-loss tolerance.

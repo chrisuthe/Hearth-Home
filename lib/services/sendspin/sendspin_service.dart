@@ -41,7 +41,6 @@ class SendspinService {
   }
 
   void Function(int delayMs)? _onStaticDelayPersist;
-  String _alsaDevice = 'default';
 
   Future<void> configure({
     required bool enabled,
@@ -50,11 +49,9 @@ class SendspinService {
     required String clientId,
     required String serverUrl,
     int initialStaticDelayMs = 0,
-    String alsaDevice = 'default',
     void Function(int delayMs)? onStaticDelayPersist,
   }) async {
     _onStaticDelayPersist = onStaticDelayPersist;
-    _alsaDevice = alsaDevice;
     await _stop();
     if (!enabled || playerName.isEmpty) {
       _updateState(const SendspinPlayerState());
@@ -215,7 +212,7 @@ class SendspinService {
     _client!.onSendText = (message) => socket.add(message);
 
     _audioSink = Platform.isLinux
-        ? AlsaAudioSink(device: _alsaDevice)
+        ? AlsaAudioSink()
         : SendspinAudioSink();
 
     _client!.onStreamStart = (sampleRate, channels, bitDepth) {
@@ -234,7 +231,15 @@ class SendspinService {
         sampleRate: sampleRate,
         channels: channels,
         bitDepth: bitDepth,
-      ).then((_) => _audioSink?.start());
+      ).then((_) => _audioSink?.start()).catchError((e, st) {
+        // Sink init failed (e.g., libasound returned an error from
+        // snd_pcm_set_params). Surface it in the log instead of letting
+        // it land as an unhandled async error, and clear the sink so
+        // subsequent writes don't drop silently against a stale handle.
+        Log.e('Sendspin', 'Audio sink init failed: $e');
+        _audioSink?.dispose();
+        _audioSink = null;
+      });
     };
 
     _client!.onVolumeChanged = (volume, muted) async {
@@ -410,8 +415,6 @@ final sendspinServiceProvider = Provider<SendspinService>((ref) {
       ref.watch(hubConfigProvider.select((c) => c.sendspinServerUrl));
   final staticDelayMs =
       ref.read(hubConfigProvider.select((c) => c.sendspinStaticDelayMs));
-  final alsaDevice =
-      ref.watch(hubConfigProvider.select((c) => c.sendspinAlsaDevice));
 
   final service = SendspinService();
   ref.onDispose(() => service.dispose());
@@ -425,7 +428,6 @@ final sendspinServiceProvider = Provider<SendspinService>((ref) {
           clientId: clientId,
           serverUrl: serverUrl,
           initialStaticDelayMs: staticDelayMs,
-          alsaDevice: alsaDevice,
           onStaticDelayPersist: (delayMs) {
             ref
                 .read(hubConfigProvider.notifier)

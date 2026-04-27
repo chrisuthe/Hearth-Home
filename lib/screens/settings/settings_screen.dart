@@ -7,7 +7,6 @@ import '../../services/local_api_server.dart';
 import '../../services/osk_integration.dart';
 import '../../utils/alsa_utils.dart';
 import '../../app/app.dart' show kDialogBackground;
-import '../../services/sendspin/alsa_audio_sink.dart';
 import '../../services/sendspin/sendspin_service.dart';
 import '../../services/timezone_service.dart';
 import 'package:sendspin_dart/sendspin_dart.dart';
@@ -525,29 +524,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               (c) => c.copyWith(sendspinServerUrl: value),
             ),
           ),
-        ),
-        Builder(
-          builder: (context) {
-            final devices = AlsaAudioSink.listPlaybackDevices();
-            final options = {
-              for (final d in devices) d.device: d.label,
-            };
-            final current = config.sendspinAlsaDevice;
-            final currentLabel = options[current] ?? current;
-            return _SettingsTile(
-              icon: Icons.speaker,
-              title: 'ALSA Device',
-              subtitle: currentLabel,
-              onTap: () => _showChoiceDialog(
-                title: 'ALSA Output Device',
-                options: options,
-                currentValue: current,
-                onSave: (value) => _updateConfig(
-                  (c) => c.copyWith(sendspinAlsaDevice: value),
-                ),
-              ),
-            );
-          },
         ),
         _SettingsTile(
           icon: Icons.memory,

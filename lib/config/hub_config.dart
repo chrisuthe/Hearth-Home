@@ -185,7 +185,6 @@ class HubConfig {
   final String sendspinClientId;
   final String sendspinServerUrl;
   final int sendspinStaticDelayMs;
-  final String sendspinAlsaDevice;
   /// Wire value for [OnScreenKeyboardMode]: 'auto', 'always', or 'never'.
   final String onScreenKeyboardMode;
   final String displayProfile; // "auto" | "amoled-11" | "rpi-7" | "hdmi"
@@ -248,7 +247,6 @@ class HubConfig {
     this.sendspinClientId = '',
     this.sendspinServerUrl = '',
     this.sendspinStaticDelayMs = 0,
-    this.sendspinAlsaDevice = 'default',
     this.onScreenKeyboardMode = 'auto',
     this.displayProfile = 'auto',
     this.displayWidth = 0,
@@ -307,7 +305,6 @@ class HubConfig {
     String? sendspinClientId,
     String? sendspinServerUrl,
     int? sendspinStaticDelayMs,
-    String? sendspinAlsaDevice,
     String? onScreenKeyboardMode,
     String? displayProfile,
     int? displayWidth,
@@ -359,7 +356,6 @@ class HubConfig {
       sendspinClientId: sendspinClientId ?? this.sendspinClientId,
       sendspinServerUrl: sendspinServerUrl ?? this.sendspinServerUrl,
       sendspinStaticDelayMs: sendspinStaticDelayMs ?? this.sendspinStaticDelayMs,
-      sendspinAlsaDevice: sendspinAlsaDevice ?? this.sendspinAlsaDevice,
       onScreenKeyboardMode:
           onScreenKeyboardMode ?? this.onScreenKeyboardMode,
       displayProfile: displayProfile ?? this.displayProfile,
@@ -414,7 +410,6 @@ class HubConfig {
         'sendspinClientId': sendspinClientId,
         'sendspinServerUrl': sendspinServerUrl,
         'sendspinStaticDelayMs': sendspinStaticDelayMs,
-        'sendspinAlsaDevice': sendspinAlsaDevice,
         'onScreenKeyboardMode': onScreenKeyboardMode,
         'displayProfile': displayProfile,
         'displayWidth': displayWidth,
@@ -467,8 +462,6 @@ class HubConfig {
         sendspinClientId: json['sendspinClientId'] as String? ?? '',
         sendspinServerUrl: json['sendspinServerUrl'] as String? ?? '',
         sendspinStaticDelayMs: json['sendspinStaticDelayMs'] as int? ?? 0,
-        sendspinAlsaDevice: _normalizeSendspinAlsaDevice(
-            json['sendspinAlsaDevice'] as String?),
         onScreenKeyboardMode:
             json['onScreenKeyboardMode'] as String? ?? 'auto',
         displayProfile: json['displayProfile'] as String? ?? 'auto',
@@ -510,15 +503,6 @@ class HubConfig {
         ?? const ['media', 'controls', 'cameras'];
     return {for (final id in enabled) id: ['swipe']};
   }
-}
-
-/// Normalizes a stored sendspinAlsaDevice value. Pre-PipeWire installs
-/// stored 'hdmi_tee' (the now-deleted ALSA multi-plugin); rewrite those
-/// to 'default' on read so existing users don't silently lose audio
-/// after the migration. Null/empty/anything else passes through normally.
-String _normalizeSendspinAlsaDevice(String? raw) {
-  if (raw == null || raw.isEmpty || raw == 'hdmi_tee') return 'default';
-  return raw;
 }
 
 /// Manages config state and persists changes to disk automatically.
