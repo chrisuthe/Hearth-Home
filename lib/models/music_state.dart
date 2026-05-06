@@ -1,27 +1,42 @@
 /// Extract an image URL from a Music Assistant JSON object.
 ///
-/// MA returns image URLs in several locations depending on the endpoint:
-///   - `image.url` (resolved image object)
-///   - `metadata.images[0].url` (raw metadata image list)
-///   - `image_url` (flattened convenience field)
-/// This helper tries each in order and returns the first non-null match.
-String? _extractImageUrl(Map<String, dynamic>? json) {
+/// MA returns image data in several shapes depending on the endpoint:
+///
+///   - `image_url` (flat convenience field — already resolved)
+///   - `image: { url: "..." }` (resolved image object)
+///   - `image: { path, provider, ... }` (raw — needs imageproxy URL)
+///   - `metadata.images: [{ path, provider, ... }, ...]` (raw list)
+///
+/// Player events (`player_updated.current_media`) emit the resolved
+/// `image_url`. Queue events (`queue_updated.current_item.*`) and
+/// library/search results emit the raw `{path, provider}` shape and
+/// expect the client to construct an imageproxy URL itself, mirroring
+/// what `music_assistant.controllers.metadata.MetadataController.get_image_url`
+/// does on the server side. Pass [imageBaseUrl] (the MA HTTP base
+/// URL) to enable that fallback; without it, raw image objects yield
+/// null.
+String? _extractImageUrl(
+  Map<String, dynamic>? json, {
+  String? imageBaseUrl,
+}) {
   if (json == null) return null;
 
-  // Direct image object: { "image": { "url": "..." } }
+  // Already-resolved direct URL: { "image": { "url": "..." } }
   final image = json['image'];
   if (image is Map<String, dynamic>) {
     final url = image['url'] as String?;
     if (url != null && url.isNotEmpty) return url;
   }
 
-  // Metadata images list: { "metadata": { "images": [{ "url": "..." }] } }
+  // Already-resolved metadata images list with url field.
   final metadata = json['metadata'];
+  Map<String, dynamic>? firstMetadataImage;
   if (metadata is Map<String, dynamic>) {
     final images = metadata['images'];
     if (images is List && images.isNotEmpty) {
       final first = images[0];
       if (first is Map<String, dynamic>) {
+        firstMetadataImage = first;
         final url = first['url'] as String?;
         if (url != null && url.isNotEmpty) return url;
       }
@@ -32,7 +47,50 @@ String? _extractImageUrl(Map<String, dynamic>? json) {
   final imageUrl = json['image_url'] as String?;
   if (imageUrl != null && imageUrl.isNotEmpty) return imageUrl;
 
+  // Raw {path, provider} shape — construct imageproxy URL when we have
+  // the MA base URL. Prefer the top-level image object (the queue
+  // controller's "main" image) over metadata.images[0].
+  if (imageBaseUrl != null) {
+    Map<String, dynamic>? rawImage;
+    if (image is Map<String, dynamic> && image['path'] is String) {
+      rawImage = image;
+    } else if (firstMetadataImage != null && firstMetadataImage['path'] is String) {
+      rawImage = firstMetadataImage;
+    }
+    if (rawImage != null) {
+      final built = _buildImageProxyUrl(rawImage, imageBaseUrl);
+      if (built != null) return built;
+    }
+  }
+
   return null;
+}
+
+/// Constructs an MA imageproxy URL from a raw `{path, provider}` image
+/// object. Mirrors `metadata.py:get_image_url`:
+///
+///   encoded = urllib.parse.quote_plus(urllib.parse.quote_plus(image.path))
+///   {base}/imageproxy?provider={provider}&size=500&fmt=jpeg&path={encoded}
+///
+/// The double-encoding is deliberate (and noted in MA's source comment)
+/// — the path is `quote_plus`-encoded once for the imageproxy parameter
+/// value, then the resulting string is encoded again as part of the
+/// query string. Dart's [Uri.encodeQueryComponent] uses the same
+/// `application/x-www-form-urlencoded` rules as Python's `quote_plus`
+/// (space → `+`, reserved chars → `%XX`), so two passes match exactly.
+///
+/// `size=500&fmt=jpeg` matches MA's defaults for player current_media,
+/// which gives a reasonable thumbnail without over-fetching.
+String? _buildImageProxyUrl(Map<String, dynamic> image, String baseUrl) {
+  final path = image['path'] as String?;
+  final provider = image['provider'] as String?;
+  if (path == null || path.isEmpty) return null;
+  if (provider == null || provider.isEmpty) return null;
+  final encoded = Uri.encodeQueryComponent(Uri.encodeQueryComponent(path));
+  final base = baseUrl.endsWith('/')
+      ? baseUrl.substring(0, baseUrl.length - 1)
+      : baseUrl;
+  return '$base/imageproxy?provider=$provider&size=500&fmt=jpeg&path=$encoded';
 }
 
 /// A single track's metadata from Music Assistant via HA.
@@ -197,7 +255,15 @@ class MusicPlayerState {
 
   /// Parses a Music Assistant `player_updated` WebSocket event payload.
   /// MA volume is 0–100; we normalise to 0.0–1.0.
-  factory MusicPlayerState.fromMaPlayerEvent(Map<String, dynamic> json) {
+  ///
+  /// [imageBaseUrl] (the MA HTTP base URL) is used to construct
+  /// imageproxy URLs from raw `{path, provider}` image objects. The
+  /// player_updated event normally already includes a resolved
+  /// `image_url`, so this is a fallback for events that don't.
+  factory MusicPlayerState.fromMaPlayerEvent(
+    Map<String, dynamic> json, {
+    String? imageBaseUrl,
+  }) {
     final stateStr = json['state'] as String? ?? 'idle';
     final playbackState = switch (stateStr) {
       'playing' => PlaybackState.playing,
@@ -212,7 +278,7 @@ class MusicPlayerState {
         title: currentMedia['title'] as String,
         artist: currentMedia['artist'] as String? ?? 'Unknown',
         album: currentMedia['album'] as String? ?? '',
-        imageUrl: _extractImageUrl(currentMedia),
+        imageUrl: _extractImageUrl(currentMedia, imageBaseUrl: imageBaseUrl),
         duration: Duration(seconds: (currentMedia['duration'] as num?)?.toInt() ?? 0),
         queueItemId: currentMedia['queue_item_id'] as String?,
       );
@@ -229,7 +295,15 @@ class MusicPlayerState {
   }
 
   /// Parses a Music Assistant `queue_updated` WebSocket event payload.
-  factory MusicPlayerState.fromMaQueueEvent(Map<String, dynamic> json) {
+  ///
+  /// [imageBaseUrl] is required to surface album art on queue items —
+  /// queue events emit images as raw `{path, provider}` objects, not
+  /// resolved URLs, so without it the constructed [MusicTrack]s have
+  /// `imageUrl == null` (the queue/library blank-tiles bug).
+  factory MusicPlayerState.fromMaQueueEvent(
+    Map<String, dynamic> json, {
+    String? imageBaseUrl,
+  }) {
     final stateStr = json['state'] as String? ?? 'idle';
     final playbackState = switch (stateStr) {
       'playing' => PlaybackState.playing,
@@ -240,7 +314,7 @@ class MusicPlayerState {
     final currentItemJson = json['current_item'] as Map<String, dynamic>?;
     MusicTrack? currentTrack;
     if (currentItemJson != null) {
-      final qi = MaQueueItem.fromMaJson(currentItemJson);
+      final qi = MaQueueItem.fromMaJson(currentItemJson, imageBaseUrl: imageBaseUrl);
       currentTrack = MusicTrack(
         title: qi.title,
         artist: qi.artist,
@@ -254,7 +328,7 @@ class MusicPlayerState {
     final nextItemJson = json['next_item'] as Map<String, dynamic>?;
     MusicTrack? nextTrack;
     if (nextItemJson != null) {
-      final qi = MaQueueItem.fromMaJson(nextItemJson);
+      final qi = MaQueueItem.fromMaJson(nextItemJson, imageBaseUrl: imageBaseUrl);
       nextTrack = MusicTrack(
         title: qi.title,
         artist: qi.artist,
@@ -298,7 +372,10 @@ class MaQueueItem {
     this.uri,
   });
 
-  factory MaQueueItem.fromMaJson(Map<String, dynamic> json) {
+  factory MaQueueItem.fromMaJson(
+    Map<String, dynamic> json, {
+    String? imageBaseUrl,
+  }) {
     final mediaItem = json['media_item'] as Map<String, dynamic>?;
     final artists = (mediaItem?['artists'] as List<dynamic>?) ?? [];
     final artistName =
@@ -310,7 +387,8 @@ class MaQueueItem {
       title: json['name'] as String? ?? 'Unknown',
       artist: artistName,
       album: album?['name'] as String? ?? '',
-      imageUrl: _extractImageUrl(mediaItem) ?? _extractImageUrl(json),
+      imageUrl: _extractImageUrl(mediaItem, imageBaseUrl: imageBaseUrl) ??
+          _extractImageUrl(json, imageBaseUrl: imageBaseUrl),
       duration: Duration(seconds: (json['duration'] as num?)?.toInt() ?? 0),
       uri: mediaItem?['uri'] as String?,
     );
@@ -341,7 +419,10 @@ class MaMediaItem {
     this.uri,
   });
 
-  factory MaMediaItem.fromMaJson(Map<String, dynamic> json) {
+  factory MaMediaItem.fromMaJson(
+    Map<String, dynamic> json, {
+    String? imageBaseUrl,
+  }) {
     final artists = json['artists'] as List<dynamic>?;
     final artistName = artists != null && artists.isNotEmpty
         ? (artists[0] as Map<String, dynamic>)['name'] as String? ?? ''
@@ -353,7 +434,7 @@ class MaMediaItem {
       provider: json['provider'] as String? ?? '',
       name: json['name'] as String? ?? 'Unknown',
       mediaType: json['media_type'] as String? ?? 'track',
-      imageUrl: _extractImageUrl(json),
+      imageUrl: _extractImageUrl(json, imageBaseUrl: imageBaseUrl),
       artist: artistName.isNotEmpty ? artistName : null,
       albumName: album?['name'] as String?,
       duration: json['duration'] != null
@@ -381,19 +462,25 @@ class MaSearchResults {
   bool get isEmpty =>
       tracks.isEmpty && albums.isEmpty && artists.isEmpty && playlists.isEmpty;
 
-  factory MaSearchResults.fromMaJson(Map<String, dynamic> json) {
+  factory MaSearchResults.fromMaJson(
+    Map<String, dynamic> json, {
+    String? imageBaseUrl,
+  }) {
     return MaSearchResults(
-      tracks: _parseItemList(json['tracks'] as List<dynamic>?),
-      albums: _parseItemList(json['albums'] as List<dynamic>?),
-      artists: _parseItemList(json['artists'] as List<dynamic>?),
-      playlists: _parseItemList(json['playlists'] as List<dynamic>?),
+      tracks: _parseItemList(json['tracks'] as List<dynamic>?, imageBaseUrl),
+      albums: _parseItemList(json['albums'] as List<dynamic>?, imageBaseUrl),
+      artists: _parseItemList(json['artists'] as List<dynamic>?, imageBaseUrl),
+      playlists:
+          _parseItemList(json['playlists'] as List<dynamic>?, imageBaseUrl),
     );
   }
 
-  static List<MaMediaItem> _parseItemList(List<dynamic>? items) {
+  static List<MaMediaItem> _parseItemList(
+      List<dynamic>? items, String? imageBaseUrl) {
     if (items == null) return const [];
     return items
-        .map((e) => MaMediaItem.fromMaJson(e as Map<String, dynamic>))
+        .map((e) =>
+            MaMediaItem.fromMaJson(e as Map<String, dynamic>, imageBaseUrl: imageBaseUrl))
         .toList();
   }
 }

@@ -115,7 +115,10 @@ class MusicAssistantService {
       (result) {
         if (result is! List) return <MaQueueItem>[];
         return result
-            .map((e) => MaQueueItem.fromMaJson(e as Map<String, dynamic>))
+            .map((e) => MaQueueItem.fromMaJson(
+                  e as Map<String, dynamic>,
+                  imageBaseUrl: _url,
+                ))
             .toList();
       },
     );
@@ -134,7 +137,10 @@ class MusicAssistantService {
       (result) {
         if (result is! List) return <MaMediaItem>[];
         return result
-            .map((e) => MaMediaItem.fromMaJson(e as Map<String, dynamic>))
+            .map((e) => MaMediaItem.fromMaJson(
+                  e as Map<String, dynamic>,
+                  imageBaseUrl: _url,
+                ))
             .toList();
       },
     );
@@ -150,7 +156,7 @@ class MusicAssistantService {
       },
       (result) {
         if (result is! Map<String, dynamic>) return const MaSearchResults();
-        return MaSearchResults.fromMaJson(result);
+        return MaSearchResults.fromMaJson(result, imageBaseUrl: _url);
       },
     );
   }
@@ -244,7 +250,10 @@ class MusicAssistantService {
       if (result is List) {
         for (final item in result) {
           final player = item as Map<String, dynamic>;
-          final state = MusicPlayerState.fromMaPlayerEvent(player);
+          final state = MusicPlayerState.fromMaPlayerEvent(
+            player,
+            imageBaseUrl: _url,
+          );
           final id = state.activeZoneId;
           if (id != null && id.isNotEmpty) {
             _playerStates[id] = state;
@@ -261,7 +270,10 @@ class MusicAssistantService {
       if (result is List) {
         for (final item in result) {
           final queue = item as Map<String, dynamic>;
-          final queueState = MusicPlayerState.fromMaQueueEvent(queue);
+          final queueState = MusicPlayerState.fromMaQueueEvent(
+            queue,
+            imageBaseUrl: _url,
+          );
           final id = queueState.activeZoneId;
           if (id != null && id.isNotEmpty) {
             final existing = _playerStates[id];
@@ -332,7 +344,10 @@ class MusicAssistantService {
 
     if (event == 'player_updated') {
       // Player events carry volume/name — merge over existing queue state
-      final playerState = MusicPlayerState.fromMaPlayerEvent(data);
+      final playerState = MusicPlayerState.fromMaPlayerEvent(
+        data,
+        imageBaseUrl: _url,
+      );
       final existing = _playerStates[objectId];
       updated = existing == null
           ? playerState
@@ -348,7 +363,10 @@ class MusicAssistantService {
     } else if (event == 'queue_updated') {
       // Queue events carry track/shuffle/repeat — merge over existing player state.
       // Preserve existing track/artwork if the queue event doesn't include one.
-      final queueState = MusicPlayerState.fromMaQueueEvent(data);
+      final queueState = MusicPlayerState.fromMaQueueEvent(
+        data,
+        imageBaseUrl: _url,
+      );
       final existing = _playerStates[objectId];
       updated = existing == null
           ? queueState

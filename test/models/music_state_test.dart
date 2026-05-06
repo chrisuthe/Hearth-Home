@@ -97,6 +97,158 @@ void main() {
       expect(item.imageUrl, isNull);
       expect(item.uri, isNull);
     });
+
+    test(
+      'constructs an MA imageproxy URL when given a raw {path, provider} '
+      "image object and a base URL — matches MA's get_image_url() encoding",
+      () {
+        // Real shape captured from MA queue_updated.current_item.image and
+        // current_item.media_item.metadata.images[0]. No `url` field;
+        // path + provider only. Without imageBaseUrl, _extractImageUrl
+        // returns null, so the queue tile renders blank.
+        final item = MaQueueItem.fromMaJson({
+          'queue_item_id': 'qi-1',
+          'name': 'ABBA - Happy Hawaii',
+          'duration': 265,
+          'media_item': {
+            'name': 'Happy Hawaii',
+            'artists': [{'name': 'ABBA'}],
+            'album': {'name': 'Arrival'},
+          },
+          'image': {
+            'type': 'thumb',
+            'path': "ABBA/Arrival/07 That's Me.mp3",
+            'provider': 'filesystem_local--SBNTaFUX',
+            'remotely_accessible': false,
+          },
+        }, imageBaseUrl: 'https://music.home.chrisuthe.com');
+
+        // Match MA's metadata.py:get_image_url exactly:
+        //   urllib.parse.quote_plus(urllib.parse.quote_plus(image.path))
+        // For input "ABBA/Arrival/07 That's Me.mp3":
+        //   pass 1: ABBA%2FArrival%2F07+That%27s+Me.mp3
+        //   pass 2: ABBA%252FArrival%252F07%2BThat%2527s%2BMe.mp3
+        expect(item.imageUrl,
+            'https://music.home.chrisuthe.com/imageproxy'
+            '?provider=filesystem_local--SBNTaFUX'
+            '&size=500&fmt=jpeg'
+            '&path=ABBA%252FArrival%252F07%2BThat%2527s%2BMe.mp3');
+      },
+    );
+
+    test(
+      'falls back to metadata.images[0] {path, provider} when there is '
+      'no top-level image object',
+      () {
+        final item = MaQueueItem.fromMaJson({
+          'queue_item_id': 'qi-2',
+          'name': 'X',
+          'duration': 100,
+          'media_item': {
+            'name': 'X',
+            'artists': [{'name': 'A'}],
+            'album': {'name': 'B'},
+            'metadata': {
+              'images': [
+                {
+                  'type': 'thumb',
+                  'path': 'cover.jpg',
+                  'provider': 'spotify',
+                },
+              ],
+            },
+          },
+        }, imageBaseUrl: 'https://ma.local');
+        expect(
+          item.imageUrl,
+          'https://ma.local/imageproxy'
+          '?provider=spotify&size=500&fmt=jpeg&path=cover.jpg',
+        );
+      },
+    );
+
+    test(
+      'returns null imageUrl for raw {path, provider} when no base URL '
+      'is supplied (graceful no-op for un-configured services)',
+      () {
+        final item = MaQueueItem.fromMaJson({
+          'queue_item_id': 'qi-3',
+          'name': 'X',
+          'duration': 100,
+          'image': {'path': 'cover.jpg', 'provider': 'spotify'},
+        });
+        expect(item.imageUrl, isNull);
+      },
+    );
+
+    test(
+      'prefers a pre-resolved {url} image over the raw {path, provider} '
+      'fallback, even when an imageBaseUrl is supplied',
+      () {
+        final item = MaQueueItem.fromMaJson({
+          'queue_item_id': 'qi-4',
+          'name': 'X',
+          'duration': 100,
+          'media_item': {
+            'name': 'X',
+            'artists': [{'name': 'A'}],
+            'album': {'name': 'B'},
+            'image': {'url': 'http://pre-resolved/cover.jpg'},
+          },
+        }, imageBaseUrl: 'https://ma.local');
+        expect(item.imageUrl, 'http://pre-resolved/cover.jpg');
+      },
+    );
+
+    test('strips a trailing slash from imageBaseUrl', () {
+      final item = MaQueueItem.fromMaJson({
+        'queue_item_id': 'qi-5',
+        'name': 'X',
+        'duration': 100,
+        'image': {'path': 'a.jpg', 'provider': 'p'},
+      }, imageBaseUrl: 'https://ma.local/');
+      expect(item.imageUrl, startsWith('https://ma.local/imageproxy?'));
+      expect(item.imageUrl, isNot(contains('//imageproxy')));
+    });
+  });
+
+  group('MaMediaItem.fromMaJson (library/search results)', () {
+    test(
+      'constructs an imageproxy URL for raw {path, provider} library items',
+      () {
+        final item = MaMediaItem.fromMaJson({
+          'item_id': '4485',
+          'provider': 'library',
+          'name': 'Chiquitita',
+          'media_type': 'track',
+          'metadata': {
+            'images': [
+              {
+                'type': 'thumb',
+                'path': 'ABBA/Folder.jpg',
+                'provider': 'filesystem_local--SBNTaFUX',
+              },
+            ],
+          },
+        }, imageBaseUrl: 'https://ma.local');
+        expect(
+          item.imageUrl,
+          'https://ma.local/imageproxy'
+          '?provider=filesystem_local--SBNTaFUX'
+          '&size=500&fmt=jpeg&path=ABBA%252FFolder.jpg',
+        );
+      },
+    );
+
+    test('still parses correctly when imageBaseUrl is not supplied', () {
+      final item = MaMediaItem.fromMaJson({
+        'item_id': '1',
+        'name': 'Test',
+        'media_type': 'track',
+        'image': {'url': 'http://pre-resolved/x.jpg'},
+      });
+      expect(item.imageUrl, 'http://pre-resolved/x.jpg');
+    });
   });
 
   group('MusicPlayerState.fromMaPlayerEvent', () {
