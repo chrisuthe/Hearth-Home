@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../config/hub_config.dart';
 import '../hearth_module.dart';
-import 'media_screen.dart';
+import 'cinematic/cinematic_screen.dart';
 
 class MediaModule implements HearthModule {
   @override String get id => 'media';
@@ -13,7 +13,7 @@ class MediaModule implements HearthModule {
   bool isConfigured(HubConfig config) => config.musicAssistantUrl.isNotEmpty;
 
   @override
-  Widget buildScreen({required bool isActive}) => const MediaScreen();
+  Widget buildScreen({required bool isActive}) => const CinematicScreen();
 
   @override
   Widget? buildSettingsSection() => null;
