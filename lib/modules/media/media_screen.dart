@@ -1157,23 +1157,26 @@ class _NowPlayingState extends State<_NowPlaying> {
               final Color color;
               switch (s.connectionState) {
                 case SendspinConnectionState.streaming:
+                  // clockOffsetMs is the upstream-recommended health
+                  // signal; <0 is the sentinel for "filter not yet
+                  // converged" (precision starts at infinity, returns
+                  // -1 until the first burst lands).
                   final precisionMs = s.clockOffsetMs;
                   icon = Icons.sensors;
-                  label = s.clockSamples < 10
-                      ? 'Syncing...'
-                      : '\u00B1${precisionMs < 1 ? "<1" : precisionMs}ms';
-                  color = s.clockSamples < 10
-                      ? Colors.amber
-                      : precisionMs < 5
-                          ? Colors.green
-                          : precisionMs < 20
-                              ? Colors.orange
-                              : Colors.red;
+                  if (precisionMs < 0) {
+                    label = 'Syncing...';
+                    color = Colors.amber;
+                  } else {
+                    label = '\u00B1${precisionMs < 1 ? "<1" : precisionMs}ms';
+                    color = precisionMs < 5
+                        ? Colors.green
+                        : precisionMs < 20
+                            ? Colors.orange
+                            : Colors.red;
+                  }
                 case SendspinConnectionState.syncing:
                   icon = Icons.sync;
-                  label = s.clockSamples > 0
-                      ? 'Syncing (${s.clockSamples} samples)'
-                      : 'Syncing';
+                  label = 'Syncing';
                   color = Colors.amber;
                 default:
                   icon = Icons.link;
