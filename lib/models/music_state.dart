@@ -47,12 +47,23 @@ class MusicTrack {
   final String? imageUrl;
   final Duration duration;
 
+  /// Music Assistant's stable identity for the queued track. Same
+  /// `queue_item_id` is emitted on both `current_media.queue_item_id`
+  /// (player_updated) and `current_item.queue_item_id` (queue_updated),
+  /// so it's the only reliable way to recognise "same track" across the
+  /// two event types — they format display names differently
+  /// (`"Title"` vs `"Artist - Title"`), so title-equality is unreliable.
+  /// `null` for tracks parsed from HA media_player attributes (the
+  /// legacy `MusicTrack.fromJson` path, where this isn't exposed).
+  final String? queueItemId;
+
   const MusicTrack({
     required this.title,
     required this.artist,
     required this.album,
     this.imageUrl,
     required this.duration,
+    this.queueItemId,
   });
 
   @override
@@ -63,10 +74,12 @@ class MusicTrack {
           artist == other.artist &&
           album == other.album &&
           imageUrl == other.imageUrl &&
-          duration == other.duration;
+          duration == other.duration &&
+          queueItemId == other.queueItemId;
 
   @override
-  int get hashCode => Object.hash(title, artist, album, imageUrl, duration);
+  int get hashCode =>
+      Object.hash(title, artist, album, imageUrl, duration, queueItemId);
 
   /// Parses from the track metadata attributes on an HA media_player entity.
   /// Falls back to sensible defaults for missing fields since Music Assistant
@@ -201,6 +214,7 @@ class MusicPlayerState {
         album: currentMedia['album'] as String? ?? '',
         imageUrl: _extractImageUrl(currentMedia),
         duration: Duration(seconds: (currentMedia['duration'] as num?)?.toInt() ?? 0),
+        queueItemId: currentMedia['queue_item_id'] as String?,
       );
     }
 
@@ -233,6 +247,7 @@ class MusicPlayerState {
         album: qi.album,
         imageUrl: qi.imageUrl,
         duration: qi.duration,
+        queueItemId: qi.queueItemId,
       );
     }
 
@@ -246,6 +261,7 @@ class MusicPlayerState {
         album: qi.album,
         imageUrl: qi.imageUrl,
         duration: qi.duration,
+        queueItemId: qi.queueItemId,
       );
     }
 

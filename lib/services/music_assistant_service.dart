@@ -334,15 +334,6 @@ class MusicAssistantService {
       // Player events carry volume/name — merge over existing queue state
       final playerState = MusicPlayerState.fromMaPlayerEvent(data);
       final existing = _playerStates[objectId];
-      // TEMP DIAGNOSTIC (album-art-disappears bug): dump raw event +
-      // existing/incoming track so we can see exactly what MA emitted
-      // and what _preferTrackWithImage decided. Remove after fix lands.
-      Log.i('MA',
-          'EVT player_updated id=$objectId existing.imageUrl=${existing?.currentTrack?.imageUrl} '
-          'incoming.title=${playerState.currentTrack?.title} '
-          'incoming.imageUrl=${playerState.currentTrack?.imageUrl} '
-          'existing.title=${existing?.currentTrack?.title} '
-          'data=${jsonEncode(data['current_media'])}');
       updated = existing == null
           ? playerState
           : existing.copyWith(
@@ -354,19 +345,11 @@ class MusicAssistantService {
               currentTrack: _preferTrackWithImage(
                   playerState.currentTrack, existing.currentTrack),
             );
-      Log.i('MA',
-          'EVT player_updated -> resolved.imageUrl=${updated.currentTrack?.imageUrl}');
     } else if (event == 'queue_updated') {
       // Queue events carry track/shuffle/repeat — merge over existing player state.
       // Preserve existing track/artwork if the queue event doesn't include one.
       final queueState = MusicPlayerState.fromMaQueueEvent(data);
       final existing = _playerStates[objectId];
-      Log.i('MA',
-          'EVT queue_updated id=$objectId existing.imageUrl=${existing?.currentTrack?.imageUrl} '
-          'incoming.title=${queueState.currentTrack?.title} '
-          'incoming.imageUrl=${queueState.currentTrack?.imageUrl} '
-          'existing.title=${existing?.currentTrack?.title} '
-          'data.current_item=${jsonEncode(data['current_item'])}');
       updated = existing == null
           ? queueState
           : existing.copyWith(
@@ -379,8 +362,6 @@ class MusicAssistantService {
               nextTrack: queueState.nextTrack,
               queueSize: queueState.queueSize,
             );
-      Log.i('MA',
-          'EVT queue_updated -> resolved.imageUrl=${updated.currentTrack?.imageUrl}');
     } else {
       return;
     }
@@ -393,26 +374,35 @@ class MusicAssistantService {
   /// When merging player and queue events, prefer whichever track has
   /// an image URL so album art doesn't flicker to blank.
   ///
-  /// Only carries over the existing image when the incoming track is the
-  /// same song (matching title). This prevents stale artwork from a
-  /// previous song bleeding into a newly started track.
+  /// Identity is established via MA's `queue_item_id`, which is the same
+  /// stable UUID emitted on both `current_media.queue_item_id`
+  /// (player_updated) and `current_item.queue_item_id` (queue_updated)
+  /// for the same track. Title-equality is unreliable across event types
+  /// because MA formats display names differently — player_updated emits
+  /// `title: "Chiquitita"` while queue_updated emits `name: "ABBA - Chiquitita"`
+  /// for the same track — so a title gate dropped the image on every
+  /// queue_updated. When `queue_item_id` is missing on either side
+  /// (e.g., HA-attribute path), we fall back to the legacy title gate.
   MusicTrack? _preferTrackWithImage(MusicTrack? incoming, MusicTrack? existing) {
     if (incoming == null) return existing;
     if (existing == null) return incoming;
     // If incoming already has an image, use it as-is.
     if (incoming.imageUrl != null) return incoming;
-    // Carry over existing image only when the track title matches —
-    // a different song should not inherit the old song's artwork.
-    if (existing.imageUrl != null && incoming.title == existing.title) {
-      return MusicTrack(
-        title: incoming.title,
-        artist: incoming.artist,
-        album: incoming.album,
-        imageUrl: existing.imageUrl,
-        duration: incoming.duration,
-      );
-    }
-    return incoming;
+    if (existing.imageUrl == null) return incoming;
+    // Decide whether incoming refers to the same track as existing.
+    final sameTrack = (incoming.queueItemId != null &&
+            existing.queueItemId != null)
+        ? incoming.queueItemId == existing.queueItemId
+        : incoming.title == existing.title;
+    if (!sameTrack) return incoming;
+    return MusicTrack(
+      title: incoming.title,
+      artist: incoming.artist,
+      album: incoming.album,
+      imageUrl: existing.imageUrl,
+      duration: incoming.duration,
+      queueItemId: incoming.queueItemId,
+    );
   }
 
   void _emitZones() {

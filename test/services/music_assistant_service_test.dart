@@ -133,6 +133,129 @@ void main() {
       expect(state.queueSize, 10);
     });
 
+    test(
+      'preserves album art across queue_updated for the same queue_item_id '
+      "even when the queue event's display name differs from the player "
+      "event's title (regression: title-equality gate dropped art on "
+      'every queue_updated because MA formats names differently per '
+      'event type — "Title" vs "Artist - Title")',
+      () async {
+        service.connect('test-token');
+        final authMsgId = channel.sentMessages[0]['message_id'] as String;
+        channel.simulateServerMessage({'message_id': authMsgId, 'result': true});
+
+        // Player event arrives first with the resolved imageUrl and the
+        // canonical short title.
+        channel.simulateServerMessage({
+          'event': 'player_updated',
+          'object_id': 'player_kitchen',
+          'data': {
+            'player_id': 'player_kitchen',
+            'display_name': 'Kitchen',
+            'state': 'playing',
+            'volume_level': 60,
+            'current_media': {
+              'title': 'Happy Hawaii',
+              'artist': 'ABBA',
+              'album': 'Arrival',
+              'image_url': 'http://ma/imageproxy?path=cover.jpg',
+              'duration': 265,
+              'queue_item_id': 'queue-item-abc',
+            },
+          },
+        });
+
+        // Queue event for the SAME track follows. MA's queue events use
+        // the "Artist - Title" format and don't include image_url; only
+        // a structured image.path. The fix recognizes this is the same
+        // track via queue_item_id and preserves the player event's URL.
+        final statesFuture = service.playerStateStream.first;
+        channel.simulateServerMessage({
+          'event': 'queue_updated',
+          'object_id': 'player_kitchen',
+          'data': {
+            'queue_id': 'player_kitchen',
+            'state': 'playing',
+            'elapsed_time': 1,
+            'items': 1,
+            'current_item': {
+              'queue_item_id': 'queue-item-abc',
+              'name': 'ABBA - Happy Hawaii',
+              'duration': 265,
+              'media_item': {
+                'name': 'Happy Hawaii',
+                'artists': [{'name': 'ABBA'}],
+                'album': {'name': 'Arrival'},
+              },
+            },
+          },
+        });
+
+        final state = await statesFuture;
+        expect(state.currentTrack?.imageUrl,
+            'http://ma/imageproxy?path=cover.jpg',
+            reason: 'image must be preserved across the queue_updated for '
+                'the same queue_item_id, even though incoming has no imageUrl '
+                'and the queue display name differs from the player title');
+      },
+    );
+
+    test(
+      'drops the image when queue_item_id changes (a different track '
+      'must not inherit the previous track\'s art)',
+      () async {
+        service.connect('test-token');
+        final authMsgId = channel.sentMessages[0]['message_id'] as String;
+        channel.simulateServerMessage({'message_id': authMsgId, 'result': true});
+
+        // Player event for track A.
+        channel.simulateServerMessage({
+          'event': 'player_updated',
+          'object_id': 'player_kitchen',
+          'data': {
+            'player_id': 'player_kitchen',
+            'display_name': 'Kitchen',
+            'state': 'playing',
+            'volume_level': 60,
+            'current_media': {
+              'title': 'Track A',
+              'artist': 'Artist A',
+              'album': 'Album A',
+              'image_url': 'http://ma/img/A',
+              'duration': 200,
+              'queue_item_id': 'item-A',
+            },
+          },
+        });
+
+        // Queue event for track B (different queue_item_id, no imageUrl).
+        final statesFuture = service.playerStateStream.first;
+        channel.simulateServerMessage({
+          'event': 'queue_updated',
+          'object_id': 'player_kitchen',
+          'data': {
+            'queue_id': 'player_kitchen',
+            'state': 'playing',
+            'current_item': {
+              'queue_item_id': 'item-B',
+              'name': 'Track B',
+              'duration': 180,
+              'media_item': {
+                'name': 'Track B',
+                'artists': [{'name': 'Artist B'}],
+                'album': {'name': 'Album B'},
+              },
+            },
+          },
+        });
+
+        final state = await statesFuture;
+        expect(state.currentTrack?.imageUrl, isNull,
+            reason: 'a different queue_item_id is a different track; '
+                "must not inherit the previous track's art");
+      },
+    );
+
     test('sendCommand formats message correctly', () {
       service.connect('test-token');
       final authMsgId = channel.sentMessages[0]['message_id'] as String;
