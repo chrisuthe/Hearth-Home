@@ -201,6 +201,83 @@ void main() {
     );
 
     test(
+      'preserves provider / format / year across the player_updated event '
+      'that follows a queue_updated for the same track (mini-stats row '
+      'data must not empty out on every player tick)',
+      () async {
+        service.connect('test-token');
+        final authMsgId = channel.sentMessages[0]['message_id'] as String;
+        channel.simulateServerMessage({'message_id': authMsgId, 'result': true});
+
+        // Queue event arrives first with rich metadata (provider, format,
+        // year). MA's player_updated does NOT carry these fields, so
+        // without same-track carry-over the next player_updated would
+        // null them out and the mini-stats row would empty.
+        channel.simulateServerMessage({
+          'event': 'queue_updated',
+          'object_id': 'p',
+          'data': {
+            'queue_id': 'p',
+            'state': 'playing',
+            'current_item': {
+              'queue_item_id': 'qi-abc',
+              'name': 'ABBA - Chiquitita',
+              'duration': 328,
+              'streamdetails': {
+                'audio_format': {
+                  'codec_type': 'flac',
+                  'sample_rate': 44100,
+                  'bit_depth': 16,
+                  'channels': 2,
+                },
+              },
+              'media_item': {
+                'name': 'Chiquitita',
+                'artists': [{'name': 'ABBA'}],
+                'album': {'name': 'X'},
+                'year': 1979,
+                'provider_mappings': [
+                  {'provider_domain': 'filesystem_local'},
+                ],
+              },
+            },
+          },
+        });
+
+        // Sparse player_updated for the SAME queue_item_id. No provider /
+        // format / year. With _mergeTrackMetadata, all three are
+        // preserved from the prior queue_updated.
+        final statesFuture = service.playerStateStream.first;
+        channel.simulateServerMessage({
+          'event': 'player_updated',
+          'object_id': 'p',
+          'data': {
+            'player_id': 'p',
+            'display_name': 'P',
+            'state': 'playing',
+            'volume_level': 50,
+            'current_media': {
+              'title': 'Chiquitita',
+              'artist': 'ABBA',
+              'album': 'X',
+              'duration': 328,
+              'queue_item_id': 'qi-abc',
+            },
+          },
+        });
+
+        final state = await statesFuture;
+        expect(state.currentTrack?.provider, 'filesystem_local',
+            reason: 'provider must carry over on same-track player_updated');
+        expect(state.currentTrack?.format, 'FLAC 16/44.1',
+            reason: 'audio format string must carry over on same-track '
+                'player_updated');
+        expect(state.currentTrack?.year, 1979,
+            reason: 'year must carry over on same-track player_updated');
+      },
+    );
+
+    test(
       'drops the image when queue_item_id changes (a different track '
       'must not inherit the previous track\'s art)',
       () async {

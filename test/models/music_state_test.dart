@@ -210,6 +210,147 @@ void main() {
       expect(item.imageUrl, startsWith('https://ma.local/imageproxy?'));
       expect(item.imageUrl, isNot(contains('//imageproxy')));
     });
+
+    test(
+      'extracts provider domain, audio format string, and year from a '
+      'realistic MA queue payload (mini-stats row data sources)',
+      () {
+        // Shape lifted from a v1.8.4 capture of MA queue_updated for an
+        // FLAC track from filesystem_local. provider_mappings[0]
+        // .provider_domain is the canonical "what library is this from"
+        // signal; streamdetails.audio_format gives the codec/bitrate;
+        // media_item.year is the track year (album.year is a fallback).
+        final item = MaQueueItem.fromMaJson({
+          'queue_item_id': 'qi',
+          'name': 'ABBA - Chiquitita',
+          'duration': 328,
+          'streamdetails': {
+            'provider': 'filesystem_local--SBNTaFUX',
+            'audio_format': {
+              'content_type': 'flac',
+              'codec_type': 'flac',
+              'sample_rate': 44100,
+              'bit_depth': 16,
+              'channels': 2,
+              'bit_rate': 884,
+            },
+          },
+          'media_item': {
+            'name': 'Chiquitita',
+            'artists': [{'name': 'ABBA'}],
+            'album': {'name': '20th Century Masters', 'year': null},
+            'year': 1979,
+            'provider_mappings': [
+              {
+                'provider_domain': 'filesystem_local',
+                'provider_instance': 'filesystem_local--SBNTaFUX',
+              },
+            ],
+          },
+        });
+        expect(item.provider, 'filesystem_local');
+        expect(item.format, 'FLAC 16/44.1');
+        expect(item.year, 1979);
+      },
+    );
+
+    test(
+      'falls back to album.year when media_item.year is absent',
+      () {
+        final item = MaQueueItem.fromMaJson({
+          'queue_item_id': 'qi',
+          'name': 'X',
+          'duration': 100,
+          'media_item': {
+            'name': 'X',
+            'artists': [{'name': 'A'}],
+            'album': {'name': 'B', 'year': 1994},
+          },
+        });
+        expect(item.year, 1994);
+      },
+    );
+
+    test(
+      'falls back to streamdetails.provider (with --instance stripped) '
+      'when provider_mappings is empty',
+      () {
+        final item = MaQueueItem.fromMaJson({
+          'queue_item_id': 'qi',
+          'name': 'X',
+          'duration': 100,
+          'streamdetails': {
+            'provider': 'spotify--my-instance-id',
+          },
+          'media_item': {
+            'name': 'X',
+            'artists': [{'name': 'A'}],
+            'album': {'name': 'B'},
+          },
+        });
+        expect(item.provider, 'spotify');
+      },
+    );
+
+    test('renders MP3 in lossy form (codec + bitrate)', () {
+      final item = MaQueueItem.fromMaJson({
+        'queue_item_id': 'qi',
+        'name': 'X',
+        'duration': 100,
+        'streamdetails': {
+          'audio_format': {
+            'codec_type': 'mp3',
+            'sample_rate': 44100,
+            'bit_depth': 16,
+            'channels': 2,
+            'bit_rate': 320,
+          },
+        },
+        'media_item': {
+          'name': 'X',
+          'artists': [{'name': 'A'}],
+          'album': {'name': 'B'},
+        },
+      });
+      expect(item.format, 'MP3 320 kbps');
+    });
+
+    test('renders 48 kHz integer kHz without trailing decimal', () {
+      final item = MaQueueItem.fromMaJson({
+        'queue_item_id': 'qi',
+        'name': 'X',
+        'duration': 100,
+        'streamdetails': {
+          'audio_format': {
+            'codec_type': 'flac',
+            'sample_rate': 48000,
+            'bit_depth': 24,
+            'channels': 2,
+          },
+        },
+        'media_item': {
+          'name': 'X',
+          'artists': [{'name': 'A'}],
+          'album': {'name': 'B'},
+        },
+      });
+      expect(item.format, 'FLAC 24/48');
+    });
+
+    test(
+      'returns null format when audio_format is missing entirely '
+      '(radio streams, podcasts, etc.)',
+      () {
+        final item = MaQueueItem.fromMaJson({
+          'queue_item_id': 'qi',
+          'name': 'Radio Stream',
+          'duration': 0,
+        });
+        expect(item.format, isNull);
+        expect(item.year, isNull);
+        expect(item.provider, isNull);
+      },
+    );
   });
 
   group('MaMediaItem.fromMaJson (library/search results)', () {
@@ -286,6 +427,86 @@ void main() {
       expect(state.playbackState, PlaybackState.idle);
       expect(state.hasTrack, false);
       expect(state.volume, 0.30);
+    });
+
+    test(
+      'parses multi-room fields: provider (instance-stripped), '
+      'mute state, group members, synced_to',
+      () {
+        final state = MusicPlayerState.fromMaPlayerEvent({
+          'player_id': 'kitchen',
+          'display_name': 'Kitchen',
+          'provider': 'sendspin--abc123',
+          'state': 'playing',
+          'volume_level': 65,
+          'volume_muted': true,
+          'group_members': ['kitchen', 'living', 'patio'],
+          'synced_to': null,
+        });
+        expect(state.provider, 'sendspin');
+        expect(state.muted, isTrue);
+        expect(state.groupMembers, ['kitchen', 'living', 'patio']);
+        expect(state.syncedTo, isNull);
+        expect(state.isSyncLeader, isTrue,
+            reason: 'syncedTo is null and group has >1 member');
+        expect(state.isSyncMember, isFalse);
+        expect(state.isSendspinPlayer, isTrue);
+        expect(state.playerType, 'sendspin');
+      },
+    );
+
+    test(
+      'a sync child is identified by syncedTo, not group_members; the '
+      'child does not see the leader\'s group itself',
+      () {
+        final state = MusicPlayerState.fromMaPlayerEvent({
+          'player_id': 'living',
+          'display_name': 'Living Room',
+          'provider': 'sonos--instance',
+          'state': 'playing',
+          'volume_level': 40,
+          'volume_muted': false,
+          'group_members': [],
+          'synced_to': 'kitchen',
+        });
+        expect(state.syncedTo, 'kitchen');
+        expect(state.isSyncMember, isTrue);
+        expect(state.isSyncLeader, isFalse);
+        expect(state.playerType, 'sonos');
+      },
+    );
+
+    test('falls back to group_childs when group_members is absent (legacy alias)',
+        () {
+      final state = MusicPlayerState.fromMaPlayerEvent({
+        'player_id': 'p',
+        'display_name': 'P',
+        'state': 'idle',
+        'volume_level': 0,
+        'group_childs': ['p', 'q'],
+      });
+      expect(state.groupMembers, ['p', 'q']);
+    });
+
+    test('classifies known provider prefixes into player types', () {
+      const cases = {
+        'sendspin--xyz': 'sendspin',
+        'sonos--xyz': 'sonos',
+        'airplay--xyz': 'airplay',
+        'chromecast--xyz': 'cast',
+        'cast--xyz': 'cast',
+        'filesystem_local--xyz': 'other',
+        null: 'other',
+      };
+      for (final entry in cases.entries) {
+        final state = MusicPlayerState.fromMaPlayerEvent({
+          'player_id': 'p',
+          'state': 'idle',
+          if (entry.key != null) 'provider': entry.key,
+        });
+        expect(state.playerType, entry.value,
+            reason: 'provider=${entry.key} should map to ${entry.value}');
+      }
     });
   });
 

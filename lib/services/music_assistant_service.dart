@@ -354,10 +354,14 @@ class MusicAssistantService {
           : existing.copyWith(
               playbackState: playerState.playbackState,
               volume: playerState.volume,
+              muted: playerState.muted,
               activeZoneId: playerState.activeZoneId,
               activeZoneName: playerState.activeZoneName,
               available: playerState.available,
-              currentTrack: _preferTrackWithImage(
+              provider: playerState.provider,
+              groupMembers: playerState.groupMembers,
+              syncedTo: playerState.syncedTo,
+              currentTrack: _mergeTrackMetadata(
                   playerState.currentTrack, existing.currentTrack),
             );
     } else if (event == 'queue_updated') {
@@ -372,7 +376,7 @@ class MusicAssistantService {
           ? queueState
           : existing.copyWith(
               playbackState: queueState.playbackState,
-              currentTrack: _preferTrackWithImage(
+              currentTrack: _mergeTrackMetadata(
                   queueState.currentTrack, existing.currentTrack),
               position: queueState.position,
               shuffle: queueState.shuffle,
@@ -389,25 +393,26 @@ class MusicAssistantService {
     _emitZones();
   }
 
-  /// When merging player and queue events, prefer whichever track has
-  /// an image URL so album art doesn't flicker to blank.
+  /// Merge incoming track metadata onto existing for the same track.
   ///
-  /// Identity is established via MA's `queue_item_id`, which is the same
-  /// stable UUID emitted on both `current_media.queue_item_id`
-  /// (player_updated) and `current_item.queue_item_id` (queue_updated)
-  /// for the same track. Title-equality is unreliable across event types
-  /// because MA formats display names differently — player_updated emits
-  /// `title: "Chiquitita"` while queue_updated emits `name: "ABBA - Chiquitita"`
-  /// for the same track — so a title gate dropped the image on every
-  /// queue_updated. When `queue_item_id` is missing on either side
-  /// (e.g., HA-attribute path), we fall back to the legacy title gate.
-  MusicTrack? _preferTrackWithImage(MusicTrack? incoming, MusicTrack? existing) {
+  /// MA emits two event shapes for the same track: `queue_updated` carries
+  /// rich metadata (image, provider, audio format, year), while
+  /// `player_updated` emits a sparse `current_media` (title/artist/album
+  /// only). Without a merge, every player_updated would clobber the rich
+  /// fields and the mini-stats row would empty out.
+  ///
+  /// Identity is `queue_item_id` — the same stable UUID on both event
+  /// types' payloads. Title-equality is the legacy fallback for the
+  /// HA-attribute path; it's unreliable cross-event because MA formats
+  /// display names differently per event type ("Chiquitita" vs
+  /// "ABBA - Chiquitita"), so the gate is `queue_item_id`-first.
+  ///
+  /// On a same-track match, every nullable field is filled from existing
+  /// when incoming has none. On a different track, existing is dropped
+  /// entirely (incoming wins, including its null values).
+  MusicTrack? _mergeTrackMetadata(MusicTrack? incoming, MusicTrack? existing) {
     if (incoming == null) return existing;
     if (existing == null) return incoming;
-    // If incoming already has an image, use it as-is.
-    if (incoming.imageUrl != null) return incoming;
-    if (existing.imageUrl == null) return incoming;
-    // Decide whether incoming refers to the same track as existing.
     final sameTrack = (incoming.queueItemId != null &&
             existing.queueItemId != null)
         ? incoming.queueItemId == existing.queueItemId
@@ -417,9 +422,12 @@ class MusicAssistantService {
       title: incoming.title,
       artist: incoming.artist,
       album: incoming.album,
-      imageUrl: existing.imageUrl,
+      imageUrl: incoming.imageUrl ?? existing.imageUrl,
       duration: incoming.duration,
-      queueItemId: incoming.queueItemId,
+      queueItemId: incoming.queueItemId ?? existing.queueItemId,
+      provider: incoming.provider ?? existing.provider,
+      format: incoming.format ?? existing.format,
+      year: incoming.year ?? existing.year,
     );
   }
 
