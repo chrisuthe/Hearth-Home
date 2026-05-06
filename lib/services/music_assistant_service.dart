@@ -337,7 +337,7 @@ class MusicAssistantService {
       // TEMP DIAGNOSTIC (album-art-disappears bug): dump raw event +
       // existing/incoming track so we can see exactly what MA emitted
       // and what _preferTrackWithImage decided. Remove after fix lands.
-      Log.d('MA',
+      Log.i('MA',
           'EVT player_updated id=$objectId existing.imageUrl=${existing?.currentTrack?.imageUrl} '
           'incoming.title=${playerState.currentTrack?.title} '
           'incoming.imageUrl=${playerState.currentTrack?.imageUrl} '
@@ -354,14 +354,14 @@ class MusicAssistantService {
               currentTrack: _preferTrackWithImage(
                   playerState.currentTrack, existing.currentTrack),
             );
-      Log.d('MA',
+      Log.i('MA',
           'EVT player_updated -> resolved.imageUrl=${updated.currentTrack?.imageUrl}');
     } else if (event == 'queue_updated') {
       // Queue events carry track/shuffle/repeat — merge over existing player state.
       // Preserve existing track/artwork if the queue event doesn't include one.
       final queueState = MusicPlayerState.fromMaQueueEvent(data);
       final existing = _playerStates[objectId];
-      Log.d('MA',
+      Log.i('MA',
           'EVT queue_updated id=$objectId existing.imageUrl=${existing?.currentTrack?.imageUrl} '
           'incoming.title=${queueState.currentTrack?.title} '
           'incoming.imageUrl=${queueState.currentTrack?.imageUrl} '
@@ -379,7 +379,7 @@ class MusicAssistantService {
               nextTrack: queueState.nextTrack,
               queueSize: queueState.queueSize,
             );
-      Log.d('MA',
+      Log.i('MA',
           'EVT queue_updated -> resolved.imageUrl=${updated.currentTrack?.imageUrl}');
     } else {
       return;
