@@ -44,7 +44,13 @@ class CinematicScreen extends ConsumerWidget {
     return Stack(
       fit: StackFit.expand,
       children: [
-        CinematicBackdrop(imageUrl: state?.currentTrack?.imageUrl),
+        // Wrapped in a RepaintBoundary so the heavy ImageFiltered blur
+        // is layer-cached. Without this, the backdrop repaints every
+        // time the parent rebuilds (which is once per second on
+        // player_updated position ticks), and the Pi can't keep up.
+        RepaintBoundary(
+          child: CinematicBackdrop(imageUrl: state?.currentTrack?.imageUrl),
+        ),
         Positioned(
           top: 0,
           left: 0,

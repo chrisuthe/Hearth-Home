@@ -32,7 +32,7 @@ class CinematicHero extends StatelessWidget {
             const SizedBox(width: 50),
             Flexible(
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 540),
+                constraints: const BoxConstraints(maxWidth: 620),
                 child: _HeroMeta(track: t),
               ),
             ),
