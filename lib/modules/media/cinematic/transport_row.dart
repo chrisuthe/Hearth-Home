@@ -2,18 +2,24 @@ import 'package:flutter/material.dart';
 
 import '../../../app/media_tokens.dart';
 import '../../../models/music_state.dart';
+import 'drawer_state.dart';
 
 /// Transport controls row inside the bottom shelf.
 ///
 /// Layout (left-to-right):
+///   - (minimal-only) 240-px-min mini-info: 48 × 48 art + title + artist
 ///   - flex-1 progress bar + tabular time labels
 ///   - controls cluster: heart · shuffle · prev · play(56) · next ·
 ///     repeat · lyrics · 1 px divider · volume icon · 100×3 volume bar
+///
+/// In `minimal` the hero is hidden, so the mini-info cluster stands in
+/// as the persistent now-playing display.
 ///
 /// Every icon button is 44×44 minimum (per the design's CIconBtn). The
 /// play/pause is 56×56 with its own drop shadow.
 class TransportRow extends StatelessWidget {
   final MusicPlayerState state;
+  final DrawerState drawer;
   final VoidCallback? onPlayPause;
   final VoidCallback? onNext;
   final VoidCallback? onPrev;
@@ -24,6 +30,7 @@ class TransportRow extends StatelessWidget {
   const TransportRow({
     super.key,
     required this.state,
+    required this.drawer,
     this.onPlayPause,
     this.onNext,
     this.onPrev,
@@ -40,9 +47,14 @@ class TransportRow extends StatelessWidget {
     final progress = duration.inSeconds > 0
         ? (position.inSeconds / duration.inSeconds).clamp(0.0, 1.0)
         : 0.0;
+    final showMiniInfo = drawer == DrawerState.minimal && track != null;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
+        if (showMiniInfo) ...[
+          _MiniInfo(track: track),
+          const SizedBox(width: 18),
+        ],
         Expanded(
           child: _ProgressAndTimes(
             progress: progress,
@@ -379,4 +391,80 @@ String _formatDur(Duration d) {
   final m = d.inMinutes;
   final s = d.inSeconds % 60;
   return '$m:${s.toString().padLeft(2, '0')}';
+}
+
+/// Persistent now-playing summary shown in the transport row when the
+/// drawer is `minimal` (hero is hidden). 240 px minimum width — keeps
+/// the title/artist legible at small sizes without being squeezed by
+/// the progress bar.
+class _MiniInfo extends StatelessWidget {
+  final MusicTrack track;
+  const _MiniInfo({required this.track});
+
+  @override
+  Widget build(BuildContext context) {
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minWidth: 240),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: const Color.fromRGBO(255, 255, 255, 0.04),
+              borderRadius: BorderRadius.circular(MediaRadii.smallArt),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: track.imageUrl == null
+                ? const Icon(
+                    Icons.music_note,
+                    size: 22,
+                    color: Color.fromRGBO(255, 255, 255, MediaTextOpacity.section),
+                  )
+                : Image.network(
+                    track.imageUrl!,
+                    fit: BoxFit.cover,
+                    cacheWidth: 96,
+                    errorBuilder: (_, _, _) => const Icon(
+                      Icons.broken_image,
+                      size: 22,
+                      color: Color.fromRGBO(255, 255, 255, MediaTextOpacity.section),
+                    ),
+                  ),
+          ),
+          const SizedBox(width: 12),
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  track.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  track.artist,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w400,
+                    color: Color.fromRGBO(255, 255, 255, MediaTextOpacity.meta),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

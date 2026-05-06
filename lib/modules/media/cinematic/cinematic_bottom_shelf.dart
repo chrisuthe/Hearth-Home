@@ -3,19 +3,25 @@ import 'package:flutter/material.dart';
 import '../../../app/media_tokens.dart';
 import '../../../models/music_state.dart';
 import '../../../widgets/glass_panel.dart';
+import 'browse_shelves.dart';
+import 'drawer_state.dart';
 import 'queue_lane.dart';
 import 'transport_row.dart';
 
-/// Bottom shelf — glass panel containing the transport row and (in
-/// `peek+` drawer states) the queue lane below it.
+/// Bottom shelf — glass panel containing transport + (drawer-state-
+/// dependent) queue lane and right pane.
 ///
-/// Phase 1 hard-codes the `peek` height of 210 px. Phase 2 will animate
-/// the height (110 minimal / 210 peek / 360 expanded) via a single
-/// AnimationController shared with the hero, per the simultaneous
-/// 240 ms transition spec.
+/// Heights animate via `AnimatedContainer` at [kDrawerTransitionDuration]
+/// so the height matches the parent screen's hero animation. The
+/// inside layout switches structurally on [drawer]:
+///   - `minimal` (110): transport row only (with mini-info prepended)
+///   - `peek` (210): transport + queue cards
+///   - `expanded` (360): transport + queue (flex 1.3) + right pane (flex 1)
 class CinematicBottomShelf extends StatelessWidget {
   final MusicPlayerState state;
   final String playerId;
+  final DrawerState drawer;
+  final VoidCallback onCycleDrawer;
   final VoidCallback? onPlayPause;
   final VoidCallback? onNext;
   final VoidCallback? onPrev;
@@ -27,6 +33,8 @@ class CinematicBottomShelf extends StatelessWidget {
     super.key,
     required this.state,
     required this.playerId,
+    required this.drawer,
+    required this.onCycleDrawer,
     this.onPlayPause,
     this.onNext,
     this.onPrev,
@@ -38,39 +46,146 @@ class CinematicBottomShelf extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         boxShadow: MediaShadows.shelf,
+        borderRadius: BorderRadius.circular(MediaRadii.shelf),
       ),
       child: GlassPanel(
         borderRadius: BorderRadius.circular(MediaRadii.shelf),
+        child: AnimatedContainer(
+          duration: kDrawerTransitionDuration,
+          curve: Curves.easeInOut,
+          height: drawer.shelfHeight,
+          child: Stack(
+            clipBehavior: Clip.hardEdge,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(22, 18, 22, 18),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    TransportRow(
+                      state: state,
+                      drawer: drawer,
+                      onPlayPause: onPlayPause,
+                      onNext: onNext,
+                      onPrev: onPrev,
+                      onShuffle: onShuffle,
+                      onRepeatCycle: onRepeatCycle,
+                      onVolumeChanged: onVolumeChanged,
+                    ),
+                    if (drawer.queueVisible) ...[
+                      const SizedBox(height: 18),
+                      Expanded(
+                        child: _DrawerBody(
+                          state: state,
+                          playerId: playerId,
+                          showRightPane: drawer.rightPaneVisible,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: _CycleHandle(),
+              ),
+              Positioned.fill(
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: null,
+                child: _CycleHitTarget(onTap: onCycleDrawer),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The visible "drag handle" at the top of the shelf — a thin pill
+/// signalling "this surface has more states." Static; the actual hit
+/// target lives in [_CycleHitTarget] above it.
+class _CycleHandle extends StatelessWidget {
+  const _CycleHandle();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.only(top: 8),
+      child: Center(
         child: SizedBox(
-          height: 210,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                TransportRow(
-                  state: state,
-                  onPlayPause: onPlayPause,
-                  onNext: onNext,
-                  onPrev: onPrev,
-                  onShuffle: onShuffle,
-                  onRepeatCycle: onRepeatCycle,
-                  onVolumeChanged: onVolumeChanged,
-                ),
-                const SizedBox(height: 18),
-                Expanded(
-                  child: QueueLane(
-                    playerId: playerId,
-                    currentQueueItemId: state.currentTrack?.queueItemId,
-                  ),
-                ),
-              ],
+          width: 36,
+          height: 4,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: Color.fromRGBO(255, 255, 255, 0.25),
+              borderRadius: BorderRadius.all(Radius.circular(2)),
             ),
           ),
         ),
       ),
+    );
+  }
+}
+
+/// 44 px-tall invisible tap target across the shelf top edge — taps
+/// here cycle the drawer state. Sits above the transport row's tap
+/// targets so the buttons themselves still receive their own taps.
+class _CycleHitTarget extends StatelessWidget {
+  final VoidCallback onTap;
+  const _CycleHitTarget({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 22,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+      ),
+    );
+  }
+}
+
+class _DrawerBody extends StatelessWidget {
+  final MusicPlayerState state;
+  final String playerId;
+  final bool showRightPane;
+
+  const _DrawerBody({
+    required this.state,
+    required this.playerId,
+    required this.showRightPane,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final queue = QueueLane(
+      playerId: playerId,
+      currentQueueItemId: state.currentTrack?.queueItemId,
+    );
+    if (!showRightPane) return queue;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Expanded(flex: 13, child: queue),
+        const SizedBox(width: 24),
+        Container(
+          width: 1,
+          color: MediaColors.glassBorder,
+        ),
+        const SizedBox(width: 24),
+        Expanded(
+          flex: 10,
+          child: BrowseShelves(playerId: playerId),
+        ),
+      ],
     );
   }
 }

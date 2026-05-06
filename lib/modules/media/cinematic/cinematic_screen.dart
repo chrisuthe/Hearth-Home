@@ -7,24 +7,34 @@ import '../../../services/music_assistant_service.dart';
 import 'cinematic_backdrop.dart';
 import 'cinematic_bottom_shelf.dart';
 import 'cinematic_hero.dart';
+import 'drawer_state.dart';
 import 'top_chrome.dart';
 
 /// Root scaffold for the cinematic music player redesign.
 ///
-/// Phase 1 renders the canvas in `peek` drawer state only — no drawer
-/// animations, no Players popover, no Browse overlay. Visible behaviours:
-///   - full-bleed blurred album-art backdrop
-///   - top chrome (Search & Browse / Sleep / Players chips — inert)
-///   - hero (album art + title + artist + mini-stats)
-///   - bottom shelf (transport row + horizontal queue lane)
-///
-/// Subsequent phases add the drawer state machine (Phase 2), the
-/// Players popover (Phase 3), and the Browse overlay (Phase 4).
-class CinematicScreen extends ConsumerWidget {
+/// Phase 2 wires the drawer state machine. Single source of truth lives
+/// here; child widgets receive the `DrawerState` and animate their own
+/// dimensions implicitly via `AnimatedPositioned` /
+/// `AnimatedContainer` / `AnimatedDefaultTextStyle` — all using the
+/// same [kDrawerTransitionDuration] (240 ms) and curve so the layout
+/// reads as one continuous gesture, not a sequence of independent
+/// moves.
+class CinematicScreen extends ConsumerStatefulWidget {
   const CinematicScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<CinematicScreen> createState() => _CinematicScreenState();
+}
+
+class _CinematicScreenState extends ConsumerState<CinematicScreen> {
+  DrawerState _drawer = DrawerState.peek;
+
+  void _cycleDrawer() {
+    setState(() => _drawer = _drawer.cycleNext());
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final music = ref.watch(musicAssistantServiceProvider);
     final allPlayers =
         ref.watch(maAllPlayersProvider).valueOrNull ?? const {};
@@ -44,10 +54,6 @@ class CinematicScreen extends ConsumerWidget {
     return Stack(
       fit: StackFit.expand,
       children: [
-        // Wrapped in a RepaintBoundary so the heavy ImageFiltered blur
-        // is layer-cached. Without this, the backdrop repaints every
-        // time the parent rebuilds (which is once per second on
-        // player_updated position ticks), and the Pi can't keep up.
         RepaintBoundary(
           child: CinematicBackdrop(imageUrl: state?.currentTrack?.imageUrl),
         ),
@@ -57,12 +63,25 @@ class CinematicScreen extends ConsumerWidget {
           right: 0,
           child: TopChrome(activePlayer: state),
         ),
-        Positioned(
-          top: 100,
+        AnimatedPositioned(
+          duration: kDrawerTransitionDuration,
+          curve: Curves.easeInOut,
+          top: _drawer.heroTop,
+          bottom: _drawer.heroBottom,
           left: 0,
           right: 0,
-          bottom: 230,
-          child: CinematicHero(track: state?.currentTrack),
+          child: AnimatedOpacity(
+            duration: kDrawerTransitionDuration,
+            curve: Curves.easeInOut,
+            opacity: _drawer.heroVisible ? 1.0 : 0.0,
+            child: IgnorePointer(
+              ignoring: !_drawer.heroVisible,
+              child: CinematicHero(
+                track: state?.currentTrack,
+                drawer: _drawer,
+              ),
+            ),
+          ),
         ),
         if (playerId != null && state != null)
           Positioned(
@@ -72,6 +91,8 @@ class CinematicScreen extends ConsumerWidget {
             child: CinematicBottomShelf(
               state: state,
               playerId: playerId,
+              drawer: _drawer,
+              onCycleDrawer: _cycleDrawer,
               onPlayPause: () => music.playPause(playerId),
               onNext: () => music.nextTrack(playerId),
               onPrev: () => music.previousTrack(playerId),

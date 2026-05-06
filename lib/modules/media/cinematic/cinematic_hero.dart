@@ -2,20 +2,23 @@ import 'package:flutter/material.dart';
 
 import '../../../app/media_tokens.dart';
 import '../../../models/music_state.dart';
+import 'drawer_state.dart';
 import 'mini_stats_row.dart';
 
-/// Centre-stage hero: 360×360 album art on the left, track meta column
-/// on the right (max 540 px). For Phase 1 this is rendered at the
-/// `peek` drawer state's dimensions (art 360, title 64). Phase 2 will
-/// thread an animated drawer state through to shrink art→280 and title
-/// →48 in the `expanded` state.
-///
-/// When the player has no current track, renders nothing — the
-/// underlying backdrop stays visible.
+/// Centre-stage hero. Album art on the left, track meta column on the
+/// right (max 620 px). The album art size and title font-size animate
+/// implicitly via `AnimatedContainer` and `AnimatedDefaultTextStyle`,
+/// using the same duration as the bottom shelf height + hero position
+/// — all four properties move in lockstep.
 class CinematicHero extends StatelessWidget {
   final MusicTrack? track;
+  final DrawerState drawer;
 
-  const CinematicHero({super.key, this.track});
+  const CinematicHero({
+    super.key,
+    this.track,
+    required this.drawer,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -28,12 +31,12 @@ class CinematicHero extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            _HeroArt(imageUrl: t.imageUrl),
+            _HeroArt(imageUrl: t.imageUrl, size: drawer.heroArtSize),
             const SizedBox(width: 50),
             Flexible(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 620),
-                child: _HeroMeta(track: t),
+                child: _HeroMeta(track: t, titleSize: drawer.heroTitleSize),
               ),
             ),
           ],
@@ -45,13 +48,17 @@ class CinematicHero extends StatelessWidget {
 
 class _HeroArt extends StatelessWidget {
   final String? imageUrl;
-  const _HeroArt({this.imageUrl});
+  final double size;
+
+  const _HeroArt({this.imageUrl, required this.size});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 360,
-      height: 360,
+    return AnimatedContainer(
+      duration: kDrawerTransitionDuration,
+      curve: Curves.easeInOut,
+      width: size,
+      height: size,
       decoration: BoxDecoration(
         color: const Color.fromRGBO(255, 255, 255, 0.04),
         borderRadius: BorderRadius.circular(MediaRadii.hero),
@@ -88,8 +95,9 @@ class _HeroArt extends StatelessWidget {
 
 class _HeroMeta extends StatelessWidget {
   final MusicTrack track;
+  final double titleSize;
 
-  const _HeroMeta({required this.track});
+  const _HeroMeta({required this.track, required this.titleSize});
 
   @override
   Widget build(BuildContext context) {
@@ -99,16 +107,20 @@ class _HeroMeta extends StatelessWidget {
       children: [
         _Eyebrow(album: track.album),
         const SizedBox(height: 12),
-        Text(
-          track.title,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            fontSize: 64,
+        AnimatedDefaultTextStyle(
+          duration: kDrawerTransitionDuration,
+          curve: Curves.easeInOut,
+          style: TextStyle(
+            fontSize: titleSize,
             fontWeight: FontWeight.w700,
             height: 0.95,
             letterSpacing: -2,
             color: Colors.white,
+          ),
+          child: Text(
+            track.title,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
           ),
         ),
         const SizedBox(height: 14),
