@@ -334,6 +334,15 @@ class MusicAssistantService {
       // Player events carry volume/name — merge over existing queue state
       final playerState = MusicPlayerState.fromMaPlayerEvent(data);
       final existing = _playerStates[objectId];
+      // TEMP DIAGNOSTIC (album-art-disappears bug): dump raw event +
+      // existing/incoming track so we can see exactly what MA emitted
+      // and what _preferTrackWithImage decided. Remove after fix lands.
+      Log.d('MA',
+          'EVT player_updated id=$objectId existing.imageUrl=${existing?.currentTrack?.imageUrl} '
+          'incoming.title=${playerState.currentTrack?.title} '
+          'incoming.imageUrl=${playerState.currentTrack?.imageUrl} '
+          'existing.title=${existing?.currentTrack?.title} '
+          'data=${jsonEncode(data['current_media'])}');
       updated = existing == null
           ? playerState
           : existing.copyWith(
@@ -345,11 +354,19 @@ class MusicAssistantService {
               currentTrack: _preferTrackWithImage(
                   playerState.currentTrack, existing.currentTrack),
             );
+      Log.d('MA',
+          'EVT player_updated -> resolved.imageUrl=${updated.currentTrack?.imageUrl}');
     } else if (event == 'queue_updated') {
       // Queue events carry track/shuffle/repeat — merge over existing player state.
       // Preserve existing track/artwork if the queue event doesn't include one.
       final queueState = MusicPlayerState.fromMaQueueEvent(data);
       final existing = _playerStates[objectId];
+      Log.d('MA',
+          'EVT queue_updated id=$objectId existing.imageUrl=${existing?.currentTrack?.imageUrl} '
+          'incoming.title=${queueState.currentTrack?.title} '
+          'incoming.imageUrl=${queueState.currentTrack?.imageUrl} '
+          'existing.title=${existing?.currentTrack?.title} '
+          'data.current_item=${jsonEncode(data['current_item'])}');
       updated = existing == null
           ? queueState
           : existing.copyWith(
@@ -362,6 +379,8 @@ class MusicAssistantService {
               nextTrack: queueState.nextTrack,
               queueSize: queueState.queueSize,
             );
+      Log.d('MA',
+          'EVT queue_updated -> resolved.imageUrl=${updated.currentTrack?.imageUrl}');
     } else {
       return;
     }
