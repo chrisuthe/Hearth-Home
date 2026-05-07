@@ -259,35 +259,35 @@ class _Controls extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        const _CIconBtn(icon: Icons.favorite_border, size: 22, dim: true),
+        const _CIconBtn(icon: Icons.favorite_border, size: 44, dim: true),
         _CIconBtn(
           icon: Icons.shuffle,
-          size: 22,
+          size: 44,
           dim: !state.shuffle,
           onTap: onShuffle,
         ),
-        _CIconBtn(icon: Icons.skip_previous, size: 26, onTap: onPrev),
+        _CIconBtn(icon: Icons.skip_previous, size: 52, onTap: onPrev),
         _PlayPauseButton(playing: state.isPlaying, onTap: onPlayPause),
-        _CIconBtn(icon: Icons.skip_next, size: 26, onTap: onNext),
+        _CIconBtn(icon: Icons.skip_next, size: 52, onTap: onNext),
         _CIconBtn(
           icon: switch (state.repeatMode) {
             'one' => Icons.repeat_one,
             _ => Icons.repeat,
           },
-          size: 22,
+          size: 44,
           dim: !repeatActive,
           onTap: onRepeatCycle,
         ),
-        const _CIconBtn(icon: Icons.lyrics_outlined, size: 22, dim: true),
-        const SizedBox(width: 10),
+        const _CIconBtn(icon: Icons.lyrics_outlined, size: 44, dim: true),
+        const SizedBox(width: 12),
         Container(
           width: 1,
-          height: 24,
+          height: 32,
           color: const Color.fromRGBO(255, 255, 255, 0.15),
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: 12),
         _VolumeIcon(volume: state.volume, muted: state.muted),
-        const SizedBox(width: 10),
+        const SizedBox(width: 12),
         SizedBox(
           width: 100,
           child: _VolumeBar(
@@ -300,9 +300,9 @@ class _Controls extends StatelessWidget {
   }
 }
 
-/// Tap-target-enforced icon button. 52×52 box keeps comfortable
-/// breathing room around larger icons; the design's 44×44 minimum
-/// is exceeded.
+/// Tap-target-enforced icon button. 64×64 box around 44–52-px icons —
+/// ~6 px breathing on each side. Comfortably above the 44×44 design
+/// minimum; the boxes themselves are now the visual hit zones.
 class _CIconBtn extends StatelessWidget {
   final IconData icon;
   final double size;
@@ -323,11 +323,11 @@ class _CIconBtn extends StatelessWidget {
         : Colors.white;
     return InkResponse(
       onTap: onTap,
-      radius: 26,
+      radius: 32,
       containedInkWell: true,
       child: SizedBox(
-        width: 52,
-        height: 52,
+        width: 64,
+        height: 64,
         child: Icon(icon, size: size, color: color),
       ),
     );
@@ -352,8 +352,8 @@ class _PlayPauseButton extends StatelessWidget {
           customBorder: const CircleBorder(),
           onTap: onTap,
           child: Ink(
-            width: 56,
-            height: 56,
+            width: 80,
+            height: 80,
             decoration: const BoxDecoration(
               color: Colors.white,
               shape: BoxShape.circle,
@@ -361,7 +361,7 @@ class _PlayPauseButton extends StatelessWidget {
             ),
             child: Icon(
               playing ? Icons.pause : Icons.play_arrow,
-              size: 26,
+              size: 44,
               color: Colors.black,
             ),
           ),
@@ -389,7 +389,7 @@ class _VolumeIcon extends StatelessWidget {
     } else {
       icon = Icons.volume_up;
     }
-    return Icon(icon, size: 22, color: Colors.white);
+    return Icon(icon, size: 44, color: Colors.white);
   }
 }
 

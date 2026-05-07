@@ -23,15 +23,17 @@ const Duration kDrawerTransitionDuration = Duration(milliseconds: 240);
 /// Reference snap detents along the shelf height range. Order matters —
 /// `_nearestDetent` walks them and picks the closest.
 class DrawerDetents {
-  /// Transport-only. Hero hidden; transport row prepends mini-info.
-  static const double minimal = 110;
+  /// Transport-only — drawer at the bottom of its drag range. Has to
+  /// accommodate the 80-px play button (with 22 top + 18 bottom shelf
+  /// padding), so the floor is 120 px; padded a bit for breathing.
+  static const double minimal = 140;
 
-  /// Default. Hero visible at full size; queue lane below transport.
-  static const double peek = 210;
+  /// Default. Queue lane below transport.
+  static const double peek = 240;
 
-  /// Hero shrinks; right pane (Mixer / Lyrics) appears next to queue.
-  /// 50 % of the 1184 × 864 render — keeps the hero text just visible
-  /// above the shelf top edge.
+  /// Right pane (Mixer / Lyrics) appears next to queue. 50 % of the
+  /// 1184 × 864 render — pinned to the screen bottom edge in this
+  /// state.
   static const double expanded = 432;
 
   static const List<double> all = [minimal, peek, expanded];
