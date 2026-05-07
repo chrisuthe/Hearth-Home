@@ -179,6 +179,86 @@ class MusicAssistantService {
     });
   }
 
+  // ---------------------------------------------------------------------------
+  // Multi-room (Players popover) commands
+  // ---------------------------------------------------------------------------
+
+  /// Add and/or remove members on a sync-leader player.
+  ///
+  /// MA's `players/cmd/set_members` (`controllers/players/controller.py:1131`)
+  /// is the canonical join/unjoin command. Either list may be empty.
+  void setMembers(
+    String targetPlayerId, {
+    List<String> add = const [],
+    List<String> remove = const [],
+  }) {
+    sendCommand('players/cmd/set_members', {
+      'target_player': targetPlayerId,
+      'player_ids_to_add': add,
+      'player_ids_to_remove': remove,
+    });
+  }
+
+  /// Set the group volume on a sync-leader player. Maps to MA's
+  /// `players/cmd/group_volume` (`controllers/players/controller.py:730`).
+  /// [level] is 0.0–1.0; we send 0–100.
+  void setGroupVolume(String playerId, double level) {
+    sendCommand('players/cmd/group_volume', {
+      'player_id': playerId,
+      'volume_level': (level * 100).round(),
+    });
+  }
+
+  /// Toggle mute on a single player. Maps to
+  /// `players/cmd/volume_mute` (`controllers/players/controller.py:819`).
+  void setMute(String playerId, bool muted) {
+    sendCommand('players/cmd/volume_mute', {
+      'player_id': playerId,
+      'muted': muted,
+    });
+  }
+
+  /// Toggle group mute. Mutes/unmutes every member.
+  /// `players/cmd/group_volume_mute` (`controllers/players/controller.py:800`).
+  void setGroupMute(String playerId, bool muted) {
+    sendCommand('players/cmd/group_volume_mute', {
+      'player_id': playerId,
+      'muted': muted,
+    });
+  }
+
+  /// Stop one player. `players/cmd/stop` (`...:488`).
+  void stopPlayer(String playerId) {
+    sendCommand('players/cmd/stop', {'player_id': playerId});
+  }
+
+  /// Pause one player. `players/cmd/pause` (`...:526`).
+  void pausePlayer(String playerId) {
+    sendCommand('players/cmd/pause', {'player_id': playerId});
+  }
+
+  /// Pause every player that is currently playing. MA exposes no
+  /// single "pause-all" endpoint — we iterate and send individual
+  /// pause commands.
+  void pauseAll() {
+    for (final p in _playerStates.values) {
+      if (p.isPlaying && p.activeZoneId != null) {
+        pausePlayer(p.activeZoneId!);
+      }
+    }
+  }
+
+  /// Move the playing queue from [sourceQueueId] to [targetQueueId].
+  /// Maps to MA's `player_queues/transfer`
+  /// (`controllers/player_queues.py:990`). The server resumes
+  /// playback on the target if the source was playing.
+  void transferQueue(String sourceQueueId, String targetQueueId) {
+    sendCommand('player_queues/transfer', {
+      'source_queue_id': sourceQueueId,
+      'target_queue_id': targetQueueId,
+    });
+  }
+
   /// Resolve the correct queue ID for a player. The player state's
   /// activeZoneId (from queue_updated events) is the canonical queue ID.
   /// Falls back to the player ID itself if no queue state is available.

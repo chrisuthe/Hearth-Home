@@ -8,6 +8,7 @@ import 'cinematic_backdrop.dart';
 import 'cinematic_bottom_shelf.dart';
 import 'cinematic_hero.dart';
 import 'drawer_state.dart';
+import 'players_popover.dart';
 import 'top_chrome.dart';
 
 /// Root scaffold for the cinematic music player redesign.
@@ -28,9 +29,14 @@ class CinematicScreen extends ConsumerStatefulWidget {
 
 class _CinematicScreenState extends ConsumerState<CinematicScreen> {
   DrawerState _drawer = DrawerState.peek;
+  bool _playersOpen = false;
 
   void _cycleDrawer() {
     setState(() => _drawer = _drawer.cycleNext());
+  }
+
+  void _togglePlayers() {
+    setState(() => _playersOpen = !_playersOpen);
   }
 
   @override
@@ -61,7 +67,10 @@ class _CinematicScreenState extends ConsumerState<CinematicScreen> {
           top: 0,
           left: 0,
           right: 0,
-          child: TopChrome(activePlayer: state),
+          child: TopChrome(
+            activePlayer: state,
+            onPlayersTap: _togglePlayers,
+          ),
         ),
         AnimatedPositioned(
           duration: kDrawerTransitionDuration,
@@ -108,6 +117,10 @@ class _CinematicScreenState extends ConsumerState<CinematicScreen> {
               onVolumeChanged: (v) => music.setVolume(playerId, v),
             ),
           ),
+        // Popover renders LAST so it paints over the entire UI,
+        // including the bottom shelf and top chrome.
+        if (_playersOpen)
+          PlayersPopover(onClose: _togglePlayers),
       ],
     );
   }

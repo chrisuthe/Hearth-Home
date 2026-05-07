@@ -333,6 +333,40 @@ void main() {
       },
     );
 
+    test(
+      'setMembers sends players/cmd/set_members with both add and remove '
+      'lists; either list may be empty',
+      () {
+        service.connect('test-token');
+        final authMsgId = channel.sentMessages[0]['message_id'] as String;
+        channel.simulateServerMessage({'message_id': authMsgId, 'result': true});
+        channel.sentMessages.clear();
+
+        service.setMembers('kitchen', add: ['living', 'patio'], remove: []);
+        expect(channel.sentMessages, hasLength(1));
+        final cmd = channel.sentMessages.last;
+        expect(cmd['command'], 'players/cmd/set_members');
+        expect(cmd['args']['target_player'], 'kitchen');
+        expect(cmd['args']['player_ids_to_add'], ['living', 'patio']);
+        expect(cmd['args']['player_ids_to_remove'], <String>[]);
+      },
+    );
+
+    test('transferQueue sends player_queues/transfer with source and target',
+        () {
+      service.connect('test-token');
+      final authMsgId = channel.sentMessages[0]['message_id'] as String;
+      channel.simulateServerMessage({'message_id': authMsgId, 'result': true});
+      channel.sentMessages.clear();
+
+      service.transferQueue('kitchen', 'office');
+      expect(channel.sentMessages, hasLength(1));
+      final cmd = channel.sentMessages.last;
+      expect(cmd['command'], 'player_queues/transfer');
+      expect(cmd['args']['source_queue_id'], 'kitchen');
+      expect(cmd['args']['target_queue_id'], 'office');
+    });
+
     test('sendCommand formats message correctly', () {
       service.connect('test-token');
       final authMsgId = channel.sentMessages[0]['message_id'] as String;
