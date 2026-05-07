@@ -425,6 +425,40 @@ void main() {
       expect(restored.streamTargetPort, 9999);
     });
 
+    test('uiScale defaults to 1.0', () {
+      const config = HubConfig();
+      expect(config.uiScale, 1.0);
+    });
+
+    test('uiScale round-trips through JSON', () {
+      const config = HubConfig(uiScale: 1.25);
+      final json = config.toJson();
+      final restored = HubConfig.fromJson(json);
+      expect(restored.uiScale, 1.25);
+    });
+
+    test('uiScale below 0.75 is clamped on load', () {
+      final config = HubConfig.fromJson({'uiScale': 0.5});
+      expect(config.uiScale, 0.75);
+    });
+
+    test('uiScale above 1.5 is clamped on load', () {
+      final config = HubConfig.fromJson({'uiScale': 2.5});
+      expect(config.uiScale, 1.5);
+    });
+
+    test('uiScale missing from JSON defaults to 1.0', () {
+      final config = HubConfig.fromJson({});
+      expect(config.uiScale, 1.0);
+    });
+
+    test('copyWith updates uiScale and preserves other fields', () {
+      const config = HubConfig(immichUrl: 'http://test', uiScale: 1.0);
+      final updated = config.copyWith(uiScale: 1.2);
+      expect(updated.uiScale, 1.2);
+      expect(updated.immichUrl, 'http://test');
+    });
+
   });
 
   group('PhotoSourcesConfig', () {
