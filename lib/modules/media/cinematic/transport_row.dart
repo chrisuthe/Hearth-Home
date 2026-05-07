@@ -259,35 +259,35 @@ class _Controls extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        const _CIconBtn(icon: Icons.favorite_border, size: 18, dim: true),
+        const _CIconBtn(icon: Icons.favorite_border, size: 22, dim: true),
         _CIconBtn(
           icon: Icons.shuffle,
-          size: 17,
+          size: 22,
           dim: !state.shuffle,
           onTap: onShuffle,
         ),
-        _CIconBtn(icon: Icons.skip_previous, size: 22, onTap: onPrev),
+        _CIconBtn(icon: Icons.skip_previous, size: 26, onTap: onPrev),
         _PlayPauseButton(playing: state.isPlaying, onTap: onPlayPause),
-        _CIconBtn(icon: Icons.skip_next, size: 22, onTap: onNext),
+        _CIconBtn(icon: Icons.skip_next, size: 26, onTap: onNext),
         _CIconBtn(
           icon: switch (state.repeatMode) {
             'one' => Icons.repeat_one,
             _ => Icons.repeat,
           },
-          size: 17,
+          size: 22,
           dim: !repeatActive,
           onTap: onRepeatCycle,
         ),
-        const _CIconBtn(icon: Icons.lyrics_outlined, size: 17, dim: true),
-        const SizedBox(width: 4),
+        const _CIconBtn(icon: Icons.lyrics_outlined, size: 22, dim: true),
+        const SizedBox(width: 10),
         Container(
           width: 1,
           height: 24,
           color: const Color.fromRGBO(255, 255, 255, 0.15),
         ),
-        const SizedBox(width: 4),
+        const SizedBox(width: 10),
         _VolumeIcon(volume: state.volume, muted: state.muted),
-        const SizedBox(width: 8),
+        const SizedBox(width: 10),
         SizedBox(
           width: 100,
           child: _VolumeBar(
@@ -300,7 +300,9 @@ class _Controls extends StatelessWidget {
   }
 }
 
-/// Tap-target-enforced icon button. Always 44×44 minimum.
+/// Tap-target-enforced icon button. 52×52 box keeps comfortable
+/// breathing room around larger icons; the design's 44×44 minimum
+/// is exceeded.
 class _CIconBtn extends StatelessWidget {
   final IconData icon;
   final double size;
@@ -321,11 +323,11 @@ class _CIconBtn extends StatelessWidget {
         : Colors.white;
     return InkResponse(
       onTap: onTap,
-      radius: 22,
+      radius: 26,
       containedInkWell: true,
       child: SizedBox(
-        width: 44,
-        height: 44,
+        width: 52,
+        height: 52,
         child: Icon(icon, size: size, color: color),
       ),
     );
@@ -387,7 +389,7 @@ class _VolumeIcon extends StatelessWidget {
     } else {
       icon = Icons.volume_up;
     }
-    return Icon(icon, size: 18, color: Colors.white);
+    return Icon(icon, size: 22, color: Colors.white);
   }
 }
 
