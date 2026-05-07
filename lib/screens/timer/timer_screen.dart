@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../app/tokens/tokens.dart';
 import '../../services/timer_service.dart';
 
 /// Full-screen timer interface inspired by the Google Nest Hub.
@@ -57,7 +58,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
         children: [
           // Header with back button and add timer
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: HearthSpacing.x4, vertical: HearthSpacing.x3),
             child: Row(
               children: [
                 IconButton(
@@ -67,7 +68,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
                 const Spacer(),
                 const Text('Timers',
                     style: TextStyle(
-                        fontSize: 18,
+                        fontSize: HearthFont.bodyLg,
                         fontWeight: FontWeight.w300,
                         color: Colors.white)),
                 const Spacer(),
@@ -78,7 +79,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
                     onPressed: () => setState(() => _showPicker = true),
                   )
                 else
-                  const SizedBox(width: 48),
+                  const SizedBox(width: HearthSpacing.x12),
               ],
             ),
           ),
@@ -98,10 +99,10 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
         children: [
           const Text('Set a timer',
               style: TextStyle(
-                  fontSize: 24,
+                  fontSize: HearthFont.titleLg,
                   fontWeight: FontWeight.w200,
                   color: Colors.white70)),
-          const SizedBox(height: 32),
+          const SizedBox(height: HearthSpacing.x8),
           SizedBox(
             height: 180,
             child: Row(
@@ -113,14 +114,14 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
                   initialValue: _pickHours,
                   onChanged: (v) => _pickHours = v,
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: HearthSpacing.x4),
                 _ScrollWheel(
                   label: 'min',
                   maxValue: 59,
                   initialValue: _pickMinutes,
                   onChanged: (v) => _pickMinutes = v,
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: HearthSpacing.x4),
                 _ScrollWheel(
                   label: 'sec',
                   maxValue: 59,
@@ -130,7 +131,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
               ],
             ),
           ),
-          const SizedBox(height: 32),
+          const SizedBox(height: HearthSpacing.x8),
           Material(
             color: const Color(0xFF646CFF),
             borderRadius: BorderRadius.circular(28),
@@ -138,16 +139,16 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
               onTap: _startTimer,
               borderRadius: BorderRadius.circular(28),
               child: const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 48, vertical: 14),
+                padding: EdgeInsets.symmetric(horizontal: HearthSpacing.x12, vertical: HearthSpacing.x3),
                 child: Text('Start',
                     style: TextStyle(
-                        fontSize: 18,
+                        fontSize: HearthFont.bodyLg,
                         fontWeight: FontWeight.w500,
                         color: Colors.white)),
               ),
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: HearthSpacing.x6),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -155,17 +156,17 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
                 _pickHours = 0; _pickMinutes = 1; _pickSeconds = 0;
                 _startTimer();
               }),
-              const SizedBox(width: 10),
+              const SizedBox(width: HearthSpacing.x3),
               _PresetChip(label: '5 min', onTap: () {
                 _pickHours = 0; _pickMinutes = 5; _pickSeconds = 0;
                 _startTimer();
               }),
-              const SizedBox(width: 10),
+              const SizedBox(width: HearthSpacing.x3),
               _PresetChip(label: '10 min', onTap: () {
                 _pickHours = 0; _pickMinutes = 10; _pickSeconds = 0;
                 _startTimer();
               }),
-              const SizedBox(width: 10),
+              const SizedBox(width: HearthSpacing.x3),
               _PresetChip(label: '15 min', onTap: () {
                 _pickHours = 0; _pickMinutes = 15; _pickSeconds = 0;
                 _startTimer();
@@ -190,11 +191,11 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
       );
     }
     return GridView.builder(
-      padding: const EdgeInsets.all(24),
+      padding: HearthSpacing.allX6,
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        crossAxisSpacing: 24,
-        mainAxisSpacing: 24,
+        crossAxisSpacing: HearthSpacing.x6,
+        mainAxisSpacing: HearthSpacing.x6,
       ),
       itemCount: timers.length,
       itemBuilder: (context, index) {
@@ -362,10 +363,10 @@ class _ScrollWheelState extends State<_ScrollWheel> {
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(widget.label,
-            style: const TextStyle(fontSize: 12, color: Colors.white38)),
-        const SizedBox(height: 4),
+            style: const TextStyle(fontSize: HearthFont.caption, color: Colors.white38)),
+        const SizedBox(height: HearthSpacing.x1),
         SizedBox(
-          width: 70,
+          width: HearthSpacing.x16,
           height: 150,
           child: ListWheelScrollView.useDelegate(
             controller: _controller,
@@ -384,7 +385,7 @@ class _ScrollWheelState extends State<_ScrollWheel> {
                   child: Text(
                     index.toString().padLeft(2, '0'),
                     style: TextStyle(
-                      fontSize: 36,
+                      fontSize: HearthFont.display,
                       fontWeight: FontWeight.w200,
                       color: index == _selectedIndex
                           ? Colors.white
@@ -417,9 +418,9 @@ class _PresetChip extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(20),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: HearthSpacing.x4, vertical: HearthSpacing.x2),
           child: Text(label,
-              style: const TextStyle(fontSize: 13, color: Colors.white70)),
+              style: const TextStyle(fontSize: HearthFont.label, color: Colors.white70)),
         ),
       ),
     );

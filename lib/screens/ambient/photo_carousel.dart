@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import '../../app/tokens/tokens.dart';
 // dart:io is native-only, guarded by kIsWeb at runtime.
 import 'dart:io' if (dart.library.html) 'dart:io';
 
@@ -85,15 +86,15 @@ class _PhotoCarouselState extends State<PhotoCarousel>
         children: [
           Icon(
             Icons.photo_library_outlined,
-            size: 48,
+            size: HearthIcon.xl,
             color: Color(0xFF333333),
           ),
-          SizedBox(height: 12),
+          SizedBox(height: HearthSpacing.x3),
           Text(
             'Photos unavailable',
             style: TextStyle(
               color: Color(0xFF444444),
-              fontSize: 14,
+              fontSize: HearthFont.body,
               fontWeight: FontWeight.w300,
               letterSpacing: 0.5,
             ),
