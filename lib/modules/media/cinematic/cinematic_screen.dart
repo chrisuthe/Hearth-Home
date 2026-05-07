@@ -4,10 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/media_tokens.dart';
 import '../../../config/hub_config.dart';
 import '../../../services/music_assistant_service.dart';
+import 'browse_overlay.dart';
 import 'cinematic_backdrop.dart';
 import 'cinematic_bottom_shelf.dart';
 import 'cinematic_hero.dart';
 import 'drawer_state.dart';
+import 'mini_bar.dart';
 import 'players_popover.dart';
 import 'top_chrome.dart';
 
@@ -30,6 +32,7 @@ class CinematicScreen extends ConsumerStatefulWidget {
 class _CinematicScreenState extends ConsumerState<CinematicScreen> {
   DrawerState _drawer = DrawerState.peek;
   bool _playersOpen = false;
+  bool _browseOpen = false;
 
   void _cycleDrawer() {
     setState(() => _drawer = _drawer.cycleNext());
@@ -37,6 +40,10 @@ class _CinematicScreenState extends ConsumerState<CinematicScreen> {
 
   void _togglePlayers() {
     setState(() => _playersOpen = !_playersOpen);
+  }
+
+  void _toggleBrowse() {
+    setState(() => _browseOpen = !_browseOpen);
   }
 
   @override
@@ -57,6 +64,51 @@ class _CinematicScreenState extends ConsumerState<CinematicScreen> {
       return const _NotConnected();
     }
 
+    if (_browseOpen) {
+      return Stack(
+        fit: StackFit.expand,
+        children: [
+          RepaintBoundary(
+            child: CinematicBackdrop(
+              imageUrl: state?.currentTrack?.imageUrl,
+            ),
+          ),
+          Positioned(
+            top: 18,
+            left: 18,
+            right: 18,
+            bottom: 108,
+            child: BrowseOverlay(
+              playerId: playerId,
+              onClose: _toggleBrowse,
+            ),
+          ),
+          if (state != null)
+            Positioned(
+              left: 18,
+              right: 18,
+              bottom: 18,
+              child: MiniBar(
+                state: state,
+                onExpand: _toggleBrowse,
+                onPlayPause: playerId == null
+                    ? null
+                    : () => music.playPause(playerId),
+                onNext: playerId == null
+                    ? null
+                    : () => music.nextTrack(playerId),
+                onPrev: playerId == null
+                    ? null
+                    : () => music.previousTrack(playerId),
+                onPlayersTap: _togglePlayers,
+              ),
+            ),
+          if (_playersOpen)
+            PlayersPopover(onClose: _togglePlayers),
+        ],
+      );
+    }
+
     return Stack(
       fit: StackFit.expand,
       children: [
@@ -69,6 +121,7 @@ class _CinematicScreenState extends ConsumerState<CinematicScreen> {
           right: 0,
           child: TopChrome(
             activePlayer: state,
+            onSearchTap: _toggleBrowse,
             onPlayersTap: _togglePlayers,
           ),
         ),
