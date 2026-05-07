@@ -47,13 +47,19 @@ class CinematicBottomShelf extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final radius = BorderRadius.only(
+      topLeft: const Radius.circular(MediaRadii.shelf),
+      topRight: const Radius.circular(MediaRadii.shelf),
+      bottomLeft: Radius.circular(metrics.shelfBottomRadius),
+      bottomRight: Radius.circular(metrics.shelfBottomRadius),
+    );
     return DecoratedBox(
       decoration: BoxDecoration(
         boxShadow: MediaShadows.shelf,
-        borderRadius: BorderRadius.circular(MediaRadii.shelf),
+        borderRadius: radius,
       ),
       child: GlassPanel(
-        borderRadius: BorderRadius.circular(MediaRadii.shelf),
+        borderRadius: radius,
         child: SizedBox(
           height: metrics.shelfHeight,
           child: Stack(

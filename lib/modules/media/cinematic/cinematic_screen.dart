@@ -188,7 +188,7 @@ class _CinematicScreenState extends ConsumerState<CinematicScreen>
           Positioned(
             left: 18,
             right: 18,
-            bottom: 18,
+            bottom: metrics.shelfBottomInset,
             child: CinematicBottomShelf(
               state: state,
               playerId: playerId,

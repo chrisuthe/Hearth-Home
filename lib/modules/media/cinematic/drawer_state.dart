@@ -85,6 +85,17 @@ class DrawerMetrics {
   /// stands in for the hidden hero in `minimal`.
   final bool miniInfoVisible;
 
+  /// Bottom inset for the shelf's `Positioned`. Tweens from 18 (peek
+  /// / minimal — drawer floats above the screen edge) to 0 (expanded
+  /// — drawer pins to the bottom edge so the visual occupies exactly
+  /// the bottom half of the screen).
+  final double shelfBottomInset;
+
+  /// Bottom-corner radius of the shelf's glass panel. Tweens from 18
+  /// (full pill at peek / minimal) to 0 (flush, sheet-style, when
+  /// pinned to the screen edge in expanded). Top corners stay at 18.
+  final double shelfBottomRadius;
+
   const DrawerMetrics({
     required this.shelfHeight,
     required this.heroTop,
@@ -95,6 +106,8 @@ class DrawerMetrics {
     required this.queueVisible,
     required this.rightPaneVisible,
     required this.miniInfoVisible,
+    required this.shelfBottomInset,
+    required this.shelfBottomRadius,
   });
 
   factory DrawerMetrics.fromShelfHeight(double h) {
@@ -116,6 +129,9 @@ class DrawerMetrics {
     // shelf anyway (heroOpacity → 0), so this only matters above peek.
     final heroBottom = h + 20;
 
+    final shelfBottomInset = lerpDouble(18, 0, shrink)!;
+    final shelfBottomRadius = lerpDouble(18, 0, shrink)!;
+
     return DrawerMetrics(
       shelfHeight: h,
       heroTop: heroTop,
@@ -130,6 +146,8 @@ class DrawerMetrics {
           h > (DrawerDetents.peek + DrawerDetents.expanded) / 2,
       // Mini-info covers for the hero whenever the hero is mostly faded.
       miniInfoVisible: heroFade < 0.5,
+      shelfBottomInset: shelfBottomInset,
+      shelfBottomRadius: shelfBottomRadius,
     );
   }
 }
