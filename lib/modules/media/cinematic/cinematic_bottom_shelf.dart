@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/media_tokens.dart';
+import '../../../app/tokens/tokens.dart';
 import '../../../models/music_state.dart';
 import '../../../widgets/glass_panel.dart';
 import 'browse_shelves.dart';
@@ -66,7 +67,7 @@ class CinematicBottomShelf extends StatelessWidget {
             clipBehavior: Clip.hardEdge,
             children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(22, 22, 22, 18),
+                padding: const EdgeInsets.fromLTRB(HearthSpacing.x6, HearthSpacing.x6, HearthSpacing.x6, 18),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   mainAxisSize: MainAxisSize.min,
@@ -132,8 +133,8 @@ class _DrawerHandle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const SizedBox(
-      width: 36,
-      height: 4,
+      width: HearthSpacing.x8,
+      height: HearthSpacing.x1,
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: Color.fromRGBO(255, 255, 255, 0.25),
@@ -166,12 +167,12 @@ class _DrawerBody extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Expanded(flex: 13, child: queue),
-        const SizedBox(width: 24),
+        const SizedBox(width: HearthSpacing.x6),
         Container(
           width: 1,
           color: MediaColors.glassBorder,
         ),
-        const SizedBox(width: 24),
+        const SizedBox(width: HearthSpacing.x6),
         Expanded(
           flex: 10,
           child: BrowseShelves(playerId: playerId),

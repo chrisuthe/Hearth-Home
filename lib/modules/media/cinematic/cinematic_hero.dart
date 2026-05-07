@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/media_tokens.dart';
+import '../../../app/tokens/tokens.dart';
 import '../../../models/music_state.dart';
 import 'drawer_state.dart';
 import 'mini_stats_row.dart';
@@ -25,14 +26,14 @@ class CinematicHero extends StatelessWidget {
     final t = track;
     if (t == null) return const SizedBox.shrink();
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 60),
+      padding: const EdgeInsets.symmetric(horizontal: HearthSpacing.x16),
       child: Center(
         child: Row(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             _HeroArt(imageUrl: t.imageUrl, size: metrics.heroArtSize),
-            const SizedBox(width: 50),
+            const SizedBox(width: HearthSpacing.x12),
             Flexible(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 620),
@@ -71,7 +72,7 @@ class _HeroArt extends StatelessWidget {
           ? const Center(
               child: Icon(
                 Icons.music_note,
-                size: 80,
+                size: HearthIcon.xxl,
                 color: Color.fromRGBO(255, 255, 255, MediaTextOpacity.section),
               ),
             )
@@ -82,7 +83,7 @@ class _HeroArt extends StatelessWidget {
               errorBuilder: (_, _, _) => const Center(
                 child: Icon(
                   Icons.broken_image,
-                  size: 60,
+                  size: HearthIcon.xxl,
                   color: Color.fromRGBO(255, 255, 255, MediaTextOpacity.section),
                 ),
               ),
@@ -104,7 +105,7 @@ class _HeroMeta extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         _Eyebrow(album: track.album),
-        const SizedBox(height: 12),
+        const SizedBox(height: HearthSpacing.x3),
         Text(
           track.title,
           maxLines: 2,
@@ -123,7 +124,7 @@ class _HeroMeta extends StatelessWidget {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(
-            fontSize: 22,
+            fontSize: HearthFont.title,
             fontWeight: FontWeight.w400,
             color: Color.fromRGBO(255, 255, 255, MediaTextOpacity.secondary),
           ),
@@ -146,17 +147,17 @@ class _Eyebrow extends StatelessWidget {
       children: [
         const Icon(
           Icons.graphic_eq,
-          size: 14,
+          size: HearthIcon.xs,
           color: Color.fromRGBO(255, 255, 255, MediaTextOpacity.eyebrow),
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: HearthSpacing.x2),
         Flexible(
           child: Text(
             label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              fontSize: 11,
+              fontSize: HearthFont.caption,
               fontWeight: FontWeight.w600,
               letterSpacing: 2,
               color: Color.fromRGBO(255, 255, 255, MediaTextOpacity.eyebrow),

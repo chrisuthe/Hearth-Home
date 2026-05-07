@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/media_tokens.dart';
+import '../../../app/tokens/tokens.dart';
 import '../../../models/music_state.dart';
 import '../../../services/music_assistant_service.dart';
 
@@ -64,7 +65,7 @@ class _QueueLaneState extends ConsumerState<QueueLane> {
       mainAxisSize: MainAxisSize.min,
       children: [
         _Header(),
-        const SizedBox(height: 12),
+        const SizedBox(height: HearthSpacing.x3),
         SizedBox(
           height: 178,
           child: FutureBuilder<List<MaQueueItem>>(
@@ -89,7 +90,7 @@ class _QueueLaneState extends ConsumerState<QueueLane> {
                   child: Text(
                     'Nothing queued',
                     style: TextStyle(
-                      fontSize: 11,
+                      fontSize: HearthFont.caption,
                       color: Color.fromRGBO(255, 255, 255, MediaTextOpacity.section),
                     ),
                   ),
@@ -134,7 +135,7 @@ class _Header extends StatelessWidget {
         Text(
           'UP NEXT',
           style: TextStyle(
-            fontSize: 11,
+            fontSize: HearthFont.caption,
             fontWeight: FontWeight.w700,
             letterSpacing: 1.4,
             color: Color.fromRGBO(255, 255, 255, MediaTextOpacity.eyebrow),
@@ -174,7 +175,7 @@ class _QueueCard extends StatelessWidget {
                 ? const Center(
                     child: Icon(
                       Icons.music_note,
-                      size: 36,
+                      size: HearthSpacing.x8,
                       color: Color.fromRGBO(255, 255, 255, MediaTextOpacity.section),
                     ),
                   )
@@ -184,7 +185,7 @@ class _QueueCard extends StatelessWidget {
                     cacheWidth: 260,
                     errorBuilder: (_, _, _) => const Icon(
                       Icons.broken_image,
-                      size: 36,
+                      size: HearthSpacing.x8,
                       color: Color.fromRGBO(255, 255, 255, MediaTextOpacity.section),
                     ),
                   ),
@@ -195,7 +196,7 @@ class _QueueCard extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              fontSize: 12,
+              fontSize: HearthFont.label,
               fontWeight: FontWeight.w500,
               color: Colors.white,
             ),
@@ -206,7 +207,7 @@ class _QueueCard extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              fontSize: 10,
+              fontSize: HearthFont.caption,
               fontWeight: FontWeight.w500,
               color: Color.fromRGBO(255, 255, 255, MediaTextOpacity.meta),
             ),

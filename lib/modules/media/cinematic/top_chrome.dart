@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/media_tokens.dart';
+import '../../../app/tokens/tokens.dart';
 import '../../../models/music_state.dart';
 import '../../../widgets/glass_panel.dart';
 
@@ -26,26 +27,26 @@ class TopChrome extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: HearthSpacing.x5),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
           _GlassChip(
             onTap: onSearchTap,
             children: const [
-              Icon(Icons.search, size: 13, color: Colors.white),
+              Icon(Icons.search, size: HearthIcon.xs, color: Colors.white),
               SizedBox(width: 6),
               Text('Search & Browse', style: _chipTextStyle),
             ],
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: HearthSpacing.x2),
           _GlassChip(
             onTap: onSleepTap,
             children: const [
-              Icon(Icons.bedtime_outlined, size: 13, color: Colors.white),
+              Icon(Icons.bedtime_outlined, size: HearthIcon.xs, color: Colors.white),
             ],
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: HearthSpacing.x2),
           _PlayersChip(
             activePlayer: activePlayer,
             onTap: onPlayersTap,
@@ -57,7 +58,7 @@ class TopChrome extends StatelessWidget {
 }
 
 const TextStyle _chipTextStyle = TextStyle(
-  fontSize: 11,
+  fontSize: HearthFont.caption,
   fontWeight: FontWeight.w600,
   color: Colors.white,
 );
@@ -76,7 +77,7 @@ class _GlassChip extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(MediaRadii.pill),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: HearthSpacing.x2),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: children,
@@ -104,7 +105,7 @@ class _PlayersChip extends StatelessWidget {
     return _GlassChip(
       onTap: onTap,
       children: [
-        const Icon(Icons.speaker_group, size: 13, color: Colors.white),
+        const Icon(Icons.speaker_group, size: HearthIcon.xs, color: Colors.white),
         const SizedBox(width: 6),
         Text(name, style: _chipTextStyle),
         if (extras > 0) ...[
@@ -112,14 +113,14 @@ class _PlayersChip extends StatelessWidget {
           Text(
             '+$extras',
             style: const TextStyle(
-              fontSize: 11,
+              fontSize: HearthFont.caption,
               fontWeight: FontWeight.w600,
               color: Color.fromRGBO(255, 255, 255, MediaTextOpacity.eyebrow),
             ),
           ),
         ],
         if (playing) ...[
-          const SizedBox(width: 8),
+          const SizedBox(width: HearthSpacing.x2),
           Container(
             width: 6,
             height: 6,

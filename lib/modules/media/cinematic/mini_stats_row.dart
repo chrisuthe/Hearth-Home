@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sendspin_dart/sendspin_dart.dart';
 
 import '../../../app/media_tokens.dart';
+import '../../../app/tokens/tokens.dart';
 import '../../../models/music_state.dart';
 import '../../../services/sendspin/sendspin_service.dart';
 
@@ -51,7 +52,7 @@ class MiniStatsRow extends ConsumerWidget {
       child: Wrap(
         crossAxisAlignment: WrapCrossAlignment.center,
         spacing: 14,
-        runSpacing: 8,
+        runSpacing: HearthSpacing.x2,
         children: children,
       ),
     );
@@ -69,7 +70,7 @@ class _ProviderChip extends StatelessWidget {
         const Color.fromRGBO(255, 255, 255, MediaTextOpacity.tertiary);
     final label = _humanise(provider);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: HearthSpacing.x1),
       decoration: BoxDecoration(
         color: const Color.fromRGBO(255, 255, 255, 0.08),
         borderRadius: BorderRadius.circular(MediaRadii.pill),
@@ -82,11 +83,11 @@ class _ProviderChip extends StatelessWidget {
             height: 6,
             decoration: BoxDecoration(color: color, shape: BoxShape.circle),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: HearthSpacing.x2),
           Text(
             label,
             style: const TextStyle(
-              fontSize: 11,
+              fontSize: HearthFont.caption,
               fontWeight: FontWeight.w400,
               color: Color.fromRGBO(255, 255, 255, MediaTextOpacity.tertiary),
             ),
@@ -128,7 +129,7 @@ class _StatText extends StatelessWidget {
     return Text(
       text,
       style: MediaTextStyles.tabular(
-        11,
+        HearthFont.caption,
         weight: FontWeight.w400,
         color: const Color.fromRGBO(
           255,
@@ -150,7 +151,7 @@ class _Dot extends StatelessWidget {
     return const Text(
       '·',
       style: TextStyle(
-        fontSize: 11,
+        fontSize: HearthFont.caption,
         color: Color.fromRGBO(255, 255, 255, MediaTextOpacity.section),
       ),
     );
@@ -186,7 +187,7 @@ class _SendspinBadge extends StatelessWidget {
         Text(
           label,
           style: MediaTextStyles.tabular(
-            11,
+            HearthFont.caption,
             weight: FontWeight.w500,
             color: MediaColors.sendspinGreen,
           ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/media_tokens.dart';
+import '../../../app/tokens/tokens.dart';
 import '../../../config/hub_config.dart';
 import '../../../services/music_assistant_service.dart';
 import 'browse_overlay.dart';
@@ -223,30 +224,30 @@ class _NotConnected extends StatelessWidget {
       color: MediaColors.base,
       child: Center(
         child: Padding(
-          padding: EdgeInsets.all(40),
+          padding: EdgeInsets.all(HearthSpacing.x10),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
                 Icons.music_off,
-                size: 56,
+                size: HearthIcon.xl,
                 color: Color.fromRGBO(255, 255, 255, MediaTextOpacity.section),
               ),
               SizedBox(height: 18),
               Text(
                 'Music Assistant not connected',
                 style: TextStyle(
-                  fontSize: 16,
+                  fontSize: HearthFont.bodyLg,
                   fontWeight: FontWeight.w500,
                   color: Color.fromRGBO(255, 255, 255, MediaTextOpacity.secondary),
                 ),
               ),
-              SizedBox(height: 8),
+              SizedBox(height: HearthSpacing.x2),
               Text(
                 'Configure the MA URL in Settings to connect.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: HearthFont.label,
                   color: Color.fromRGBO(255, 255, 255, MediaTextOpacity.section),
                 ),
               ),

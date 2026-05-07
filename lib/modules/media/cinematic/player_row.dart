@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/media_tokens.dart';
+import '../../../app/tokens/tokens.dart';
 import '../../../models/music_state.dart';
 
 /// One row in the PlayersPopover members list.
@@ -42,9 +43,9 @@ class PlayerRow extends StatelessWidget {
                 checked: inGroup,
                 onTap: () => onMembershipToggle(!inGroup),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: HearthSpacing.x3),
               Expanded(child: _NameAndStatus(player: player)),
-              const SizedBox(width: 12),
+              const SizedBox(width: HearthSpacing.x3),
               _MutePill(
                 muted: player.muted,
                 onTap: () => onMuteToggle(!player.muted),
@@ -52,7 +53,7 @@ class PlayerRow extends StatelessWidget {
             ],
           ),
           Padding(
-            padding: const EdgeInsets.only(top: 8, left: 34),
+            padding: const EdgeInsets.only(top: HearthSpacing.x2, left: 34),
             child: Row(
               children: [
                 Icon(
@@ -62,7 +63,7 @@ class PlayerRow extends StatelessWidget {
                   size: 12,
                   color: const Color.fromRGBO(255, 255, 255, MediaTextOpacity.tertiary),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: HearthSpacing.x2),
                 Expanded(
                   child: _ThinSlider(
                     value: player.muted ? 0.0 : player.volume,
@@ -70,14 +71,14 @@ class PlayerRow extends StatelessWidget {
                     onChanged: onVolumeChanged,
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: HearthSpacing.x2),
                 SizedBox(
-                  width: 24,
+                  width: HearthSpacing.x6,
                   child: Text(
                     '${(player.volume * 100).round()}',
                     textAlign: TextAlign.right,
                     style: MediaTextStyles.tabular(
-                      10,
+                      HearthFont.caption,
                       color: const Color.fromRGBO(255, 255, 255, MediaTextOpacity.tertiary),
                     ),
                   ),
@@ -159,7 +160,7 @@ class _NameAndStatus extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  fontSize: 13,
+                  fontSize: HearthFont.label,
                   fontWeight: FontWeight.w600,
                   color: Colors.white,
                 ),
@@ -205,7 +206,7 @@ class _NameAndStatus extends StatelessWidget {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
-            fontSize: 10,
+            fontSize: HearthFont.caption,
             fontWeight: FontWeight.w400,
             color: player.isSyncLeader
                 ? MediaColors.sendspinGreen
@@ -234,7 +235,7 @@ class _MutePill extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(MediaRadii.pill),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: HearthSpacing.x1),
           decoration: BoxDecoration(
             border: Border.all(
               color: muted
@@ -247,7 +248,7 @@ class _MutePill extends StatelessWidget {
           child: Text(
             muted ? 'Muted' : 'Mute',
             style: TextStyle(
-              fontSize: 10,
+              fontSize: HearthFont.caption,
               fontWeight: FontWeight.w600,
               color: muted
                   ? MediaColors.muteActiveText

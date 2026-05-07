@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/media_tokens.dart';
+import '../../../app/tokens/tokens.dart';
 import '../../../models/music_state.dart';
 
 /// Single library tile in the BrowseOverlay grid.
@@ -50,7 +51,7 @@ class BrowseTile extends StatelessWidget {
                           'podcast' => Icons.podcasts,
                           _ => Icons.album,
                         },
-                        size: 32,
+                        size: HearthSpacing.x8,
                         color: const Color.fromRGBO(255, 255, 255, MediaTextOpacity.section),
                       ),
                     )
@@ -75,7 +76,7 @@ class BrowseTile extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             textAlign: isCircle ? TextAlign.center : TextAlign.start,
             style: const TextStyle(
-              fontSize: 12,
+              fontSize: HearthFont.label,
               fontWeight: FontWeight.w600,
               color: Colors.white,
             ),
@@ -89,7 +90,7 @@ class BrowseTile extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 textAlign: isCircle ? TextAlign.center : TextAlign.start,
                 style: const TextStyle(
-                  fontSize: 10,
+                  fontSize: HearthFont.caption,
                   fontWeight: FontWeight.w400,
                   color: Color.fromRGBO(255, 255, 255, MediaTextOpacity.meta),
                 ),
