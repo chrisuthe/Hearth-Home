@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../app/tokens/tokens.dart';
 import '../models/frigate_event.dart';
 
 /// Priority levels for event overlays -- higher priority overlays replace lower ones.
@@ -138,24 +139,24 @@ class _DoorbellOverlay extends StatelessWidget {
                 children: [
                   Icon(
                     Icons.doorbell,
-                    size: 80,
+                    size: HearthIcon.xxl,
                     color: Colors.amber.withValues(alpha: 0.8),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: HearthSpacing.x4),
                   Text(
                     data.title,
                     style: const TextStyle(
-                      fontSize: 28,
+                      fontSize: HearthFont.headline,
                       fontWeight: FontWeight.w500,
                       color: Colors.white,
                     ),
                   ),
                   if (data.subtitle != null) ...[
-                    const SizedBox(height: 8),
+                    const SizedBox(height: HearthSpacing.x2),
                     Text(
                       data.subtitle!,
                       style: TextStyle(
-                        fontSize: 16,
+                        fontSize: HearthFont.body,
                         color: Colors.white.withValues(alpha: 0.6),
                       ),
                     ),
@@ -165,14 +166,14 @@ class _DoorbellOverlay extends StatelessWidget {
             ),
             // Dismiss hint at the bottom
             Positioned(
-              bottom: 40,
+              bottom: HearthSpacing.x10,
               left: 0,
               right: 0,
               child: Center(
                 child: Text(
                   'Tap anywhere to dismiss',
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: HearthFont.label,
                     color: Colors.white.withValues(alpha: 0.5),
                   ),
                 ),
@@ -201,7 +202,7 @@ class _SafetyOverlay extends StatelessWidget {
         color: Colors.transparent,
         child: Container(
           width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          padding: const EdgeInsets.symmetric(horizontal: HearthSpacing.x6, vertical: HearthSpacing.x4),
           decoration: BoxDecoration(
             color: Colors.red.shade900,
             boxShadow: [
@@ -216,8 +217,8 @@ class _SafetyOverlay extends StatelessWidget {
             bottom: false,
             child: Row(
               children: [
-                const Icon(Icons.warning_amber, color: Colors.white, size: 28),
-                const SizedBox(width: 12),
+                const Icon(Icons.warning_amber, color: Colors.white, size: HearthIcon.lg),
+                const SizedBox(width: HearthSpacing.x3),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -226,7 +227,7 @@ class _SafetyOverlay extends StatelessWidget {
                       Text(
                         data.title,
                         style: const TextStyle(
-                          fontSize: 16,
+                          fontSize: HearthFont.body,
                           fontWeight: FontWeight.w600,
                           color: Colors.white,
                         ),
@@ -235,7 +236,7 @@ class _SafetyOverlay extends StatelessWidget {
                         Text(
                           data.subtitle!,
                           style: TextStyle(
-                            fontSize: 13,
+                            fontSize: HearthFont.label,
                             color: Colors.white.withValues(alpha: 0.8),
                           ),
                         ),
@@ -279,7 +280,7 @@ class _InfoOverlay extends StatelessWidget {
           onTap: onDismiss,
           child: Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: HearthSpacing.x6, vertical: HearthSpacing.x3),
             decoration: BoxDecoration(
               color: Colors.blue.shade900.withValues(alpha: 0.9),
               boxShadow: [
@@ -294,8 +295,8 @@ class _InfoOverlay extends StatelessWidget {
               bottom: false,
               child: Row(
                 children: [
-                  const Icon(Icons.person, color: Colors.white70, size: 22),
-                  const SizedBox(width: 10),
+                  const Icon(Icons.person, color: Colors.white70, size: HearthIcon.md),
+                  const SizedBox(width: HearthSpacing.x3),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -304,7 +305,7 @@ class _InfoOverlay extends StatelessWidget {
                         Text(
                           data.title,
                           style: const TextStyle(
-                            fontSize: 14,
+                            fontSize: HearthFont.label,
                             fontWeight: FontWeight.w500,
                             color: Colors.white,
                           ),
@@ -313,7 +314,7 @@ class _InfoOverlay extends StatelessWidget {
                           Text(
                             data.subtitle!,
                             style: TextStyle(
-                              fontSize: 12,
+                              fontSize: HearthFont.caption,
                               color: Colors.white.withValues(alpha: 0.6),
                             ),
                           ),
@@ -322,7 +323,7 @@ class _InfoOverlay extends StatelessWidget {
                   ),
                   Icon(
                     Icons.close,
-                    size: 18,
+                    size: HearthIcon.sm,
                     color: Colors.white.withValues(alpha: 0.5),
                   ),
                 ],

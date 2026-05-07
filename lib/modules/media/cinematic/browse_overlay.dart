@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/app.dart' show kDialogBackground;
 import '../../../app/media_tokens.dart';
+import '../../../app/tokens/tokens.dart';
 import '../../../models/music_state.dart';
 import '../../../services/music_assistant_service.dart';
 import '../../../services/toast_service.dart';
@@ -107,11 +108,11 @@ class _BrowseOverlayState extends ConsumerState<BrowseOverlay> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Padding(
-              padding: const EdgeInsets.all(16),
+              padding: HearthSpacing.allX4,
               child: Text(
                 item.name,
                 style: const TextStyle(
-                  fontSize: 16,
+                  fontSize: HearthFont.bodyLg,
                   fontWeight: FontWeight.w600,
                   color: Colors.white,
                 ),
@@ -139,7 +140,7 @@ class _BrowseOverlayState extends ConsumerState<BrowseOverlay> {
               label: 'Clear Queue & Play',
               onTap: () => _commitAction(item, 'replace'),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: HearthSpacing.x2),
           ],
         ),
       ),
@@ -177,7 +178,7 @@ class _BrowseOverlayState extends ConsumerState<BrowseOverlay> {
       child: GlassPanel(
         borderRadius: BorderRadius.circular(MediaRadii.shelf),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 20, 24, 18),
+          padding: const EdgeInsets.fromLTRB(HearthSpacing.x6, HearthSpacing.x5, HearthSpacing.x6, 18),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -186,7 +187,7 @@ class _BrowseOverlayState extends ConsumerState<BrowseOverlay> {
                 onChanged: _onSearchChanged,
                 onBack: widget.onClose,
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: HearthSpacing.x4),
               _SectionTabs(
                 active: _section,
                 onSelect: _query.isEmpty ? _selectSection : null,
@@ -244,7 +245,7 @@ class _Header extends StatelessWidget {
               children: [
                 const Icon(
                   Icons.search,
-                  size: 16,
+                  size: HearthIcon.xs,
                   color: Color.fromRGBO(255, 255, 255, MediaTextOpacity.tertiary),
                 ),
                 const SizedBox(width: 10),
@@ -254,13 +255,13 @@ class _Header extends StatelessWidget {
                     onChanged: onChanged,
                     cursorColor: Colors.white,
                     style: const TextStyle(
-                      fontSize: 13,
+                      fontSize: HearthFont.label,
                       color: Colors.white,
                     ),
                     decoration: const InputDecoration(
                       hintText: 'Search albums, artists, tracks…',
                       hintStyle: TextStyle(
-                        fontSize: 13,
+                        fontSize: HearthFont.label,
                         color: Color.fromRGBO(255, 255, 255, MediaTextOpacity.section),
                       ),
                       border: InputBorder.none,
@@ -285,12 +286,12 @@ class _Header extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.arrow_back, size: 16, color: Colors.white),
+                  Icon(Icons.arrow_back, size: HearthIcon.xs, color: Colors.white),
                   SizedBox(width: 6),
                   Text(
                     'Back',
                     style: TextStyle(
-                      fontSize: 11,
+                      fontSize: HearthFont.caption,
                       fontWeight: FontWeight.w600,
                       color: Colors.white,
                     ),
@@ -338,14 +339,14 @@ class _SectionTabs extends StatelessWidget {
             disabled: searching,
             onTap: onSelect == null ? null : () => onSelect!(s),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: HearthSpacing.x2),
         ],
         const Spacer(),
         if (searching)
           const Text(
             'Search results',
             style: TextStyle(
-              fontSize: 11,
+              fontSize: HearthFont.caption,
               fontWeight: FontWeight.w600,
               color: Color.fromRGBO(255, 255, 255, MediaTextOpacity.tertiary),
             ),
@@ -384,7 +385,7 @@ class _Tab extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(MediaRadii.pill),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          padding: const EdgeInsets.symmetric(horizontal: HearthSpacing.x3, vertical: 6),
           decoration: BoxDecoration(
             border: Border.all(
               color: active
@@ -397,12 +398,12 @@ class _Tab extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 13, color: fg),
+              Icon(icon, size: HearthIcon.xs, color: fg),
               const SizedBox(width: 6),
               Text(
                 label,
                 style: TextStyle(
-                  fontSize: 11,
+                  fontSize: HearthFont.caption,
                   fontWeight: FontWeight.w600,
                   color: fg,
                 ),
@@ -437,8 +438,8 @@ class _LibraryGrid extends StatelessWidget {
             builtFor != section) {
           return const Center(
             child: SizedBox(
-              width: 22,
-              height: 22,
+              width: HearthSpacing.x6,
+              height: HearthSpacing.x6,
               child: CircularProgressIndicator(strokeWidth: 1.5),
             ),
           );
@@ -449,7 +450,7 @@ class _LibraryGrid extends StatelessWidget {
             child: Text(
               'No ${_typeLabel(section)} in library',
               style: const TextStyle(
-                fontSize: 12,
+                fontSize: HearthFont.label,
                 color: Color.fromRGBO(255, 255, 255, MediaTextOpacity.section),
               ),
             ),
@@ -486,8 +487,8 @@ class _SearchResults extends StatelessWidget {
         if (snap.connectionState != ConnectionState.done) {
           return const Center(
             child: SizedBox(
-              width: 22,
-              height: 22,
+              width: HearthSpacing.x6,
+              height: HearthSpacing.x6,
               child: CircularProgressIndicator(strokeWidth: 1.5),
             ),
           );
@@ -498,7 +499,7 @@ class _SearchResults extends StatelessWidget {
             child: Text(
               'No results',
               style: TextStyle(
-                fontSize: 12,
+                fontSize: HearthFont.label,
                 color: Color.fromRGBO(255, 255, 255, MediaTextOpacity.section),
               ),
             ),
@@ -571,7 +572,7 @@ class _SearchSection extends StatelessWidget {
             child: Text(
               '${label.toUpperCase()} · ${items.length}',
               style: const TextStyle(
-                fontSize: 10,
+                fontSize: HearthFont.caption,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 1.4,
                 color: Color.fromRGBO(255, 255, 255, MediaTextOpacity.eyebrow),
@@ -604,7 +605,7 @@ class _Grid extends StatelessWidget {
       physics: const NeverScrollableScrollPhysics(),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: cols,
-        crossAxisSpacing: 16,
+        crossAxisSpacing: HearthSpacing.x4,
         mainAxisSpacing: 18,
         childAspectRatio: isCircle ? 0.75 : 0.78,
       ),
@@ -631,7 +632,7 @@ class _ActionTile extends StatelessWidget {
       leading: Icon(icon, color: Colors.white),
       title: Text(
         label,
-        style: const TextStyle(color: Colors.white, fontSize: 14),
+        style: const TextStyle(color: Colors.white, fontSize: HearthFont.body),
       ),
       onTap: onTap,
     );

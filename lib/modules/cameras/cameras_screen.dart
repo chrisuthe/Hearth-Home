@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/frigate_event.dart';
 import '../../app/idle_controller.dart';
+import '../../app/tokens/tokens.dart';
 import '../../services/toast_service.dart';
 import '../../services/video/hearth_video_player.dart';
 import '../../utils/logger.dart';
@@ -149,14 +150,14 @@ class _CamerasScreenState extends ConsumerState<CamerasScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.videocam_off, size: 64,
+              Icon(Icons.videocam_off, size: HearthIcon.xxl,
                   color: Colors.white.withValues(alpha: 0.2)),
-              const SizedBox(height: 16),
+              const SizedBox(height: HearthSpacing.x4),
               Text('No cameras',
                   style: TextStyle(
-                      fontSize: 18,
+                      fontSize: HearthFont.bodyLg,
                       color: Colors.white.withValues(alpha: 0.5))),
-              const SizedBox(height: 8),
+              const SizedBox(height: HearthSpacing.x2),
               Text('Connect Frigate NVR in settings',
                   style: TextStyle(
                       fontSize: 14,
@@ -187,11 +188,11 @@ class _CamerasScreenState extends ConsumerState<CamerasScreen> {
                 _videoPlayer!.buildView(fit: BoxFit.contain),
               // Camera name + back hint overlay
               Positioned(
-                top: 16,
-                left: 16,
+                top: HearthSpacing.x4,
+                left: HearthSpacing.x4,
                 child: Container(
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      const EdgeInsets.symmetric(horizontal: HearthSpacing.x3, vertical: 6),
                   decoration: BoxDecoration(
                     color: Colors.black54,
                     borderRadius: BorderRadius.circular(8),
@@ -200,7 +201,7 @@ class _CamerasScreenState extends ConsumerState<CamerasScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       const Icon(Icons.arrow_back,
-                          size: 16, color: Colors.white70),
+                          size: HearthIcon.xs, color: Colors.white70),
                       const SizedBox(width: 6),
                       Text(_expandedCamera!.name,
                           style: const TextStyle(
@@ -211,11 +212,11 @@ class _CamerasScreenState extends ConsumerState<CamerasScreen> {
               ),
               // Live indicator
               Positioned(
-                top: 16,
-                right: 16,
+                top: HearthSpacing.x4,
+                right: HearthSpacing.x4,
                 child: Container(
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      const EdgeInsets.symmetric(horizontal: HearthSpacing.x2, vertical: HearthSpacing.x1),
                   decoration: BoxDecoration(
                     color: Colors.red.withValues(alpha: 0.8),
                     borderRadius: BorderRadius.circular(4),
@@ -224,10 +225,10 @@ class _CamerasScreenState extends ConsumerState<CamerasScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(Icons.circle, size: 8, color: Colors.white),
-                      SizedBox(width: 4),
+                      SizedBox(width: HearthSpacing.x1),
                       Text('LIVE',
                           style: TextStyle(
-                              fontSize: 11,
+                              fontSize: HearthFont.caption,
                               fontWeight: FontWeight.w600,
                               color: Colors.white)),
                     ],
@@ -244,11 +245,11 @@ class _CamerasScreenState extends ConsumerState<CamerasScreen> {
     return Container(
       color: Colors.black.withValues(alpha: 0.7),
       child: GridView.builder(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(HearthSpacing.x4),
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: cameras.length <= 4 ? 2 : 3,
-          crossAxisSpacing: 12,
-          mainAxisSpacing: 12,
+          crossAxisSpacing: HearthSpacing.x3,
+          mainAxisSpacing: HearthSpacing.x3,
           childAspectRatio: 16 / 9,
         ),
         itemCount: cameras.length,

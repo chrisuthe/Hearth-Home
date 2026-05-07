@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/app.dart' show kDialogBackground;
+import '../../app/tokens/tokens.dart';
 import 'alarm_editor_screen.dart';
 import 'alarm_models.dart';
 import 'alarm_service.dart';
@@ -26,8 +27,7 @@ class AlarmClockScreen extends ConsumerWidget {
             children: [
               // Header
               Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                padding: const EdgeInsets.all(HearthSpacing.x4),
                 child: _buildHeader(nextAlarmRecord),
               ),
               // Alarm list
@@ -36,9 +36,9 @@ class AlarmClockScreen extends ConsumerWidget {
                     ? _buildEmptyState()
                     : ListView.separated(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 8),
+                            horizontal: HearthSpacing.x4, vertical: HearthSpacing.x2),
                         itemCount: alarms.length,
-                        separatorBuilder: (_, _) => const SizedBox(height: 8),
+                        separatorBuilder: (_, _) => const SizedBox(height: HearthSpacing.x2),
                         itemBuilder: (context, index) {
                           return _AlarmCard(
                             alarm: alarms[index],
@@ -53,8 +53,8 @@ class AlarmClockScreen extends ConsumerWidget {
           ),
           // FAB
           Positioned(
-            right: 24,
-            bottom: 24,
+            right: HearthSpacing.x6,
+            bottom: HearthSpacing.x6,
             child: FloatingActionButton(
               backgroundColor: const Color(0xFF646CFF),
               onPressed: () => _addAlarm(context, ref),
@@ -88,16 +88,16 @@ class AlarmClockScreen extends ConsumerWidget {
         const Text(
           'Alarms',
           style: TextStyle(
-            fontSize: 20,
+            fontSize: HearthFont.title,
             fontWeight: FontWeight.w300,
             color: Colors.white,
           ),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: HearthSpacing.x1),
         Text(
           subtitle,
           style: const TextStyle(
-            fontSize: 14,
+            fontSize: 14, // equidistant between label=13 and body=15
             fontWeight: FontWeight.w300,
             color: Colors.white54,
           ),
@@ -111,20 +111,20 @@ class AlarmClockScreen extends ConsumerWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.alarm_off, size: 48, color: Colors.white24),
-          SizedBox(height: 16),
+          Icon(Icons.alarm_off, size: HearthIcon.xl, color: Colors.white24),
+          SizedBox(height: HearthSpacing.x4),
           Text(
             'No alarms',
             style: TextStyle(
-              fontSize: 18,
+              fontSize: HearthFont.bodyLg,
               fontWeight: FontWeight.w200,
               color: Colors.white38,
             ),
           ),
-          SizedBox(height: 8),
+          SizedBox(height: HearthSpacing.x2),
           Text(
             'Tap + to create one',
-            style: TextStyle(fontSize: 13, color: Colors.white24),
+            style: TextStyle(fontSize: HearthFont.label, color: Colors.white24),
           ),
         ],
       ),
@@ -172,7 +172,7 @@ class _AlarmCard extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: HearthSpacing.x4, vertical: HearthSpacing.x3),
           child: Row(
             children: [
               // Time and details
@@ -183,7 +183,7 @@ class _AlarmCard extends StatelessWidget {
                     Text(
                       alarm.time,
                       style: TextStyle(
-                        fontSize: 36,
+                        fontSize: HearthFont.display,
                         fontWeight: FontWeight.w200,
                         color: alarm.enabled ? Colors.white : Colors.white38,
                       ),
@@ -195,28 +195,28 @@ class _AlarmCard extends StatelessWidget {
                           Text(
                             alarm.label,
                             style: TextStyle(
-                              fontSize: 13,
+                              fontSize: HearthFont.label,
                               color: alarm.enabled
                                   ? Colors.white70
                                   : Colors.white30,
                             ),
                           ),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: HearthSpacing.x2),
                           Text(
                             '\u2022',
                             style: TextStyle(
-                              fontSize: 13,
+                              fontSize: HearthFont.label,
                               color: alarm.enabled
                                   ? Colors.white38
                                   : Colors.white24,
                             ),
                           ),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: HearthSpacing.x2),
                         ],
                         Text(
                           alarm.daySummary,
                           style: TextStyle(
-                            fontSize: 13,
+                            fontSize: HearthFont.label,
                             color:
                                 alarm.enabled ? Colors.white54 : Colors.white24,
                           ),

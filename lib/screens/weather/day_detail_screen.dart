@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:weather_icons/weather_icons.dart';
+import '../../app/tokens/tokens.dart';
 import '../../models/weather_state.dart';
 import '../../utils/weather_utils.dart';
 import 'icons/wx_icon.dart';
@@ -61,17 +62,17 @@ class DayDetailScreen extends StatelessWidget {
           if ((d.primaryVelocity ?? 0) > 300) Navigator.of(context).pop();
         },
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(40, 60, 40, 40),
+          padding: const EdgeInsets.fromLTRB(HearthSpacing.x10, HearthSpacing.x16, HearthSpacing.x10, HearthSpacing.x10),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             _header(pal),
-            const SizedBox(height: 32),
+            const SizedBox(height: HearthSpacing.x8),
             _heroRow(pal, cond),
-            const SizedBox(height: 32),
+            const SizedBox(height: HearthSpacing.x8),
             _statGrid(),
             if (hoursForDay.isNotEmpty) ...[
-              const SizedBox(height: 32),
+              const SizedBox(height: HearthSpacing.x8),
               _sectionLabel('HOURLY'),
-              const SizedBox(height: 12),
+              const SizedBox(height: HearthSpacing.x3),
               HourlyStrip(hours: hoursForDay, palette: pal, use24h: use24h),
             ],
           ]),
@@ -84,7 +85,7 @@ class DayDetailScreen extends StatelessWidget {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Text(_subtitle.toUpperCase(),
           style: TextStyle(
-            fontFamily: 'Inter', fontSize: 17, fontWeight: FontWeight.w600,
+            fontFamily: 'Inter', fontSize: HearthFont.bodyLg, fontWeight: FontWeight.w600,
             letterSpacing: 1.5, color: pal.ink.withValues(alpha: 0.7),
           )),
       const SizedBox(height: 6),
@@ -103,7 +104,7 @@ class DayDetailScreen extends StatelessWidget {
       Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text(conditionLabel(day.condition),
             style: TextStyle(
-              fontFamily: 'Inter', fontSize: 28, fontWeight: FontWeight.w500,
+              fontFamily: 'Inter', fontSize: HearthFont.headline, fontWeight: FontWeight.w500,
               color: pal.ink,
             )),
         const SizedBox(height: 6),
@@ -114,12 +115,12 @@ class DayDetailScreen extends StatelessWidget {
                 letterSpacing: -3, height: 0.95, color: pal.ink,
                 fontFeatures: const [FontFeature.tabularFigures()],
               )),
-          const SizedBox(width: 12),
+          const SizedBox(width: HearthSpacing.x3),
           Padding(
-            padding: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.only(bottom: HearthSpacing.x4),
             child: Text('${day.low.round()}°',
                 style: TextStyle(
-                  fontFamily: 'Inter', fontSize: 36, fontWeight: FontWeight.w400,
+                  fontFamily: 'Inter', fontSize: HearthFont.display, fontWeight: FontWeight.w400,
                   color: pal.ink.withValues(alpha: 0.55),
                   fontFeatures: const [FontFeature.tabularFigures()],
                 )),
@@ -155,26 +156,26 @@ class DayDetailScreen extends StatelessWidget {
   Widget _statCard(_Stat s) {
     return Container(
       width: 220,
-      padding: const EdgeInsets.fromLTRB(18, 14, 18, 14),
+      padding: const EdgeInsets.symmetric(horizontal: HearthSpacing.x5, vertical: HearthSpacing.x4),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.06),
         borderRadius: const BorderRadius.all(Radius.circular(16)),
         border: Border.all(color: Colors.white.withValues(alpha: 0.1), width: 1),
       ),
       child: Row(children: [
-        Icon(s.icon, color: const Color(0xFF7EB8FF), size: 22),
-        const SizedBox(width: 12),
+        Icon(s.icon, color: const Color(0xFF7EB8FF), size: HearthIcon.md),
+        const SizedBox(width: HearthSpacing.x3),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(s.label,
                 style: TextStyle(
-                  fontFamily: 'Inter', fontSize: 13, fontWeight: FontWeight.w500,
+                  fontFamily: 'Inter', fontSize: HearthFont.label, fontWeight: FontWeight.w500,
                   color: Colors.white.withValues(alpha: 0.6), letterSpacing: 0.4,
                 )),
             const SizedBox(height: 2),
             Text(s.value,
                 style: const TextStyle(
-                  fontFamily: 'Inter', fontSize: 20, fontWeight: FontWeight.w600,
+                  fontFamily: 'Inter', fontSize: HearthFont.title, fontWeight: FontWeight.w600,
                   color: Colors.white,
                   fontFeatures: [FontFeature.tabularFigures()],
                 )),
@@ -186,7 +187,7 @@ class DayDetailScreen extends StatelessWidget {
 
   Widget _sectionLabel(String t) => Text(t,
       style: const TextStyle(
-        fontFamily: 'Inter', fontSize: 17, fontWeight: FontWeight.w700,
+        fontFamily: 'Inter', fontSize: HearthFont.bodyLg, fontWeight: FontWeight.w700,
         letterSpacing: 1.5, color: Colors.white,
         shadows: [
           Shadow(color: Color(0xCC000000), blurRadius: 4),

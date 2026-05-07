@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../app/tokens/tokens.dart';
 import '../../config/hub_config.dart';
 import '../../models/weather_state.dart';
 import '../../utils/weather_utils.dart';
@@ -71,18 +72,18 @@ class WeatherScreen extends ConsumerWidget {
                   ),
                 ),
                 if (weather.hourlyForecast.isNotEmpty) Padding(
-                  padding: const EdgeInsets.fromLTRB(40, 0, 40, 32),
+                  padding: const EdgeInsets.fromLTRB(HearthSpacing.x10, 0, HearthSpacing.x10, HearthSpacing.x8),
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     _sectionLabel('HOURLY · NEXT 24H'),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: HearthSpacing.x3),
                     HourlyStrip(hours: weather.hourlyForecast, palette: pal, use24h: use24h),
                   ]),
                 ),
                 if (weather.dailyForecast.isNotEmpty) Padding(
-                  padding: const EdgeInsets.fromLTRB(40, 0, 40, 40),
+                  padding: const EdgeInsets.fromLTRB(HearthSpacing.x10, 0, HearthSpacing.x10, HearthSpacing.x10),
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     _sectionLabel('8-DAY FORECAST'),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: HearthSpacing.x3),
                     _forecastRow(context, weather, weather.dailyForecast, use24h),
                   ]),
                 ),
@@ -95,7 +96,7 @@ class WeatherScreen extends ConsumerWidget {
   }
 
   Widget _sectionLabel(String t) => Text(t, style: const TextStyle(
-    fontFamily: 'Inter', fontSize: 17, fontWeight: FontWeight.w700,
+    fontFamily: 'Inter', fontSize: HearthFont.bodyLg, fontWeight: FontWeight.w700,
     letterSpacing: 1.5, color: Colors.white,
     // Heavy multi-layer shadow acts as an outline so the label stays
     // readable when it lands over the bright top of any scene.
@@ -125,7 +126,7 @@ class WeatherScreen extends ConsumerWidget {
             ),
           )),
         )),
-        if (i != take.length - 1) const SizedBox(width: 10),
+        if (i != take.length - 1) const SizedBox(width: HearthSpacing.x3),
       ],
     ]);
   }

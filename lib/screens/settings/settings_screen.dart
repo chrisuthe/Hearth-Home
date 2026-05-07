@@ -17,6 +17,7 @@ import 'update_settings.dart';
 import '../../modules/hearth_module.dart';
 import '../../modules/module_registry.dart';
 import '../../services/toast_service.dart';
+import '../../app/tokens/tokens.dart';
 
 /// Settings screen -- configure connections, display, night mode, and music.
 ///
@@ -38,31 +39,31 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     return Container(
       color: Colors.black.withValues(alpha: 0.7),
       child: ListView(
-        padding: const EdgeInsets.all(24),
+        padding: HearthSpacing.allX6,
       children: [
         // ── 1. Screens ──────────────────────────────────────────────
         const _SectionHeader(
           title: 'Screens',
           description: 'Manage screens and their order',
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: HearthSpacing.x2),
         ...allModules.where((m) => !m.isCommunity).map(
             (module) => _modulePlacementTile(module, config)),
         if (allModules.any((m) => m.isCommunity)) ...[
-          const SizedBox(height: 16),
+          const SizedBox(height: HearthSpacing.x4),
           const _ServiceSubHeader(title: 'Community Contributed'),
           const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 8),
+            padding: EdgeInsets.symmetric(horizontal: HearthSpacing.x2),
             child: Text(
               'Modules contributed by the community. Disabled by default — enable at your own discretion.',
-              style: TextStyle(color: Colors.white54, fontSize: 12),
+              style: TextStyle(color: Colors.white54, fontSize: HearthFont.caption),
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: HearthSpacing.x1),
           ...allModules.where((m) => m.isCommunity).map(
               (module) => _modulePlacementTile(module, config)),
         ],
-        const SizedBox(height: 12),
+        const SizedBox(height: HearthSpacing.x3),
         _ModuleReorderList(
           config: config,
           onReorder: (newOrder) =>
@@ -71,14 +72,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               _updateConfig((c) => c.copyWith(moduleOrder: const [])),
         ),
 
-        const SizedBox(height: 24),
+        const SizedBox(height: HearthSpacing.x6),
 
         // ── 2. Services ─────────────────────────────────────────────
         const _SectionHeader(
           title: 'Services',
           description: 'Connect to your smart home services',
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: HearthSpacing.x2),
 
         // -- Home Assistant --
         const _ServiceSubHeader(title: 'Home Assistant'),
@@ -135,7 +136,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             onSave: (value) => _updateConfig((c) => c.copyWith(immichApiKey: value)),
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: HearthSpacing.x4),
         const PhotoSourcesSection(),
 
         // -- Music Assistant --
@@ -307,14 +308,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           );
         }),
 
-        const SizedBox(height: 24),
+        const SizedBox(height: HearthSpacing.x6),
 
         // ── 3. Display & Behavior ────────────────────────────────────
         const _SectionHeader(
           title: 'Display & Behavior',
           description: 'Appearance and interaction settings',
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: HearthSpacing.x2),
 
         SwitchListTile(
           secondary: const Icon(Icons.schedule, color: Colors.white54),
@@ -350,6 +351,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
           ),
         ),
+        const UiScaleSection(),
         const DisplaySettingsSection(),
         _SettingsTile(
           icon: Icons.keyboard,
@@ -483,14 +485,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
         ),
 
-        const SizedBox(height: 24),
+        const SizedBox(height: HearthSpacing.x6),
 
         // ── 4. Devices ──────────────────────────────────────────────
         const _SectionHeader(
           title: 'Devices',
           description: 'Pinned devices for the Controls screen',
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: HearthSpacing.x2),
         _SettingsTile(
           icon: Icons.devices,
           title: 'Pinned Devices',
@@ -500,14 +502,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           onTap: () => _showEntityPicker(context, ref),
         ),
 
-        const SizedBox(height: 24),
+        const SizedBox(height: HearthSpacing.x6),
 
         // ── 5. Audio ────────────────────────────────────────────────
         const _SectionHeader(
           title: 'Audio',
           description: 'Sendspin audio streaming',
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: HearthSpacing.x2),
 
         SwitchListTile(
           secondary: const Icon(Icons.speaker, color: Colors.white54),
@@ -611,14 +613,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           },
         ),
 
-        const SizedBox(height: 24),
+        const SizedBox(height: HearthSpacing.x6),
 
         // ── Voice Assistant ─────────────────────────────────────────
         const _SectionHeader(
           title: 'Voice Assistant',
           description: 'Visual feedback for Wyoming voice satellite',
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: HearthSpacing.x2),
         SwitchListTile(
           secondary: Icon(
             config.micMuted ? Icons.mic_off : Icons.mic,
@@ -653,14 +655,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           onChanged: (v) => _updateConfig((c) => c.copyWith(showVoiceFeedback: v)),
         ),
 
-        const SizedBox(height: 24),
+        const SizedBox(height: HearthSpacing.x6),
 
         // ── 6. Network & Access ─────────────────────────────────────
         const _SectionHeader(
           title: 'Network & Access',
           description: 'WiFi and web portal',
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: HearthSpacing.x2),
         const WifiSettingsSection(),
         _SettingsTile(
           icon: Icons.pin,
@@ -669,14 +671,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           onTap: () {},
         ),
 
-        const SizedBox(height: 24),
+        const SizedBox(height: HearthSpacing.x6),
 
         // ── 7. System ───────────────────────────────────────────────
         const _SectionHeader(
           title: 'System',
           description: 'Updates and maintenance',
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: HearthSpacing.x2),
         const UpdateSettingsSection(),
 
         // Per-module settings (only shown when module is enabled).
@@ -703,7 +705,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               label: Text(
                 placement == 'swipe' ? 'Swipe' :
                 placement == 'menu1' ? 'Menu 1' : 'Menu 2',
-                style: const TextStyle(fontSize: 11),
+                style: const TextStyle(fontSize: HearthFont.caption),
               ),
               selected: placements.contains(placement),
               onSelected: (selected) {
@@ -727,14 +729,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               labelStyle: TextStyle(
                 color: placements.contains(placement)
                     ? Colors.white : Colors.white70,
-                fontSize: 11,
+                fontSize: HearthFont.caption,
               ),
               side: BorderSide.none,
               visualDensity: VisualDensity.compact,
             ),
         ],
       ),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+      contentPadding: const EdgeInsets.symmetric(horizontal: HearthSpacing.x2),
     );
   }
 
@@ -830,7 +832,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             children: [
               Text(
                 labelBuilder(value),
-                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w300),
+                style: const TextStyle(fontSize: HearthFont.headline, fontWeight: FontWeight.w300),
               ),
               Slider(
                 value: value,
@@ -875,10 +877,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             child: Row(
               children: [
                 if (entry.key == currentValue)
-                  const Icon(Icons.check, size: 18, color: Colors.amber)
+                  const Icon(Icons.check, size: HearthIcon.xs, color: Colors.amber)
                 else
-                  const SizedBox(width: 18),
-                const SizedBox(width: 12),
+                  const SizedBox(width: HearthIcon.xs),
+                const SizedBox(width: HearthSpacing.x3),
                 Text(entry.value),
               ],
             ),
@@ -955,7 +957,7 @@ class _SectionHeader extends StatelessWidget {
         Text(
           title,
           style: TextStyle(
-            fontSize: 13,
+            fontSize: HearthFont.label,
             fontWeight: FontWeight.w600,
             color: Colors.white.withValues(alpha: 0.5),
             letterSpacing: 1.2,
@@ -966,7 +968,7 @@ class _SectionHeader extends StatelessWidget {
           Text(
             description!,
             style: TextStyle(
-              fontSize: 12,
+              fontSize: HearthFont.caption,
               color: Colors.white.withValues(alpha: 0.5),
             ),
           ),
@@ -984,11 +986,11 @@ class _ServiceSubHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(left: 8, top: 12, bottom: 4),
+      padding: const EdgeInsets.only(left: HearthSpacing.x2, top: HearthSpacing.x3, bottom: HearthSpacing.x1),
       child: Text(
         title,
         style: TextStyle(
-          fontSize: 12,
+          fontSize: HearthFont.caption,
           fontWeight: FontWeight.w500,
           color: Colors.white.withValues(alpha: 0.5),
         ),
@@ -1014,18 +1016,18 @@ class _SettingsTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      leading: Icon(icon, color: Colors.white54, size: 22),
-      title: Text(title, style: const TextStyle(fontSize: 15)),
+      leading: Icon(icon, color: Colors.white54, size: HearthIcon.md),
+      title: Text(title, style: const TextStyle(fontSize: HearthFont.body)),
       subtitle: Text(
         subtitle,
         style: TextStyle(
-          fontSize: 13,
+          fontSize: HearthFont.label,
           color: Colors.white.withValues(alpha: 0.5),
         ),
       ),
       trailing: const Icon(Icons.chevron_right, color: Colors.white24),
       onTap: onTap,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+      contentPadding: const EdgeInsets.symmetric(horizontal: HearthSpacing.x2),
     );
   }
 }
@@ -1098,13 +1100,13 @@ class _ModuleReorderListState extends State<_ModuleReorderList> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.only(left: 8, bottom: 4),
+          padding: const EdgeInsets.only(left: HearthSpacing.x2, bottom: HearthSpacing.x1),
           child: Row(
             children: [
               Text(
                 'Screen Order',
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: HearthFont.caption,
                   fontWeight: FontWeight.w500,
                   color: Colors.white.withValues(alpha: 0.5),
                 ),
@@ -1115,11 +1117,11 @@ class _ModuleReorderListState extends State<_ModuleReorderList> {
                   onTap: widget.onReset,
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 14),
+                        horizontal: HearthSpacing.x2, vertical: HearthSpacing.x3),
                     child: Text(
                       'Reset to Default',
                       style: TextStyle(
-                        fontSize: 12,
+                        fontSize: HearthFont.caption,
                         color: Colors.white.withValues(alpha: 0.5),
                       ),
                     ),
@@ -1161,16 +1163,16 @@ class _ModuleReorderListState extends State<_ModuleReorderList> {
               return ListTile(
                 key: ValueKey(moduleId),
                 dense: true,
-                leading: Icon(module.icon, color: Colors.white38, size: 20),
+                leading: Icon(module.icon, color: Colors.white38, size: HearthIcon.sm),
                 title: Text(
                   module.name,
-                  style: const TextStyle(fontSize: 14),
+                  style: const TextStyle(fontSize: HearthFont.body),
                 ),
                 trailing: ReorderableDragStartListener(
                   index: index,
                   child: const Icon(Icons.drag_handle, color: Colors.white24),
                 ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                contentPadding: const EdgeInsets.symmetric(horizontal: HearthSpacing.x3),
               );
             },
           ),
@@ -1228,7 +1230,7 @@ class _EntityPickerDialogState extends State<_EntityPickerDialog> {
               ),
               onChanged: (v) => setState(() => _search = v),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: HearthSpacing.x2),
             Expanded(
               child: ListView.builder(
                 itemCount: filtered.length,
@@ -1237,10 +1239,10 @@ class _EntityPickerDialogState extends State<_EntityPickerDialog> {
                   final isSelected = _selected.contains(entity.entityId);
                   return CheckboxListTile(
                     dense: true,
-                    title: Text(entity.name, style: const TextStyle(fontSize: 14)),
+                    title: Text(entity.name, style: const TextStyle(fontSize: HearthFont.body)),
                     subtitle: Text(entity.entityId,
                         style: TextStyle(
-                            fontSize: 11,
+                            fontSize: HearthFont.caption,
                             color: Colors.white.withValues(alpha: 0.5))),
                     value: isSelected,
                     onChanged: (v) {
@@ -1328,13 +1330,13 @@ class _TimezonePickerDialogState extends State<_TimezonePickerDialog> {
               controller: _searchController,
               decoration: const InputDecoration(
                 hintText: 'Search timezones...',
-                prefixIcon: Icon(Icons.search, size: 20),
+                prefixIcon: Icon(Icons.search, size: HearthIcon.sm),
                 isDense: true,
               ),
               autofocus: true,
               onChanged: (v) => setState(() => _filter = v),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: HearthSpacing.x2),
             Expanded(
               child: ListView(
                 children: [
@@ -1343,11 +1345,11 @@ class _TimezonePickerDialogState extends State<_TimezonePickerDialog> {
                     _buildTile('', 'System default'),
                   if (common.isNotEmpty && lowerFilter.isEmpty) ...[
                     Padding(
-                      padding: const EdgeInsets.only(left: 4, top: 8, bottom: 4),
+                      padding: const EdgeInsets.only(left: HearthSpacing.x1, top: HearthSpacing.x2, bottom: HearthSpacing.x1),
                       child: Text(
                         'Common',
                         style: TextStyle(
-                          fontSize: 11,
+                          fontSize: HearthFont.caption,
                           fontWeight: FontWeight.w500,
                           color: Colors.white.withValues(alpha: 0.4),
                         ),
@@ -1357,11 +1359,11 @@ class _TimezonePickerDialogState extends State<_TimezonePickerDialog> {
                   ...common.map((tz) => _buildTile(tz, tz)),
                   if (rest.isNotEmpty && lowerFilter.isEmpty) ...[
                     Padding(
-                      padding: const EdgeInsets.only(left: 4, top: 12, bottom: 4),
+                      padding: const EdgeInsets.only(left: HearthSpacing.x1, top: HearthSpacing.x3, bottom: HearthSpacing.x1),
                       child: Text(
                         'All timezones',
                         style: TextStyle(
-                          fontSize: 11,
+                          fontSize: HearthFont.caption,
                           fontWeight: FontWeight.w500,
                           color: Colors.white.withValues(alpha: 0.4),
                         ),
@@ -1390,9 +1392,9 @@ class _TimezonePickerDialogState extends State<_TimezonePickerDialog> {
       dense: true,
       visualDensity: VisualDensity.compact,
       leading: isSelected
-          ? const Icon(Icons.check, size: 18, color: Colors.amber)
-          : const SizedBox(width: 18),
-      title: Text(label, style: const TextStyle(fontSize: 14)),
+          ? const Icon(Icons.check, size: HearthIcon.xs, color: Colors.amber)
+          : const SizedBox(width: HearthIcon.xs),
+      title: Text(label, style: const TextStyle(fontSize: HearthFont.body)),
       onTap: () => Navigator.pop(context, value),
     );
   }

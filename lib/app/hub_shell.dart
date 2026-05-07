@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'tokens/tokens.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../config/hub_config.dart';
 import 'idle_controller.dart';
@@ -181,7 +182,7 @@ class _HubShellState extends ConsumerState<HubShell> {
               );
             },
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: HearthSpacing.x3),
           _QuickAction(
             icon: Icons.settings,
             label: 'Settings',
@@ -195,7 +196,7 @@ class _HubShellState extends ConsumerState<HubShell> {
             },
           ),
           ...menuModules(ref, 'menu1').map((m) => Padding(
-            padding: const EdgeInsets.only(left: 12),
+            padding: const EdgeInsets.only(left: HearthSpacing.x3),
             child: _QuickAction(
               icon: m.icon,
               label: m.name,
@@ -223,11 +224,11 @@ class _HubShellState extends ConsumerState<HubShell> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text('Volume', style: TextStyle(fontSize: 12, color: Colors.white54)),
-          const SizedBox(height: 4),
+          const Text('Volume', style: TextStyle(fontSize: HearthFont.caption, color: Colors.white54)),
+          const SizedBox(height: HearthSpacing.x1),
           const _SystemVolumeSlider(),
           if (menu2Items.isNotEmpty) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: HearthSpacing.x3),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: menu2Items.map((m) => Padding(
@@ -375,8 +376,8 @@ class _HubShellState extends ConsumerState<HubShell> {
 
             // Mic mute toggle — always visible, top-left corner.
             Positioned(
-              top: 24,
-              left: 24,
+              top: HearthSpacing.x6,
+              left: HearthSpacing.x6,
               child: Consumer(builder: (context, ref, _) {
                 final muted = ref.watch(
                   hubConfigProvider.select((c) => c.micMuted),
@@ -385,7 +386,7 @@ class _HubShellState extends ConsumerState<HubShell> {
                   icon: Icon(
                     muted ? Icons.mic_off : Icons.mic,
                     color: muted ? Colors.red : Colors.white38,
-                    size: 33,
+                    size: HearthIcon.lg,
                   ),
                   onPressed: () {
                     final newValue = !muted;
@@ -462,17 +463,17 @@ class _TimerAlertOverlay extends ConsumerWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.timer, size: 48, color: Color(0xFFFF9800)),
-              const SizedBox(height: 16),
+              const Icon(Icons.timer, size: HearthIcon.xl, color: Color(0xFFFF9800)),
+              const SizedBox(height: HearthSpacing.x4),
               Text(
                 fired.length == 1 ? "Time's up!" : "${fired.length} timers done!",
                 style: const TextStyle(
-                  fontSize: 36,
+                  fontSize: HearthFont.display,
                   fontWeight: FontWeight.w200,
                   color: Color(0xFFFF9800),
                 ),
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: HearthSpacing.x8),
               // Show the fired timer rings
               Wrap(
                 spacing: 24,
@@ -483,11 +484,11 @@ class _TimerAlertOverlay extends ConsumerWidget {
                   size: fired.length == 1 ? 220 : 160,
                 )).toList(),
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: HearthSpacing.x8),
               Text(
                 'Tap anywhere to dismiss',
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: HearthFont.label,
                   color: Colors.white.withValues(alpha: 0.5),
                 ),
               ),
@@ -583,7 +584,7 @@ class _QuickAction extends StatelessWidget {
               const SizedBox(height: 6),
               Text(
                 label,
-                style: const TextStyle(fontSize: 11, color: Colors.white70),
+                style: const TextStyle(fontSize: HearthFont.caption, color: Colors.white70),
                 overflow: TextOverflow.ellipsis,
               ),
             ],
@@ -628,12 +629,12 @@ class _MenuTray extends StatelessWidget {
                 onTap: () {},
                 child: Container(
                   margin: EdgeInsets.only(
-                    top: fromTop ? 12 : 0,
-                    bottom: fromTop ? 0 : 12,
-                    left: 24,
-                    right: 24,
+                    top: fromTop ? HearthSpacing.x3 : 0,
+                    bottom: fromTop ? 0 : HearthSpacing.x3,
+                    left: HearthSpacing.x6,
+                    right: HearthSpacing.x6,
                   ),
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(HearthSpacing.x4),
                   decoration: BoxDecoration(
                     color: const Color(0xFF1A1A1A),
                     borderRadius: BorderRadius.circular(20),
@@ -643,9 +644,9 @@ class _MenuTray extends StatelessWidget {
                     children: [
                       if (fromTop) ...[
                         child,
-                        const SizedBox(height: 8),
+                        const SizedBox(height: HearthSpacing.x2),
                         Container(
-                          width: 40, height: 4,
+                          width: HearthSpacing.x10, height: HearthSpacing.x1,
                           decoration: BoxDecoration(
                             color: Colors.white.withValues(alpha: 0.3),
                             borderRadius: BorderRadius.circular(2),
@@ -653,13 +654,13 @@ class _MenuTray extends StatelessWidget {
                         ),
                       ] else ...[
                         Container(
-                          width: 40, height: 4,
+                          width: HearthSpacing.x10, height: HearthSpacing.x1,
                           decoration: BoxDecoration(
                             color: Colors.white.withValues(alpha: 0.3),
                             borderRadius: BorderRadius.circular(2),
                           ),
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: HearthSpacing.x2),
                         child,
                       ],
                     ],
@@ -744,7 +745,7 @@ class _SystemVolumeSliderState extends ConsumerState<_SystemVolumeSlider> {
 
     return Row(
       children: [
-        const Icon(Icons.volume_down, color: Colors.white54, size: 20),
+        const Icon(Icons.volume_down, color: Colors.white54, size: HearthIcon.sm),
         Expanded(
           child: Slider(
             value: _volume,
@@ -753,7 +754,7 @@ class _SystemVolumeSliderState extends ConsumerState<_SystemVolumeSlider> {
             inactiveColor: Colors.white.withValues(alpha: 0.1),
           ),
         ),
-        const Icon(Icons.volume_up, color: Colors.white54, size: 20),
+        const Icon(Icons.volume_up, color: Colors.white54, size: HearthIcon.sm),
       ],
     );
   }
@@ -778,8 +779,8 @@ class _MenuScreenWrapper extends StatelessWidget {
         children: [
           child,
           Positioned(
-            top: 12,
-            left: 12,
+            top: HearthSpacing.x3,
+            left: HearthSpacing.x3,
             child: IconButton(
               icon: const Icon(Icons.close, color: Colors.white70, size: 28),
               onPressed: () => Navigator.of(context).pop(),

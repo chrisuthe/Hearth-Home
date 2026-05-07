@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:weather_icons/weather_icons.dart';
+import '../../../app/tokens/tokens.dart';
 import '../../../models/weather_state.dart';
 import '../palette.dart';
 import '../wx_cond.dart';
@@ -32,10 +33,10 @@ class HeroBlock extends StatelessWidget {
   Widget build(BuildContext context) {
     final pal = palettes[cond]!;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(40, 60, 40, 80),
+      padding: const EdgeInsets.fromLTRB(HearthSpacing.x10, HearthSpacing.x16, HearthSpacing.x10, HearthSpacing.x20),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         _eyebrow(pal),
-        const SizedBox(height: 24),
+        const SizedBox(height: HearthSpacing.x6),
         Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text('${weather.temperature.round()}°',
@@ -51,26 +52,26 @@ class HeroBlock extends StatelessWidget {
             Text(conditionLabel,
               style: TextStyle(
                 fontFamily: 'Inter', fontWeight: FontWeight.w500,
-                fontSize: 42, letterSpacing: -0.6, color: pal.ink,
+                fontSize: HearthFont.displayLg, letterSpacing: -0.6, color: pal.ink,
               )),
             if (_hiLoLine.isNotEmpty) ...[
               const SizedBox(height: 6),
               Text(_hiLoLine,
                 style: TextStyle(
                   fontFamily: 'Inter', fontWeight: FontWeight.w500,
-                  fontSize: 23, color: pal.ink.withValues(alpha: 0.85),
+                  fontSize: HearthFont.titleLg, color: pal.ink.withValues(alpha: 0.85),
                   fontFeatures: const [FontFeature.tabularFigures()],
                 )),
             ],
           ])),
-          const SizedBox(width: 20),
-          Padding(padding: const EdgeInsets.only(top: 20), child: Column(
+          const SizedBox(width: HearthSpacing.x5),
+          Padding(padding: const EdgeInsets.only(top: HearthSpacing.x5), child: Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               if (weather.humidity != null) ...[
                 StatChip(icon: WeatherIcons.humidity, label: 'Humidity',
                     value: '${weather.humidity!.round()}%', palette: pal),
-                const SizedBox(height: 10),
+                const SizedBox(height: HearthSpacing.x3),
               ],
               if (weather.windSpeed != null) ...[
                 StatChip(icon: WeatherIcons.strong_wind, label: 'Wind',
@@ -85,13 +86,13 @@ class HeroBlock extends StatelessWidget {
 
   Widget _eyebrow(ScenePalette pal) {
     return Row(children: [
-      Container(width: 8, height: 8, decoration: const BoxDecoration(
+      Container(width: HearthSpacing.x2, height: HearthSpacing.x2, decoration: const BoxDecoration(
         shape: BoxShape.circle, color: Color(0xFF4ADE80),
         boxShadow: [BoxShadow(color: Color(0xFF4ADE80), blurRadius: 8)],
       )),
-      const SizedBox(width: 10),
+      const SizedBox(width: HearthSpacing.x3),
       Text('NOW', style: TextStyle(
-        fontFamily: 'Inter', fontSize: 20, fontWeight: FontWeight.w600,
+        fontFamily: 'Inter', fontSize: HearthFont.title, fontWeight: FontWeight.w600,
         letterSpacing: 1.5, color: pal.ink.withValues(alpha: 0.75),
       )),
     ]);

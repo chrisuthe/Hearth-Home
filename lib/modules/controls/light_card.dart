@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../app/tokens/tokens.dart';
 import '../../models/ha_entity.dart';
 
 /// Card for controlling a single light entity.
@@ -24,7 +25,7 @@ class LightCard extends StatelessWidget {
         brightness != null ? (brightness / 255 * 100).round() : 0;
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(HearthSpacing.x4),
       decoration: BoxDecoration(
         color: entity.isOn
             ? Colors.amber.withValues(alpha: 0.12)
@@ -39,9 +40,9 @@ class LightCard extends StatelessWidget {
               Icon(
                 Icons.lightbulb,
                 color: entity.isOn ? Colors.amber : Colors.white38,
-                size: 20,
+                size: HearthIcon.sm,
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: HearthSpacing.x2),
               Expanded(
                 child: Text(
                   entity.name,
@@ -57,10 +58,10 @@ class LightCard extends StatelessWidget {
             ],
           ),
           if (entity.isOn && brightness != null) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: HearthSpacing.x2),
             Row(
               children: [
-                const Icon(Icons.brightness_low, size: 14, color: Colors.white38),
+                const Icon(Icons.brightness_low, size: HearthIcon.xs, color: Colors.white38),
                 Expanded(
                   child: Slider(
                     value: brightness.toDouble(),
@@ -73,7 +74,7 @@ class LightCard extends StatelessWidget {
                 ),
                 Text(
                   '$brightnessPercent%',
-                  style: const TextStyle(fontSize: 12, color: Colors.white54),
+                  style: const TextStyle(fontSize: HearthFont.caption, color: Colors.white54),
                 ),
               ],
             ),

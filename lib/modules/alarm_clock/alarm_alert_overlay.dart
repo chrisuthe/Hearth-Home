@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../app/tokens/tokens.dart';
 import 'alarm_service.dart';
 import 'sunrise_controller.dart';
 
@@ -49,17 +50,17 @@ class AlarmAlertOverlay extends ConsumerWidget {
                 children: [
                   // Current time (large)
                   _CurrentTimeDisplay(),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: HearthSpacing.x4),
                   // Alarm icon
                   const Icon(Icons.alarm,
-                      size: 48, color: Color(0xFF646CFF)),
-                  const SizedBox(height: 12),
+                      size: HearthIcon.xl, color: Color(0xFF646CFF)),
+                  const SizedBox(height: HearthSpacing.x3),
                   // Alarm label
                   if (firedAlarm.label.isNotEmpty)
                     Text(
                       firedAlarm.label,
                       style: const TextStyle(
-                        fontSize: 24,
+                        fontSize: HearthFont.headline,
                         fontWeight: FontWeight.w300,
                         color: Colors.white70,
                       ),
@@ -71,13 +72,13 @@ class AlarmAlertOverlay extends ConsumerWidget {
             Positioned(
               left: 0,
               right: 0,
-              bottom: 48,
+              bottom: HearthSpacing.x12,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   // Dismiss button (explicit tap target)
                   SizedBox(
-                    height: 60,
+                    height: HearthSpacing.x16,
                     width: 200,
                     child: Material(
                       color: Colors.white.withValues(alpha: 0.15),
@@ -94,7 +95,7 @@ class AlarmAlertOverlay extends ConsumerWidget {
                           child: Text(
                             'Dismiss',
                             style: TextStyle(
-                              fontSize: 18,
+                              fontSize: HearthFont.bodyLg,
                               fontWeight: FontWeight.w500,
                               color: Colors.white,
                             ),
@@ -103,12 +104,12 @@ class AlarmAlertOverlay extends ConsumerWidget {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: HearthSpacing.x4),
                   // Snooze hint
                   Text(
                     'Tap anywhere to snooze',
                     style: TextStyle(
-                      fontSize: 13,
+                      fontSize: HearthFont.label,
                       color: Colors.white.withValues(alpha: 0.4),
                     ),
                   ),
@@ -158,7 +159,7 @@ class _CurrentTimeDisplayState extends State<_CurrentTimeDisplay> {
     return Text(
       '$hour:$minute',
       style: const TextStyle(
-        fontSize: 72,
+        fontSize: HearthFont.hero, // was 72; snapped to hero=64 (12.5% delta)
         fontWeight: FontWeight.w200,
         color: Colors.white,
       ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../app/tokens/tokens.dart';
 import '../../config/hub_config.dart';
 import '../../models/ha_entity.dart';
 import '../../services/home_assistant_service.dart';
@@ -52,13 +53,13 @@ class ControlsScreen extends ConsumerWidget {
       child: ListView(
         // Top padding clears the always-visible mic mute icon at top:24,
         // size 33 + IconButton chrome (≈y0–70). 80 gives a small buffer.
-        padding: const EdgeInsets.fromLTRB(24, 80, 24, 24),
+        padding: const EdgeInsets.fromLTRB(HearthSpacing.x6, HearthSpacing.x20, HearthSpacing.x6, HearthSpacing.x6),
         children: [
           if (lights.isNotEmpty) ...[
             const _SectionHeader(title: 'Lights'),
-            const SizedBox(height: 8),
+            const SizedBox(height: HearthSpacing.x2),
             ...lights.map((entity) => Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.only(bottom: HearthSpacing.x3),
                   child: LightCard(
                     entity: entity,
                     onToggle: (value) => ha.callService(
@@ -74,13 +75,13 @@ class ControlsScreen extends ConsumerWidget {
                     ),
                   ),
                 )),
-            const SizedBox(height: 16),
+            const SizedBox(height: HearthSpacing.x4),
           ],
           if (climates.isNotEmpty) ...[
             const _SectionHeader(title: 'Climate'),
-            const SizedBox(height: 8),
+            const SizedBox(height: HearthSpacing.x2),
             ...climates.map((entity) => Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.only(bottom: HearthSpacing.x3),
                   child: ClimateCard(
                     entity: entity,
                     onTemperatureChanged: (value) => ha.callService(
@@ -97,13 +98,13 @@ class ControlsScreen extends ConsumerWidget {
                     ),
                   ),
                 )),
-            const SizedBox(height: 16),
+            const SizedBox(height: HearthSpacing.x4),
           ],
           if (switches.isNotEmpty) ...[
             const _SectionHeader(title: 'Switches'),
-            const SizedBox(height: 8),
+            const SizedBox(height: HearthSpacing.x2),
             ...switches.map((entity) => Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.only(bottom: HearthSpacing.x3),
                   child: _ToggleCard(
                     entity: entity,
                     onToggle: (value) => ha.callService(
@@ -113,13 +114,13 @@ class ControlsScreen extends ConsumerWidget {
                     ),
                   ),
                 )),
-            const SizedBox(height: 16),
+            const SizedBox(height: HearthSpacing.x4),
           ],
           if (others.isNotEmpty) ...[
             const _SectionHeader(title: 'Other'),
-            const SizedBox(height: 8),
+            const SizedBox(height: HearthSpacing.x2),
             ...others.map((entity) => Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.only(bottom: HearthSpacing.x3),
                   child: _ToggleCard(
                     entity: entity,
                     onToggle: (value) => ha.callService(
@@ -150,10 +151,10 @@ class _EmptyState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 64, color: Colors.white.withValues(alpha: 0.2)),
-            const SizedBox(height: 16),
-            Text(title, style: TextStyle(fontSize: 18, color: Colors.white.withValues(alpha: 0.5))),
-            const SizedBox(height: 8),
+            Icon(icon, size: HearthIcon.xxl, color: Colors.white.withValues(alpha: 0.2)),
+            const SizedBox(height: HearthSpacing.x4),
+            Text(title, style: TextStyle(fontSize: HearthFont.title, color: Colors.white.withValues(alpha: 0.5))),
+            const SizedBox(height: HearthSpacing.x2),
             Text(subtitle, style: TextStyle(fontSize: 14, color: Colors.white.withValues(alpha: 0.5))),
           ],
         ),
@@ -171,7 +172,7 @@ class _SectionHeader extends StatelessWidget {
     return Text(
       title,
       style: TextStyle(
-        fontSize: 18, fontWeight: FontWeight.w500,
+        fontSize: HearthFont.title, fontWeight: FontWeight.w500,
         color: Colors.white.withValues(alpha: 0.7),
       ),
     );
@@ -187,7 +188,7 @@ class _ToggleCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(HearthSpacing.x4),
       decoration: BoxDecoration(
         color: entity.isOn
             ? const Color(0xFF646CFF).withValues(alpha: 0.12)
@@ -197,8 +198,8 @@ class _ToggleCard extends StatelessWidget {
       child: Row(
         children: [
           Icon(Icons.power_settings_new,
-              color: entity.isOn ? const Color(0xFF646CFF) : Colors.white38, size: 20),
-          const SizedBox(width: 8),
+              color: entity.isOn ? const Color(0xFF646CFF) : Colors.white38, size: HearthIcon.sm),
+          const SizedBox(width: HearthSpacing.x2),
           Expanded(
             child: Text(entity.name,
                 style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),

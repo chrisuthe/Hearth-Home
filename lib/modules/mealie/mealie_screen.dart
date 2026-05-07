@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../config/hub_config.dart';
 import '../../app/app.dart' show kDialogBackground;
+import '../../app/tokens/tokens.dart';
 import 'mealie_service.dart';
 import 'models.dart';
 
@@ -135,14 +136,14 @@ class _MealieScreenState extends ConsumerState<MealieScreen>
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(Icons.restaurant_menu,
-                      size: 64,
+                      size: HearthIcon.xxl,
                       color: Colors.white.withValues(alpha: 0.2)),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: HearthSpacing.x4),
                   Text('Recipes not configured',
                       style: TextStyle(
-                          fontSize: 18,
+                          fontSize: HearthFont.bodyLg,
                           color: Colors.white.withValues(alpha: 0.4))),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: HearthSpacing.x2),
                   Text('Add your Mealie URL and token in Settings',
                       style: TextStyle(
                           fontSize: 14,
@@ -163,25 +164,25 @@ class _MealieScreenState extends ConsumerState<MealieScreen>
   Widget _buildBrowseView(MealieService service) {
     final token = ref.read(hubConfigProvider).mealieToken;
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(HearthSpacing.x4),
       children: [
         // Today's Menu
         if (_mealPlan.isNotEmpty) ...[
           Text(
             "Today's Menu",
             style: TextStyle(
-              fontSize: 20,
+              fontSize: HearthFont.title,
               fontWeight: FontWeight.w300,
               color: Colors.white.withValues(alpha: 0.9),
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: HearthSpacing.x3),
           SizedBox(
             height: 160,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               itemCount: _mealPlan.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 12),
+              separatorBuilder: (_, __) => const SizedBox(width: HearthSpacing.x3),
               itemBuilder: (context, index) {
                 final entry = _mealPlan[index];
                 final recipe = entry.recipe;
@@ -190,7 +191,7 @@ class _MealieScreenState extends ConsumerState<MealieScreen>
               },
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: HearthSpacing.x6),
         ],
 
         // Search bar
@@ -210,7 +211,7 @@ class _MealieScreenState extends ConsumerState<MealieScreen>
             ),
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: HearthSpacing.x3),
 
         // Category chips
         if (_categories.isNotEmpty)
@@ -219,7 +220,7 @@ class _MealieScreenState extends ConsumerState<MealieScreen>
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               itemCount: _categories.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              separatorBuilder: (_, __) => const SizedBox(width: HearthSpacing.x2),
               itemBuilder: (context, index) {
                 final cat = _categories[index];
                 final isActive = _activeCategory == cat.slug;
@@ -233,7 +234,7 @@ class _MealieScreenState extends ConsumerState<MealieScreen>
                   backgroundColor: kDialogBackground,
                   labelStyle: TextStyle(
                     color: isActive ? Colors.white : Colors.white70,
-                    fontSize: 13,
+                    fontSize: HearthFont.label,
                   ),
                   side: BorderSide.none,
                 );
@@ -241,7 +242,7 @@ class _MealieScreenState extends ConsumerState<MealieScreen>
             ),
           ),
 
-        const SizedBox(height: 16),
+        const SizedBox(height: HearthSpacing.x4),
 
         // Loading indicator
         if (_loading)
@@ -255,8 +256,8 @@ class _MealieScreenState extends ConsumerState<MealieScreen>
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 3,
               childAspectRatio: 0.8,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
+              crossAxisSpacing: HearthSpacing.x3,
+              mainAxisSpacing: HearthSpacing.x3,
             ),
             itemCount: _displayedRecipes.length,
             itemBuilder: (context, index) {
@@ -296,12 +297,12 @@ class _MealieScreenState extends ConsumerState<MealieScreen>
                 placeholder: (_, __) => Container(color: Colors.white10),
                 errorWidget: (_, __, ___) => Container(
                   color: Colors.white10,
-                  child: const Icon(Icons.restaurant, color: Colors.white24, size: 32),
+                  child: const Icon(Icons.restaurant, color: Colors.white24, size: HearthIcon.lg),
                 ),
               ),
             ),
             Padding(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(HearthSpacing.x2),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -309,13 +310,13 @@ class _MealieScreenState extends ConsumerState<MealieScreen>
                     recipe.name,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                    style: const TextStyle(fontSize: HearthFont.label, fontWeight: FontWeight.w500),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: HearthSpacing.x1),
                   Text(
                     entry.entryType,
                     style: TextStyle(
-                      fontSize: 11,
+                      fontSize: HearthFont.caption,
                       color: Colors.white.withValues(alpha: 0.5),
                     ),
                   ),
@@ -354,13 +355,13 @@ class _MealieScreenState extends ConsumerState<MealieScreen>
                   placeholder: (_, __) => Container(color: Colors.white10),
                   errorWidget: (_, __, ___) => Container(
                     color: Colors.white10,
-                    child: const Icon(Icons.restaurant, color: Colors.white24, size: 32),
+                    child: const Icon(Icons.restaurant, color: Colors.white24, size: HearthIcon.lg),
                   ),
                 ),
               ),
             ),
             Padding(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(HearthSpacing.x2),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -368,14 +369,14 @@ class _MealieScreenState extends ConsumerState<MealieScreen>
                     recipe.name,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                    style: const TextStyle(fontSize: HearthFont.label, fontWeight: FontWeight.w500),
                   ),
                   if (recipe.totalTime != null) ...[
                     const SizedBox(height: 2),
                     Text(
                       '${recipe.totalTime} min',
                       style: TextStyle(
-                        fontSize: 11,
+                        fontSize: HearthFont.caption,
                         color: Colors.white.withValues(alpha: 0.5),
                       ),
                     ),
@@ -398,7 +399,7 @@ class _MealieScreenState extends ConsumerState<MealieScreen>
     final token = ref.read(hubConfigProvider).mealieToken;
 
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(HearthSpacing.x4),
       children: [
         // Back button
         Align(
@@ -408,7 +409,7 @@ class _MealieScreenState extends ConsumerState<MealieScreen>
             onPressed: () => setState(() => _selectedRecipe = null),
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: HearthSpacing.x2),
 
         // Recipe image header
         ClipRRect(
@@ -423,28 +424,28 @@ class _MealieScreenState extends ConsumerState<MealieScreen>
               placeholder: (_, __) => Container(color: Colors.white10),
               errorWidget: (_, __, ___) => Container(
                 color: Colors.white10,
-                child: const Icon(Icons.restaurant, color: Colors.white24, size: 48),
+                child: const Icon(Icons.restaurant, color: Colors.white24, size: HearthIcon.xl),
               ),
             ),
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: HearthSpacing.x4),
 
         // Title
         Text(
           recipe.name,
-          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w300),
+          style: const TextStyle(fontSize: HearthFont.titleLg, fontWeight: FontWeight.w300),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: HearthSpacing.x3),
 
         // Info chips
         Wrap(
-          spacing: 8,
-          runSpacing: 8,
+          spacing: HearthSpacing.x2,
+          runSpacing: HearthSpacing.x2,
           children: [
             if (recipe.prepTime != null)
               Chip(
-                avatar: const Icon(Icons.timer_outlined, size: 16, color: Colors.white70),
+                avatar: const Icon(Icons.timer_outlined, size: HearthIcon.xs, color: Colors.white70),
                 label: Text('Prep: ${recipe.prepTime} min'),
                 backgroundColor: kDialogBackground,
                 side: BorderSide.none,
@@ -452,7 +453,7 @@ class _MealieScreenState extends ConsumerState<MealieScreen>
               ),
             if (recipe.cookTime != null)
               Chip(
-                avatar: const Icon(Icons.local_fire_department, size: 16, color: Colors.white70),
+                avatar: const Icon(Icons.local_fire_department, size: HearthIcon.xs, color: Colors.white70),
                 label: Text('Cook: ${recipe.cookTime} min'),
                 backgroundColor: kDialogBackground,
                 side: BorderSide.none,
@@ -460,7 +461,7 @@ class _MealieScreenState extends ConsumerState<MealieScreen>
               ),
             if (recipe.recipeYield != null)
               Chip(
-                avatar: const Icon(Icons.people_outline, size: 16, color: Colors.white70),
+                avatar: const Icon(Icons.people_outline, size: HearthIcon.xs, color: Colors.white70),
                 label: Text(recipe.recipeYield!),
                 backgroundColor: kDialogBackground,
                 side: BorderSide.none,
@@ -468,19 +469,19 @@ class _MealieScreenState extends ConsumerState<MealieScreen>
               ),
           ],
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: HearthSpacing.x6),
 
         // Ingredients
         if (recipe.ingredients.isNotEmpty) ...[
           Text(
             'Ingredients',
             style: TextStyle(
-              fontSize: 18,
+              fontSize: HearthFont.bodyLg,
               fontWeight: FontWeight.w500,
               color: Colors.white.withValues(alpha: 0.9),
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: HearthSpacing.x2),
           ...List.generate(recipe.ingredients.length, (index) {
             final ingredient = recipe.ingredients[index];
             return CheckboxListTile(
@@ -497,7 +498,7 @@ class _MealieScreenState extends ConsumerState<MealieScreen>
               title: Text(
                 ingredient.display,
                 style: TextStyle(
-                  fontSize: 15,
+                  fontSize: HearthFont.body,
                   decoration: _checkedIngredients.contains(index)
                       ? TextDecoration.lineThrough
                       : null,
@@ -512,7 +513,7 @@ class _MealieScreenState extends ConsumerState<MealieScreen>
               dense: true,
             );
           }),
-          const SizedBox(height: 24),
+          const SizedBox(height: HearthSpacing.x6),
         ],
 
         // Instructions
@@ -520,22 +521,22 @@ class _MealieScreenState extends ConsumerState<MealieScreen>
           Text(
             'Instructions',
             style: TextStyle(
-              fontSize: 18,
+              fontSize: HearthFont.bodyLg,
               fontWeight: FontWeight.w500,
               color: Colors.white.withValues(alpha: 0.9),
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: HearthSpacing.x3),
           ...List.generate(recipe.instructions.length, (index) {
             final step = recipe.instructions[index];
             return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.only(bottom: HearthSpacing.x3),
               child: Container(
                 decoration: BoxDecoration(
                   color: kDialogBackground,
                   borderRadius: BorderRadius.circular(8),
                 ),
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(HearthSpacing.x3),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -556,7 +557,7 @@ class _MealieScreenState extends ConsumerState<MealieScreen>
                         ),
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: HearthSpacing.x3),
                     Expanded(
                       child: Text(
                         step.text,

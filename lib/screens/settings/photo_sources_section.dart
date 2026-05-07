@@ -4,6 +4,7 @@ import '../../config/hub_config.dart';
 import '../../models/immich_album.dart';
 import '../../models/immich_person.dart';
 import '../../services/immich_service.dart';
+import '../../app/tokens/tokens.dart';
 
 /// Settings section for choosing which Immich sources feed the ambient
 /// carousel. Three independently-toggleable sources: Memories, Album,
@@ -41,9 +42,9 @@ class _PhotoSourcesSectionState extends ConsumerState<PhotoSourcesSection> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Padding(
-          padding: EdgeInsets.symmetric(vertical: 8),
+          padding: EdgeInsets.symmetric(vertical: HearthSpacing.x2),
           child: Text('Photo sources',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500)),
+              style: TextStyle(fontSize: HearthFont.title, fontWeight: FontWeight.w500)),
         ),
         SwitchListTile(
           title: const Text('Memories ("On This Day")'),
@@ -61,7 +62,7 @@ class _PhotoSourcesSectionState extends ConsumerState<PhotoSourcesSection> {
         ),
         if (config.albumEnabled)
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(horizontal: HearthSpacing.x4),
             child: _AlbumDropdown(
               future: _albumsFuture!,
               selectedId: config.albumId,
@@ -79,7 +80,7 @@ class _PhotoSourcesSectionState extends ConsumerState<PhotoSourcesSection> {
         ),
         if (config.peopleEnabled)
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: HearthSpacing.x4, vertical: HearthSpacing.x2),
             child: _PeopleChips(
               future: _peopleFuture!,
               selectedIds: config.personIds,
@@ -109,13 +110,13 @@ class _AlbumDropdown extends StatelessWidget {
       builder: (context, snap) {
         if (snap.connectionState == ConnectionState.waiting) {
           return const Padding(
-            padding: EdgeInsets.symmetric(vertical: 8),
+            padding: EdgeInsets.symmetric(vertical: HearthSpacing.x2),
             child: Text('Loading albums…'),
           );
         }
         if (snap.hasError) {
           return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
+            padding: const EdgeInsets.symmetric(vertical: HearthSpacing.x2),
             child: Text(
               "Couldn't load albums — check the Immich URL above.",
               style: TextStyle(color: Theme.of(context).colorScheme.error),
@@ -184,8 +185,8 @@ class _PeopleChips extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('Tap to toggle. Showing ${people.length} named.',
-                style: const TextStyle(fontSize: 12)),
-            const SizedBox(height: 8),
+                style: const TextStyle(fontSize: HearthFont.caption)),
+            const SizedBox(height: HearthSpacing.x2),
             Wrap(
               spacing: 6,
               runSpacing: 6,

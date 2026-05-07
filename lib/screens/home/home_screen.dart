@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../app/tokens/tokens.dart';
 import '../../config/hub_config.dart';
 import '../../services/music_assistant_service.dart';
 import '../../services/weather_service.dart';
@@ -47,16 +48,16 @@ class HomeScreen extends ConsumerWidget {
       children: [
         // Now playing — top right with album art
         Positioned(
-          top: 16,
-          right: 16,
+          top: HearthSpacing.x4,
+          right: HearthSpacing.x4,
           child: _NowPlayingPill(onTap: onNowPlayingTap),
         ),
 
         // Bottom content — single Column so elements don't overlap
         Positioned(
-          left: 24,
-          right: 24,
-          bottom: 20,
+          left: HearthSpacing.x6,
+          right: HearthSpacing.x6,
+          bottom: HearthSpacing.x5,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
@@ -68,7 +69,7 @@ class HomeScreen extends ConsumerWidget {
                   MaterialPageRoute(builder: (_) => const TimerScreen()),
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: HearthSpacing.x4),
               // Clock + date + memory label | Weather
               Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
@@ -142,21 +143,21 @@ class _ClockDisplayState extends ConsumerState<_ClockDisplay> {
             shadows: _textShadows,
           ),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: HearthSpacing.x1),
         Text(
           dateStr,
           style: TextStyle(
-            fontSize: 20,
+            fontSize: HearthFont.title,
             color: Colors.white.withValues(alpha: 0.8),
             shadows: _textShadows,
           ),
         ),
         if (widget.dateLabel != null) ...[
-          const SizedBox(height: 4),
+          const SizedBox(height: HearthSpacing.x1),
           Text(
             widget.dateLabel!,
             style: TextStyle(
-              fontSize: 14,
+              fontSize: HearthFont.body,
               color: Colors.white.withValues(alpha: 0.7),
               shadows: _textShadows,
             ),
@@ -197,11 +198,11 @@ class _WeatherDisplay extends StatelessWidget {
             children: [
               Icon(
                 weatherIconForCondition(weather.condition),
-                size: 72,
+                size: HearthIcon.xxl,
                 color: Colors.white70,
                 shadows: _iconShadows,
               ),
-              const SizedBox(width: 24),
+              const SizedBox(width: HearthSpacing.x6),
               Text(
                 '${weather.temperature.round()}\u00B0',
                 style: const TextStyle(
@@ -216,7 +217,7 @@ class _WeatherDisplay extends StatelessWidget {
             Text(
               '${conditionLabel(weather.condition)} \u00B7 H:${weather.dailyForecast.first.high.round()}\u00B0 L:${weather.dailyForecast.first.low.round()}\u00B0',
               style: TextStyle(
-                fontSize: 28,
+                fontSize: HearthFont.headline,
                 color: Colors.white.withValues(alpha: 0.6),
                 shadows: _textShadows,
               ),
@@ -237,7 +238,7 @@ class _TimerPill extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: HearthSpacing.x4, vertical: HearthSpacing.x3),
             decoration: BoxDecoration(
               color: timerService.hasActiveTimers
                   ? const Color(0xFF646CFF).withValues(alpha: 0.3)
@@ -250,16 +251,16 @@ class _TimerPill extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.timer, size: 18,
+                Icon(Icons.timer, size: HearthIcon.sm,
                     color: timerService.hasActiveTimers
                         ? const Color(0xFF646CFF)
                         : Colors.white70),
-                const SizedBox(width: 8),
+                const SizedBox(width: HearthSpacing.x2),
                 Text(
                   timerService.hasActiveTimers
                       ? timerService.statusLabel
                       : 'Set a timer',
-                  style: const TextStyle(fontSize: 12, color: Colors.white70),
+                  style: const TextStyle(fontSize: HearthFont.caption, color: Colors.white70),
                 ),
               ],
             ),
@@ -326,7 +327,7 @@ class _NowPlayingPillState extends ConsumerState<_NowPlayingPill> {
                 child: Padding(
                   padding: const EdgeInsets.only(left: 6, right: 2),
                   child: Center(
-                    child: Icon(Icons.chevron_left, size: 24,
+                    child: Icon(Icons.chevron_left, size: HearthIcon.md,
                         color: Colors.white.withValues(alpha: 0.4)),
                   ),
                 ),
@@ -337,7 +338,7 @@ class _NowPlayingPillState extends ConsumerState<_NowPlayingPill> {
               onTap: widget.onTap,
               child: Padding(
                 padding: EdgeInsets.fromLTRB(
-                    multiPlayer ? 4 : 12, 12, multiPlayer ? 4 : 12, 12),
+                    multiPlayer ? HearthSpacing.x1 : HearthSpacing.x3, HearthSpacing.x3, multiPlayer ? HearthSpacing.x1 : HearthSpacing.x3, HearthSpacing.x3),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -347,26 +348,26 @@ class _NowPlayingPillState extends ConsumerState<_NowPlayingPill> {
                       child: track.imageUrl != null
                           ? Image.network(
                               track.imageUrl!,
-                              width: 96,
-                              height: 96,
+                              width: HearthSpacing.x20,
+                              height: HearthSpacing.x20,
                               fit: BoxFit.cover,
                               errorBuilder: (_, _, _) => Container(
-                                width: 96,
-                                height: 96,
+                                width: HearthSpacing.x20,
+                                height: HearthSpacing.x20,
                                 color: Colors.white.withValues(alpha: 0.1),
                                 child: const Icon(Icons.music_note,
-                                    color: Colors.white38, size: 40),
+                                    color: Colors.white38, size: HearthSpacing.x10),
                               ),
                             )
                           : Container(
-                              width: 96,
-                              height: 96,
+                              width: HearthSpacing.x20,
+                              height: HearthSpacing.x20,
                               color: Colors.white.withValues(alpha: 0.1),
                               child: const Icon(Icons.music_note,
-                                  color: Colors.white38, size: 40),
+                                  color: Colors.white38, size: HearthSpacing.x10),
                             ),
                     ),
-                    const SizedBox(width: 16),
+                    const SizedBox(width: HearthSpacing.x4),
                     // Track info
                     ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 240),
@@ -377,24 +378,24 @@ class _NowPlayingPillState extends ConsumerState<_NowPlayingPill> {
                           Text(
                             state.activeZoneName ?? '',
                             style: TextStyle(
-                              fontSize: 14,
+                              fontSize: HearthFont.body,
                               color: Colors.white.withValues(alpha: 0.5),
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
-                          const SizedBox(height: 4),
+                          const SizedBox(height: HearthSpacing.x1),
                           Text(
                             track.title,
                             style: const TextStyle(
-                                fontSize: 20, fontWeight: FontWeight.w500),
+                                fontSize: HearthFont.title, fontWeight: FontWeight.w500),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
                           Text(
                             track.artist,
                             style: TextStyle(
-                              fontSize: 16,
+                              fontSize: HearthFont.bodyLg,
                               color: Colors.white.withValues(alpha: 0.6),
                             ),
                             maxLines: 1,
@@ -419,7 +420,7 @@ class _NowPlayingPillState extends ConsumerState<_NowPlayingPill> {
                 child: Padding(
                   padding: const EdgeInsets.only(left: 2, right: 6),
                   child: Center(
-                    child: Icon(Icons.chevron_right, size: 24,
+                    child: Icon(Icons.chevron_right, size: HearthIcon.md,
                         color: Colors.white.withValues(alpha: 0.4)),
                   ),
                 ),
@@ -471,7 +472,7 @@ class _ChevronOverlayState extends State<_ChevronOverlay> {
       child: Stack(
         children: [
           Positioned(
-            left: 8,
+            left: HearthSpacing.x2,
             top: 0,
             bottom: 0,
             child: Center(
@@ -481,20 +482,20 @@ class _ChevronOverlayState extends State<_ChevronOverlay> {
                 child: GestureDetector(
                   onTap: widget.onSkipBack,
                   child: Container(
-                    padding: const EdgeInsets.all(10),
+                    padding: const EdgeInsets.all(HearthSpacing.x3),
                     decoration: BoxDecoration(
                       color: Colors.black.withValues(alpha: 0.25),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(Icons.chevron_left,
-                        color: Colors.white.withValues(alpha: 0.4), size: 28),
+                        color: Colors.white.withValues(alpha: 0.4), size: HearthIcon.lg),
                   ),
                 ),
               ),
             ),
           ),
           Positioned(
-            right: 8,
+            right: HearthSpacing.x2,
             top: 0,
             bottom: 0,
             child: Center(
@@ -504,13 +505,13 @@ class _ChevronOverlayState extends State<_ChevronOverlay> {
                 child: GestureDetector(
                   onTap: widget.onSkipForward,
                   child: Container(
-                    padding: const EdgeInsets.all(10),
+                    padding: const EdgeInsets.all(HearthSpacing.x3),
                     decoration: BoxDecoration(
                       color: Colors.black.withValues(alpha: 0.25),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(Icons.chevron_right,
-                        color: Colors.white.withValues(alpha: 0.4), size: 28),
+                        color: Colors.white.withValues(alpha: 0.4), size: HearthIcon.lg),
                   ),
                 ),
               ),

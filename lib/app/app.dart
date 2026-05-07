@@ -7,6 +7,7 @@ import '../screens/setup/setup_wizard.dart';
 import '../services/osk_integration.dart';
 import '../widgets/touch_indicator_overlay.dart';
 import 'hub_shell.dart';
+import 'scale/hearth_scale.dart';
 
 /// Root widget for the Hearth application.
 ///
@@ -55,14 +56,16 @@ class HearthApp extends ConsumerWidget {
       home: Scaffold(
         body: needsSetup
             ? const SetupWizard()
-            : TouchIndicatorOverlay(
-                // Master toggle gates the overlay entirely — users who haven't
-                // enabled capture tools never pay the overlay cost even if
-                // TouchIndicatorConfig.enabled was somehow true in their config.
-                config: config.captureToolsEnabled
-                    ? config.touchIndicator
-                    : const TouchIndicatorConfig(),
-                child: const HubShell(),
+            : HearthScaleScope(
+                child: TouchIndicatorOverlay(
+                  // Master toggle gates the overlay entirely — users who haven't
+                  // enabled capture tools never pay the overlay cost even if
+                  // TouchIndicatorConfig.enabled was somehow true in their config.
+                  config: config.captureToolsEnabled
+                      ? config.touchIndicator
+                      : const TouchIndicatorConfig(),
+                  child: const HubShell(),
+                ),
               ),
       ),
     );

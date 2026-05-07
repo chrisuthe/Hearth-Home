@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../app/media_tokens.dart';
+import '../../../app/tokens/tokens.dart';
 import '../../../models/music_state.dart';
 import 'drawer_state.dart';
 
@@ -154,7 +155,7 @@ class _ProgressAndTimes extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         _ProgressBar(progress: progress),
-        const SizedBox(height: 8),
+        const SizedBox(height: HearthSpacing.x2),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -168,7 +169,7 @@ class _ProgressAndTimes extends StatelessWidget {
 }
 
 final TextStyle _timeStyle = MediaTextStyles.tabular(
-  10,
+  HearthFont.caption,
   weight: FontWeight.w400,
   color: const Color.fromRGBO(255, 255, 255, MediaTextOpacity.eyebrow),
   letterSpacing: 0.5,
@@ -266,9 +267,9 @@ class _Controls extends StatelessWidget {
           dim: !state.shuffle,
           onTap: onShuffle,
         ),
-        _CIconBtn(icon: Icons.skip_previous, size: 52, onTap: onPrev),
+        _CIconBtn(icon: Icons.skip_previous, size: HearthIcon.xl, onTap: onPrev),
         _PlayPauseButton(playing: state.isPlaying, onTap: onPlayPause),
-        _CIconBtn(icon: Icons.skip_next, size: 52, onTap: onNext),
+        _CIconBtn(icon: Icons.skip_next, size: HearthIcon.xl, onTap: onNext),
         _CIconBtn(
           icon: switch (state.repeatMode) {
             'one' => Icons.repeat_one,
@@ -279,15 +280,15 @@ class _Controls extends StatelessWidget {
           onTap: onRepeatCycle,
         ),
         const _CIconBtn(icon: Icons.lyrics_outlined, size: 44, dim: true),
-        const SizedBox(width: 12),
+        const SizedBox(width: HearthSpacing.x3),
         Container(
           width: 1,
           height: 32,
           color: const Color.fromRGBO(255, 255, 255, 0.15),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: HearthSpacing.x3),
         _VolumeIcon(volume: state.volume, muted: state.muted),
-        const SizedBox(width: 12),
+        const SizedBox(width: HearthSpacing.x3),
         SizedBox(
           width: 100,
           child: _VolumeBar(
@@ -326,8 +327,8 @@ class _CIconBtn extends StatelessWidget {
       radius: 32,
       containedInkWell: true,
       child: SizedBox(
-        width: 64,
-        height: 64,
+        width: HearthSpacing.x16,
+        height: HearthSpacing.x16,
         child: Icon(icon, size: size, color: color),
       ),
     );
@@ -343,7 +344,7 @@ class _PlayPauseButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
+      padding: const EdgeInsets.symmetric(horizontal: HearthSpacing.x1),
       child: Material(
         color: Colors.white,
         shape: const CircleBorder(),
@@ -352,8 +353,8 @@ class _PlayPauseButton extends StatelessWidget {
           customBorder: const CircleBorder(),
           onTap: onTap,
           child: Ink(
-            width: 80,
-            height: 80,
+            width: HearthSpacing.x20,
+            height: HearthSpacing.x20,
             decoration: const BoxDecoration(
               color: Colors.white,
               shape: BoxShape.circle,

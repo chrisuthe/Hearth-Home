@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../app/tokens/tokens.dart';
 import '../../../models/weather_state.dart';
 import '../icons/wx_icon.dart';
 import '../palette.dart';
@@ -41,7 +42,7 @@ class HourlyStrip extends StatelessWidget {
           borderRadius: const BorderRadius.all(Radius.circular(22)),
           border: Border.all(color: Colors.white.withValues(alpha: 0.14), width: 1),
         ),
-        padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
+        padding: const EdgeInsets.symmetric(vertical: HearthSpacing.x5, horizontal: HearthSpacing.x4),
         child: SizedBox(
           height: _stripHeight,
           child: ListView.builder(
@@ -78,7 +79,7 @@ class _HourCell extends StatelessWidget {
     final night = isNightHour(hr);
     final cond = effectiveCond(mapHaToWx(h.condition), night: night);
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 2),
+      padding: const EdgeInsets.symmetric(vertical: HearthSpacing.x2, horizontal: 2),
       decoration: BoxDecoration(
         borderRadius: const BorderRadius.all(Radius.circular(12)),
         gradient: night
@@ -93,14 +94,14 @@ class _HourCell extends StatelessWidget {
         Column(mainAxisSize: MainAxisSize.min, children: [
           Text(_label, style: TextStyle(
             fontFamily: 'Inter',
-            fontSize: 17, fontWeight: FontWeight.w600, letterSpacing: 0.4,
+            fontSize: HearthFont.bodyLg, fontWeight: FontWeight.w600, letterSpacing: 0.4,
             color: night ? const Color(0xFFC7CCE8) : Colors.white.withValues(alpha: 0.85),
           )),
-          const SizedBox(height: 8),
-          WxIcon(cond: cond, size: 32, night: night),
-          const SizedBox(height: 8),
+          const SizedBox(height: HearthSpacing.x2),
+          WxIcon(cond: cond, size: HearthIcon.lg, night: night),
+          const SizedBox(height: HearthSpacing.x2),
           Text('${h.temperature.round()}°', style: TextStyle(
-            fontFamily: 'Inter', fontSize: 21, fontWeight: FontWeight.w600,
+            fontFamily: 'Inter', fontSize: HearthFont.title, fontWeight: FontWeight.w600,
             color: night ? const Color(0xFFE8EEFC) : Colors.white,
             fontFeatures: const [FontFeature.tabularFigures()],
           )),
@@ -115,7 +116,7 @@ class _NightDot extends StatelessWidget {
   const _NightDot();
   @override
   Widget build(BuildContext context) => Container(
-    width: 4, height: 4,
+    width: HearthSpacing.x1, height: HearthSpacing.x1,
     decoration: const BoxDecoration(
       shape: BoxShape.circle,
       color: Color(0xB38B95D9),

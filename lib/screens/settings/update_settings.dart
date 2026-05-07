@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../config/hub_config.dart';
 import '../../services/toast_service.dart';
 import '../../services/update_service.dart';
+import '../../app/tokens/tokens.dart';
 
 /// Reads installed version from /etc/hearth-version (written by the OTA updater).
 final installedVersionProvider = Provider<String>((ref) {
@@ -30,16 +31,16 @@ class UpdateSettingsSection extends ConsumerWidget {
       children: [
         // Current version tile.
         ListTile(
-          leading: const Icon(Icons.info_outline, color: Colors.white54, size: 22),
-          title: const Text('Current Version', style: TextStyle(fontSize: 15)),
+          leading: const Icon(Icons.info_outline, color: Colors.white54, size: HearthIcon.md),
+          title: const Text('Current Version', style: TextStyle(fontSize: HearthFont.body)),
           subtitle: Text(
             installedVersion.isEmpty ? 'Unknown' : installedVersion,
             style: TextStyle(
-              fontSize: 13,
+              fontSize: HearthFont.label,
               color: Colors.white.withValues(alpha: 0.5),
             ),
           ),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+          contentPadding: const EdgeInsets.symmetric(horizontal: HearthSpacing.x2),
         ),
 
         // Latest version tile with async state.
@@ -48,31 +49,31 @@ class UpdateSettingsSection extends ConsumerWidget {
             data: (info) {
               if (info == null) {
                 return const Icon(Icons.check_circle_outline,
-                    color: Colors.green, size: 22);
+                    color: Colors.green, size: HearthIcon.md);
               }
               final isNewer = info.isNewerThan(installedVersion);
               return Icon(
                 isNewer ? Icons.system_update_alt : Icons.check_circle_outline,
                 color: isNewer ? Colors.amber : Colors.green,
-                size: 22,
+                size: HearthIcon.md,
               );
             },
             loading: () => const SizedBox(
-              width: 22,
-              height: 22,
+              width: HearthSpacing.x6,
+              height: HearthSpacing.x6,
               child: CircularProgressIndicator(strokeWidth: 2),
             ),
             error: (err, _) =>
-                const Icon(Icons.error_outline, color: Colors.white54, size: 22),
+                const Icon(Icons.error_outline, color: Colors.white54, size: HearthIcon.md),
           ),
-          title: const Text('Latest Version', style: TextStyle(fontSize: 15)),
+          title: const Text('Latest Version', style: TextStyle(fontSize: HearthFont.body)),
           subtitle: latestAsync.when(
             data: (info) {
               if (info == null) {
                 return Text(
                   'Up to date',
                   style: TextStyle(
-                    fontSize: 13,
+                    fontSize: HearthFont.label,
                     color: Colors.white.withValues(alpha: 0.5),
                   ),
                 );
@@ -81,7 +82,7 @@ class UpdateSettingsSection extends ConsumerWidget {
               return Text(
                 isNewer ? 'v${info.version} available' : 'Up to date',
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: HearthFont.label,
                   color: isNewer
                       ? Colors.amber
                       : Colors.white.withValues(alpha: 0.5),
@@ -91,19 +92,19 @@ class UpdateSettingsSection extends ConsumerWidget {
             loading: () => Text(
               'Checking…',
               style: TextStyle(
-                fontSize: 13,
+                fontSize: HearthFont.label,
                 color: Colors.white.withValues(alpha: 0.5),
               ),
             ),
             error: (err, _) => Text(
               'Could not check',
               style: TextStyle(
-                fontSize: 13,
+                fontSize: HearthFont.label,
                 color: Colors.white.withValues(alpha: 0.5),
               ),
             ),
           ),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+          contentPadding: const EdgeInsets.symmetric(horizontal: HearthSpacing.x2),
         ),
 
         // Force update button.
@@ -111,12 +112,12 @@ class UpdateSettingsSection extends ConsumerWidget {
 
         // Auto-update toggle.
         SwitchListTile(
-          secondary: const Icon(Icons.autorenew, color: Colors.white54, size: 22),
-          title: const Text('Auto-Update', style: TextStyle(fontSize: 15)),
+          secondary: const Icon(Icons.autorenew, color: Colors.white54, size: HearthIcon.md),
+          title: const Text('Auto-Update', style: TextStyle(fontSize: HearthFont.body)),
           subtitle: Text(
             config.autoUpdate ? 'Install updates automatically' : 'Manual updates only',
             style: TextStyle(
-              fontSize: 13,
+              fontSize: HearthFont.label,
               color: Colors.white.withValues(alpha: 0.5),
             ),
           ),
@@ -124,19 +125,19 @@ class UpdateSettingsSection extends ConsumerWidget {
           onChanged: (v) => ref
               .read(hubConfigProvider.notifier)
               .update((c) => c.copyWith(autoUpdate: v)),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+          contentPadding: const EdgeInsets.symmetric(horizontal: HearthSpacing.x2),
         ),
 
         // Update source toggle.
         SwitchListTile(
-          secondary: const Icon(Icons.dns_outlined, color: Colors.white54, size: 22),
-          title: const Text('Use Gitea for Updates', style: TextStyle(fontSize: 15)),
+          secondary: const Icon(Icons.dns_outlined, color: Colors.white54, size: HearthIcon.md),
+          title: const Text('Use Gitea for Updates', style: TextStyle(fontSize: HearthFont.body)),
           subtitle: Text(
             config.updateSource == 'gitea'
                 ? 'Checking registry.home for releases'
                 : 'Checking GitHub for releases',
             style: TextStyle(
-              fontSize: 13,
+              fontSize: HearthFont.label,
               color: Colors.white.withValues(alpha: 0.5),
             ),
           ),
@@ -144,18 +145,18 @@ class UpdateSettingsSection extends ConsumerWidget {
           onChanged: (v) => ref
               .read(hubConfigProvider.notifier)
               .update((c) => c.copyWith(updateSource: v ? 'gitea' : 'github')),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+          contentPadding: const EdgeInsets.symmetric(horizontal: HearthSpacing.x2),
         ),
 
         // Gitea API token (only when Gitea is selected).
         if (config.updateSource == 'gitea')
           ListTile(
-            leading: const Icon(Icons.key, color: Colors.white54, size: 22),
-            title: const Text('Gitea API Token', style: TextStyle(fontSize: 15)),
+            leading: const Icon(Icons.key, color: Colors.white54, size: HearthIcon.md),
+            title: const Text('Gitea API Token', style: TextStyle(fontSize: HearthFont.body)),
             subtitle: Text(
               config.giteaApiToken.isEmpty ? 'Not set' : 'Configured',
               style: TextStyle(
-                fontSize: 13,
+                fontSize: HearthFont.label,
                 color: Colors.white.withValues(alpha: 0.5),
               ),
             ),
@@ -182,7 +183,7 @@ class UpdateSettingsSection extends ConsumerWidget {
                     .update((c) => c.copyWith(giteaApiToken: result));
               }
             },
-            contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+            contentPadding: const EdgeInsets.symmetric(horizontal: HearthSpacing.x2),
           ),
       ],
     );
@@ -233,20 +234,20 @@ class _ForceUpdateTileState extends ConsumerState<_ForceUpdateTile> {
     return ListTile(
       leading: _updating
           ? const SizedBox(
-              width: 22, height: 22,
+              width: HearthSpacing.x6, height: HearthSpacing.x6,
               child: CircularProgressIndicator(strokeWidth: 2),
             )
-          : const Icon(Icons.download, color: Colors.white54, size: 22),
-      title: const Text('Force Update', style: TextStyle(fontSize: 15)),
+          : const Icon(Icons.download, color: Colors.white54, size: HearthIcon.md),
+      title: const Text('Force Update', style: TextStyle(fontSize: HearthFont.body)),
       subtitle: Text(
         'Download and install the latest bundle',
         style: TextStyle(
-          fontSize: 13,
+          fontSize: HearthFont.label,
           color: Colors.white.withValues(alpha: 0.5),
         ),
       ),
       onTap: _updating ? null : _triggerUpdate,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+      contentPadding: const EdgeInsets.symmetric(horizontal: HearthSpacing.x2),
     );
   }
 }

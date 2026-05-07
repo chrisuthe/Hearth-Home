@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/media_tokens.dart';
+import '../../../app/tokens/tokens.dart';
 import '../../../models/music_state.dart';
 import '../../../services/music_assistant_service.dart';
 import '../../../widgets/glass_panel.dart';
@@ -228,8 +229,8 @@ class _PopoverContent extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.fromLTRB(18, 0, 18, 14),
           child: Wrap(
-            spacing: 8,
-            runSpacing: 8,
+            spacing: HearthSpacing.x2,
+            runSpacing: HearthSpacing.x2,
             children: [
               for (final g in groups)
                 _GroupChip(
@@ -285,7 +286,7 @@ class _PopoverContent extends StatelessWidget {
                     onMuteToggle: (m) => onMute(p.activeZoneId!, m),
                   ),
                 if (availablePlayers.isNotEmpty) ...[
-                  const SizedBox(height: 8),
+                  const SizedBox(height: HearthSpacing.x2),
                   _SectionLabel('AVAILABLE · ${availablePlayers.length}'),
                 ],
                 for (final p in availablePlayers)
@@ -322,14 +323,14 @@ class _Header extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(18, 14, 14, 12),
+      padding: const EdgeInsets.fromLTRB(18, 14, 14, HearthSpacing.x3),
       child: Row(
         children: [
           const Expanded(
             child: Text(
               'PLAYING ON',
               style: TextStyle(
-                fontSize: 10,
+                fontSize: HearthFont.caption,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 1.4,
                 color: Color.fromRGBO(255, 255, 255, 0.55),
@@ -387,14 +388,14 @@ class _GroupChip extends StatelessWidget {
             children: [
               Icon(
                 isGroup ? Icons.speaker_group : Icons.speaker,
-                size: 13,
+                size: HearthIcon.xs,
                 color: Colors.white,
               ),
               const SizedBox(width: 6),
               Text(
                 group.name,
                 style: const TextStyle(
-                  fontSize: 11,
+                  fontSize: HearthFont.caption,
                   fontWeight: FontWeight.w600,
                   color: Colors.white,
                 ),
@@ -404,7 +405,7 @@ class _GroupChip extends StatelessWidget {
                 Text(
                   '+${group.memberCount - 1}',
                   style: const TextStyle(
-                    fontSize: 11,
+                    fontSize: HearthFont.caption,
                     fontWeight: FontWeight.w600,
                     color: Color.fromRGBO(255, 255, 255, MediaTextOpacity.eyebrow),
                   ),
@@ -450,10 +451,10 @@ class _NowPlayingSummary extends StatelessWidget {
         children: [
           const Icon(
             Icons.graphic_eq,
-            size: 13,
+            size: HearthIcon.xs,
             color: MediaColors.sendspinGreen,
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: HearthSpacing.x2),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -464,7 +465,7 @@ class _NowPlayingSummary extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 11,
+                    fontSize: HearthFont.caption,
                     fontWeight: FontWeight.w600,
                     color: Colors.white,
                   ),
@@ -475,7 +476,7 @@ class _NowPlayingSummary extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 10,
+                    fontSize: HearthFont.caption,
                     fontWeight: FontWeight.w400,
                     color: Color.fromRGBO(255, 255, 255, 0.55),
                   ),
@@ -495,7 +496,7 @@ class _NowPlayingSummary extends StatelessWidget {
                 child: Text(
                   'Transfer here',
                   style: TextStyle(
-                    fontSize: 10,
+                    fontSize: HearthFont.caption,
                     fontWeight: FontWeight.w600,
                     color: Colors.white,
                   ),
@@ -521,10 +522,10 @@ class _GroupVolume extends StatelessWidget {
       children: [
         const Icon(
           Icons.speaker_group,
-          size: 16,
+          size: HearthIcon.xs,
           color: Colors.white,
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: HearthSpacing.x3),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -536,7 +537,7 @@ class _GroupVolume extends StatelessWidget {
                     child: Text(
                       'Group volume',
                       style: TextStyle(
-                        fontSize: 11,
+                        fontSize: HearthFont.caption,
                         fontWeight: FontWeight.w600,
                         color: Colors.white,
                       ),
@@ -545,7 +546,7 @@ class _GroupVolume extends StatelessWidget {
                   Text(
                     '${(level * 100).round()}',
                     style: MediaTextStyles.tabular(
-                      11,
+                      HearthFont.caption,
                       weight: FontWeight.w500,
                       color: const Color.fromRGBO(255, 255, 255, MediaTextOpacity.tertiary),
                     ),
@@ -626,11 +627,11 @@ class _SectionLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(top: 8, bottom: 4),
+      padding: const EdgeInsets.only(top: HearthSpacing.x2, bottom: HearthSpacing.x1),
       child: Text(
         text,
         style: const TextStyle(
-          fontSize: 10,
+          fontSize: HearthFont.caption,
           fontWeight: FontWeight.w700,
           letterSpacing: 1.4,
           color: Color.fromRGBO(255, 255, 255, 0.55),
@@ -703,7 +704,7 @@ class _FooterButton extends StatelessWidget {
               Text(
                 label,
                 style: TextStyle(
-                  fontSize: 11,
+                  fontSize: HearthFont.caption,
                   fontWeight: FontWeight.w600,
                   color: fg,
                 ),

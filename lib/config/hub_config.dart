@@ -228,6 +228,11 @@ class HubConfig {
 
   final PhotoSourcesConfig photoSources;
 
+  /// Global UI scale multiplier. 1.0 = no change. Range [0.75, 1.5],
+  /// clamped on load. The HearthScaleScope at the app root reads this
+  /// to drive a uniform Transform.scale + MediaQuery.size override.
+  final double uiScale;
+
   const HubConfig({
     this.apiKey = '',
     this.immichUrl = '',
@@ -279,6 +284,7 @@ class HubConfig {
     this.streamTargetHost = '',
     this.streamTargetPort = 9999,
     this.photoSources = const PhotoSourcesConfig(),
+    this.uiScale = 1.0,
   });
 
   static String generateApiKey() {
@@ -338,6 +344,7 @@ class HubConfig {
     String? streamTargetHost,
     int? streamTargetPort,
     PhotoSourcesConfig? photoSources,
+    double? uiScale,
   }) {
     return HubConfig(
       apiKey: apiKey ?? this.apiKey,
@@ -392,6 +399,7 @@ class HubConfig {
       streamTargetHost: streamTargetHost ?? this.streamTargetHost,
       streamTargetPort: streamTargetPort ?? this.streamTargetPort,
       photoSources: photoSources ?? this.photoSources,
+      uiScale: uiScale ?? this.uiScale,
     );
   }
 
@@ -446,6 +454,7 @@ class HubConfig {
         'streamTargetHost': streamTargetHost,
         'streamTargetPort': streamTargetPort,
         'photoSources': photoSources.toJson(),
+        'uiScale': uiScale,
       };
 
   factory HubConfig.fromJson(Map<String, dynamic> json) => HubConfig(
@@ -510,6 +519,9 @@ class HubConfig {
             ? PhotoSourcesConfig.fromJson(
                 (json['photoSources'] as Map).cast<String, dynamic>())
             : const PhotoSourcesConfig(),
+        uiScale: ((json['uiScale'] as num?)?.toDouble() ?? 1.0)
+            .clamp(0.75, 1.5)
+            .toDouble(),
       );
 
   static Map<String, List<String>> _migrateEnabledModules(Map<String, dynamic> json) {
@@ -556,6 +568,12 @@ class HubConfigNotifier extends StateNotifier<HubConfig> {
       await file.writeAsString(jsonEncode(updated.toJson()));
     }
     state = updated;
+  }
+
+  /// Set the global UI scale, clamped to [0.75, 1.5] before persisting.
+  Future<void> setUiScale(double scale) async {
+    final clamped = scale.clamp(0.75, 1.5).toDouble();
+    await update((c) => c.copyWith(uiScale: clamped));
   }
 }
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/media_tokens.dart';
+import '../../../app/tokens/tokens.dart';
 import '../../../models/music_state.dart';
 import '../../../widgets/glass_panel.dart';
 
@@ -48,29 +49,29 @@ class MiniBar extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 _Art(track: track, onTap: onExpand),
-                const SizedBox(width: 12),
+                const SizedBox(width: HearthSpacing.x3),
                 Expanded(
                   child: _TitleAndProgress(
                     track: track,
                     progress: progress,
                   ),
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: HearthSpacing.x4),
                 _Controls(
                   isPlaying: state.isPlaying,
                   onPlayPause: onPlayPause,
                   onNext: onNext,
                   onPrev: onPrev,
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: HearthSpacing.x3),
                 Container(
                   width: 1,
                   height: 20,
                   color: const Color.fromRGBO(255, 255, 255, 0.15),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: HearthSpacing.x3),
                 IconButton(
-                  icon: const Icon(Icons.speaker_group, size: 18, color: Colors.white),
+                  icon: const Icon(Icons.speaker_group, size: HearthIcon.sm, color: Colors.white),
                   onPressed: onPlayersTap,
                   visualDensity: VisualDensity.compact,
                   constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
@@ -97,8 +98,8 @@ class _Art extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(MediaRadii.smallArt),
       child: Container(
-        width: 48,
-        height: 48,
+        width: HearthSpacing.x12,
+        height: HearthSpacing.x12,
         decoration: BoxDecoration(
           color: const Color.fromRGBO(255, 255, 255, 0.04),
           borderRadius: BorderRadius.circular(MediaRadii.smallArt),
@@ -108,7 +109,7 @@ class _Art extends StatelessWidget {
             ? const Center(
                 child: Icon(
                   Icons.music_note,
-                  size: 22,
+                  size: HearthIcon.sm,
                   color: Color.fromRGBO(255, 255, 255, MediaTextOpacity.section),
                 ),
               )
@@ -118,7 +119,7 @@ class _Art extends StatelessWidget {
                 cacheWidth: 96,
                 errorBuilder: (_, _, _) => const Icon(
                   Icons.broken_image,
-                  size: 22,
+                  size: HearthIcon.sm,
                   color: Color.fromRGBO(255, 255, 255, MediaTextOpacity.section),
                 ),
               ),
@@ -144,7 +145,7 @@ class _TitleAndProgress extends StatelessWidget {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(
-            fontSize: 13,
+            fontSize: HearthFont.label,
             fontWeight: FontWeight.w600,
             color: Colors.white,
           ),
@@ -155,7 +156,7 @@ class _TitleAndProgress extends StatelessWidget {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(
-            fontSize: 11,
+            fontSize: HearthFont.caption,
             fontWeight: FontWeight.w400,
             color: Color.fromRGBO(255, 255, 255, MediaTextOpacity.meta),
           ),
@@ -208,10 +209,10 @@ class _Controls extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         IconButton(
-          icon: const Icon(Icons.skip_previous, size: 22, color: Colors.white),
+          icon: const Icon(Icons.skip_previous, size: HearthIcon.sm, color: Colors.white),
           onPressed: onPrev,
           visualDensity: VisualDensity.compact,
-          constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+          constraints: const BoxConstraints(minWidth: HearthSpacing.x10, minHeight: HearthSpacing.x10),
           padding: EdgeInsets.zero,
         ),
         Material(
@@ -221,25 +222,25 @@ class _Controls extends StatelessWidget {
             customBorder: const CircleBorder(),
             onTap: onPlayPause,
             child: Ink(
-              width: 40,
-              height: 40,
+              width: HearthSpacing.x10,
+              height: HearthSpacing.x10,
               decoration: const BoxDecoration(
                 color: Colors.white,
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 isPlaying ? Icons.pause : Icons.play_arrow,
-                size: 18,
+                size: HearthIcon.sm,
                 color: Colors.black,
               ),
             ),
           ),
         ),
         IconButton(
-          icon: const Icon(Icons.skip_next, size: 22, color: Colors.white),
+          icon: const Icon(Icons.skip_next, size: HearthIcon.sm, color: Colors.white),
           onPressed: onNext,
           visualDensity: VisualDensity.compact,
-          constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+          constraints: const BoxConstraints(minWidth: HearthSpacing.x10, minHeight: HearthSpacing.x10),
           padding: EdgeInsets.zero,
         ),
       ],

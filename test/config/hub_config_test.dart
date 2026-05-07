@@ -425,6 +425,59 @@ void main() {
       expect(restored.streamTargetPort, 9999);
     });
 
+    test('uiScale defaults to 1.0', () {
+      const config = HubConfig();
+      expect(config.uiScale, 1.0);
+    });
+
+    test('uiScale round-trips through JSON', () {
+      const config = HubConfig(uiScale: 1.25);
+      final json = config.toJson();
+      final restored = HubConfig.fromJson(json);
+      expect(restored.uiScale, 1.25);
+    });
+
+    test('uiScale below 0.75 is clamped on load', () {
+      final config = HubConfig.fromJson({'uiScale': 0.5});
+      expect(config.uiScale, 0.75);
+    });
+
+    test('uiScale above 1.5 is clamped on load', () {
+      final config = HubConfig.fromJson({'uiScale': 2.5});
+      expect(config.uiScale, 1.5);
+    });
+
+    test('uiScale missing from JSON defaults to 1.0', () {
+      final config = HubConfig.fromJson({});
+      expect(config.uiScale, 1.0);
+    });
+
+    test('copyWith updates uiScale and preserves other fields', () {
+      const config = HubConfig(immichUrl: 'http://test', uiScale: 1.0);
+      final updated = config.copyWith(uiScale: 1.2);
+      expect(updated.uiScale, 1.2);
+      expect(updated.immichUrl, 'http://test');
+    });
+
+  });
+
+  group('HubConfigNotifier', () {
+    // Uses an in-memory subclass to avoid path_provider platform channel
+    // dependency, following the pattern established in local_api_server_test.dart.
+    test('setUiScale clamps and persists', () async {
+      final notifier = _MemoryHubConfigNotifier();
+      // Pre-state: default uiScale = 1.0
+      expect(notifier.state.uiScale, 1.0);
+
+      await notifier.setUiScale(2.0);
+      expect(notifier.state.uiScale, 1.5);
+
+      await notifier.setUiScale(0.5);
+      expect(notifier.state.uiScale, 0.75);
+
+      await notifier.setUiScale(1.2);
+      expect(notifier.state.uiScale, 1.2);
+    });
   });
 
   group('PhotoSourcesConfig', () {
@@ -503,4 +556,13 @@ void main() {
       expect(restored.photoSources.albumId, 'album-x');
     });
   });
+}
+
+/// In-memory [HubConfigNotifier] that skips disk I/O, following the pattern
+/// established in local_api_server_test.dart.
+class _MemoryHubConfigNotifier extends HubConfigNotifier {
+  @override
+  Future<void> update(HubConfig Function(HubConfig) updater) async {
+    state = updater(state);
+  }
 }
