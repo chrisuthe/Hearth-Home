@@ -351,6 +351,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
           ),
         ),
+        const UiScaleSection(),
         const DisplaySettingsSection(),
         _SettingsTile(
           icon: Icons.keyboard,
