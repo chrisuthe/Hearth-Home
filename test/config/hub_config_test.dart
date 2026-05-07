@@ -461,6 +461,25 @@ void main() {
 
   });
 
+  group('HubConfigNotifier', () {
+    // Uses an in-memory subclass to avoid path_provider platform channel
+    // dependency, following the pattern established in local_api_server_test.dart.
+    test('setUiScale clamps and persists', () async {
+      final notifier = _MemoryHubConfigNotifier();
+      // Pre-state: default uiScale = 1.0
+      expect(notifier.state.uiScale, 1.0);
+
+      await notifier.setUiScale(2.0);
+      expect(notifier.state.uiScale, 1.5);
+
+      await notifier.setUiScale(0.5);
+      expect(notifier.state.uiScale, 0.75);
+
+      await notifier.setUiScale(1.2);
+      expect(notifier.state.uiScale, 1.2);
+    });
+  });
+
   group('PhotoSourcesConfig', () {
     test('defaults to memories-only', () {
       const c = PhotoSourcesConfig();
@@ -537,4 +556,13 @@ void main() {
       expect(restored.photoSources.albumId, 'album-x');
     });
   });
+}
+
+/// In-memory [HubConfigNotifier] that skips disk I/O, following the pattern
+/// established in local_api_server_test.dart.
+class _MemoryHubConfigNotifier extends HubConfigNotifier {
+  @override
+  Future<void> update(HubConfig Function(HubConfig) updater) async {
+    state = updater(state);
+  }
 }

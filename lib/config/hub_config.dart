@@ -569,6 +569,12 @@ class HubConfigNotifier extends StateNotifier<HubConfig> {
     }
     state = updated;
   }
+
+  /// Set the global UI scale, clamped to [0.75, 1.5] before persisting.
+  Future<void> setUiScale(double scale) async {
+    final clamped = scale.clamp(0.75, 1.5).toDouble();
+    await update((c) => c.copyWith(uiScale: clamped));
+  }
 }
 
 final hubConfigProvider =
