@@ -70,3 +70,67 @@ class DisplaySettingsSection extends ConsumerWidget {
     );
   }
 }
+
+/// Slider that drives `HubConfig.uiScale`. Range 0.75–1.5 in 5% steps.
+/// Live preview: dragging the slider rescales the entire UI immediately.
+class UiScaleSection extends ConsumerWidget {
+  const UiScaleSection({super.key});
+
+  static const double _min = 0.75;
+  static const double _max = 1.5;
+  static const int _divisions = 15; // (1.5 - 0.75) / 0.05
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final scale = ref.watch(hubConfigProvider).uiScale;
+    final percent = (scale * 100).round();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: HearthSpacing.allX2,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'UI Scale',
+                style: TextStyle(fontSize: HearthFont.body),
+              ),
+              Text(
+                '$percent%',
+                style: TextStyle(
+                  fontSize: HearthFont.label,
+                  color: Colors.white.withValues(alpha: 0.5),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Slider(
+          value: scale,
+          min: _min,
+          max: _max,
+          divisions: _divisions,
+          label: '$percent%',
+          onChanged: (v) =>
+              ref.read(hubConfigProvider.notifier).setUiScale(v),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: HearthSpacing.x2),
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: scale == 1.0
+                  ? null
+                  : () => ref
+                      .read(hubConfigProvider.notifier)
+                      .setUiScale(1.0),
+              child: const Text('Reset to 100%'),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
