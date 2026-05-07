@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../app/tokens/tokens.dart';
 import '../config/hub_config.dart';
 import '../services/voice_assistant_service.dart';
 
@@ -77,7 +78,7 @@ class _VoicePillOverlayState extends ConsumerState<VoicePillOverlay>
     final displayState = isIdle ? _lastActiveState : voiceState;
 
     return Positioned(
-      bottom: 100,
+      bottom: HearthSpacing.x20,
       left: 0,
       right: 0,
       child: Center(
@@ -121,7 +122,7 @@ class _PillContent extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       constraints: const BoxConstraints(maxWidth: 720),
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: HearthSpacing.x5, vertical: HearthSpacing.x3),
       decoration: BoxDecoration(
         color: Colors.black.withValues(alpha: 0.7),
         borderRadius: BorderRadius.circular(24),
@@ -143,14 +144,14 @@ class _PillContent extends StatelessWidget {
           FadeTransition(
             opacity: Tween<double>(begin: 0.4, end: 1.0)
                 .animate(pulseAnimation),
-            child: const Icon(Icons.mic, color: _accent, size: 44),
+            child: const Icon(Icons.mic, color: _accent, size: HearthIcon.xl),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: HearthSpacing.x2),
           const Text(
             'Listening...',
             style: TextStyle(
               color: Colors.white,
-              fontSize: 28,
+              fontSize: HearthFont.headline,
               fontWeight: FontWeight.w400,
             ),
           ),
@@ -163,17 +164,17 @@ class _PillContent extends StatelessWidget {
               state.transcription ?? 'Processing...',
               style: const TextStyle(
                 color: Colors.white,
-                fontSize: 28,
+                fontSize: HearthFont.headline,
                 fontWeight: FontWeight.w400,
               ),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: HearthSpacing.x2),
           const SizedBox(
-            width: 32,
-            height: 32,
+            width: HearthIcon.lg,
+            height: HearthIcon.lg,
             child: CircularProgressIndicator(
               strokeWidth: 4,
               color: _accent,
@@ -183,14 +184,14 @@ class _PillContent extends StatelessWidget {
 
       case VoiceState.responding:
         return [
-          const Icon(Icons.volume_up, color: _accent, size: 44),
-          const SizedBox(width: 10),
+          const Icon(Icons.volume_up, color: _accent, size: HearthIcon.xl),
+          const SizedBox(width: HearthSpacing.x2),
           Flexible(
             child: Text(
               state.responseText ?? '',
               style: const TextStyle(
                 color: Colors.white,
-                fontSize: 28,
+                fontSize: HearthFont.headline,
                 fontWeight: FontWeight.w400,
               ),
               maxLines: 2,
@@ -201,14 +202,14 @@ class _PillContent extends StatelessWidget {
 
       case VoiceState.error:
         return [
-          const Icon(Icons.error_outline, color: Color(0xFFFF6B6B), size: 44),
-          const SizedBox(width: 10),
+          const Icon(Icons.error_outline, color: Color(0xFFFF6B6B), size: HearthIcon.xl),
+          const SizedBox(width: HearthSpacing.x2),
           Flexible(
             child: Text(
               state.errorMessage ?? 'An error occurred',
               style: const TextStyle(
                 color: Color(0xFFFF6B6B),
-                fontSize: 28,
+                fontSize: HearthFont.headline,
                 fontWeight: FontWeight.w400,
               ),
               maxLines: 2,
@@ -221,7 +222,7 @@ class _PillContent extends StatelessWidget {
         return [
           const Text(
             '',
-            style: TextStyle(fontSize: 14),
+            style: TextStyle(fontSize: HearthFont.label),
           ),
         ];
     }
