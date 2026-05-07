@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../app/tokens/tokens.dart';
 import '../services/toast_service.dart';
 
 /// Floating pill that displays brief toast messages near the bottom of the
@@ -52,7 +53,7 @@ class _ToastOverlayState extends ConsumerState<ToastOverlay>
     if (show == null) return const SizedBox.shrink();
 
     return Positioned(
-      bottom: 50,
+      bottom: HearthSpacing.x12,
       left: 0,
       right: 0,
       child: Center(
@@ -98,7 +99,7 @@ class _ToastPill extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       constraints: const BoxConstraints(maxWidth: 800),
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: HearthSpacing.x5, vertical: HearthSpacing.x3),
       decoration: BoxDecoration(
         color: Colors.black.withValues(alpha: 0.7),
         borderRadius: BorderRadius.circular(24),
@@ -110,15 +111,15 @@ class _ToastPill extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (toast.icon != null) ...[
-            Icon(toast.icon, color: _iconColor(), size: 44),
-            const SizedBox(width: 10),
+            Icon(toast.icon, color: _iconColor(), size: HearthIcon.xl),
+            const SizedBox(width: HearthSpacing.x3),
           ],
           Flexible(
             child: Text(
               toast.message,
               style: const TextStyle(
                 color: Colors.white,
-                fontSize: 28,
+                fontSize: HearthFont.headline,
                 fontWeight: FontWeight.w400,
               ),
               maxLines: 2,
