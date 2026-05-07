@@ -60,9 +60,10 @@ class CinematicBottomShelf extends StatelessWidget {
             clipBehavior: Clip.hardEdge,
             children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(22, 18, 22, 18),
+                padding: const EdgeInsets.fromLTRB(22, 22, 22, 18),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     TransportRow(
                       state: state,
@@ -87,18 +88,26 @@ class CinematicBottomShelf extends StatelessWidget {
                   ],
                 ),
               ),
-              const Positioned(
+              // Cycle affordance — visible drag pill + a narrow hit
+              // target *just around the pill*. Earlier versions used a
+              // full-width strip that absorbed taps over the mini-info
+              // area; narrowing it ensures the mini-info on the left
+              // and volume controls on the right keep their hit areas.
+              Positioned(
                 top: 0,
                 left: 0,
                 right: 0,
-                child: _CycleHandle(),
-              ),
-              Positioned.fill(
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: null,
-                child: _CycleHitTarget(onTap: onCycleDrawer),
+                height: 22,
+                child: Center(
+                  child: SizedBox(
+                    width: 80,
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: onCycleDrawer,
+                      child: const Center(child: _CycleHandle()),
+                    ),
+                  ),
+                ),
               ),
             ],
           ),
@@ -109,45 +118,21 @@ class CinematicBottomShelf extends StatelessWidget {
 }
 
 /// The visible "drag handle" at the top of the shelf — a thin pill
-/// signalling "this surface has more states." Static; the actual hit
-/// target lives in [_CycleHitTarget] above it.
+/// signalling "this surface has more states." Wrapped in a hit
+/// target by the caller; this widget only paints.
 class _CycleHandle extends StatelessWidget {
   const _CycleHandle();
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.only(top: 8),
-      child: Center(
-        child: SizedBox(
-          width: 36,
-          height: 4,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: Color.fromRGBO(255, 255, 255, 0.25),
-              borderRadius: BorderRadius.all(Radius.circular(2)),
-            ),
-          ),
+    return const SizedBox(
+      width: 36,
+      height: 4,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: Color.fromRGBO(255, 255, 255, 0.25),
+          borderRadius: BorderRadius.all(Radius.circular(2)),
         ),
-      ),
-    );
-  }
-}
-
-/// 44 px-tall invisible tap target across the shelf top edge — taps
-/// here cycle the drawer state. Sits above the transport row's tap
-/// targets so the buttons themselves still receive their own taps.
-class _CycleHitTarget extends StatelessWidget {
-  final VoidCallback onTap;
-  const _CycleHitTarget({required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 22,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: onTap,
       ),
     );
   }
