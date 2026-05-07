@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../app/tokens/tokens.dart';
 import '../palette.dart';
 
 class StatChip extends StatelessWidget {
@@ -23,7 +24,7 @@ class StatChip extends StatelessWidget {
       alpha: (palette.chipBg.a + 0.06).clamp(0.0, 1.0),
     );
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 11),
+      padding: const EdgeInsets.symmetric(horizontal: HearthSpacing.x5, vertical: HearthSpacing.x3),
       decoration: BoxDecoration(
         color: bg,
         borderRadius: const BorderRadius.all(Radius.circular(999)),
@@ -32,17 +33,17 @@ class StatChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 21, color: palette.chipText.withValues(alpha: 0.7)),
-          const SizedBox(width: 10),
+          Icon(icon, size: HearthIcon.sm, color: palette.chipText.withValues(alpha: 0.7)),
+          const SizedBox(width: HearthSpacing.x3),
           Text(label, style: TextStyle(
             color: palette.chipText.withValues(alpha: 0.75),
-            fontSize: 20, fontWeight: FontWeight.w500,
+            fontSize: HearthFont.title, fontWeight: FontWeight.w500,
             fontFamily: 'Inter',
           )),
-          const SizedBox(width: 8),
+          const SizedBox(width: HearthSpacing.x2),
           Text(value, style: TextStyle(
             color: palette.chipText,
-            fontSize: 20, fontWeight: FontWeight.w600,
+            fontSize: HearthFont.title, fontWeight: FontWeight.w600,
             fontFamily: 'Inter',
             fontFeatures: const [FontFeature.tabularFigures()],
           )),

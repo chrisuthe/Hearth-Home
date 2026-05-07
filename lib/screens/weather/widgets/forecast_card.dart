@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:weather_icons/weather_icons.dart';
+import '../../../app/tokens/tokens.dart';
 import '../../../models/weather_state.dart';
 import '../icons/wx_icon.dart';
 import '../palette.dart';
@@ -48,7 +49,7 @@ class ForecastCard extends StatelessWidget {
             ? [const BoxShadow(color: Color(0x40000000), blurRadius: 40, offset: Offset(0, 12))]
             : null,
       ),
-      padding: const EdgeInsets.fromLTRB(14, 18, 14, 16),
+      padding: const EdgeInsets.fromLTRB(HearthSpacing.x4, HearthSpacing.x5, HearthSpacing.x4, HearthSpacing.x4),
       child: Stack(children: [
         if (isToday) Positioned(
           top: -20, right: -20,
@@ -62,27 +63,27 @@ class ForecastCard extends StatelessWidget {
         Column(mainAxisSize: MainAxisSize.min, children: [
           Text(dayCode, style: TextStyle(
             fontFamily: 'Inter',
-            fontSize: isToday ? 18 : 17,
+            fontSize: isToday ? HearthFont.title : HearthFont.bodyLg,
             fontWeight: isToday ? FontWeight.w800 : FontWeight.w700,
             letterSpacing: isToday ? 1.4 : 1.2,
             color: isToday ? pal.ink : Colors.white.withValues(alpha: 0.7),
           )),
-          const SizedBox(height: 14),
-          WxIcon(cond: cond, size: 56),
-          const SizedBox(height: 14),
+          const SizedBox(height: HearthSpacing.x4),
+          WxIcon(cond: cond, size: HearthIcon.xxl),
+          const SizedBox(height: HearthSpacing.x4),
           Text('${day.high.round()}°', style: TextStyle(
-            fontFamily: 'Inter', fontSize: 45, fontWeight: FontWeight.w600,
+            fontFamily: 'Inter', fontSize: HearthFont.displayLg, fontWeight: FontWeight.w600,
             letterSpacing: -0.7, color: textInk,
             fontFeatures: const [FontFeature.tabularFigures()],
           )),
           Text('${day.low.round()}°', style: TextStyle(
-            fontFamily: 'Inter', fontSize: 23, fontWeight: FontWeight.w500,
+            fontFamily: 'Inter', fontSize: HearthFont.titleLg, fontWeight: FontWeight.w500,
             color: textInk.withValues(alpha: 0.55),
             fontFeatures: const [FontFeature.tabularFigures()],
           )),
-          const SizedBox(height: 14),
+          const SizedBox(height: HearthSpacing.x4),
           Container(height: 1, color: Colors.white.withValues(alpha: isToday ? 0.2 : 0.1)),
-          const SizedBox(height: 10),
+          const SizedBox(height: HearthSpacing.x3),
           _metricRow(WeatherIcons.raindrop,
               day.precipitation == null ? '--' : '${day.precipitation!.round()}%',
               color: const Color(0xFF7EB8FF)),
@@ -110,10 +111,10 @@ class ForecastCard extends StatelessWidget {
 
   Widget _metricRow(IconData icon, String value, {required Color color}) {
     return Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-      Icon(icon, size: 18, color: color),
-      const SizedBox(width: 8),
+      Icon(icon, size: HearthIcon.sm, color: color),
+      const SizedBox(width: HearthSpacing.x2),
       Text(value, style: TextStyle(
-        fontFamily: 'Inter', fontSize: 17, fontWeight: FontWeight.w600,
+        fontFamily: 'Inter', fontSize: HearthFont.bodyLg, fontWeight: FontWeight.w600,
         color: color,
         fontFeatures: const [FontFeature.tabularFigures()],
       )),
