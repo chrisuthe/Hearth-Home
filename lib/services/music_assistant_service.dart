@@ -413,11 +413,30 @@ class MusicAssistantService {
     final objectId = msg['object_id'] as String?;
     final rawData = msg['data'];
 
-    // Some MA events (e.g. queue_time_updated) send a scalar, not a map.
-    // We only handle events with map-shaped data.
-    if (event == null || objectId == null || rawData is! Map<String, dynamic>) {
+    if (event == null || objectId == null) return;
+
+    // queue_time_updated fires roughly once per second while a track is
+    // playing. MA emits the elapsed seconds as a bare number (not a
+    // map), so it slips past the map-shape filter below — we handle
+    // it specially to keep the progress bar advancing without needing
+    // a client-side ticker.
+    if (event == 'queue_time_updated') {
+      final elapsed = (rawData as num?)?.toDouble();
+      if (elapsed == null) return;
+      // queue_time_updated's object_id is the queue id; the same id
+      // is used as activeZoneId on the matching player state.
+      final existing = _playerStates[objectId];
+      if (existing == null) return;
+      final updated = existing.copyWith(
+        position: Duration(milliseconds: (elapsed * 1000).round()),
+      );
+      _playerStates[objectId] = updated;
+      _stateController.add(updated);
       return;
     }
+
+    // Other events carry a payload object.
+    if (rawData is! Map<String, dynamic>) return;
     final data = rawData;
 
     MusicPlayerState updated;
@@ -435,6 +454,7 @@ class MusicAssistantService {
               playbackState: playerState.playbackState,
               volume: playerState.volume,
               muted: playerState.muted,
+              position: playerState.position,
               activeZoneId: playerState.activeZoneId,
               activeZoneName: playerState.activeZoneName,
               available: playerState.available,

@@ -419,9 +419,20 @@ class MusicPlayerState {
         const [];
     final groupMembers = groupMembersRaw.whereType<String>().toList();
 
+    // Position can sit at either of two paths in player_updated: at
+    // the top level (player.elapsed_time, the canonical one) and on
+    // current_media.elapsed_time. Prefer top-level; fall back to the
+    // nested copy for compatibility.
+    final elapsedSeconds = (json['elapsed_time'] as num?)?.toDouble() ??
+        (currentMedia?['elapsed_time'] as num?)?.toDouble();
+    final position = elapsedSeconds != null
+        ? Duration(milliseconds: (elapsedSeconds * 1000).round())
+        : Duration.zero;
+
     return MusicPlayerState(
       playbackState: playbackState,
       currentTrack: track,
+      position: position,
       volume: ((json['volume_level'] as num?)?.toDouble() ?? 50) / 100,
       muted: json['volume_muted'] as bool? ?? false,
       activeZoneId: json['active_source'] as String? ?? json['player_id'] as String?,

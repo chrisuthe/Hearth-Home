@@ -49,6 +49,14 @@ class _QueueLaneState extends ConsumerState<QueueLane> {
     return music.getQueueItems(widget.playerId, limit: 25);
   }
 
+  void _playItem(MaQueueItem item) {
+    if (item.queueItemId.isEmpty) return;
+    ref.read(musicAssistantServiceProvider).playQueueItem(
+          widget.playerId,
+          item.queueItemId,
+        );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -91,7 +99,10 @@ class _QueueLaneState extends ConsumerState<QueueLane> {
                 scrollDirection: Axis.horizontal,
                 itemCount: upcoming.length,
                 separatorBuilder: (_, _) => const SizedBox(width: 10),
-                itemBuilder: (_, i) => _QueueCard(item: upcoming[i]),
+                itemBuilder: (_, i) => _QueueCard(
+                  item: upcoming[i],
+                  onTap: () => _playItem(upcoming[i]),
+                ),
               );
             },
           ),
@@ -136,14 +147,18 @@ class _Header extends StatelessWidget {
 
 class _QueueCard extends StatelessWidget {
   final MaQueueItem item;
+  final VoidCallback onTap;
 
-  const _QueueCard({required this.item});
+  const _QueueCard({required this.item, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 130,
-      child: Column(
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(MediaRadii.smallArt),
+      child: SizedBox(
+        width: 130,
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -197,6 +212,7 @@ class _QueueCard extends StatelessWidget {
             ),
           ),
         ],
+        ),
       ),
     );
   }
