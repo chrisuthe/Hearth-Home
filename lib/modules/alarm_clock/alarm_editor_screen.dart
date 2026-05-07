@@ -2,6 +2,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/app.dart' show kDialogBackground;
+import '../../app/tokens/tokens.dart';
 import 'alarm_models.dart';
 import 'alarm_service.dart';
 
@@ -106,7 +107,7 @@ class _AlarmEditorScreenState extends ConsumerState<AlarmEditorScreen> {
           children: [
             // Top bar
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              padding: const EdgeInsets.all(HearthSpacing.x2),
               child: Row(
                 children: [
                   IconButton(
@@ -117,48 +118,48 @@ class _AlarmEditorScreenState extends ConsumerState<AlarmEditorScreen> {
                   Text(
                     _isEditing ? 'Edit Alarm' : 'New Alarm',
                     style: const TextStyle(
-                      fontSize: 18,
+                      fontSize: 16, // equidistant between body=15 and bodyLg=17
                       fontWeight: FontWeight.w300,
                       color: Colors.white,
                     ),
                   ),
                   const Spacer(),
-                  const SizedBox(width: 48),
+                  const SizedBox(width: HearthSpacing.x12),
                 ],
               ),
             ),
             // Scrollable content
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
+                padding: const EdgeInsets.symmetric(horizontal: HearthSpacing.x6),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const SizedBox(height: 8),
+                    const SizedBox(height: HearthSpacing.x2),
                     // Time picker
                     _buildTimePicker(),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: HearthSpacing.x6),
                     // Day-of-week toggles
                     _buildDayPicker(),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: HearthSpacing.x6),
                     // Label
                     _buildLabelField(),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: HearthSpacing.x6),
                     // Sunrise settings
                     _buildSunriseSection(),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: HearthSpacing.x6),
                     // Sound picker
                     _buildSoundPicker(),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: HearthSpacing.x6),
                     // Snooze duration
                     _buildSnoozeSection(),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: HearthSpacing.x6),
                     // Volume
                     _buildVolumeSlider(),
-                    const SizedBox(height: 32),
+                    const SizedBox(height: HearthSpacing.x8),
                     // Action buttons
                     _buildActionButtons(),
-                    const SizedBox(height: 32),
+                    const SizedBox(height: HearthSpacing.x8),
                   ],
                 ),
               ),
@@ -183,11 +184,11 @@ class _AlarmEditorScreenState extends ConsumerState<AlarmEditorScreen> {
               onChanged: (v) => setState(() => _hour = v),
             ),
             const Padding(
-              padding: EdgeInsets.only(top: 20),
+              padding: EdgeInsets.only(top: HearthSpacing.x5),
               child: Text(
                 ':',
                 style: TextStyle(
-                  fontSize: 36,
+                  fontSize: HearthFont.display,
                   fontWeight: FontWeight.w200,
                   color: Colors.white38,
                 ),
@@ -214,19 +215,19 @@ class _AlarmEditorScreenState extends ConsumerState<AlarmEditorScreen> {
         const Text(
           'Repeat',
           style: TextStyle(
-            fontSize: 13,
+            fontSize: HearthFont.label,
             fontWeight: FontWeight.w500,
             color: Colors.white54,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: HearthSpacing.x2),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: List.generate(7, (index) {
             final day = index + 1; // 1=Mon .. 7=Sun
             final selected = _days.contains(day);
             return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
+              padding: const EdgeInsets.symmetric(horizontal: HearthSpacing.x1),
               child: GestureDetector(
                 onTap: () {
                   setState(() {
@@ -239,8 +240,8 @@ class _AlarmEditorScreenState extends ConsumerState<AlarmEditorScreen> {
                   });
                 },
                 child: Container(
-                  width: 40,
-                  height: 40,
+                  width: HearthSpacing.x10,
+                  height: HearthSpacing.x10,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: selected
@@ -251,7 +252,7 @@ class _AlarmEditorScreenState extends ConsumerState<AlarmEditorScreen> {
                   child: Text(
                     dayLabels[index],
                     style: TextStyle(
-                      fontSize: 14,
+                      fontSize: 14, // equidistant between label=13 and body=15
                       fontWeight: FontWeight.w500,
                       color: selected ? Colors.white : Colors.white54,
                     ),
@@ -269,18 +270,17 @@ class _AlarmEditorScreenState extends ConsumerState<AlarmEditorScreen> {
     return TextField(
       controller: _labelController,
       onChanged: (v) => _label = v,
-      style: const TextStyle(color: Colors.white, fontSize: 15),
+      style: const TextStyle(color: Colors.white, fontSize: HearthFont.body),
       decoration: InputDecoration(
         labelText: 'Label',
-        labelStyle: const TextStyle(color: Colors.white54, fontSize: 13),
+        labelStyle: const TextStyle(color: Colors.white54, fontSize: HearthFont.label),
         filled: true,
         fillColor: kDialogBackground,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
           borderSide: BorderSide.none,
         ),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        contentPadding: const EdgeInsets.all(HearthSpacing.x3),
       ),
     );
   }
@@ -294,7 +294,7 @@ class _AlarmEditorScreenState extends ConsumerState<AlarmEditorScreen> {
             const Text(
               'Sunrise effect',
               style: TextStyle(
-                fontSize: 13,
+                fontSize: HearthFont.label,
                 fontWeight: FontWeight.w500,
                 color: Colors.white54,
               ),
@@ -309,14 +309,14 @@ class _AlarmEditorScreenState extends ConsumerState<AlarmEditorScreen> {
           ],
         ),
         if (_sunriseEnabled) ...[
-          const SizedBox(height: 8),
+          const SizedBox(height: HearthSpacing.x2),
           const Text(
             'Duration',
-            style: TextStyle(fontSize: 12, color: Colors.white38),
+            style: TextStyle(fontSize: 12, color: Colors.white38), // equidistant caption=11/label=13
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 6), // equidistant x1=4/x2=8
           Wrap(
-            spacing: 8,
+            spacing: HearthSpacing.x2,
             children: [5, 10, 15, 20, 25, 30].map((minutes) {
               final selected = _sunriseDuration == minutes;
               return ChoiceChip(
@@ -328,7 +328,7 @@ class _AlarmEditorScreenState extends ConsumerState<AlarmEditorScreen> {
                 backgroundColor: kDialogBackground,
                 labelStyle: TextStyle(
                   color: selected ? Colors.white : Colors.white70,
-                  fontSize: 12,
+                  fontSize: 12, // equidistant caption=11/label=13
                 ),
                 side: BorderSide.none,
                 visualDensity: VisualDensity.compact,
@@ -347,12 +347,12 @@ class _AlarmEditorScreenState extends ConsumerState<AlarmEditorScreen> {
         const Text(
           'Alarm sound',
           style: TextStyle(
-            fontSize: 13,
+            fontSize: HearthFont.label,
             fontWeight: FontWeight.w500,
             color: Colors.white54,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: HearthSpacing.x2),
         ...builtinTones.entries.map((entry) {
           final selected = _soundId == entry.key;
           return Material(
@@ -361,8 +361,8 @@ class _AlarmEditorScreenState extends ConsumerState<AlarmEditorScreen> {
               onTap: () => setState(() => _soundId = entry.key),
               borderRadius: BorderRadius.circular(8),
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: HearthSpacing.x3, vertical: 10), // vertical 10: equidistant x2=8/x3=12
                 decoration: BoxDecoration(
                   color: selected
                       ? const Color(0xFF646CFF).withValues(alpha: 0.15)
@@ -375,16 +375,16 @@ class _AlarmEditorScreenState extends ConsumerState<AlarmEditorScreen> {
                       selected
                           ? Icons.radio_button_checked
                           : Icons.radio_button_unchecked,
-                      size: 18,
+                      size: 18, // equidistant xs=16/sm=20
                       color: selected
                           ? const Color(0xFF646CFF)
                           : Colors.white38,
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: HearthSpacing.x3),
                     Text(
                       entry.value,
                       style: TextStyle(
-                        fontSize: 14,
+                        fontSize: 14, // equidistant label=13/body=15
                         color: selected ? Colors.white : Colors.white70,
                       ),
                     ),
@@ -405,14 +405,14 @@ class _AlarmEditorScreenState extends ConsumerState<AlarmEditorScreen> {
         const Text(
           'Snooze duration',
           style: TextStyle(
-            fontSize: 13,
+            fontSize: HearthFont.label,
             fontWeight: FontWeight.w500,
             color: Colors.white54,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: HearthSpacing.x2),
         Wrap(
-          spacing: 8,
+          spacing: HearthSpacing.x2,
           children: [5, 10, 15, 20].map((minutes) {
             final selected = _snoozeDuration == minutes;
             return ChoiceChip(
@@ -424,7 +424,7 @@ class _AlarmEditorScreenState extends ConsumerState<AlarmEditorScreen> {
               backgroundColor: kDialogBackground,
               labelStyle: TextStyle(
                 color: selected ? Colors.white : Colors.white70,
-                fontSize: 12,
+                fontSize: 12, // equidistant caption=11/label=13
               ),
               side: BorderSide.none,
               visualDensity: VisualDensity.compact,
@@ -442,15 +442,15 @@ class _AlarmEditorScreenState extends ConsumerState<AlarmEditorScreen> {
         const Text(
           'Volume',
           style: TextStyle(
-            fontSize: 13,
+            fontSize: HearthFont.label,
             fontWeight: FontWeight.w500,
             color: Colors.white54,
           ),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: HearthSpacing.x1),
         Row(
           children: [
-            const Icon(Icons.volume_down, color: Colors.white38, size: 20),
+            const Icon(Icons.volume_down, color: Colors.white38, size: HearthIcon.sm),
             Expanded(
               child: Slider(
                 value: _volume,
@@ -459,7 +459,7 @@ class _AlarmEditorScreenState extends ConsumerState<AlarmEditorScreen> {
                 inactiveColor: Colors.white.withValues(alpha: 0.1),
               ),
             ),
-            const Icon(Icons.volume_up, color: Colors.white38, size: 20),
+            const Icon(Icons.volume_up, color: Colors.white38, size: HearthIcon.sm),
           ],
         ),
       ],
@@ -493,7 +493,7 @@ class _AlarmEditorScreenState extends ConsumerState<AlarmEditorScreen> {
               ),
             ),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: HearthSpacing.x4),
         ],
         Expanded(
           child: Material(
@@ -567,11 +567,11 @@ class _ScrollWheelState extends State<_ScrollWheel> {
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(widget.label,
-            style: const TextStyle(fontSize: 12, color: Colors.white38)),
-        const SizedBox(height: 4),
+            style: const TextStyle(fontSize: 12, color: Colors.white38)), // equidistant caption=11/label=13
+        const SizedBox(height: HearthSpacing.x1),
         SizedBox(
-          width: 70,
-          height: 150,
+          width: 70, // scroll wheel width — functional layout constraint
+          height: 150, // scroll wheel height — layout constraint far outside palette
           child: ListWheelScrollView.useDelegate(
             controller: _controller,
             itemExtent: 50,
@@ -589,7 +589,7 @@ class _ScrollWheelState extends State<_ScrollWheel> {
                   child: Text(
                     index.toString().padLeft(2, '0'),
                     style: TextStyle(
-                      fontSize: 36,
+                      fontSize: HearthFont.display,
                       fontWeight: FontWeight.w200,
                       color: index == _selectedIndex
                           ? Colors.white
