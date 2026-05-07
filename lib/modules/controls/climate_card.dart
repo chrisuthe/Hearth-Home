@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../app/tokens/tokens.dart';
 import '../../models/ha_entity.dart';
 
 /// Card for controlling a climate/thermostat entity.
@@ -42,7 +43,7 @@ class ClimateCard extends StatelessWidget {
     final accentColor = _modeColor(mode);
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(HearthSpacing.x4),
       decoration: BoxDecoration(
         color: entity.isOff
             ? Colors.white.withValues(alpha: 0.05)
@@ -55,8 +56,8 @@ class ClimateCard extends StatelessWidget {
           // Header row: icon, name, current temperature reading
           Row(
             children: [
-              Icon(Icons.thermostat, color: accentColor, size: 20),
-              const SizedBox(width: 8),
+              Icon(Icons.thermostat, color: accentColor, size: HearthIcon.sm),
+              const SizedBox(width: HearthSpacing.x2),
               Expanded(
                 child: Text(
                   entity.name,
@@ -76,7 +77,7 @@ class ClimateCard extends StatelessWidget {
             ],
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: HearthSpacing.x4),
 
           // Target temperature with +/- buttons for quick adjustment
           Row(
@@ -92,7 +93,7 @@ class ClimateCard extends StatelessWidget {
               Text(
                 '${targetTemp.round()}\u00B0',
                 style: TextStyle(
-                  fontSize: 36,
+                  fontSize: HearthFont.display,
                   fontWeight: FontWeight.w300,
                   color: accentColor,
                 ),
@@ -107,7 +108,7 @@ class ClimateCard extends StatelessWidget {
             ],
           ),
 
-          const SizedBox(height: 12),
+          const SizedBox(height: HearthSpacing.x3),
 
           // HVAC mode selector chips
           Row(
@@ -115,12 +116,12 @@ class ClimateCard extends StatelessWidget {
             children: [
               for (final m in ['heat', 'cool', 'auto', 'off'])
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: HearthSpacing.x1),
                   child: ChoiceChip(
                     label: Text(
                       m[0].toUpperCase() + m.substring(1),
                       style: TextStyle(
-                        fontSize: 11,
+                        fontSize: HearthFont.caption,
                         color: mode == m ? Colors.black : Colors.white70,
                       ),
                     ),
@@ -131,7 +132,7 @@ class ClimateCard extends StatelessWidget {
                     selectedColor: _modeColor(m),
                     backgroundColor: Colors.white.withValues(alpha: 0.08),
                     side: BorderSide.none,
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: HearthSpacing.x2),
                   ),
                 ),
             ],
