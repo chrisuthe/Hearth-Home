@@ -31,7 +31,9 @@ class CinematicScreen extends ConsumerStatefulWidget {
 
 class _CinematicScreenState extends ConsumerState<CinematicScreen>
     with SingleTickerProviderStateMixin {
-  double _shelfHeight = DrawerDetents.peek;
+  // Initial drawer position: minimal (transport-only). User drags up
+  // for the expanded view.
+  double _shelfHeight = DrawerDetents.minimal;
   bool _playersOpen = false;
   bool _browseOpen = false;
 

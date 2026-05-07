@@ -20,23 +20,25 @@ import 'dart:ui';
 
 const Duration kDrawerTransitionDuration = Duration(milliseconds: 240);
 
-/// Reference snap detents along the shelf height range. Order matters —
-/// `_nearestDetent` walks them and picks the closest.
+/// Snap detents along the shelf height range. The drawer has only two
+/// stops — minimal at the bottom, expanded at the top. The user drags
+/// continuously between them, but on release the shelf snaps to the
+/// nearer of the two; there is no intermediate hold position.
 class DrawerDetents {
-  /// Transport-only — drawer at the bottom of its drag range. Has to
-  /// accommodate the 80-px play button (with 22 top + 18 bottom shelf
-  /// padding), so the floor is 120 px; padded a bit for breathing.
+  /// Transport-only — drawer at the bottom of its drag range. Floor
+  /// is set by the 80-px play button + shelf padding (22 top + 18
+  /// bottom), so the practical minimum is 120 px; padded for breathing.
   static const double minimal = 140;
 
-  /// Default. Queue lane below transport.
-  static const double peek = 240;
-
-  /// Right pane (Mixer / Lyrics) appears next to queue. 50 % of the
-  /// 1184 × 864 render — pinned to the screen bottom edge in this
-  /// state.
+  /// 50 % of the 1184 × 864 render — drawer pinned to the screen
+  /// bottom edge with the queue lane and right pane visible.
   static const double expanded = 432;
 
-  static const List<double> all = [minimal, peek, expanded];
+  /// Threshold above which the hero begins to shrink and the right
+  /// pane fades in. Approximately the midpoint of the drag range.
+  static const double _heroShrinkStart = 240;
+
+  static const List<double> all = [minimal, expanded];
 
   static double nearest(double h) {
     double best = all.first;
@@ -102,11 +104,10 @@ class DrawerMetrics {
   });
 
   factory DrawerMetrics.fromShelfHeight(double h) {
-    // Hero shrink range — peek → expanded (210 → 432). The hero
-    // stays at its peek-state size (360 art / 64 title) all the way
-    // down to minimal — design preference: the hero never disappears.
-    final shrink = ((h - DrawerDetents.peek) /
-            (DrawerDetents.expanded - DrawerDetents.peek))
+    // Hero starts shrinking once the drag passes the midpoint of the
+    // range; below that it stays at full size (360 art / 64 title).
+    final shrink = ((h - DrawerDetents._heroShrinkStart) /
+            (DrawerDetents.expanded - DrawerDetents._heroShrinkStart))
         .clamp(0.0, 1.0);
     final heroArtSize = lerpDouble(360, 280, shrink)!;
     final heroTitleSize = lerpDouble(64, 48, shrink)!;
@@ -124,11 +125,12 @@ class DrawerMetrics {
       heroBottom: heroBottom,
       heroArtSize: heroArtSize,
       heroTitleSize: heroTitleSize,
-      // Queue lane appears as soon as we leave minimal proper.
+      // Queue lane appears as soon as the drawer rises off minimal.
       queueVisible: h > DrawerDetents.minimal + 20,
-      // Right pane appears toward the upper half of the drag range.
+      // Right pane appears at the midpoint of the drag, so it has
+      // time to fade in before the snap-to-expanded completes.
       rightPaneVisible:
-          h > (DrawerDetents.peek + DrawerDetents.expanded) / 2,
+          h > (DrawerDetents.minimal + DrawerDetents.expanded) / 2,
       shelfBottomInset: shelfBottomInset,
       shelfBottomRadius: shelfBottomRadius,
     );
