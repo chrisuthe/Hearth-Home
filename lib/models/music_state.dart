@@ -236,6 +236,21 @@ class MusicPlayerState {
   final PlaybackState playbackState;
   final MusicTrack? currentTrack;
   final Duration position;
+
+  /// Wall-clock instant when [position] was reported by MA (its
+  /// `elapsed_time_last_updated`). Combined with [position] and
+  /// [playbackState], this lets the UI compute the corrected position
+  /// at display time:
+  ///
+  ///     corrected = playing
+  ///         ? position + (now - positionAsOf)
+  ///         : position
+  ///
+  /// MA only emits `queue_time_updated` on sync corrections / seeks
+  /// (not every tick), so smooth client-side advancement is the only
+  /// way to keep a progress bar moving between events.
+  final DateTime? positionAsOf;
+
   final double volume; // 0.0 - 1.0, matching HA's volume_level attribute
   final bool muted;
   final String? activeZoneId;
@@ -268,6 +283,7 @@ class MusicPlayerState {
     this.playbackState = PlaybackState.idle,
     this.currentTrack,
     this.position = Duration.zero,
+    this.positionAsOf,
     this.volume = 0.5,
     this.muted = false,
     this.activeZoneId,
@@ -281,6 +297,19 @@ class MusicPlayerState {
     this.groupMembers = const [],
     this.syncedTo,
   });
+
+  /// Position corrected for elapsed wall-clock time since [positionAsOf].
+  /// Falls back to the static [position] if we don't have a base time
+  /// or the player isn't playing. Caller is responsible for clamping
+  /// against the track duration.
+  Duration correctedPosition() {
+    if (playbackState != PlaybackState.playing || positionAsOf == null) {
+      return position;
+    }
+    final delta = DateTime.now().difference(positionAsOf!);
+    if (delta.isNegative) return position;
+    return position + delta;
+  }
 
   bool get isPlaying => playbackState == PlaybackState.playing;
   bool get hasTrack => currentTrack != null;
@@ -351,6 +380,7 @@ class MusicPlayerState {
     PlaybackState? playbackState,
     MusicTrack? currentTrack,
     Duration? position,
+    DateTime? positionAsOf,
     double? volume,
     bool? muted,
     String? activeZoneId,
@@ -368,6 +398,7 @@ class MusicPlayerState {
       playbackState: playbackState ?? this.playbackState,
       currentTrack: currentTrack ?? this.currentTrack,
       position: position ?? this.position,
+      positionAsOf: positionAsOf ?? this.positionAsOf,
       volume: volume ?? this.volume,
       muted: muted ?? this.muted,
       activeZoneId: activeZoneId ?? this.activeZoneId,
@@ -419,20 +450,28 @@ class MusicPlayerState {
         const [];
     final groupMembers = groupMembersRaw.whereType<String>().toList();
 
-    // Position can sit at either of two paths in player_updated: at
-    // the top level (player.elapsed_time, the canonical one) and on
-    // current_media.elapsed_time. Prefer top-level; fall back to the
-    // nested copy for compatibility.
+    // Position lives at either path in player_updated: top level
+    // (player.elapsed_time, canonical) or nested under current_media.
+    // Prefer top-level. The companion timestamp (elapsed_time_last_updated,
+    // a UNIX seconds float) tells us when MA captured that elapsed
+    // value — needed for client-side ticking, since MA does not emit
+    // queue_time_updated every second.
     final elapsedSeconds = (json['elapsed_time'] as num?)?.toDouble() ??
         (currentMedia?['elapsed_time'] as num?)?.toDouble();
     final position = elapsedSeconds != null
         ? Duration(milliseconds: (elapsedSeconds * 1000).round())
         : Duration.zero;
+    final asOfRaw = (json['elapsed_time_last_updated'] as num?)?.toDouble() ??
+        (currentMedia?['elapsed_time_last_updated'] as num?)?.toDouble();
+    final positionAsOf = asOfRaw != null
+        ? DateTime.fromMillisecondsSinceEpoch((asOfRaw * 1000).round())
+        : (elapsedSeconds != null ? DateTime.now() : null);
 
     return MusicPlayerState(
       playbackState: playbackState,
       currentTrack: track,
       position: position,
+      positionAsOf: positionAsOf,
       volume: ((json['volume_level'] as num?)?.toDouble() ?? 50) / 100,
       muted: json['volume_muted'] as bool? ?? false,
       activeZoneId: json['active_source'] as String? ?? json['player_id'] as String?,
@@ -495,10 +534,17 @@ class MusicPlayerState {
       );
     }
 
+    final qElapsed = (json['elapsed_time'] as num?)?.toDouble();
+    final qAsOf = (json['elapsed_time_last_updated'] as num?)?.toDouble();
     return MusicPlayerState(
       playbackState: playbackState,
       currentTrack: currentTrack,
-      position: Duration(seconds: (json['elapsed_time'] as num?)?.toInt() ?? 0),
+      position: qElapsed != null
+          ? Duration(milliseconds: (qElapsed * 1000).round())
+          : Duration.zero,
+      positionAsOf: qAsOf != null
+          ? DateTime.fromMillisecondsSinceEpoch((qAsOf * 1000).round())
+          : (qElapsed != null ? DateTime.now() : null),
       shuffle: json['shuffle_enabled'] as bool? ?? false,
       repeatMode: json['repeat_mode'] as String? ?? 'off',
       activeZoneId: json['queue_id'] as String?,

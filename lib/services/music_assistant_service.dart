@@ -363,6 +363,7 @@ class MusicAssistantService {
                     playbackState: queueState.playbackState,
                     currentTrack: queueState.currentTrack,
                     position: queueState.position,
+                    positionAsOf: queueState.positionAsOf,
                     shuffle: queueState.shuffle,
                     repeatMode: queueState.repeatMode,
                     nextTrack: queueState.nextTrack,
@@ -423,12 +424,16 @@ class MusicAssistantService {
     if (event == 'queue_time_updated') {
       final elapsed = (rawData as num?)?.toDouble();
       if (elapsed == null) return;
-      // queue_time_updated's object_id is the queue id; the same id
-      // is used as activeZoneId on the matching player state.
+      // queue_time_updated's object_id is the queue id; same id used
+      // as activeZoneId on the matching player state. positionAsOf is
+      // "now" — the elapsed value is fresh from the server. Smooth
+      // ticking between events is the UI's responsibility (see
+      // MusicPlayerState.correctedPosition()).
       final existing = _playerStates[objectId];
       if (existing == null) return;
       final updated = existing.copyWith(
         position: Duration(milliseconds: (elapsed * 1000).round()),
+        positionAsOf: DateTime.now(),
       );
       _playerStates[objectId] = updated;
       _stateController.add(updated);
@@ -455,6 +460,7 @@ class MusicAssistantService {
               volume: playerState.volume,
               muted: playerState.muted,
               position: playerState.position,
+              positionAsOf: playerState.positionAsOf,
               activeZoneId: playerState.activeZoneId,
               activeZoneName: playerState.activeZoneName,
               available: playerState.available,
@@ -479,6 +485,7 @@ class MusicAssistantService {
               currentTrack: _mergeTrackMetadata(
                   queueState.currentTrack, existing.currentTrack),
               position: queueState.position,
+              positionAsOf: queueState.positionAsOf,
               shuffle: queueState.shuffle,
               repeatMode: queueState.repeatMode,
               nextTrack: queueState.nextTrack,

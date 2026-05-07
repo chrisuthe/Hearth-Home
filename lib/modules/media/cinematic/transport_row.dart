@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../app/media_tokens.dart';
@@ -43,10 +45,6 @@ class TransportRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final track = state.currentTrack;
     final duration = track?.duration ?? Duration.zero;
-    final position = state.position;
-    final progress = duration.inSeconds > 0
-        ? (position.inSeconds / duration.inSeconds).clamp(0.0, 1.0)
-        : 0.0;
     final showMiniInfo = drawer == DrawerState.minimal && track != null;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -56,9 +54,8 @@ class TransportRow extends StatelessWidget {
           const SizedBox(width: 18),
         ],
         Expanded(
-          child: _ProgressAndTimes(
-            progress: progress,
-            position: position,
+          child: _LiveProgressAndTimes(
+            state: state,
             duration: duration,
           ),
         ),
@@ -73,6 +70,77 @@ class TransportRow extends StatelessWidget {
           onVolumeChanged: onVolumeChanged,
         ),
       ],
+    );
+  }
+}
+
+/// Progress bar + time labels with client-side ticking.
+///
+/// MA emits position only on state changes / seeks (not every tick).
+/// To keep the bar moving smoothly, we recompute the corrected
+/// position from `state.position + (now - state.positionAsOf)` every
+/// 250 ms while playing. Isolated to this small widget so the rest of
+/// the transport row doesn't rebuild four times a second.
+class _LiveProgressAndTimes extends StatefulWidget {
+  final MusicPlayerState state;
+  final Duration duration;
+
+  const _LiveProgressAndTimes({
+    required this.state,
+    required this.duration,
+  });
+
+  @override
+  State<_LiveProgressAndTimes> createState() => _LiveProgressAndTimesState();
+}
+
+class _LiveProgressAndTimesState extends State<_LiveProgressAndTimes> {
+  Timer? _ticker;
+
+  @override
+  void initState() {
+    super.initState();
+    _maybeStartTicker();
+  }
+
+  @override
+  void didUpdateWidget(covariant _LiveProgressAndTimes old) {
+    super.didUpdateWidget(old);
+    _maybeStartTicker();
+  }
+
+  void _maybeStartTicker() {
+    final shouldRun = widget.state.isPlaying;
+    if (shouldRun && _ticker == null) {
+      _ticker = Timer.periodic(const Duration(milliseconds: 250), (_) {
+        if (mounted) setState(() {});
+      });
+    } else if (!shouldRun && _ticker != null) {
+      _ticker!.cancel();
+      _ticker = null;
+    }
+  }
+
+  @override
+  void dispose() {
+    _ticker?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    var position = widget.state.correctedPosition();
+    if (widget.duration > Duration.zero && position > widget.duration) {
+      position = widget.duration;
+    }
+    final progress = widget.duration.inSeconds > 0
+        ? (position.inMilliseconds / widget.duration.inMilliseconds)
+            .clamp(0.0, 1.0)
+        : 0.0;
+    return _ProgressAndTimes(
+      progress: progress,
+      position: position,
+      duration: widget.duration,
     );
   }
 }
