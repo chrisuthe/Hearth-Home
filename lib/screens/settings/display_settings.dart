@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/app.dart' show kDialogBackground;
 import '../../config/hub_config.dart';
+import '../../app/tokens/tokens.dart';
 
 /// Settings tile for choosing the display profile.
 class DisplaySettingsSection extends ConsumerWidget {
@@ -30,10 +31,10 @@ class DisplaySettingsSection extends ConsumerWidget {
             child: Row(
               children: [
                 if (entry.key == current)
-                  const Icon(Icons.check, size: 18, color: Colors.amber)
+                  const Icon(Icons.check, size: HearthIcon.xs, color: Colors.amber)
                 else
-                  const SizedBox(width: 18),
-                const SizedBox(width: 12),
+                  const SizedBox(width: HearthIcon.xs),
+                const SizedBox(width: HearthSpacing.x3),
                 Text(entry.value),
               ],
             ),
@@ -54,18 +55,18 @@ class DisplaySettingsSection extends ConsumerWidget {
     final label = _profiles[config.displayProfile] ?? config.displayProfile;
 
     return ListTile(
-      leading: const Icon(Icons.monitor, color: Colors.white54, size: 22),
-      title: const Text('Display Profile', style: TextStyle(fontSize: 15)),
+      leading: const Icon(Icons.monitor, color: Colors.white54, size: HearthIcon.md),
+      title: const Text('Display Profile', style: TextStyle(fontSize: HearthFont.body)),
       subtitle: Text(
         label,
         style: TextStyle(
-          fontSize: 13,
+          fontSize: HearthFont.label,
           color: Colors.white.withValues(alpha: 0.5),
         ),
       ),
       trailing: const Icon(Icons.chevron_right, color: Colors.white24),
       onTap: () => _showProfilePicker(context, ref, config.displayProfile),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+      contentPadding: const EdgeInsets.symmetric(horizontal: HearthSpacing.x2),
     );
   }
 }

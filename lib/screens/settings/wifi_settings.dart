@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/app.dart' show kDialogBackground;
 import '../../services/wifi_service.dart';
+import '../../app/tokens/tokens.dart';
 
 /// Displays the current WiFi connection and lets the user scan and connect.
 class WifiSettingsSection extends ConsumerStatefulWidget {
@@ -57,19 +58,19 @@ class _WifiSettingsSectionState extends ConsumerState<WifiSettingsSection> {
       leading: Icon(
         connected ? Icons.wifi : Icons.wifi_off,
         color: Colors.white54,
-        size: 22,
+        size: HearthIcon.md,
       ),
-      title: const Text('Wi-Fi', style: TextStyle(fontSize: 15)),
+      title: const Text('Wi-Fi', style: TextStyle(fontSize: HearthFont.body)),
       subtitle: Text(
         subtitle,
         style: TextStyle(
-          fontSize: 13,
+          fontSize: HearthFont.label,
           color: Colors.white.withValues(alpha: 0.5),
         ),
       ),
       trailing: const Icon(Icons.chevron_right, color: Colors.white24),
       onTap: _openPicker,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+      contentPadding: const EdgeInsets.symmetric(horizontal: HearthSpacing.x2),
     );
   }
 }
@@ -173,7 +174,7 @@ class _WifiPickerDialogState extends State<_WifiPickerDialog> {
         children: [
           const Expanded(child: Text('Wi-Fi Networks')),
           IconButton(
-            icon: const Icon(Icons.refresh, size: 20),
+            icon: const Icon(Icons.refresh, size: HearthIcon.sm),
             onPressed: _scanning ? null : _scan,
             tooltip: 'Rescan',
           ),
@@ -188,9 +189,9 @@ class _WifiPickerDialogState extends State<_WifiPickerDialog> {
             if (_statusMessage != null) ...[
               Text(
                 _statusMessage!,
-                style: const TextStyle(fontSize: 13, color: Colors.amber),
+                style: const TextStyle(fontSize: HearthFont.label, color: Colors.amber),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: HearthSpacing.x2),
             ],
             Expanded(
               child: _scanning
@@ -213,7 +214,7 @@ class _WifiPickerDialogState extends State<_WifiPickerDialog> {
                               dense: true,
                               leading: Icon(
                                 n.isSecured ? Icons.lock : Icons.wifi,
-                                size: 18,
+                                size: HearthIcon.xs,
                                 color: isActive
                                     ? const Color(0xFF646CFF)
                                     : Colors.white54,
@@ -221,7 +222,7 @@ class _WifiPickerDialogState extends State<_WifiPickerDialog> {
                               title: Text(
                                 n.ssid,
                                 style: TextStyle(
-                                  fontSize: 14,
+                                  fontSize: HearthFont.body,
                                   color: isActive
                                       ? const Color(0xFF646CFF)
                                       : Colors.white,
@@ -230,7 +231,7 @@ class _WifiPickerDialogState extends State<_WifiPickerDialog> {
                               subtitle: Text(
                                 '${n.signalStrength}%${n.isSecured ? '  \u{1F512}' : ''}',
                                 style: TextStyle(
-                                  fontSize: 11,
+                                  fontSize: HearthFont.caption,
                                   color: Colors.white.withValues(alpha: 0.5),
                                 ),
                               ),

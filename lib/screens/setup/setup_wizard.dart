@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/app.dart' show kDialogBackground;
 import '../../config/hub_config.dart';
 import '../../services/wifi_service.dart';
+import '../../app/tokens/tokens.dart';
 
 /// First-boot setup wizard — WiFi connection only.
 ///
@@ -132,31 +133,31 @@ class _SetupWizardState extends ConsumerState<SetupWizard> {
       color: Colors.black,
       child: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 48),
+          padding: const EdgeInsets.symmetric(horizontal: HearthSpacing.x12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: 48),
+              const SizedBox(height: HearthSpacing.x12),
               const Text(
                 'Welcome to Hearth',
-                style: TextStyle(fontSize: 32, fontWeight: FontWeight.w300),
+                style: TextStyle(fontSize: HearthFont.display, fontWeight: FontWeight.w300),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: HearthSpacing.x2),
               Text(
                 _connectedSsid != null
                     ? 'Connected to $_connectedSsid'
                     : 'Connect to WiFi to get started',
                 style: TextStyle(
-                  fontSize: 16,
+                  fontSize: HearthFont.bodyLg,
                   color: Colors.white.withValues(alpha: 0.5),
                 ),
               ),
               if (_error != null) ...[
-                const SizedBox(height: 8),
+                const SizedBox(height: HearthSpacing.x2),
                 Text(_error!,
                     style: const TextStyle(color: Colors.redAccent)),
               ],
-              const SizedBox(height: 24),
+              const SizedBox(height: HearthSpacing.x6),
               if (_scanning)
                 const Center(child: CircularProgressIndicator())
               else
@@ -184,7 +185,7 @@ class _SetupWizardState extends ConsumerState<SetupWizard> {
                                 color: Color(0xFF646CFF))
                             : network.isSecured
                                 ? const Icon(Icons.lock,
-                                    color: Colors.white24, size: 18)
+                                    color: Colors.white24, size: HearthIcon.xs)
                                 : null,
                         onTap:
                             isConnected ? null : () => _connect(network),
@@ -192,10 +193,10 @@ class _SetupWizardState extends ConsumerState<SetupWizard> {
                     },
                   ),
                 ),
-              const SizedBox(height: 16),
+              const SizedBox(height: HearthSpacing.x4),
               if (_connectedSsid != null) ...[
                 Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: HearthSpacing.allX4,
                   decoration: BoxDecoration(
                     color: const Color(0xFF1E1E1E),
                     borderRadius: BorderRadius.circular(8),
@@ -205,15 +206,15 @@ class _SetupWizardState extends ConsumerState<SetupWizard> {
                     children: [
                       const Text(
                         'Continue setup from a browser:',
-                        style: TextStyle(fontSize: 14, color: Colors.white70),
+                        style: TextStyle(fontSize: HearthFont.body, color: Colors.white70),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: HearthSpacing.x2),
                       Text(
                         _ipAddress != null
                             ? 'http://$_ipAddress:8090'
                             : 'http://hearth.local:8090',
                         style: const TextStyle(
-                          fontSize: 20,
+                          fontSize: HearthFont.title,
                           fontWeight: FontWeight.w500,
                           color: Color(0xFF646CFF),
                         ),
@@ -221,7 +222,7 @@ class _SetupWizardState extends ConsumerState<SetupWizard> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: HearthSpacing.x4),
               ],
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -236,7 +237,7 @@ class _SetupWizardState extends ConsumerState<SetupWizard> {
                         onPressed: _scanning ? null : _scan,
                         child: const Text('Rescan'),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: HearthSpacing.x3),
                       if (_connectedSsid != null)
                         FilledButton(
                           onPressed: _finishSetup,
@@ -246,7 +247,7 @@ class _SetupWizardState extends ConsumerState<SetupWizard> {
                   ),
                 ],
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: HearthSpacing.x6),
             ],
           ),
         ),
