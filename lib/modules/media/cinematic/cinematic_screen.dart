@@ -173,15 +173,9 @@ class _CinematicScreenState extends ConsumerState<CinematicScreen>
           bottom: metrics.heroBottom,
           left: 0,
           right: 0,
-          child: Opacity(
-            opacity: metrics.heroOpacity,
-            child: IgnorePointer(
-              ignoring: metrics.heroOpacity < 0.5,
-              child: CinematicHero(
-                track: state?.currentTrack,
-                metrics: metrics,
-              ),
-            ),
+          child: CinematicHero(
+            track: state?.currentTrack,
+            metrics: metrics,
           ),
         ),
         if (playerId != null && state != null)

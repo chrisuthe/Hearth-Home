@@ -9,14 +9,9 @@ import 'drawer_state.dart';
 /// Transport controls row inside the bottom shelf.
 ///
 /// Layout (left-to-right):
-///   - (when [DrawerMetrics.miniInfoVisible]) 240-px-min mini-info:
-///     48 × 48 art + title + artist
 ///   - flex-1 progress bar + tabular time labels
 ///   - controls cluster: heart · shuffle · prev · play(56) · next ·
 ///     repeat · lyrics · 1 px divider · volume icon · 100×3 volume bar
-///
-/// In `minimal` the hero is hidden, so the mini-info cluster stands in
-/// as the persistent now-playing display.
 ///
 /// Every icon button is 44×44 minimum (per the design's CIconBtn). The
 /// play/pause is 56×56 with its own drop shadow.
@@ -46,14 +41,9 @@ class TransportRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final track = state.currentTrack;
     final duration = track?.duration ?? Duration.zero;
-    final showMiniInfo = metrics.miniInfoVisible && track != null;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        if (showMiniInfo) ...[
-          _MiniInfo(track: track),
-          const SizedBox(width: 18),
-        ],
         Expanded(
           child: _LiveProgressAndTimes(
             state: state,
@@ -462,78 +452,3 @@ String _formatDur(Duration d) {
   return '$m:${s.toString().padLeft(2, '0')}';
 }
 
-/// Persistent now-playing summary shown in the transport row when the
-/// drawer is `minimal` (hero is hidden). 240 px minimum width — keeps
-/// the title/artist legible at small sizes without being squeezed by
-/// the progress bar.
-class _MiniInfo extends StatelessWidget {
-  final MusicTrack track;
-  const _MiniInfo({required this.track});
-
-  @override
-  Widget build(BuildContext context) {
-    return ConstrainedBox(
-      constraints: const BoxConstraints(minWidth: 240),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: const Color.fromRGBO(255, 255, 255, 0.04),
-              borderRadius: BorderRadius.circular(MediaRadii.smallArt),
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: track.imageUrl == null
-                ? const Icon(
-                    Icons.music_note,
-                    size: 22,
-                    color: Color.fromRGBO(255, 255, 255, MediaTextOpacity.section),
-                  )
-                : Image.network(
-                    track.imageUrl!,
-                    fit: BoxFit.cover,
-                    cacheWidth: 96,
-                    errorBuilder: (_, _, _) => const Icon(
-                      Icons.broken_image,
-                      size: 22,
-                      color: Color.fromRGBO(255, 255, 255, MediaTextOpacity.section),
-                    ),
-                  ),
-          ),
-          const SizedBox(width: 12),
-          Flexible(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  track.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  track.artist,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w400,
-                    color: Color.fromRGBO(255, 255, 255, MediaTextOpacity.meta),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}

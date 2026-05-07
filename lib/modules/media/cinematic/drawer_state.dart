@@ -70,20 +70,11 @@ class DrawerMetrics {
   /// Hero title font-size. Animates 64 → 48 over the same range.
   final double heroTitleSize;
 
-  /// 0..1 opacity for the hero subtree. Fades in across the
-  /// minimal → peek transition.
-  final double heroOpacity;
-
   /// Whether the bottom shelf renders its drawer body (queue lane).
   final bool queueVisible;
 
   /// Whether the bottom shelf renders the right pane (Mixer / Lyrics).
   final bool rightPaneVisible;
-
-  /// Whether the transport row prepends the mini-info cluster (48-px
-  /// art + title + artist) — the persistent now-playing summary that
-  /// stands in for the hidden hero in `minimal`.
-  final bool miniInfoVisible;
 
   /// Bottom inset for the shelf's `Positioned`. Tweens from 18 (peek
   /// / minimal — drawer floats above the screen edge) to 0 (expanded
@@ -102,21 +93,16 @@ class DrawerMetrics {
     required this.heroBottom,
     required this.heroArtSize,
     required this.heroTitleSize,
-    required this.heroOpacity,
     required this.queueVisible,
     required this.rightPaneVisible,
-    required this.miniInfoVisible,
     required this.shelfBottomInset,
     required this.shelfBottomRadius,
   });
 
   factory DrawerMetrics.fromShelfHeight(double h) {
-    // Hero fades in across minimal → peek (110 → 210).
-    final heroFade = ((h - DrawerDetents.minimal) /
-            (DrawerDetents.peek - DrawerDetents.minimal))
-        .clamp(0.0, 1.0);
-
-    // Hero shrink range — peek → expanded (210 → 432).
+    // Hero shrink range — peek → expanded (210 → 432). The hero
+    // stays at its peek-state size (360 art / 64 title) all the way
+    // down to minimal — design preference: the hero never disappears.
     final shrink = ((h - DrawerDetents.peek) /
             (DrawerDetents.expanded - DrawerDetents.peek))
         .clamp(0.0, 1.0);
@@ -125,8 +111,6 @@ class DrawerMetrics {
     final heroTop = lerpDouble(100, 70, shrink)!;
 
     // Hero bottom hugs the shelf top edge with a small visual gap.
-    // Below the peek detent the hero block is tucked behind the
-    // shelf anyway (heroOpacity → 0), so this only matters above peek.
     final heroBottom = h + 20;
 
     final shelfBottomInset = lerpDouble(18, 0, shrink)!;
@@ -138,14 +122,11 @@ class DrawerMetrics {
       heroBottom: heroBottom,
       heroArtSize: heroArtSize,
       heroTitleSize: heroTitleSize,
-      heroOpacity: heroFade,
       // Queue lane appears as soon as we leave minimal proper.
       queueVisible: h > DrawerDetents.minimal + 20,
       // Right pane appears toward the upper half of the drag range.
       rightPaneVisible:
           h > (DrawerDetents.peek + DrawerDetents.expanded) / 2,
-      // Mini-info covers for the hero whenever the hero is mostly faded.
-      miniInfoVisible: heroFade < 0.5,
       shelfBottomInset: shelfBottomInset,
       shelfBottomRadius: shelfBottomRadius,
     );
