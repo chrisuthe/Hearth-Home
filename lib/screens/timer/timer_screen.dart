@@ -253,7 +253,7 @@ class TimerDisplay extends StatelessWidget {
                 if (isDone) ...[
                   Icon(Icons.timer,
                       size: size * 0.15, color: const Color(0xFFFF9800)),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: HearthSpacing.x1),
                 ],
                 Text(
                   isDone ? "Time's up!" : timer.remainingLabel,
