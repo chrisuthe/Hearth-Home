@@ -8,20 +8,20 @@ import 'drawer_state.dart';
 import 'queue_lane.dart';
 import 'transport_row.dart';
 
-/// Bottom shelf — glass panel containing transport + (drawer-state-
-/// dependent) queue lane and right pane.
+/// Bottom shelf — glass panel containing transport + (height-dependent)
+/// queue lane and right pane.
 ///
-/// Heights animate via `AnimatedContainer` at [kDrawerTransitionDuration]
-/// so the height matches the parent screen's hero animation. The
-/// inside layout switches structurally on [drawer]:
-///   - `minimal` (110): transport row only (with mini-info prepended)
-///   - `peek` (210): transport + queue cards
-///   - `expanded` (360): transport + queue (flex 1.3) + right pane (flex 1)
+/// Height is driven directly off [DrawerMetrics.shelfHeight]. The
+/// drag handlers are forwarded up to the screen's drag controller, so
+/// gestures on the shelf top translate into shelf-height changes
+/// without going through any implicit animation.
 class CinematicBottomShelf extends StatelessWidget {
   final MusicPlayerState state;
   final String playerId;
-  final DrawerState drawer;
-  final VoidCallback onCycleDrawer;
+  final DrawerMetrics metrics;
+  final ValueChanged<DragStartDetails> onDragStart;
+  final ValueChanged<DragUpdateDetails> onDragUpdate;
+  final ValueChanged<DragEndDetails> onDragEnd;
   final VoidCallback? onPlayPause;
   final VoidCallback? onNext;
   final VoidCallback? onPrev;
@@ -33,8 +33,10 @@ class CinematicBottomShelf extends StatelessWidget {
     super.key,
     required this.state,
     required this.playerId,
-    required this.drawer,
-    required this.onCycleDrawer,
+    required this.metrics,
+    required this.onDragStart,
+    required this.onDragUpdate,
+    required this.onDragEnd,
     this.onPlayPause,
     this.onNext,
     this.onPrev,
@@ -52,10 +54,8 @@ class CinematicBottomShelf extends StatelessWidget {
       ),
       child: GlassPanel(
         borderRadius: BorderRadius.circular(MediaRadii.shelf),
-        child: AnimatedContainer(
-          duration: kDrawerTransitionDuration,
-          curve: Curves.easeInOut,
-          height: drawer.shelfHeight,
+        child: SizedBox(
+          height: metrics.shelfHeight,
           child: Stack(
             clipBehavior: Clip.hardEdge,
             children: [
@@ -67,7 +67,7 @@ class CinematicBottomShelf extends StatelessWidget {
                   children: [
                     TransportRow(
                       state: state,
-                      drawer: drawer,
+                      metrics: metrics,
                       onPlayPause: onPlayPause,
                       onNext: onNext,
                       onPrev: onPrev,
@@ -75,36 +75,38 @@ class CinematicBottomShelf extends StatelessWidget {
                       onRepeatCycle: onRepeatCycle,
                       onVolumeChanged: onVolumeChanged,
                     ),
-                    if (drawer.queueVisible) ...[
+                    if (metrics.queueVisible) ...[
                       const SizedBox(height: 18),
                       Expanded(
                         child: _DrawerBody(
                           state: state,
                           playerId: playerId,
-                          showRightPane: drawer.rightPaneVisible,
+                          showRightPane: metrics.rightPaneVisible,
                         ),
                       ),
                     ],
                   ],
                 ),
               ),
-              // Cycle affordance — visible drag pill + a narrow hit
-              // target *just around the pill*. Earlier versions used a
-              // full-width strip that absorbed taps over the mini-info
-              // area; narrowing it ensures the mini-info on the left
-              // and volume controls on the right keep their hit areas.
+              // Drag affordance — visible drag pill plus a wider-but-
+              // still-narrow vertical drag target. Centred at the top
+              // edge so the user has a clear "grab here" signal. Width
+              // 200 keeps it well clear of mini-info on the left and
+              // volume controls on the right.
               Positioned(
                 top: 0,
                 left: 0,
                 right: 0,
-                height: 22,
+                height: 30,
                 child: Center(
                   child: SizedBox(
-                    width: 80,
+                    width: 200,
                     child: GestureDetector(
                       behavior: HitTestBehavior.opaque,
-                      onTap: onCycleDrawer,
-                      child: const Center(child: _CycleHandle()),
+                      onVerticalDragStart: onDragStart,
+                      onVerticalDragUpdate: onDragUpdate,
+                      onVerticalDragEnd: onDragEnd,
+                      child: const Center(child: _DrawerHandle()),
                     ),
                   ),
                 ),
@@ -117,11 +119,9 @@ class CinematicBottomShelf extends StatelessWidget {
   }
 }
 
-/// The visible "drag handle" at the top of the shelf — a thin pill
-/// signalling "this surface has more states." Wrapped in a hit
-/// target by the caller; this widget only paints.
-class _CycleHandle extends StatelessWidget {
-  const _CycleHandle();
+/// Visible drag pill at the top of the shelf. The drag target wraps it.
+class _DrawerHandle extends StatelessWidget {
+  const _DrawerHandle();
 
   @override
   Widget build(BuildContext context) {

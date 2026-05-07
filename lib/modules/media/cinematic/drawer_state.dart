@@ -1,105 +1,135 @@
-/// Three-state vertical drawer for the cinematic music player.
+/// Continuous-drag drawer for the cinematic music player.
 ///
-/// State dimensions are lifted directly from `direction-cinematic.jsx`:
-///   - shelf height (CinematicBottomShelf)         — JSX:147
-///   - hero `top` / `bottom` (CinematicHero stack pos) — JSX:89-90
-///   - hero album art size                          — JSX:95-96
-///   - hero title font-size                         — JSX:107
+/// The bottom shelf is a true drawer: the user drags it up/down with a
+/// finger and the height tracks every frame. Three reference detents
+/// (minimal / peek / expanded) act as snap targets when the drag ends —
+/// they're not discrete tap-cycle states. The design handoff's three
+/// "states" are snapshots along this continuous range, not separate
+/// stops the user has to walk through.
 ///
-/// All four properties animate simultaneously over [transitionDuration]
-/// when the state changes — that synchronicity is load-bearing for the
-/// "one continuous gesture" feel; staggered animations would feel like
-/// a sequence of tiny independent moves.
+/// Every derived dimension (hero position, art size, title font size,
+/// opacity, structural visibility) is computed from [shelfHeight].
+/// Rendering is direct: callers pass the value to `Container.height`,
+/// `Positioned.bottom`, etc., with no implicit animation. Smoothness
+/// during a drag comes from setState; smoothness during the
+/// snap-on-release comes from an AnimationController in
+/// CinematicScreen.
 library;
+
+import 'dart:ui';
 
 const Duration kDrawerTransitionDuration = Duration(milliseconds: 240);
 
-enum DrawerState {
-  /// Transport-only. Shelf collapses to a transport row; hero is
-  /// hidden so the wallpaper takes the full canvas. The transport row
-  /// gets a 240-px-min-width "mini-info" cluster prepended (48×48 art
-  /// + title + artist) so the now-playing summary stays visible.
-  minimal(
-    shelfHeight: 110,
-    heroTop: 100,
-    heroBottom: 130,
-    heroArtSize: 360,
-    heroTitleSize: 64,
-    heroVisible: false,
-    queueVisible: false,
-    rightPaneVisible: false,
-  ),
+/// Reference snap detents along the shelf height range. Order matters —
+/// `_nearestDetent` walks them and picks the closest.
+class DrawerDetents {
+  /// Transport-only. Hero hidden; transport row prepends mini-info.
+  static const double minimal = 110;
 
-  /// Default — hero centred, shelf shows transport + horizontal queue
-  /// lane.
-  peek(
-    shelfHeight: 210,
-    heroTop: 100,
-    heroBottom: 230,
-    heroArtSize: 360,
-    heroTitleSize: 64,
-    heroVisible: true,
-    queueVisible: true,
-    rightPaneVisible: false,
-  ),
+  /// Default. Hero visible at full size; queue lane below transport.
+  static const double peek = 210;
 
-  /// Hero shrinks to make room for a 360-px shelf containing transport
-  /// + queue (flex 1.3) + right pane (flex 1) with the
-  /// Browse/Mixer/Lyrics tabbed surface.
-  expanded(
-    shelfHeight: 360,
-    heroTop: 70,
-    heroBottom: 380,
-    heroArtSize: 280,
-    heroTitleSize: 48,
-    heroVisible: true,
-    queueVisible: true,
-    rightPaneVisible: true,
-  );
+  /// Hero shrinks; right pane (Mixer / Lyrics) appears next to queue.
+  /// 50 % of the 1184 × 864 render — keeps the hero text just visible
+  /// above the shelf top edge.
+  static const double expanded = 432;
 
-  const DrawerState({
+  static const List<double> all = [minimal, peek, expanded];
+
+  static double nearest(double h) {
+    double best = all.first;
+    double bestDelta = (h - best).abs();
+    for (final d in all.skip(1)) {
+      final delta = (h - d).abs();
+      if (delta < bestDelta) {
+        best = d;
+        bestDelta = delta;
+      }
+    }
+    return best;
+  }
+}
+
+/// Everything a child widget needs to render at the current shelf
+/// height. Computed in CinematicScreen on every build (cheap — small
+/// scalar math) and passed to children as a single immutable bundle.
+class DrawerMetrics {
+  /// Source-of-truth height in logical px, in `[minimal, expanded]`.
+  final double shelfHeight;
+
+  /// Hero `top` Positioned offset.
+  final double heroTop;
+
+  /// Hero `bottom` Positioned offset (anchored above the shelf).
+  final double heroBottom;
+
+  /// Hero album-art square size. Animates from 360 (peek) → 280
+  /// (expanded) as the shelf grows past peek.
+  final double heroArtSize;
+
+  /// Hero title font-size. Animates 64 → 48 over the same range.
+  final double heroTitleSize;
+
+  /// 0..1 opacity for the hero subtree. Fades in across the
+  /// minimal → peek transition.
+  final double heroOpacity;
+
+  /// Whether the bottom shelf renders its drawer body (queue lane).
+  final bool queueVisible;
+
+  /// Whether the bottom shelf renders the right pane (Mixer / Lyrics).
+  final bool rightPaneVisible;
+
+  /// Whether the transport row prepends the mini-info cluster (48-px
+  /// art + title + artist) — the persistent now-playing summary that
+  /// stands in for the hidden hero in `minimal`.
+  final bool miniInfoVisible;
+
+  const DrawerMetrics({
     required this.shelfHeight,
     required this.heroTop,
     required this.heroBottom,
     required this.heroArtSize,
     required this.heroTitleSize,
-    required this.heroVisible,
+    required this.heroOpacity,
     required this.queueVisible,
     required this.rightPaneVisible,
+    required this.miniInfoVisible,
   });
 
-  final double shelfHeight;
-  final double heroTop;
-  final double heroBottom;
-  final double heroArtSize;
-  final double heroTitleSize;
+  factory DrawerMetrics.fromShelfHeight(double h) {
+    // Hero fades in across minimal → peek (110 → 210).
+    final heroFade = ((h - DrawerDetents.minimal) /
+            (DrawerDetents.peek - DrawerDetents.minimal))
+        .clamp(0.0, 1.0);
 
-  /// Whether the hero stack region renders visible content. In
-  /// `minimal` the hero is structurally hidden (the wallpaper plus
-  /// transport-row mini-info IS the now-playing display).
-  final bool heroVisible;
+    // Hero shrink range — peek → expanded (210 → 432).
+    final shrink = ((h - DrawerDetents.peek) /
+            (DrawerDetents.expanded - DrawerDetents.peek))
+        .clamp(0.0, 1.0);
+    final heroArtSize = lerpDouble(360, 280, shrink)!;
+    final heroTitleSize = lerpDouble(64, 48, shrink)!;
+    final heroTop = lerpDouble(100, 70, shrink)!;
 
-  /// Whether the bottom shelf shows its drawer body (queue lane and
-  /// optionally the right pane). False for `minimal`.
-  final bool queueVisible;
+    // Hero bottom hugs the shelf top edge with a small visual gap.
+    // Below the peek detent the hero block is tucked behind the
+    // shelf anyway (heroOpacity → 0), so this only matters above peek.
+    final heroBottom = h + 20;
 
-  /// Whether the bottom shelf shows its right pane (Browse/Mixer/Lyrics
-  /// tabs). True only for `expanded`.
-  final bool rightPaneVisible;
-
-  /// Cycle to the next drawer state in
-  /// `minimal → peek → expanded → minimal` order.
-  ///
-  /// This is the single advance gesture — taps on the cycle affordance
-  /// always go in this direction.
-  DrawerState cycleNext() {
-    switch (this) {
-      case DrawerState.minimal:
-        return DrawerState.peek;
-      case DrawerState.peek:
-        return DrawerState.expanded;
-      case DrawerState.expanded:
-        return DrawerState.minimal;
-    }
+    return DrawerMetrics(
+      shelfHeight: h,
+      heroTop: heroTop,
+      heroBottom: heroBottom,
+      heroArtSize: heroArtSize,
+      heroTitleSize: heroTitleSize,
+      heroOpacity: heroFade,
+      // Queue lane appears as soon as we leave minimal proper.
+      queueVisible: h > DrawerDetents.minimal + 20,
+      // Right pane appears toward the upper half of the drag range.
+      rightPaneVisible:
+          h > (DrawerDetents.peek + DrawerDetents.expanded) / 2,
+      // Mini-info covers for the hero whenever the hero is mostly faded.
+      miniInfoVisible: heroFade < 0.5,
+    );
   }
 }

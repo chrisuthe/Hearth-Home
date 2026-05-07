@@ -9,7 +9,8 @@ import 'drawer_state.dart';
 /// Transport controls row inside the bottom shelf.
 ///
 /// Layout (left-to-right):
-///   - (minimal-only) 240-px-min mini-info: 48 × 48 art + title + artist
+///   - (when [DrawerMetrics.miniInfoVisible]) 240-px-min mini-info:
+///     48 × 48 art + title + artist
 ///   - flex-1 progress bar + tabular time labels
 ///   - controls cluster: heart · shuffle · prev · play(56) · next ·
 ///     repeat · lyrics · 1 px divider · volume icon · 100×3 volume bar
@@ -21,7 +22,7 @@ import 'drawer_state.dart';
 /// play/pause is 56×56 with its own drop shadow.
 class TransportRow extends StatelessWidget {
   final MusicPlayerState state;
-  final DrawerState drawer;
+  final DrawerMetrics metrics;
   final VoidCallback? onPlayPause;
   final VoidCallback? onNext;
   final VoidCallback? onPrev;
@@ -32,7 +33,7 @@ class TransportRow extends StatelessWidget {
   const TransportRow({
     super.key,
     required this.state,
-    required this.drawer,
+    required this.metrics,
     this.onPlayPause,
     this.onNext,
     this.onPrev,
@@ -45,7 +46,7 @@ class TransportRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final track = state.currentTrack;
     final duration = track?.duration ?? Duration.zero;
-    final showMiniInfo = drawer == DrawerState.minimal && track != null;
+    final showMiniInfo = metrics.miniInfoVisible && track != null;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [

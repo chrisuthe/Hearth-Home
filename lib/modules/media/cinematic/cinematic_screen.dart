@@ -13,15 +13,15 @@ import 'mini_bar.dart';
 import 'players_popover.dart';
 import 'top_chrome.dart';
 
-/// Root scaffold for the cinematic music player redesign.
+/// Root scaffold for the cinematic music player.
 ///
-/// Phase 2 wires the drawer state machine. Single source of truth lives
-/// here; child widgets receive the `DrawerState` and animate their own
-/// dimensions implicitly via `AnimatedPositioned` /
-/// `AnimatedContainer` / `AnimatedDefaultTextStyle` — all using the
-/// same [kDrawerTransitionDuration] (240 ms) and curve so the layout
-/// reads as one continuous gesture, not a sequence of independent
-/// moves.
+/// The bottom shelf is a continuous-drag drawer. Drag gestures on the
+/// shelf header track the finger directly via [_shelfHeight]; on
+/// release we animate to the nearest detent (`DrawerDetents`). Hero
+/// dimensions, opacity, and structural visibility are all derived
+/// from `_shelfHeight` via [DrawerMetrics] — no implicit animations
+/// involved, because implicit animations have a duration and would
+/// lag the finger.
 class CinematicScreen extends ConsumerStatefulWidget {
   const CinematicScreen({super.key});
 
@@ -29,13 +29,54 @@ class CinematicScreen extends ConsumerStatefulWidget {
   ConsumerState<CinematicScreen> createState() => _CinematicScreenState();
 }
 
-class _CinematicScreenState extends ConsumerState<CinematicScreen> {
-  DrawerState _drawer = DrawerState.peek;
+class _CinematicScreenState extends ConsumerState<CinematicScreen>
+    with SingleTickerProviderStateMixin {
+  double _shelfHeight = DrawerDetents.peek;
   bool _playersOpen = false;
   bool _browseOpen = false;
 
-  void _cycleDrawer() {
-    setState(() => _drawer = _drawer.cycleNext());
+  late final AnimationController _snapController;
+  Animation<double>? _snapAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _snapController = AnimationController(
+      vsync: this,
+      duration: kDrawerTransitionDuration,
+    );
+  }
+
+  @override
+  void dispose() {
+    _snapController.dispose();
+    super.dispose();
+  }
+
+  void _onDrawerDragStart(DragStartDetails _) {
+    // Cancel any in-flight snap so the user is in control immediately.
+    _snapController.stop();
+  }
+
+  void _onDrawerDragUpdate(DragUpdateDetails details) {
+    // Drag DOWN (positive dy) shrinks the shelf; drag UP grows it.
+    setState(() {
+      _shelfHeight = (_shelfHeight - details.delta.dy)
+          .clamp(DrawerDetents.minimal, DrawerDetents.expanded);
+    });
+  }
+
+  void _onDrawerDragEnd(DragEndDetails _) {
+    final from = _shelfHeight;
+    final target = DrawerDetents.nearest(_shelfHeight);
+    if ((from - target).abs() < 0.5) return;
+    _snapAnim = Tween<double>(begin: from, end: target).animate(
+      CurvedAnimation(parent: _snapController, curve: Curves.easeOutCubic),
+    )..addListener(() {
+        if (!mounted) return;
+        setState(() => _shelfHeight = _snapAnim!.value);
+      });
+    _snapController.forward(from: 0);
   }
 
   void _togglePlayers() {
@@ -109,6 +150,8 @@ class _CinematicScreenState extends ConsumerState<CinematicScreen> {
       );
     }
 
+    final metrics = DrawerMetrics.fromShelfHeight(_shelfHeight);
+
     return Stack(
       fit: StackFit.expand,
       children: [
@@ -125,22 +168,18 @@ class _CinematicScreenState extends ConsumerState<CinematicScreen> {
             onPlayersTap: _togglePlayers,
           ),
         ),
-        AnimatedPositioned(
-          duration: kDrawerTransitionDuration,
-          curve: Curves.easeInOut,
-          top: _drawer.heroTop,
-          bottom: _drawer.heroBottom,
+        Positioned(
+          top: metrics.heroTop,
+          bottom: metrics.heroBottom,
           left: 0,
           right: 0,
-          child: AnimatedOpacity(
-            duration: kDrawerTransitionDuration,
-            curve: Curves.easeInOut,
-            opacity: _drawer.heroVisible ? 1.0 : 0.0,
+          child: Opacity(
+            opacity: metrics.heroOpacity,
             child: IgnorePointer(
-              ignoring: !_drawer.heroVisible,
+              ignoring: metrics.heroOpacity < 0.5,
               child: CinematicHero(
                 track: state?.currentTrack,
-                drawer: _drawer,
+                metrics: metrics,
               ),
             ),
           ),
@@ -153,8 +192,10 @@ class _CinematicScreenState extends ConsumerState<CinematicScreen> {
             child: CinematicBottomShelf(
               state: state,
               playerId: playerId,
-              drawer: _drawer,
-              onCycleDrawer: _cycleDrawer,
+              metrics: metrics,
+              onDragStart: _onDrawerDragStart,
+              onDragUpdate: _onDrawerDragUpdate,
+              onDragEnd: _onDrawerDragEnd,
               onPlayPause: () => music.playPause(playerId),
               onNext: () => music.nextTrack(playerId),
               onPrev: () => music.previousTrack(playerId),
@@ -170,8 +211,6 @@ class _CinematicScreenState extends ConsumerState<CinematicScreen> {
               onVolumeChanged: (v) => music.setVolume(playerId, v),
             ),
           ),
-        // Popover renders LAST so it paints over the entire UI,
-        // including the bottom shelf and top chrome.
         if (_playersOpen)
           PlayersPopover(onClose: _togglePlayers),
       ],

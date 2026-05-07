@@ -6,18 +6,18 @@ import 'drawer_state.dart';
 import 'mini_stats_row.dart';
 
 /// Centre-stage hero. Album art on the left, track meta column on the
-/// right (max 620 px). The album art size and title font-size animate
-/// implicitly via `AnimatedContainer` and `AnimatedDefaultTextStyle`,
-/// using the same duration as the bottom shelf height + hero position
-/// — all four properties move in lockstep.
+/// right (max 620 px). Art size and title font-size are driven
+/// directly off [DrawerMetrics] so the hero tracks the drawer drag
+/// frame-by-frame; no implicit animations involved (those would lag
+/// the finger).
 class CinematicHero extends StatelessWidget {
   final MusicTrack? track;
-  final DrawerState drawer;
+  final DrawerMetrics metrics;
 
   const CinematicHero({
     super.key,
     this.track,
-    required this.drawer,
+    required this.metrics,
   });
 
   @override
@@ -31,12 +31,12 @@ class CinematicHero extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            _HeroArt(imageUrl: t.imageUrl, size: drawer.heroArtSize),
+            _HeroArt(imageUrl: t.imageUrl, size: metrics.heroArtSize),
             const SizedBox(width: 50),
             Flexible(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 620),
-                child: _HeroMeta(track: t, titleSize: drawer.heroTitleSize),
+                child: _HeroMeta(track: t, titleSize: metrics.heroTitleSize),
               ),
             ),
           ],
@@ -54,9 +54,7 @@ class _HeroArt extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedContainer(
-      duration: kDrawerTransitionDuration,
-      curve: Curves.easeInOut,
+    return Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
@@ -107,20 +105,16 @@ class _HeroMeta extends StatelessWidget {
       children: [
         _Eyebrow(album: track.album),
         const SizedBox(height: 12),
-        AnimatedDefaultTextStyle(
-          duration: kDrawerTransitionDuration,
-          curve: Curves.easeInOut,
+        Text(
+          track.title,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
           style: TextStyle(
             fontSize: titleSize,
             fontWeight: FontWeight.w700,
             height: 0.95,
             letterSpacing: -2,
             color: Colors.white,
-          ),
-          child: Text(
-            track.title,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
           ),
         ),
         const SizedBox(height: 14),

@@ -5,11 +5,10 @@ import '../../../app/media_tokens.dart';
 import '../../../models/music_state.dart';
 import '../../../services/music_assistant_service.dart';
 
-/// Right-pane content for the bottom shelf in `expanded` drawer state.
-///
-/// Three pill tabs at the top: Browse / Mixer / Lyrics. Default tab is
-/// Browse (recent albums shelf). Tabs are local state — switching tabs
-/// doesn't persist across drawer collapses.
+/// Right-pane content for the bottom shelf when expanded. Two pill
+/// tabs: Mixer / Lyrics. Library browsing has its own dedicated mode
+/// reachable via the Search & Browse chip in the top chrome — the
+/// drawer is for now-playing controls, not library navigation.
 class BrowseShelves extends StatefulWidget {
   final String playerId;
 
@@ -19,10 +18,10 @@ class BrowseShelves extends StatefulWidget {
   State<BrowseShelves> createState() => _BrowseShelvesState();
 }
 
-enum _Tab { browse, mixer, lyrics }
+enum _Tab { mixer, lyrics }
 
 class _BrowseShelvesState extends State<BrowseShelves> {
-  _Tab _tab = _Tab.browse;
+  _Tab _tab = _Tab.mixer;
 
   @override
   Widget build(BuildContext context) {
@@ -34,7 +33,6 @@ class _BrowseShelvesState extends State<BrowseShelves> {
             for (final t in _Tab.values) ...[
               _TabPill(
                 label: switch (t) {
-                  _Tab.browse => 'Browse',
                   _Tab.mixer => 'Mixer',
                   _Tab.lyrics => 'Lyrics',
                 },
@@ -48,7 +46,6 @@ class _BrowseShelvesState extends State<BrowseShelves> {
         const SizedBox(height: 12),
         Expanded(
           child: switch (_tab) {
-            _Tab.browse => const _BrowsePane(),
             _Tab.mixer => _MixerPane(activePlayerId: widget.playerId),
             _Tab.lyrics => const _LyricsPlaceholder(),
           },
@@ -89,154 +86,6 @@ class _TabPill extends StatelessWidget {
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-/// Browse tab — recent albums shelf. Phase 2 covers Albums only;
-/// Radio / Podcasts shelves come with the Browse overlay in Phase 4.
-class _BrowsePane extends ConsumerStatefulWidget {
-  const _BrowsePane();
-
-  @override
-  ConsumerState<_BrowsePane> createState() => _BrowsePaneState();
-}
-
-class _BrowsePaneState extends ConsumerState<_BrowsePane> {
-  late Future<List<MaMediaItem>> _albums;
-
-  @override
-  void initState() {
-    super.initState();
-    _albums =
-        ref.read(musicAssistantServiceProvider).getLibraryItems('albums', limit: 20);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const _ShelfHeader(label: 'Albums'),
-        const SizedBox(height: 10),
-        Expanded(
-          child: FutureBuilder<List<MaMediaItem>>(
-            future: _albums,
-            builder: (context, snap) {
-              if (snap.connectionState != ConnectionState.done) {
-                return const Center(
-                  child: SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 1.5),
-                  ),
-                );
-              }
-              final items = snap.data ?? const [];
-              if (items.isEmpty) {
-                return const Center(
-                  child: Text(
-                    'No albums in library',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Color.fromRGBO(255, 255, 255, MediaTextOpacity.section),
-                    ),
-                  ),
-                );
-              }
-              return ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: items.length,
-                separatorBuilder: (_, _) => const SizedBox(width: 8),
-                itemBuilder: (_, i) => _BrowseTile(item: items[i]),
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _ShelfHeader extends StatelessWidget {
-  final String label;
-  const _ShelfHeader({required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      label.toUpperCase(),
-      style: const TextStyle(
-        fontSize: 11,
-        fontWeight: FontWeight.w700,
-        letterSpacing: 1.4,
-        color: Color.fromRGBO(255, 255, 255, MediaTextOpacity.eyebrow),
-      ),
-    );
-  }
-}
-
-class _BrowseTile extends StatelessWidget {
-  final MaMediaItem item;
-  const _BrowseTile({required this.item});
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 80,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              color: const Color.fromRGBO(255, 255, 255, 0.04),
-              borderRadius: BorderRadius.circular(MediaRadii.tinyArt),
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: item.imageUrl == null
-                ? const Icon(
-                    Icons.album,
-                    size: 28,
-                    color: Color.fromRGBO(255, 255, 255, MediaTextOpacity.section),
-                  )
-                : Image.network(
-                    item.imageUrl!,
-                    fit: BoxFit.cover,
-                    cacheWidth: 160,
-                    errorBuilder: (_, _, _) => const Icon(
-                      Icons.broken_image,
-                      size: 28,
-                      color: Color.fromRGBO(255, 255, 255, MediaTextOpacity.section),
-                    ),
-                  ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            item.name,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: Colors.white,
-            ),
-          ),
-          if (item.artist != null && item.artist!.isNotEmpty)
-            Text(
-              item.artist!,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 9,
-                fontWeight: FontWeight.w400,
-                color: Color.fromRGBO(255, 255, 255, MediaTextOpacity.meta),
-              ),
-            ),
-        ],
       ),
     );
   }
