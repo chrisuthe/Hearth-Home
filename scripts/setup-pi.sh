@@ -72,26 +72,20 @@ if [ -n "$USB_SOURCE" ]; then
     echo "PipeWire default source -> USB mic (id $USB_SOURCE)"
 fi
 
-# --- flutter-pi (patched for live pipeline support) ---
-echo "Building flutter-pi with live pipeline patch..."
+# --- flutter-pi (Hearth fork) ---
+# Patches live as commits on the `hearth` branch of the fork. See
+# UPSTREAM_PIN in the fork repo for which upstream commit it tracks.
+# Primary: Gitea (private, home network). Fallback: GitHub mirror.
+FORK_GITEA="https://registry.home.chrisuthe.com/chris/flutter-pi-hearth.git"
+FORK_GITHUB="https://github.com/chrisuthe/flutter-pi-hearth.git"
+echo "Building flutter-pi from Hearth fork..."
 cd /tmp
 rm -rf flutter-pi
-git clone https://github.com/ardera/flutter-pi.git
-cd flutter-pi
-
-# Apply live pipeline fix: custom pipelines (RTSP, HTTP live) deadlock
-# during init because live sources don't produce data in PAUSED state.
-# This patch goes straight to PLAYING for custom pipelines, skips the
-# appsink caps override, and enables frame dropping.
-PATCH_URL="https://raw.githubusercontent.com/chrisuthe/Hearth-Home/main/scripts/apply_patch.py"
-wget -qO /tmp/apply_patch.py "$PATCH_URL" 2>/dev/null || {
-    echo "Warning: Could not download patch script from GitHub."
-    echo "Continuing without live pipeline patch."
-}
-if [ -f /tmp/apply_patch.py ]; then
-    python3 /tmp/apply_patch.py || exit 1
-    rm -f /tmp/apply_patch.py
+if ! git clone --depth 1 -b hearth "$FORK_GITEA" flutter-pi 2>/dev/null; then
+    echo "Gitea unreachable, falling back to GitHub mirror..."
+    git clone --depth 1 -b hearth "$FORK_GITHUB" flutter-pi
 fi
+cd flutter-pi
 
 mkdir -p build && cd build
 cmake ..
