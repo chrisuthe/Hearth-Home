@@ -189,7 +189,7 @@ Environment=XDG_RUNTIME_DIR=/run/hearth
 # which doesn't exist, and the connection silently fails — clients open
 # default, get no errors, but never register with the daemon.
 Environment=PIPEWIRE_RUNTIME_DIR=/run/user/999
-ExecStart=/usr/local/bin/flutter-pi --release /opt/hearth/bundle
+ExecStart=/usr/local/bin/flutter-pi --release --mirror-connector HDMI-A-2 /opt/hearth/bundle
 Environment=LD_LIBRARY_PATH=/opt/hearth/bundle
 Environment=HEARTH_NO_MEDIAKIT=1
 Restart=on-failure
