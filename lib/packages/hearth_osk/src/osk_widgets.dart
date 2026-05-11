@@ -226,21 +226,27 @@ class _HearthOskOverlayState extends State<HearthOskOverlay>
       ignoring: !control.visible && _anim.value == 0,
       child: SlideTransition(
         position: _slide,
-        child: Material(
-          type: MaterialType.canvas,
-          color: theme.background,
-          textStyle: TextStyle(
-            color: theme.keyLabel,
-            fontSize: theme.keyLabelSize,
-            fontWeight: FontWeight.w500,
-          ),
-          child: SafeArea(
-            top: false,
-            child: HearthOskGrid(
-              layout: control.layout,
-              theme: theme,
-              shifted: control.shifted,
-              onKey: control.handleKey,
+        // TapRegion with groupId=EditableText makes taps inside the OSK count
+        // as part of the same logical region as the focused TextField, so the
+        // field's onTapOutside doesn't fire and we don't lose focus mid-typing.
+        child: TapRegion(
+          groupId: EditableText,
+          child: Material(
+            type: MaterialType.canvas,
+            color: theme.background,
+            textStyle: TextStyle(
+              color: theme.keyLabel,
+              fontSize: theme.keyLabelSize,
+              fontWeight: FontWeight.w500,
+            ),
+            child: SafeArea(
+              top: false,
+              child: HearthOskGrid(
+                layout: control.layout,
+                theme: theme,
+                shifted: control.shifted,
+                onKey: control.handleKey,
+              ),
             ),
           ),
         ),
