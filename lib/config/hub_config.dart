@@ -218,14 +218,6 @@ class HubConfig {
   /// endpoints return 404, and the portal's "Captures" link is hidden.
   final bool captureToolsEnabled;
 
-  /// Hostname or IP of the OBS listener that receives the SRT stream.
-  /// Empty until the user picks a target in the /capture web UI.
-  final String streamTargetHost;
-
-  /// Port the OBS SRT listener is bound to. Default 9999; any valid TCP/UDP
-  /// port number is allowed.
-  final int streamTargetPort;
-
   final PhotoSourcesConfig photoSources;
 
   /// Global UI scale multiplier. 1.0 = no change. Range [0.75, 1.5],
@@ -281,8 +273,6 @@ class HubConfig {
     this.micMuted = false,
     this.touchIndicator = const TouchIndicatorConfig(),
     this.captureToolsEnabled = false,
-    this.streamTargetHost = '',
-    this.streamTargetPort = 9999,
     this.photoSources = const PhotoSourcesConfig(),
     this.uiScale = 1.0,
   });
@@ -341,8 +331,6 @@ class HubConfig {
     bool? micMuted,
     TouchIndicatorConfig? touchIndicator,
     bool? captureToolsEnabled,
-    String? streamTargetHost,
-    int? streamTargetPort,
     PhotoSourcesConfig? photoSources,
     double? uiScale,
   }) {
@@ -396,8 +384,6 @@ class HubConfig {
       micMuted: micMuted ?? this.micMuted,
       touchIndicator: touchIndicator ?? this.touchIndicator,
       captureToolsEnabled: captureToolsEnabled ?? this.captureToolsEnabled,
-      streamTargetHost: streamTargetHost ?? this.streamTargetHost,
-      streamTargetPort: streamTargetPort ?? this.streamTargetPort,
       photoSources: photoSources ?? this.photoSources,
       uiScale: uiScale ?? this.uiScale,
     );
@@ -451,8 +437,6 @@ class HubConfig {
         'micMuted': micMuted,
         'touchIndicator': touchIndicator.toJson(),
         'captureToolsEnabled': captureToolsEnabled,
-        'streamTargetHost': streamTargetHost,
-        'streamTargetPort': streamTargetPort,
         'photoSources': photoSources.toJson(),
         'uiScale': uiScale,
       };
@@ -513,8 +497,6 @@ class HubConfig {
                 (json['touchIndicator'] as Map).cast<String, dynamic>())
             : const TouchIndicatorConfig(),
         captureToolsEnabled: json['captureToolsEnabled'] as bool? ?? false,
-        streamTargetHost: json['streamTargetHost'] as String? ?? '',
-        streamTargetPort: json['streamTargetPort'] as int? ?? 9999,
         photoSources: json['photoSources'] is Map
             ? PhotoSourcesConfig.fromJson(
                 (json['photoSources'] as Map).cast<String, dynamic>())

@@ -1,14 +1,23 @@
 # Stream Hearth Screen + Audio to OBS
 
-> **Superseded — historical record.**
-> The audio-routing portions of this spec (snd-aloop loopback, `/etc/asound.conf`
-> `hdmi_tee` multi-plugin, ffmpeg `-f alsa -i hw:Loopback,1,0`) describe the
-> architecture that shipped 2026-04-24. As of 2026-04-26, the kiosk has migrated
-> to PipeWire — see [`2026-04-26-pipewire-migration-design.md`](2026-04-26-pipewire-migration-design.md).
-> Current state: ffmpeg captures from the HDMI sink's PipeWire monitor port,
-> `/etc/asound.conf` is deleted, `snd-aloop` is no longer loaded.
+> **Fully superseded — historical record.**
 >
-> The video / kmsgrab / SRT / OBS ingest portions of this spec remain accurate.
+> **Audio routing** (snd-aloop loopback, `/etc/asound.conf` `hdmi_tee` multi-plugin,
+> ffmpeg `-f alsa -i hw:Loopback,1,0`): replaced by PipeWire on 2026-04-26 — see
+> [`2026-04-26-pipewire-migration-design.md`](2026-04-26-pipewire-migration-design.md).
+>
+> **Video + SRT streaming pipeline** (kmsgrab + libx264 software encode + SRT push
+> to OBS): retired on 2026-05-11. The Pi 5 cannot sustain framerate while doing
+> software H.264 encode (the Pi 4's dedicated H.264 hardware encoder was removed
+> in the Pi 5). Replaced by the HDMI mirror feature in flutter-pi — the Pi's
+> second HDMI output (HDMI-A-2) carries a mirrored copy of the rendered frame
+> to an HDMI capture card on the OBS workstation. Zero CPU encode, hardware-
+> scaled by the Pi 5 HVS. See
+> [`2026-05-08-flutter-pi-fork-and-mirror-design.md`](2026-05-08-flutter-pi-fork-and-mirror-design.md).
+>
+> The screenshot/recording portions of `capture_service.dart` and `/api/capture/*`
+> remain in the codebase — they're useful debug tooling and don't share the
+> CPU bottleneck. Only the SRT streaming half was removed.
 
 ## Summary
 
