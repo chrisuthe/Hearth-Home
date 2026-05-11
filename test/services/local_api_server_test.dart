@@ -6,7 +6,6 @@ import 'package:hearth/config/hub_config.dart';
 import 'package:hearth/services/local_api_server.dart';
 import 'package:hearth/services/display_mode_service.dart';
 import 'package:hearth/services/capture_service.dart';
-import 'package:hearth/services/stream_service.dart';
 
 void main() {
   group('LocalApiServer', () {
@@ -507,176 +506,6 @@ void main() {
       });
     });
 
-    // --- Stream endpoints ---
-
-    group('stream endpoints', () {
-      late Directory streamTempDir;
-      late StreamService streamService;
-      late List<({String host, int port})> spawnCalls;
-      late Directory captureTempDir;
-      late CaptureService captureService;
-
-      setUp(() async {
-        streamTempDir =
-            await Directory.systemTemp.createTemp('hearth_api_stream_');
-        spawnCalls = [];
-        streamService = StreamService(
-          spawnStreamFn: (host, port) async {
-            spawnCalls.add((host: host, port: port));
-            return _TestStreamingProcess();
-          },
-          now: () => DateTime(2026, 4, 24, 14, 30, 30),
-        );
-
-        // Also inject a capture service for cross-exclusion tests.
-        captureTempDir =
-            await Directory.systemTemp.createTemp('hearth_api_stream_cap_');
-        captureService = CaptureService(
-          capturesDir: captureTempDir,
-          takeScreenshotFn: (path) async =>
-              File(path).writeAsBytes([0x89, 0x50, 0x4E, 0x47]),
-          spawnRecordingFn: (path) async => _TestRecording(),
-          now: () => DateTime(2026, 4, 24, 14, 30, 30),
-        );
-
-        await configNotifier
-            .update((c) => c.copyWith(captureToolsEnabled: true));
-
-        await server.stop();
-        server = LocalApiServer(
-          displayModeService: displayService,
-          configNotifier: configNotifier,
-          streamService: streamService,
-          captureService: captureService,
-        );
-        port = await server.start(port: 0);
-      });
-
-      tearDown(() async {
-        await streamService.dispose();
-        await captureService.dispose();
-        await streamTempDir.delete(recursive: true);
-        await captureTempDir.delete(recursive: true);
-      });
-
-      test('POST /api/stream/start returns 200 and spawns ffmpeg', () async {
-        final r = await post('/api/stream/start',
-            body: jsonEncode({'host': '192.168.1.42', 'port': 9999}),
-            headers: {...authHeaders, 'Content-Type': 'application/json'});
-        expect(r.statusCode, 200);
-        final json = jsonDecode(await readBody(r)) as Map<String, dynamic>;
-        expect(json, containsPair('startedAt', isA<String>()));
-        expect(spawnCalls, hasLength(1));
-        expect(spawnCalls.single.host, '192.168.1.42');
-        expect(spawnCalls.single.port, 9999);
-      });
-
-      test('POST /api/stream/start without host returns 400', () async {
-        final r = await post('/api/stream/start',
-            body: jsonEncode({'port': 9999}),
-            headers: {...authHeaders, 'Content-Type': 'application/json'});
-        expect(r.statusCode, 400);
-      });
-
-      test('POST /api/stream/start with out-of-range port returns 400',
-          () async {
-        final r = await post('/api/stream/start',
-            body: jsonEncode({'host': 'a', 'port': 99999}),
-            headers: {...authHeaders, 'Content-Type': 'application/json'});
-        expect(r.statusCode, 400);
-      });
-
-      test('POST /api/stream/start twice returns 409', () async {
-        await post('/api/stream/start',
-            body: jsonEncode({'host': 'a', 'port': 1234}),
-            headers: {...authHeaders, 'Content-Type': 'application/json'});
-        final r = await post('/api/stream/start',
-            body: jsonEncode({'host': 'a', 'port': 1234}),
-            headers: {...authHeaders, 'Content-Type': 'application/json'});
-        expect(r.statusCode, 409);
-      });
-
-      test('stream routes return 404 when captureToolsEnabled is false',
-          () async {
-        await configNotifier
-            .update((c) => c.copyWith(captureToolsEnabled: false));
-
-        final r = await post('/api/stream/start',
-            body: jsonEncode({'host': 'a', 'port': 1234}),
-            headers: {...authHeaders, 'Content-Type': 'application/json'});
-        expect(r.statusCode, 404);
-      });
-
-      test('POST /api/stream/stop returns 200 with duration', () async {
-        await post('/api/stream/start',
-            body: jsonEncode({'host': 'a', 'port': 1234}),
-            headers: {...authHeaders, 'Content-Type': 'application/json'});
-
-        final r = await post('/api/stream/stop',
-            body: '', headers: authHeaders);
-        expect(r.statusCode, 200);
-        final json = jsonDecode(await readBody(r)) as Map<String, dynamic>;
-        expect(json, containsPair('durationSeconds', isA<num>()));
-      });
-
-      test('POST /api/stream/stop with no active stream returns 400', () async {
-        final r = await post('/api/stream/stop',
-            body: '', headers: authHeaders);
-        expect(r.statusCode, 400);
-      });
-
-      test('GET /api/stream/status reports phase and target', () async {
-        final idle = await get('/api/stream/status', headers: authHeaders);
-        expect(idle.statusCode, 200);
-        expect(
-            jsonDecode(await readBody(idle)) as Map<String, dynamic>,
-            containsPair('phase', 'idle'));
-
-        await post('/api/stream/start',
-            body: jsonEncode({'host': '10.0.0.5', 'port': 7777}),
-            headers: {...authHeaders, 'Content-Type': 'application/json'});
-
-        final active = await get('/api/stream/status', headers: authHeaders);
-        final json = jsonDecode(await readBody(active)) as Map<String, dynamic>;
-        expect(['starting', 'active'], contains(json['phase']));
-        expect(json['targetHost'], '10.0.0.5');
-        expect(json['targetPort'], 7777);
-      });
-
-      test('POST /api/stream/start returns 409 when a recording is active',
-          () async {
-        await post('/api/capture/recording/start',
-            body: '', headers: authHeaders);
-
-        final r = await post('/api/stream/start',
-            body: jsonEncode({'host': 'a', 'port': 1234}),
-            headers: {...authHeaders, 'Content-Type': 'application/json'});
-        expect(r.statusCode, 409);
-        expect(
-            jsonDecode(await readBody(r)) as Map<String, dynamic>,
-            containsPair('error', 'recording is active'));
-      });
-
-      test('POST /api/capture/recording/start returns 409 when a stream is active',
-          () async {
-        await post('/api/stream/start',
-            body: jsonEncode({'host': 'a', 'port': 1234}),
-            headers: {...authHeaders, 'Content-Type': 'application/json'});
-
-        final r = await post('/api/capture/recording/start',
-            body: '', headers: authHeaders);
-        expect(r.statusCode, 409);
-      });
-
-      test('POST /api/stream/start persists host+port to HubConfig', () async {
-        await post('/api/stream/start',
-            body: jsonEncode({'host': '10.0.0.7', 'port': 4200}),
-            headers: {...authHeaders, 'Content-Type': 'application/json'});
-
-        expect(configNotifier.state.streamTargetHost, '10.0.0.7');
-        expect(configNotifier.state.streamTargetPort, 4200);
-      });
-    });
   });
 }
 
@@ -692,22 +521,6 @@ class _TestRecording implements RecordingProcess {
   void kill() {
     if (!_exit.isCompleted) _exit.complete(-9);
   }
-}
-
-class _TestStreamingProcess implements StreamingProcess {
-  final _exit = Completer<int>();
-  @override
-  Future<int> get exitCode => _exit.future;
-  @override
-  void stop() {
-    if (!_exit.isCompleted) _exit.complete(0);
-  }
-  @override
-  void kill() {
-    if (!_exit.isCompleted) _exit.complete(-9);
-  }
-  @override
-  String get stderrTail => '';
 }
 
 /// [HubConfigNotifier] subclass that skips disk persistence so tests can

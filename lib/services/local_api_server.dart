@@ -9,7 +9,6 @@ import '../utils/logger.dart';
 import '../config/hub_config.dart';
 import 'capture_service.dart';
 import 'display_mode_service.dart';
-import 'stream_service.dart';
 import 'timezone_service.dart';
 import 'wifi_service.dart';
 import 'update_service.dart';
@@ -41,7 +40,6 @@ class LocalApiServer {
   final UpdateService _updateService;
   final AlarmService? _alarmService;
   final CaptureService? _captureService;
-  final StreamService? _streamService;
   HttpServer? _server;
 
   static const int _maxBodySize = 64 * 1024; // 64 KB
@@ -62,7 +60,6 @@ class LocalApiServer {
     UpdateService? updateService,
     AlarmService? alarmService,
     CaptureService? captureService,
-    StreamService? streamService,
     String? webPin,
   })  : _displayModeService = displayModeService,
         _configNotifier = configNotifier,
@@ -71,7 +68,6 @@ class LocalApiServer {
         _updateService = updateService ?? UpdateService(),
         _alarmService = alarmService,
         _captureService = captureService,
-        _streamService = streamService,
         _webPin = webPin ?? (Random.secure().nextInt(9000) + 1000).toString();
 
   Future<int> start({int port = 8090}) async {
@@ -149,14 +145,6 @@ class LocalApiServer {
           return;
         }
         await _handleCaptureRequest(request, path);
-        return;
-      } else if (path.startsWith('/api/stream/')) {
-        if (!_configNotifier.current.captureToolsEnabled) {
-          request.response.statusCode = 404;
-          await request.response.close();
-          return;
-        }
-        await _handleStreamRequest(request, path);
         return;
       } else if (path == '/api/session/key' && request.method == 'GET') {
         if (!_checkSession(request)) {
@@ -806,14 +794,6 @@ class LocalApiServer {
     }
 
     if (path == '/api/capture/recording/start' && request.method == 'POST') {
-      if (_streamService?.isStreaming == true) {
-        request.response.statusCode = 409;
-        request.response.headers.contentType = ContentType.json;
-        request.response
-            .write(jsonEncode({'error': 'stream is active'}));
-        await request.response.close();
-        return;
-      }
       try {
         final started = await capture.startRecording();
         request.response.statusCode = 200;
@@ -969,125 +949,6 @@ class LocalApiServer {
     await request.response.close();
   }
 
-  // --- Stream endpoints ---
-
-  Future<void> _handleStreamRequest(HttpRequest request, String path) async {
-    final stream = _streamService;
-    if (stream == null) {
-      request.response.statusCode = 503;
-      request.response.headers.contentType = ContentType.json;
-      request.response
-          .write(jsonEncode({'error': 'stream service unavailable'}));
-      await request.response.close();
-      return;
-    }
-
-    if (!_checkAuth(request)) return;
-
-    if (path == '/api/stream/start' && request.method == 'POST') {
-      await _handleStreamStart(request, stream);
-      return;
-    }
-
-    if (path == '/api/stream/stop' && request.method == 'POST') {
-      await _handleStreamStop(request, stream);
-      return;
-    }
-
-    if (path == '/api/stream/status' && request.method == 'GET') {
-      final s = stream.currentState;
-      request.response.statusCode = 200;
-      request.response.headers.contentType = ContentType.json;
-      request.response.write(jsonEncode({
-        'phase': s.phase.name,
-        'startedAt': s.startedAt?.toIso8601String(),
-        'targetHost': s.targetHost,
-        'targetPort': s.targetPort,
-        'errorMessage': s.errorMessage,
-      }));
-      await request.response.close();
-      return;
-    }
-
-    request.response.statusCode = 404;
-    await request.response.close();
-  }
-
-  Future<void> _handleStreamStart(
-      HttpRequest request, StreamService stream) async {
-    final json = await _readJsonBody(request);
-    final host = json['host'] as String?;
-    final port = json['port'] as int?;
-    if (host == null || host.isEmpty) {
-      request.response.statusCode = 400;
-      request.response.headers.contentType = ContentType.json;
-      request.response.write(jsonEncode({'error': 'host required'}));
-      await request.response.close();
-      return;
-    }
-    if (port == null || port < 1 || port > 65535) {
-      request.response.statusCode = 400;
-      request.response.headers.contentType = ContentType.json;
-      request.response.write(jsonEncode({'error': 'port out of range'}));
-      await request.response.close();
-      return;
-    }
-
-    if (_captureService?.isRecording == true) {
-      request.response.statusCode = 409;
-      request.response.headers.contentType = ContentType.json;
-      request.response.write(jsonEncode({'error': 'recording is active'}));
-      await request.response.close();
-      return;
-    }
-
-    try {
-      await stream.start(host: host, port: port);
-    } on StateError {
-      request.response.statusCode = 409;
-      request.response.headers.contentType = ContentType.json;
-      request.response.write(jsonEncode({'error': 'stream already active'}));
-      await request.response.close();
-      return;
-    } catch (e) {
-      request.response.statusCode = 500;
-      request.response.headers.contentType = ContentType.json;
-      request.response.write(jsonEncode({'error': 'stream start failed: $e'}));
-      await request.response.close();
-      return;
-    }
-
-    await _configNotifier.update((c) => c.copyWith(
-          streamTargetHost: host,
-          streamTargetPort: port,
-        ));
-
-    request.response.statusCode = 200;
-    request.response.headers.contentType = ContentType.json;
-    request.response.write(jsonEncode({
-      'startedAt': stream.activeStartedAt?.toIso8601String(),
-    }));
-    await request.response.close();
-  }
-
-  Future<void> _handleStreamStop(
-      HttpRequest request, StreamService stream) async {
-    try {
-      final meta = await stream.stop();
-      request.response.statusCode = 200;
-      request.response.headers.contentType = ContentType.json;
-      request.response.write(jsonEncode({
-        'durationSeconds': meta.duration.inSeconds,
-      }));
-      await request.response.close();
-    } on StateError {
-      request.response.statusCode = 400;
-      request.response.headers.contentType = ContentType.json;
-      request.response.write(jsonEncode({'error': 'no active stream'}));
-      await request.response.close();
-    }
-  }
-
   /// Cookie-or-bearer gate for endpoints reachable from a web portal
   /// `<a href>`. Returns true if authorized; otherwise writes 401 and
   /// returns false.
@@ -1122,7 +983,6 @@ final localApiServerProvider = Provider<LocalApiServer>((ref) {
   final updateService = ref.read(updateServiceProvider);
   final alarmService = ref.read(alarmServiceProvider);
   final captureService = ref.read(captureServiceProvider);
-  final streamService = ref.read(streamServiceProvider);
   final server = LocalApiServer(
     displayModeService: displayService,
     configNotifier: configNotifier,
@@ -1131,7 +991,6 @@ final localApiServerProvider = Provider<LocalApiServer>((ref) {
     updateService: updateService,
     alarmService: alarmService,
     captureService: captureService,
-    streamService: streamService,
   );
   ref.onDispose(() => server.stop());
   return server;
@@ -1901,22 +1760,6 @@ const _capturePageHtml = r'''
     <option value="trail">Trail</option>
   </select></div>
 
-<h2>Stream to OBS</h2>
-<div class="stream-panel" style="margin-bottom:20px;">
-  <label>OBS Host</label>
-  <input type="text" id="streamHost" placeholder="192.168.1.x">
-  <label>OBS Port</label>
-  <input type="number" id="streamPort" value="9999" min="1" max="65535">
-  <div style="display:flex;gap:12px;align-items:center;margin-top:12px;">
-    <button type="button" id="streamBtn" onclick="toggleStream()"
-            style="padding:10px 16px;background:#646cff;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:14px;">
-      ● Start streaming
-    </button>
-    <span id="streamStatus" style="font-size:13px;color:#888;">○ Idle</span>
-  </div>
-  <div class="hint" id="streamHint" style="margin-top:8px;"></div>
-</div>
-
 <h2>Captures</h2>
 <table>
   <thead><tr><th>Filename</th><th>Type</th><th>Size</th><th>Created</th><th></th></tr></thead>
@@ -1963,7 +1806,6 @@ async function toggleRecording() {
       btn.className = 'recording';
       recTimer = setInterval(updateTimer, 1000);
       updateTimer();
-      applyRecordMutualDisable();
     } catch (e) { toast('Start failed', true); }
   } else {
     try {
@@ -1977,7 +1819,6 @@ async function toggleRecording() {
     clearInterval(recTimer);
     document.getElementById('recStatus').textContent = '';
     loadGallery();
-    applyRecordMutualDisable();
   }
 }
 
@@ -2089,136 +1930,9 @@ async function saveIndicator() {
   document.getElementById(id).addEventListener('change', scheduleSave);
 });
 
-let streamActive = false;
-
-async function loadStreamConfig() {
-  const r = await fetch('/api/config', {headers: headers()});
-  if (!r.ok) return;
-  const cfg = await r.json();
-  if (cfg.streamTargetHost) {
-    document.getElementById('streamHost').value = cfg.streamTargetHost;
-  }
-  if (cfg.streamTargetPort) {
-    document.getElementById('streamPort').value = cfg.streamTargetPort;
-  }
-}
-
-async function toggleStream() {
-  const btn = document.getElementById('streamBtn');
-  btn.disabled = true;
-  try {
-    if (streamActive) {
-      const r = await fetch('/api/stream/stop', {
-        method: 'POST', headers: headers(),
-      });
-      if (!r.ok) {
-        const body = await r.json().catch(() => ({}));
-        showStreamHint(body.error || `Stop failed (${r.status})`, true);
-      }
-    } else {
-      const host = document.getElementById('streamHost').value.trim();
-      const port = parseInt(document.getElementById('streamPort').value, 10);
-      if (!host) {
-        showStreamHint('OBS host is required', true);
-        return;
-      }
-      const r = await fetch('/api/stream/start', {
-        method: 'POST',
-        headers: {...headers(), 'Content-Type': 'application/json'},
-        body: JSON.stringify({host, port}),
-      });
-      if (!r.ok) {
-        const body = await r.json().catch(() => ({}));
-        showStreamHint(body.error || `Start failed (${r.status})`, true);
-      }
-    }
-  } finally {
-    btn.disabled = false;
-    // pollStreamStatus is called on an interval; next tick will re-sync.
-  }
-}
-
-function showStreamHint(msg, isError) {
-  const el = document.getElementById('streamHint');
-  el.textContent = msg;
-  el.style.color = isError ? '#ff6b6b' : '#888';
-}
-
-function formatDuration(ms) {
-  const s = Math.floor(ms / 1000);
-  const hh = String(Math.floor(s / 3600)).padStart(2, '0');
-  const mm = String(Math.floor((s % 3600) / 60)).padStart(2, '0');
-  const ss = String(s % 60).padStart(2, '0');
-  return `${hh}:${mm}:${ss}`;
-}
-
-async function pollStreamStatus() {
-  try {
-    const r = await fetch('/api/stream/status', {headers: headers()});
-    if (!r.ok) return;
-    const s = await r.json();
-    const btn = document.getElementById('streamBtn');
-    const status = document.getElementById('streamStatus');
-    const host = document.getElementById('streamHost');
-    const port = document.getElementById('streamPort');
-
-    const active = s.phase === 'active' || s.phase === 'starting';
-    streamActive = active;
-    host.disabled = active;
-    port.disabled = active;
-
-    if (s.phase === 'idle') {
-      btn.textContent = '● Start streaming';
-      btn.style.background = '#646cff';
-      status.textContent = '○ Idle';
-      status.style.color = '#888';
-    } else if (s.phase === 'starting' || s.phase === 'active') {
-      btn.textContent = '■ Stop streaming';
-      btn.style.background = '#cc4444';
-      const since = s.startedAt ? (Date.now() - new Date(s.startedAt).getTime()) : 0;
-      status.textContent =
-        `● ${s.phase === 'starting' ? 'Connecting…' : formatDuration(since)} · ${s.targetHost}:${s.targetPort}`;
-      status.style.color = '#4caf50';
-    } else if (s.phase === 'stopping') {
-      btn.textContent = 'Stopping…';
-      status.textContent = 'Finalizing MP4';
-      status.style.color = '#888';
-    } else if (s.phase === 'error') {
-      btn.textContent = '● Start streaming';
-      btn.style.background = '#646cff';
-      status.textContent = `⚠ ${s.errorMessage || 'Stream error'}`;
-      status.style.color = '#ff6b6b';
-    }
-
-    // Mutual disable with the Record button — the existing capture UI uses
-    // id 'recBtn'. Tolerate absence; if the element is missing or named
-    // differently, skip gracefully.
-    const recBtn = document.getElementById('recBtn');
-    if (recBtn) {
-      recBtn.disabled = streamActive;
-      recBtn.title = streamActive ? 'Stop the stream first' : '';
-    }
-  } catch (e) {
-    // Swallow — polling keeps going.
-  }
-}
-
-function applyRecordMutualDisable() {
-  // Mutual disable with the Stream button.
-  const recordingActive = recStart !== null;
-  const streamBtn = document.getElementById('streamBtn');
-  if (streamBtn) {
-    streamBtn.disabled = recordingActive;
-    streamBtn.title = recordingActive ? 'Stop the recording first' : '';
-  }
-}
-
 initAuth().then(() => {
   loadIndicator();
   loadGallery();
-  loadStreamConfig();
-  setInterval(pollStreamStatus, 1000);
-  pollStreamStatus();
 });
 </script>
 </body>
