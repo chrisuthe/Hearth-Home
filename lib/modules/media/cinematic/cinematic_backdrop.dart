@@ -28,37 +28,43 @@ class CinematicBackdrop extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        const ColoredBox(color: MediaColors.base),
-        if (imageUrl != null)
-          Transform.scale(
-            scale: 1.4,
-            child: ImageFiltered(
-              imageFilter: ImageFilter.compose(
-                outer: ColorFilter.matrix(
-                  _saturationMatrix(MediaGlass.wallpaperSaturation),
+    // ClipRect contains the scaled (1.4×) and blurred (sigma 80) album art
+    // to the backdrop's own bounds. Without it the painted halo bleeds
+    // onto adjacent pages during PageView swipes, then vanishes the moment
+    // the swipe lands — see media_screen.dart for the same pattern.
+    return ClipRect(
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          const ColoredBox(color: MediaColors.base),
+          if (imageUrl != null)
+            Transform.scale(
+              scale: 1.4,
+              child: ImageFiltered(
+                imageFilter: ImageFilter.compose(
+                  outer: ColorFilter.matrix(
+                    _saturationMatrix(MediaGlass.wallpaperSaturation),
+                  ),
+                  inner: ImageFilter.blur(
+                    sigmaX: MediaGlass.wallpaperBlurSigma,
+                    sigmaY: MediaGlass.wallpaperBlurSigma,
+                    tileMode: TileMode.decal,
+                  ),
                 ),
-                inner: ImageFilter.blur(
-                  sigmaX: MediaGlass.wallpaperBlurSigma,
-                  sigmaY: MediaGlass.wallpaperBlurSigma,
-                  tileMode: TileMode.decal,
-                ),
-              ),
-              child: Opacity(
-                opacity: 0.85,
-                child: Image.network(
-                  imageUrl!,
-                  fit: BoxFit.cover,
-                  cacheWidth: 600,
-                  errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                child: Opacity(
+                  opacity: 0.85,
+                  child: Image.network(
+                    imageUrl!,
+                    fit: BoxFit.cover,
+                    cacheWidth: 600,
+                    errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                  ),
                 ),
               ),
             ),
-          ),
-        const _Vignette(),
-      ],
+          const _Vignette(),
+        ],
+      ),
     );
   }
 }
