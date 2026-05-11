@@ -110,14 +110,36 @@ class MealieInstruction {
 
 class MealieMealPlanEntry {
   final String entryType;
+  /// For "custom" meal-plan entries that aren't linked to a saved recipe.
+  /// Mealie returns these with `recipe: null` and a free-form `title`.
+  final String? title;
+  /// Optional notes attached to the entry.
+  final String? text;
   final MealieRecipeSummary? recipe;
 
-  const MealieMealPlanEntry({required this.entryType, this.recipe});
+  const MealieMealPlanEntry({
+    required this.entryType,
+    this.title,
+    this.text,
+    this.recipe,
+  });
+
+  /// Effective display name — prefers the linked recipe, falls back to
+  /// the custom `title` string. Returns empty if neither is present.
+  String get displayName => recipe?.name ?? title ?? '';
+
+  /// True when this entry has either a linked recipe or a custom title.
+  bool get hasContent =>
+      recipe != null || (title != null && title!.isNotEmpty);
 
   factory MealieMealPlanEntry.fromJson(Map<String, dynamic> json) {
     final recipeJson = json['recipe'] as Map<String, dynamic>?;
+    final rawTitle = json['title'] as String?;
+    final rawText = json['text'] as String?;
     return MealieMealPlanEntry(
       entryType: json['entryType'] as String? ?? '',
+      title: (rawTitle != null && rawTitle.isNotEmpty) ? rawTitle : null,
+      text: (rawText != null && rawText.isNotEmpty) ? rawText : null,
       recipe: recipeJson != null ? MealieRecipeSummary.fromJson(recipeJson) : null,
     );
   }

@@ -93,6 +93,47 @@ void main() {
       final json = {'entryType': 'lunch'};
       final entry = MealieMealPlanEntry.fromJson(json);
       expect(entry.recipe, isNull);
+      expect(entry.title, isNull);
+      expect(entry.hasContent, isFalse);
+      expect(entry.displayName, isEmpty);
+    });
+
+    test('parses custom title entry (no linked recipe)', () {
+      // What Mealie actually returns for a typed-in meal plan entry —
+      // recipe is null, title carries the text.
+      final json = {
+        'date': '2026-05-11',
+        'entryType': 'lunch',
+        'title': 'BBQ Meatballs',
+        'text': '',
+        'recipeId': null,
+        'recipe': null,
+      };
+      final entry = MealieMealPlanEntry.fromJson(json);
+      expect(entry.entryType, 'lunch');
+      expect(entry.title, 'BBQ Meatballs');
+      expect(entry.recipe, isNull);
+      expect(entry.hasContent, isTrue);
+      expect(entry.displayName, 'BBQ Meatballs');
+    });
+
+    test('linked recipe takes precedence over title for displayName', () {
+      final json = {
+        'entryType': 'dinner',
+        'title': 'fallback title',
+        'recipe': {'id': '1', 'slug': 'steak', 'name': 'Steak'},
+      };
+      final entry = MealieMealPlanEntry.fromJson(json);
+      expect(entry.displayName, 'Steak');
+      expect(entry.hasContent, isTrue);
+    });
+
+    test('empty title string parses as null', () {
+      final json = {'entryType': 'breakfast', 'title': '', 'text': ''};
+      final entry = MealieMealPlanEntry.fromJson(json);
+      expect(entry.title, isNull);
+      expect(entry.text, isNull);
+      expect(entry.hasContent, isFalse);
     });
   });
 }

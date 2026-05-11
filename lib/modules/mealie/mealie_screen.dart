@@ -185,9 +185,10 @@ class _MealieScreenState extends ConsumerState<MealieScreen>
               separatorBuilder: (_, __) => const SizedBox(width: HearthSpacing.x3),
               itemBuilder: (context, index) {
                 final entry = _mealPlan[index];
-                final recipe = entry.recipe;
-                if (recipe == null) return const SizedBox.shrink();
-                return _buildMealPlanCard(entry, recipe, service, token);
+                // Skip entries with neither a linked recipe nor a custom
+                // title — they're empty placeholder rows in Mealie.
+                if (!entry.hasContent) return const SizedBox.shrink();
+                return _buildMealPlanCard(entry, service, token);
               },
             ),
           ),
@@ -271,12 +272,12 @@ class _MealieScreenState extends ConsumerState<MealieScreen>
 
   Widget _buildMealPlanCard(
     MealieMealPlanEntry entry,
-    MealieRecipeSummary recipe,
     MealieService service,
     String token,
   ) {
+    final recipe = entry.recipe;
     return GestureDetector(
-      onTap: () => _selectRecipe(recipe.slug),
+      onTap: recipe != null ? () => _selectRecipe(recipe.slug) : null,
       child: Container(
         width: 140,
         decoration: BoxDecoration(
@@ -290,16 +291,26 @@ class _MealieScreenState extends ConsumerState<MealieScreen>
             SizedBox(
               height: 90,
               width: double.infinity,
-              child: CachedNetworkImage(
-                imageUrl: service.imageUrl(recipe.id),
-                httpHeaders: {'Authorization': 'Bearer $token'},
-                fit: BoxFit.cover,
-                placeholder: (_, __) => Container(color: Colors.white10),
-                errorWidget: (_, __, ___) => Container(
-                  color: Colors.white10,
-                  child: const Icon(Icons.restaurant, color: Colors.white24, size: HearthIcon.lg),
-                ),
-              ),
+              child: recipe != null
+                  ? CachedNetworkImage(
+                      imageUrl: service.imageUrl(recipe.id),
+                      httpHeaders: {'Authorization': 'Bearer $token'},
+                      fit: BoxFit.cover,
+                      placeholder: (_, __) => Container(color: Colors.white10),
+                      errorWidget: (_, __, ___) => Container(
+                        color: Colors.white10,
+                        child: const Icon(Icons.restaurant, color: Colors.white24, size: HearthIcon.lg),
+                      ),
+                    )
+                  : Container(
+                      color: Colors.white10,
+                      alignment: Alignment.center,
+                      child: const Icon(
+                        Icons.restaurant_menu,
+                        color: Colors.white24,
+                        size: HearthIcon.lg,
+                      ),
+                    ),
             ),
             Padding(
               padding: const EdgeInsets.all(HearthSpacing.x2),
@@ -307,7 +318,7 @@ class _MealieScreenState extends ConsumerState<MealieScreen>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    recipe.name,
+                    entry.displayName,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(fontSize: HearthFont.label, fontWeight: FontWeight.w500),
