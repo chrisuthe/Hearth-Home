@@ -36,6 +36,7 @@ class WebviewSession extends ChangeNotifier {
   WebviewSessionState _state = WebviewSessionState.loading;
   String? _lastError;
   StreamSubscription<WebviewError>? _errorSub;
+  Timer? _restartTimer;
 
   WebviewSession({
     required this.url,
@@ -91,6 +92,15 @@ class WebviewSession extends ChangeNotifier {
     _state = WebviewSessionState.error;
     _lastError = message;
     notifyListeners();
+    // Auto-restart after a debounce. Allows transient errors (e.g., during
+    // a brief network blip) to settle without rapid reload thrash.
+    _restartTimer?.cancel();
+    if (!_isTesting) {
+      _restartTimer = Timer(const Duration(seconds: 3), () {
+        Log.i('Webview', 'auto-restart after error for $url');
+        reload();
+      });
+    }
   }
 
   Future<void> setPaused(bool paused) async {
@@ -105,6 +115,7 @@ class WebviewSession extends ChangeNotifier {
   }
 
   Future<void> reload() async {
+    _restartTimer?.cancel();
     await _controller?.dispose();
     await _errorSub?.cancel();
     _controller = null;
@@ -172,6 +183,7 @@ class WebviewSession extends ChangeNotifier {
 
   @override
   void dispose() {
+    _restartTimer?.cancel();
     _errorSub?.cancel();
     _controller?.dispose();
     super.dispose();

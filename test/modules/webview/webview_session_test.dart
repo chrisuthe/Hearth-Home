@@ -45,6 +45,14 @@ void main() {
       expect(session.state, WebviewSessionState.loading);
     });
 
+    test('notifyError does not auto-restart in testing mode', () {
+      final session = WebviewSession.testing(url: 'https://example.com');
+      session.notifyFirstFrame();
+      session.notifyError('test');
+      expect(session.state, WebviewSessionState.error);
+      // No timer should fire in test mode — calling reload manually is fine.
+    });
+
     test('builds correct pipeline string', () {
       final session = WebviewSession.testing(url: 'https://ha.example/lovelace');
       expect(session.pipelineString, contains('wpesrc'));
