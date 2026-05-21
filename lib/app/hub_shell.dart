@@ -80,11 +80,14 @@ class _HubShellState extends ConsumerState<HubShell> {
     required String action,
     required bool swipeDown,
   }) {
+    // Only intercepts deliberate vertical drags meeting a velocity threshold;
+    // single taps and slow horizontal motion pass through to the webview (or
+    // whatever's underneath). Omitting onVerticalDragUpdate prevents the
+    // detector from claiming ownership of every touch in the edge zone.
     return Align(
       alignment: alignment,
       child: GestureDetector(
         behavior: HitTestBehavior.translucent,
-        onVerticalDragUpdate: (_) {},
         onVerticalDragEnd: (details) {
           final v = details.primaryVelocity ?? 0;
           if ((swipeDown && v > 200) || (!swipeDown && v < -200)) {
