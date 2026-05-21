@@ -16,6 +16,7 @@ import 'photo_sources_section.dart';
 import 'update_settings.dart';
 import '../../modules/hearth_module.dart';
 import '../../modules/module_registry.dart';
+import '../../modules/webview/webview_settings_section.dart';
 import '../../services/toast_service.dart';
 import '../../app/tokens/tokens.dart';
 
@@ -682,6 +683,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ),
         const SizedBox(height: HearthSpacing.x2),
         const UpdateSettingsSection(),
+
+        const SizedBox(height: HearthSpacing.x6),
+        const WebviewSettingsSection(),
+        const SizedBox(height: 16),
 
         // Per-module settings (only shown when module is enabled).
         ...allModules
