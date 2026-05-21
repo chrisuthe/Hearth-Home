@@ -16,6 +16,7 @@ import '../screens/settings/settings_screen.dart';
 import '../modules/alarm_clock/alarm_alert_overlay.dart';
 import '../modules/alarm_clock/alarm_service.dart';
 import '../modules/alarm_clock/sunrise_controller.dart';
+import '../modules/webview/webview_session_pool.dart';
 import '../services/sendspin/sendspin_service.dart';
 import '../services/toast_service.dart';
 import '../widgets/toast_overlay.dart';
@@ -66,6 +67,8 @@ class _HubShellState extends ConsumerState<HubShell> {
 
   void _onUserActivity() {
     ref.read(idleControllerProvider).onUserActivity();
+    // Resume any paused webviews.
+    ref.read(webviewSessionPoolProvider).resumeAll();
   }
 
   String? _edgeFor(String action) {
@@ -286,6 +289,8 @@ class _HubShellState extends ConsumerState<HubShell> {
         if (page != _currentPage) setState(() => _currentPage = page);
       });
       idleController.onTimeout = () {
+        // Pause warm webviews — they keep memory but stop producing frames.
+        ref.read(webviewSessionPoolProvider).pauseAll();
         // Pop any pushed routes (e.g. TimerScreen) unless a timer or alarm is
         // actively fired — the alert overlay should stay visible.
         final timerService = ref.read(timerServiceProvider);

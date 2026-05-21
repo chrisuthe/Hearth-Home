@@ -50,5 +50,25 @@ void main() {
       pool.reconcile({'https://a.example', 'https://c.example'});
       expect(pool.activeUrls.toSet(), {'https://a.example', 'https://c.example'});
     });
+
+    test('pauseAll pauses every session', () async {
+      final pool = WebviewSessionPool(sessionFactory: WebviewSession.testing);
+      final a = pool.getOrCreate('https://a.example');
+      final b = pool.getOrCreate('https://b.example');
+      a.notifyFirstFrame();
+      b.notifyFirstFrame();
+      await pool.pauseAll();
+      expect(a.state, WebviewSessionState.paused);
+      expect(b.state, WebviewSessionState.paused);
+    });
+
+    test('resumeAll resumes every paused session', () async {
+      final pool = WebviewSessionPool(sessionFactory: WebviewSession.testing);
+      final a = pool.getOrCreate('https://a.example');
+      a.notifyFirstFrame();
+      await pool.pauseAll();
+      await pool.resumeAll();
+      expect(a.state, WebviewSessionState.playing);
+    });
   });
 }

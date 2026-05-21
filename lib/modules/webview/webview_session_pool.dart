@@ -40,6 +40,21 @@ class WebviewSessionPool {
     _sessions.clear();
   }
 
+  /// Pause every session in the pool. Used when Hearth's IdleController
+  /// reports idle.
+  Future<void> pauseAll() async {
+    for (final session in _sessions.values) {
+      await session.setPaused(true);
+    }
+  }
+
+  /// Resume every session.
+  Future<void> resumeAll() async {
+    for (final session in _sessions.values) {
+      await session.setPaused(false);
+    }
+  }
+
   /// Reconciles the pool with a desired set of URLs. Sessions whose URL is
   /// not in [urls] are disposed. Sessions in [urls] are left untouched
   /// (this method does NOT create new sessions).
