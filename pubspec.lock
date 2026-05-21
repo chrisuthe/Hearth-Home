@@ -315,10 +315,11 @@ packages:
   flutterpi_gstreamer_video_player:
     dependency: "direct main"
     description:
-      name: flutterpi_gstreamer_video_player
-      sha256: "63140112b5f21118103960ba8677db63d30c753b1701c85b6aebfd6a2509cf5c"
-      url: "https://pub.dev"
-    source: hosted
+      path: "packages/flutterpi_gstreamer_video_player"
+      ref: main
+      resolved-ref: fef1097e8da2ea22c799e713786ac03c02a08c62
+      url: "https://registry.home.chrisuthe.com/chris/flutterpi_gstreamer_video_player-hearth.git"
+    source: git
     version: "0.2.0"
   glob:
     dependency: transitive
