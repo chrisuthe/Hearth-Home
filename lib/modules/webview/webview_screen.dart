@@ -70,14 +70,13 @@ class _WebviewScreenState extends ConsumerState<WebviewScreen> {
         if (controller == null || !controller.value.isInitialized) {
           return _Placeholder.loading(config: widget.config);
         }
-        return FittedBox(
-          fit: BoxFit.contain,
-          child: SizedBox(
-            width: controller.value.size.width,
-            height: controller.value.size.height,
-            child: VideoPlayer(controller),
-          ),
-        );
+        return LayoutBuilder(builder: (context, constraints) {
+          return _TouchableWebviewView(
+            session: session,
+            controller: controller,
+            size: Size(constraints.maxWidth, constraints.maxHeight),
+          );
+        });
     }
   }
 }
@@ -133,6 +132,95 @@ class _Placeholder extends StatelessWidget {
             const CircularProgressIndicator(color: Color(0xFF646CFF)),
           ],
         ],
+      ),
+    );
+  }
+}
+
+class _TouchableWebviewView extends StatefulWidget {
+  final WebviewSession session;
+  final VideoPlayerController controller;
+  final Size size;
+
+  const _TouchableWebviewView({
+    required this.session,
+    required this.controller,
+    required this.size,
+  });
+
+  @override
+  State<_TouchableWebviewView> createState() => _TouchableWebviewViewState();
+}
+
+class _TouchableWebviewViewState extends State<_TouchableWebviewView> {
+  Offset? _longPressOrigin;
+
+  // Maps local Flutter pixel to wpesrc viewport coordinates.
+  // VideoPlayer renders via BoxFit.contain inside [size]; map back to native.
+  Offset _toViewport(Offset local) {
+    final renderSize = widget.controller.value.size;
+    if (renderSize.width == 0 || renderSize.height == 0) return local;
+    final scaleX = renderSize.width / widget.size.width;
+    final scaleY = renderSize.height / widget.size.height;
+    // BoxFit.contain uses the LARGER scale factor so source fits inside box.
+    final scale = scaleX > scaleY ? scaleX : scaleY;
+    return Offset(local.dx * scale, local.dy * scale);
+  }
+
+  void _resumeIfNeeded() {
+    if (widget.session.state == WebviewSessionState.paused) {
+      widget.session.setPaused(false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTapDown: (d) {
+        _resumeIfNeeded();
+        widget.session.sendPointerDown(_toViewport(d.localPosition));
+      },
+      onTapUp: (d) {
+        widget.session.sendPointerUp(_toViewport(d.localPosition));
+      },
+      onTapCancel: () {
+        if (_longPressOrigin != null) {
+          widget.session.sendPointerUp(_toViewport(_longPressOrigin!));
+        }
+      },
+      onLongPressStart: (d) {
+        _resumeIfNeeded();
+        _longPressOrigin = d.localPosition;
+        widget.session.sendLongPressStart(_toViewport(d.localPosition));
+      },
+      onLongPressEnd: (d) {
+        widget.session.sendLongPressEnd(_toViewport(d.localPosition));
+        _longPressOrigin = null;
+      },
+      onVerticalDragUpdate: (d) {
+        _resumeIfNeeded();
+        widget.session.sendScroll(
+          _toViewport(d.localPosition),
+          0,
+          -d.delta.dy, // negate: drag down means scroll up the page
+        );
+      },
+      onHorizontalDragUpdate: (d) {
+        _resumeIfNeeded();
+        widget.session.sendScroll(
+          _toViewport(d.localPosition),
+          -d.delta.dx,
+          0,
+        );
+      },
+      child: FittedBox(
+        fit: BoxFit.contain,
+        child: SizedBox(
+          width: widget.controller.value.size.width,
+          height: widget.controller.value.size.height,
+          child: VideoPlayer(widget.controller),
+        ),
       ),
     );
   }
