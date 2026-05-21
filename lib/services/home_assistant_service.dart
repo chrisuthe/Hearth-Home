@@ -287,6 +287,34 @@ class HomeAssistantService {
     );
   }
 
+  /// Sends an arbitrary WebSocket command and awaits its result.
+  /// Used for non-service-call requests like `lovelace/dashboards/list`.
+  ///
+  /// The caller supplies the message body (e.g. `{'type': 'lovelace/dashboards/list'}`);
+  /// this method assigns the message `id` and tracks the matching response.
+  /// Returns the response's `result` field, or `null` on timeout / failure /
+  /// disconnect.
+  Future<dynamic> sendCommand(Map<String, dynamic> message) async {
+    if (!_authenticated || _channel == null) {
+      Log.w('HA', 'sendCommand dropped (not connected): ${message['type']}');
+      return null;
+    }
+    final id = _nextId;
+    final completer = Completer<dynamic>();
+    _pendingResponses[id] = completer;
+    _send({'id': id, ...message});
+    try {
+      return await completer.future.timeout(const Duration(seconds: 10));
+    } on TimeoutException {
+      _pendingResponses.remove(id);
+      return null;
+    } catch (e) {
+      _pendingResponses.remove(id);
+      Log.e('HA', 'sendCommand error: $e');
+      return null;
+    }
+  }
+
   /// Fetches HA's entity registry. Returns the raw list of registry entries
   /// (one per entity), each a map with `entity_id`, `unique_id`, `platform`,
   /// `device_id`, etc.  Useful when the live state stream's attributes
