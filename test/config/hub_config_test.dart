@@ -1,5 +1,7 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hearth/config/hub_config.dart';
+import 'package:hearth/config/webview_config.dart';
 
 void main() {
   group('HubConfig', () {
@@ -532,6 +534,63 @@ void main() {
       final restored = HubConfig.fromJson(c.toJson());
       expect(restored.photoSources.albumEnabled, true);
       expect(restored.photoSources.albumId, 'album-x');
+    });
+  });
+
+  group('HubConfig webviews', () {
+    test('defaults to empty list', () {
+      const config = HubConfig();
+      expect(config.webviews, isEmpty);
+    });
+
+    test('round-trips webviews through JSON', () {
+      final config = HubConfig(
+        webviews: [
+          WebviewConfig(
+            id: 'webview:ha:lovelace',
+            url: 'https://ha.example/lovelace',
+            name: 'Overview',
+            iconCodePoint: Icons.dashboard.codePoint,
+            source: WebviewSource.haDashboard,
+            order: 0,
+          ),
+        ],
+      );
+      final restored = HubConfig.fromJson(config.toJson());
+      expect(restored.webviews.length, 1);
+      expect(restored.webviews.first.url, 'https://ha.example/lovelace');
+    });
+
+    test('copyWith preserves webviews when not specified', () {
+      final original = HubConfig(
+        webviews: [
+          WebviewConfig(
+            id: 'webview:custom:x',
+            url: 'https://example.com',
+            name: 'Test',
+            iconCodePoint: Icons.web.codePoint,
+            source: WebviewSource.customUrl,
+            order: 0,
+          ),
+        ],
+      );
+      final copy = original.copyWith();
+      expect(copy.webviews, original.webviews);
+    });
+
+    test('copyWith replaces webviews when specified', () {
+      const original = HubConfig();
+      final copy = original.copyWith(webviews: [
+        WebviewConfig(
+          id: 'webview:custom:x',
+          url: 'https://example.com',
+          name: 'Test',
+          iconCodePoint: Icons.web.codePoint,
+          source: WebviewSource.customUrl,
+          order: 0,
+        ),
+      ]);
+      expect(copy.webviews.length, 1);
     });
   });
 }

@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../utils/logger.dart';
+import 'webview_config.dart';
 
 // dart:io and path_provider compile to stubs on web — guarded by kIsWeb at runtime.
 import 'dart:io' if (dart.library.html) 'dart:io';
@@ -225,6 +226,10 @@ class HubConfig {
   /// to drive a uniform Transform.scale + MediaQuery.size override.
   final double uiScale;
 
+  /// User-configured webview screens (HA dashboards + custom URLs) that appear
+  /// as additional pages in HubShell's PageView via the webview module.
+  final List<WebviewConfig> webviews;
+
   const HubConfig({
     this.apiKey = '',
     this.immichUrl = '',
@@ -275,6 +280,7 @@ class HubConfig {
     this.captureToolsEnabled = false,
     this.photoSources = const PhotoSourcesConfig(),
     this.uiScale = 1.0,
+    this.webviews = const [],
   });
 
   static String generateApiKey() {
@@ -333,6 +339,7 @@ class HubConfig {
     bool? captureToolsEnabled,
     PhotoSourcesConfig? photoSources,
     double? uiScale,
+    List<WebviewConfig>? webviews,
   }) {
     return HubConfig(
       apiKey: apiKey ?? this.apiKey,
@@ -386,6 +393,7 @@ class HubConfig {
       captureToolsEnabled: captureToolsEnabled ?? this.captureToolsEnabled,
       photoSources: photoSources ?? this.photoSources,
       uiScale: uiScale ?? this.uiScale,
+      webviews: webviews ?? this.webviews,
     );
   }
 
@@ -439,6 +447,7 @@ class HubConfig {
         'captureToolsEnabled': captureToolsEnabled,
         'photoSources': photoSources.toJson(),
         'uiScale': uiScale,
+        'webviews': webviews.map((w) => w.toJson()).toList(),
       };
 
   factory HubConfig.fromJson(Map<String, dynamic> json) => HubConfig(
@@ -504,6 +513,11 @@ class HubConfig {
         uiScale: ((json['uiScale'] as num?)?.toDouble() ?? 1.0)
             .clamp(0.75, 1.5)
             .toDouble(),
+        webviews: (json['webviews'] as List<dynamic>?)
+                ?.map((j) =>
+                    WebviewConfig.fromJson(j as Map<String, dynamic>))
+                .toList() ??
+            const [],
       );
 
   static Map<String, List<String>> _migrateEnabledModules(Map<String, dynamic> json) {
