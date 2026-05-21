@@ -318,7 +318,7 @@ packages:
       path: "packages/flutterpi_gstreamer_video_player"
       ref: main
       resolved-ref: e62847617efba1b6d033e49536189083d28de1ce
-      url: "https://registry.home.chrisuthe.com/chris/flutterpi_gstreamer_video_player-hearth.git"
+      url: "https://github.com/chrisuthe/flutterpi_gstreamer_video_player-hearth.git"
     source: git
     version: "0.2.0"
   glob:

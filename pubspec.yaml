@@ -33,7 +33,7 @@ dependencies:
       ref: v0.0.7
   flutterpi_gstreamer_video_player:
     git:
-      url: https://registry.home.chrisuthe.com/chris/flutterpi_gstreamer_video_player-hearth.git
+      url: https://github.com/chrisuthe/flutterpi_gstreamer_video_player-hearth.git
       ref: main
       path: packages/flutterpi_gstreamer_video_player
 
