@@ -6,9 +6,10 @@ import 'media/media_module.dart';
 import 'controls/controls_module.dart';
 import 'cameras/cameras_module.dart';
 import 'mealie/mealie_module.dart';
+import 'webview/webview_module.dart';
 
-/// All available modules. Order here doesn't matter — defaultOrder controls display.
-final allModules = <HearthModule>[
+/// Static, app-lifetime modules. These don't depend on config.
+final List<HearthModule> _staticModules = <HearthModule>[
   AlarmClockModule(),
   MediaModule(),
   ControlsModule(),
@@ -16,13 +17,28 @@ final allModules = <HearthModule>[
   MealieModule(),
 ];
 
+/// All modules available in the app, including dynamic ones derived from
+/// the user's webview configuration. Static modules come first; webviews
+/// follow in their configured order.
+final allModulesProvider = Provider<List<HearthModule>>((ref) {
+  final config = ref.watch(hubConfigProvider);
+  return [
+    ..._staticModules,
+    ...config.webviews.map((w) => WebviewModule(config: w)),
+  ];
+});
+
 /// Modules placed in the swipe PageView, sorted by order.
 final swipeModulesProvider = Provider<List<HearthModule>>((ref) {
   final config = ref.watch(hubConfigProvider);
+  final all = ref.watch(allModulesProvider);
   final placements = config.modulePlacements;
-  final modules = allModules
-      .where((m) => (placements[m.id] ?? []).contains('swipe'))
-      .toList();
+  // Webviews are always swipe-placed; the user only un-places by removing
+  // them, not by re-placing into a menu.
+  final modules = all.where((m) {
+    if (m is WebviewModule) return true;
+    return (placements[m.id] ?? []).contains('swipe');
+  }).toList();
   if (config.moduleOrder.isNotEmpty) {
     final order = config.moduleOrder;
     modules.sort((a, b) {
@@ -42,11 +58,11 @@ final swipeModulesProvider = Provider<List<HearthModule>>((ref) {
 /// Modules placed in the given menu, sorted by order.
 List<HearthModule> menuModules(WidgetRef ref, String menuId) {
   final config = ref.watch(hubConfigProvider);
+  final all = ref.watch(allModulesProvider);
   final placements = config.modulePlacements;
-  final modules = allModules
-      .where((m) => (placements[m.id] ?? []).contains(menuId))
+  final modules = all
+      .where((m) => m is! WebviewModule && (placements[m.id] ?? []).contains(menuId))
       .toList();
   modules.sort((a, b) => a.defaultOrder.compareTo(b.defaultOrder));
   return modules;
 }
-

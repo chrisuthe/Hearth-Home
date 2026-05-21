@@ -35,6 +35,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final config = ref.watch(hubConfigProvider);
+    final allModules = ref.watch(allModulesProvider);
 
     return Container(
       color: Colors.black.withValues(alpha: 0.7),
@@ -66,6 +67,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         const SizedBox(height: HearthSpacing.x3),
         _ModuleReorderList(
           config: config,
+          modules: allModules,
           onReorder: (newOrder) =>
               _updateConfig((c) => c.copyWith(moduleOrder: newOrder)),
           onReset: () =>
@@ -1035,11 +1037,13 @@ class _SettingsTile extends StatelessWidget {
 /// Reorderable list for customizing screen order in the PageView.
 class _ModuleReorderList extends StatefulWidget {
   final HubConfig config;
+  final List<HearthModule> modules;
   final ValueChanged<List<String>> onReorder;
   final VoidCallback onReset;
 
   const _ModuleReorderList({
     required this.config,
+    required this.modules,
     required this.onReorder,
     required this.onReset,
   });
@@ -1061,7 +1065,8 @@ class _ModuleReorderListState extends State<_ModuleReorderList> {
   void didUpdateWidget(_ModuleReorderList old) {
     super.didUpdateWidget(old);
     if (old.config.enabledModules != widget.config.enabledModules ||
-        old.config.moduleOrder != widget.config.moduleOrder) {
+        old.config.moduleOrder != widget.config.moduleOrder ||
+        old.modules != widget.modules) {
       _order = _buildOrder();
     }
   }
@@ -1071,7 +1076,7 @@ class _ModuleReorderListState extends State<_ModuleReorderList> {
   /// Otherwise, sort enabled modules by defaultOrder.
   List<String> _buildOrder() {
     final enabledIds = widget.config.enabledModules;
-    final enabled = allModules.where((m) => enabledIds.contains(m.id)).toList();
+    final enabled = widget.modules.where((m) => enabledIds.contains(m.id)).toList();
 
     if (widget.config.moduleOrder.isNotEmpty) {
       // Start with modules in the custom order that are still enabled.
@@ -1159,7 +1164,7 @@ class _ModuleReorderListState extends State<_ModuleReorderList> {
             },
             itemBuilder: (context, index) {
               final moduleId = _order[index];
-              final module = allModules.firstWhere((m) => m.id == moduleId);
+              final module = widget.modules.firstWhere((m) => m.id == moduleId);
               return ListTile(
                 key: ValueKey(moduleId),
                 dense: true,
