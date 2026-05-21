@@ -685,8 +685,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         const UpdateSettingsSection(),
 
         const SizedBox(height: HearthSpacing.x6),
+
+        // ── 8. Webviews ────────────────────────────────────────────
+        const _SectionHeader(
+          title: 'Webviews',
+          description: 'Embed Home Assistant dashboards and external pages as full-screen views',
+        ),
+        const SizedBox(height: HearthSpacing.x2),
         const WebviewSettingsSection(),
-        const SizedBox(height: 16),
+
+        const SizedBox(height: HearthSpacing.x6),
 
         // Per-module settings (only shown when module is enabled).
         ...allModules

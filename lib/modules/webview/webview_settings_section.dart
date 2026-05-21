@@ -23,18 +23,6 @@ class WebviewSettingsSection extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Webviews',
-              style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 12,
-                  letterSpacing: 0.6,
-                  fontWeight: FontWeight.w600)),
-          const SizedBox(height: 4),
-          const Text(
-            'Embed dashboards and external pages as full-screen views.',
-            style: TextStyle(color: Colors.white38, fontSize: 11),
-          ),
-          const SizedBox(height: 16),
           if (haConfigured)
             const HaDashboardPicker()
           else
