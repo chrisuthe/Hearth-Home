@@ -153,7 +153,10 @@ class _TouchableWebviewView extends StatefulWidget {
 }
 
 class _TouchableWebviewViewState extends State<_TouchableWebviewView> {
-  Offset? _longPressOrigin;
+  // Position recorded at tap-down; we use it later if the arena commits to
+  // tap (in [onTap]) so the press/release pair we synthesise lands at the
+  // user's finger, not the centre of the screen.
+  Offset? _tapDownPos;
   // True iff the current vertical drag started in the central area (i.e.
   // outside Hearth's top/bottom 80px edge zones). Only those drags are
   // forwarded to the webview as scroll; edge-zone drags pass through to
@@ -186,31 +189,41 @@ class _TouchableWebviewViewState extends State<_TouchableWebviewView> {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      // Important: the webview deliberately does NOT register
-      // `onHorizontalDragUpdate`. Horizontal drags belong to the outer
-      // PageView for page-to-page navigation. In-webview horizontal
-      // scrolling within Lovelace cards is a future enhancement.
+      // Two deliberate omissions:
+      //   * no `onHorizontalDragUpdate` — horizontal drags belong to the
+      //     outer PageView for page-to-page navigation.
+      //   * no `onTapDown`/`onTapUp` that immediately fire press/release —
+      //     emitting the press before the arena commits the gesture would
+      //     leak a stuck-press to HA if the user later starts a swipe.
+      //     Instead we use `onTap`, which fires only after the gesture
+      //     arena has confirmed a tap (not a drag, not a long-press).
       behavior: HitTestBehavior.opaque,
       onTapDown: (d) {
+        // Record position; don't emit to the webview yet. The press is
+        // sent in [onTap] only after the arena has committed.
+        _tapDownPos = d.localPosition;
         _resumeIfNeeded();
-        widget.session.sendPointerDown(_toViewport(d.localPosition));
-      },
-      onTapUp: (d) {
-        widget.session.sendPointerUp(_toViewport(d.localPosition));
       },
       onTapCancel: () {
-        if (_longPressOrigin != null) {
-          widget.session.sendPointerUp(_toViewport(_longPressOrigin!));
-        }
+        // Arena decided this wasn't a tap (became a drag, etc.). Nothing
+        // to do — we never sent a press, so there's no release to issue.
+        _tapDownPos = null;
+      },
+      onTap: () async {
+        final p = _tapDownPos;
+        _tapDownPos = null;
+        if (p == null) return;
+        final viewport = _toViewport(p);
+        await widget.session.sendPointerDown(viewport);
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+        await widget.session.sendPointerUp(viewport);
       },
       onLongPressStart: (d) {
         _resumeIfNeeded();
-        _longPressOrigin = d.localPosition;
         widget.session.sendLongPressStart(_toViewport(d.localPosition));
       },
       onLongPressEnd: (d) {
         widget.session.sendLongPressEnd(_toViewport(d.localPosition));
-        _longPressOrigin = null;
       },
       onVerticalDragStart: (d) {
         final y = d.localPosition.dy;
