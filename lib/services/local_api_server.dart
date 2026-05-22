@@ -1058,14 +1058,54 @@ final webPinProvider = Provider<String>((ref) {
 // ---------------------------------------------------------------------------
 
 const _legacyConfigHtml = r'''
+<style>
+/* Scoped styles for the legacy settings fragment. These rules apply only
+   inside the legacy panel; the rest of the page uses hearthCss. */
+.panel .container { width: 100%; max-width: 520px; }
+.panel .container h2 {
+  font-size: 11px; font-weight: 600; letter-spacing: 1.2px;
+  color: #888; text-transform: uppercase; margin: 24px 0 8px;
+}
+.panel .container label {
+  display: block; font-size: 13px; color: #aaa; margin-bottom: 4px;
+}
+.panel .container input[type="text"],
+.panel .container input[type="password"],
+.panel .container input[type="number"],
+.panel .container input[type="time"],
+.panel .container select {
+  width: 100%; padding: 10px 12px; margin-bottom: 12px;
+  background: #1e1e1e; border: 1px solid #333; border-radius: 6px;
+  color: #e0e0e0; font-size: 14px; outline: none;
+}
+.panel .container .secret-wrap { position: relative; }
+.panel .container .toggle-vis {
+  position: absolute; right: 8px; top: 6px;
+  background: transparent; border: none; cursor: pointer;
+  color: #888; font-size: 16px;
+}
+.panel .container .hint {
+  font-size: 12px; color: #888; margin-bottom: 8px;
+}
+.panel .container .checkbox-label {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 14px; color: #e0e0e0; margin-bottom: 12px;
+}
+.panel .container button.save {
+  padding: 10px 20px; background: #646cff; color: #fff;
+  border: none; border-radius: 6px; cursor: pointer;
+  font-size: 14px; margin-top: 16px;
+}
+.panel .container .toast {
+  position: fixed; bottom: 24px; right: 24px;
+  background: #222; color: #fff; padding: 12px 16px;
+  border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+  opacity: 0; transition: opacity 0.2s;
+  pointer-events: none;
+}
+.panel .container .toast.show { opacity: 1; }
+</style>
 <div class="container">
-  <div style="display:flex;justify-content:space-between;align-items:center;">
-    <h1>Hearth Setup</h1>
-    <div style="display:flex;gap:16px;">
-      <a href="/capture" style="color:#646cff;font-size:13px;text-decoration:none;">Captures</a>
-      <a href="/logs" style="color:#646cff;font-size:13px;text-decoration:none;">View Logs</a>
-    </div>
-  </div>
   <form id="configForm">
 
     <h2>Connections</h2>
