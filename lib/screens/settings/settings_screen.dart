@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../config/hub_config.dart';
-import '../../models/ha_entity.dart';
-import '../../services/home_assistant_service.dart';
 import '../../services/local_api_server.dart';
 import '../../services/osk_integration.dart';
 import '../../utils/alsa_utils.dart';
@@ -122,75 +120,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ),
         const SizedBox(height: HearthSpacing.x2),
 
-        // -- Home Assistant --
-        const _ServiceSubHeader(title: 'Home Assistant'),
-        _SettingsTile(
-          icon: Icons.home,
-          title: 'URL',
-          subtitle: config.haUrl.isEmpty ? 'Not configured' : config.haUrl,
-          onTap: () => _showTextInputDialog(
-            title: 'Home Assistant URL',
-            currentValue: config.haUrl,
-            hint: 'http://192.168.1.x:8123',
-            onSave: (value) => _updateConfig((c) => c.copyWith(haUrl: value)),
-          ),
-        ),
-        _SettingsTile(
-          icon: Icons.token,
-          title: 'Token',
-          subtitle: config.haToken.isEmpty
-              ? 'Not configured'
-              : '\u2022' * 8,
-          onTap: () => _showTextInputDialog(
-            title: 'HA Long-Lived Access Token',
-            currentValue: config.haToken,
-            hint: 'Paste your HA token',
-            obscure: true,
-            onSave: (value) => _updateConfig((c) => c.copyWith(haToken: value)),
-          ),
-        ),
-
         // -- Immich Photo Sources --
         // Connection settings live in the new Immich plugin. The album /
         // photo-source picker below is a bespoke widget that stays here
         // for now and will migrate later as a custom widget contribution.
         const _ServiceSubHeader(title: 'Immich Photo Sources'),
         const PhotoSourcesSection(),
-
-        // -- Voice Assistant --
-        // Pin to a specific assist_satellite entity. Empty = auto-pick the
-        // first available one (fine for single-Hearth setups, breaks the
-        // moment another satellite — second Hearth, Voice PE, etc — joins HA).
-        const _ServiceSubHeader(title: 'Voice Assistant'),
-        Builder(builder: (context) {
-          final ha = ref.read(homeAssistantServiceProvider);
-          final assistEntities = ha.entities.values
-              .where((e) => e.entityId.startsWith('assist_satellite.'))
-              .toList()
-            ..sort((a, b) => a.entityId.compareTo(b.entityId));
-          final options = <String, String>{
-            '': "Auto-detect (match this Pi's MAC)",
-            for (final e in assistEntities)
-              e.entityId:
-                  '${e.name.isNotEmpty ? e.name : e.entityId} (${e.entityId})',
-          };
-          final current = config.voiceAssistantEntityId;
-          final currentLabel = options[current] ??
-              (current.isEmpty ? "Auto-detect (match this Pi's MAC)" : current);
-          return _SettingsTile(
-            icon: Icons.record_voice_over,
-            title: 'Satellite Entity',
-            subtitle: currentLabel,
-            onTap: () => _showChoiceDialog(
-              title: 'Voice Assistant Satellite',
-              options: options,
-              currentValue: current,
-              onSave: (value) => _updateConfig(
-                (c) => c.copyWith(voiceAssistantEntityId: value),
-              ),
-            ),
-          );
-        }),
 
         const SizedBox(height: HearthSpacing.x6),
 
@@ -367,23 +302,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               (c) => c.copyWith(bottomSwipeAction: value),
             ),
           ),
-        ),
-
-        const SizedBox(height: HearthSpacing.x6),
-
-        // ── 4. Devices ──────────────────────────────────────────────
-        const _SectionHeader(
-          title: 'Devices',
-          description: 'Pinned devices for the Controls screen',
-        ),
-        const SizedBox(height: HearthSpacing.x2),
-        _SettingsTile(
-          icon: Icons.devices,
-          title: 'Pinned Devices',
-          subtitle: config.pinnedEntityIds.isEmpty
-              ? 'No devices selected'
-              : '${config.pinnedEntityIds.length} devices',
-          onTap: () => _showEntityPicker(context, ref),
         ),
 
         const SizedBox(height: HearthSpacing.x6),
@@ -694,37 +612,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 
-  Future<void> _showEntityPicker(BuildContext context, WidgetRef ref) async {
-    final ha = ref.read(homeAssistantServiceProvider);
-    final config = ref.read(hubConfigProvider);
-    final allEntities = ha.entities.values
-        .where((e) => ['light', 'switch', 'climate', 'fan', 'cover', 'lock', 'input_boolean']
-            .contains(e.domain))
-        .toList()
-      ..sort((a, b) => a.name.compareTo(b.name));
-
-    if (allEntities.isEmpty) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No entities available. Is HA connected?')),
-      );
-      return;
-    }
-
-    final selected = Set<String>.from(config.pinnedEntityIds);
-
-    if (!context.mounted) return;
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) => _EntityPickerDialog(
-        entities: allEntities,
-        selected: selected,
-        onSave: (ids) => _updateConfig(
-          (c) => c.copyWith(pinnedEntityIds: ids.toList()),
-        ),
-      ),
-    );
-  }
 }
 
 /// Section header used to visually group related settings.
@@ -963,102 +850,6 @@ class _ModuleReorderListState extends State<_ModuleReorderList> {
               );
             },
           ),
-        ),
-      ],
-    );
-  }
-}
-
-class _EntityPickerDialog extends StatefulWidget {
-  final List<HaEntity> entities;
-  final Set<String> selected;
-  final ValueChanged<Set<String>> onSave;
-
-  const _EntityPickerDialog({
-    required this.entities,
-    required this.selected,
-    required this.onSave,
-  });
-
-  @override
-  State<_EntityPickerDialog> createState() => _EntityPickerDialogState();
-}
-
-class _EntityPickerDialogState extends State<_EntityPickerDialog> {
-  late final Set<String> _selected;
-  String _search = '';
-
-  @override
-  void initState() {
-    super.initState();
-    _selected = Set<String>.from(widget.selected);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final filtered = widget.entities
-        .where((e) =>
-            e.name.toLowerCase().contains(_search.toLowerCase()) ||
-            e.entityId.toLowerCase().contains(_search.toLowerCase()))
-        .toList();
-
-    return AlertDialog(
-      backgroundColor: kDialogBackground,
-      title: const Text('Select Devices'),
-      content: SizedBox(
-        width: double.maxFinite,
-        height: 400,
-        child: Column(
-          children: [
-            TextField(
-              decoration: const InputDecoration(
-                hintText: 'Search entities...',
-                prefixIcon: Icon(Icons.search, color: Colors.white38),
-              ),
-              onChanged: (v) => setState(() => _search = v),
-            ),
-            const SizedBox(height: HearthSpacing.x2),
-            Expanded(
-              child: ListView.builder(
-                itemCount: filtered.length,
-                itemBuilder: (ctx, i) {
-                  final entity = filtered[i];
-                  final isSelected = _selected.contains(entity.entityId);
-                  return CheckboxListTile(
-                    dense: true,
-                    title: Text(entity.name, style: const TextStyle(fontSize: HearthFont.body)),
-                    subtitle: Text(entity.entityId,
-                        style: TextStyle(
-                            fontSize: HearthFont.caption,
-                            color: Colors.white.withValues(alpha: 0.5))),
-                    value: isSelected,
-                    onChanged: (v) {
-                      setState(() {
-                        if (v == true) {
-                          _selected.add(entity.entityId);
-                        } else {
-                          _selected.remove(entity.entityId);
-                        }
-                      });
-                    },
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        TextButton(
-          onPressed: () {
-            widget.onSave(_selected);
-            Navigator.pop(context);
-          },
-          child: Text('Save (${_selected.length})'),
         ),
       ],
     );

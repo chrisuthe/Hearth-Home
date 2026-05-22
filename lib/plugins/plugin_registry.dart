@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'alarm_clock/alarm_clock_plugin.dart';
 import 'frigate/frigate_plugin.dart';
 import 'hearth_plugin.dart';
+import 'home_assistant/home_assistant_plugin.dart';
 import 'immich/immich_plugin.dart';
 import 'mealie/mealie_plugin.dart';
 import 'music_assistant/music_assistant_plugin.dart';
@@ -13,6 +14,7 @@ import 'weather/weather_plugin.dart';
 /// Order within a category is determined by [HearthPlugin.order].
 List<HearthPlugin> _firstPartyPlugins = [
   WeatherPlugin(),
+  HomeAssistantPlugin(),
   MealiePlugin(),
   ImmichPlugin(),
   MusicAssistantPlugin(),

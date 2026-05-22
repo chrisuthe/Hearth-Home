@@ -1108,16 +1108,6 @@ const _legacyConfigHtml = r'''
 <div class="container">
   <form id="configForm">
 
-    <h2>Connections</h2>
-    <label for="haUrl">Home Assistant URL</label>
-    <input type="text" id="haUrl" placeholder="http://192.168.1.x:8123">
-    <label for="haToken">HA Long-Lived Access Token</label>
-    <div class="secret-wrap">
-      <input type="password" id="haToken" placeholder="Paste your HA token">
-      <button type="button" class="toggle-vis" onclick="toggleVis(this)">&#x1f441;</button>
-    </div>
-    <div class="hint" id="haToken_hint"></div>
-
     <h2>Display</h2>
     <label for="idleTimeoutSeconds">Idle Timeout (seconds)</label>
     <input type="number" id="idleTimeoutSeconds" min="30" max="600" step="10" placeholder="120">
@@ -1153,10 +1143,6 @@ const _legacyConfigHtml = r'''
       <label for="nightModeClockEnd">Clock End (HH:MM)</label>
       <input type="text" id="nightModeClockEnd" placeholder="07:00">
     </div>
-
-    <h2>Pinned Devices</h2>
-    <label for="pinnedEntityIds">Entity IDs (one per line)</label>
-    <textarea id="pinnedEntityIds" rows="6" placeholder="light.kitchen&#10;climate.living_room&#10;switch.garage_door" style="width:100%;padding:10px 12px;margin-bottom:12px;background:#1e1e1e;border:1px solid #333;border-radius:6px;color:#e0e0e0;font-size:14px;outline:none;resize:vertical;font-family:monospace;"></textarea>
 
     <h2>Updates</h2>
     <label for="autoUpdate" class="checkbox-label">
@@ -1203,7 +1189,6 @@ async function initAuth() {
 }
 
 const textFields = [
-  'haUrl','haToken',
   'giteaApiToken',
   'nightModeHaEntity','nightModeClockStart','nightModeClockEnd',
   'timezone'
@@ -1241,9 +1226,6 @@ async function load() {
       const el = document.getElementById(f);
       if (el && cfg[f]) el.value = cfg[f];
     }
-    if (cfg.pinnedEntityIds && Array.isArray(cfg.pinnedEntityIds)) {
-      document.getElementById('pinnedEntityIds').value = cfg.pinnedEntityIds.join('\n');
-    }
     toggleGiteaToken();
   } catch(e) { showToast('Failed to load config', true); }
 }
@@ -1277,8 +1259,6 @@ document.getElementById('configForm').addEventListener('submit', async (e) => {
     const el = document.getElementById(f);
     body[f] = el.value;
   }
-  const pinnedText = document.getElementById('pinnedEntityIds').value;
-  body.pinnedEntityIds = pinnedText.split('\n').map(s => s.trim()).filter(s => s.length > 0);
   try {
     const r = await fetch('/api/config', {method: 'POST', headers: getHeaders(), body: JSON.stringify(body)});
     if (r.ok) { showToast('Saved!'); }
