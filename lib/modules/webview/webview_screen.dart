@@ -154,6 +154,16 @@ class _TouchableWebviewView extends StatefulWidget {
 
 class _TouchableWebviewViewState extends State<_TouchableWebviewView> {
   Offset? _longPressOrigin;
+  // True iff the current vertical drag started in the central area (i.e.
+  // outside Hearth's top/bottom 80px edge zones). Only those drags are
+  // forwarded to the webview as scroll; edge-zone drags pass through to
+  // HubShell's edge-swipe handlers.
+  bool _vertDragClaimed = false;
+
+  // Hearth's edge-swipe zones occupy the top/bottom 80px of the display.
+  // Mirror that here so vertical drags starting in those bands don't
+  // get swallowed by the webview.
+  static const double _edgeBand = 80;
 
   // Maps local Flutter pixel to wpesrc viewport coordinates.
   // VideoPlayer renders via BoxFit.contain inside [size]; map back to native.
@@ -176,6 +186,10 @@ class _TouchableWebviewViewState extends State<_TouchableWebviewView> {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
+      // Important: the webview deliberately does NOT register
+      // `onHorizontalDragUpdate`. Horizontal drags belong to the outer
+      // PageView for page-to-page navigation. In-webview horizontal
+      // scrolling within Lovelace cards is a future enhancement.
       behavior: HitTestBehavior.opaque,
       onTapDown: (d) {
         _resumeIfNeeded();
@@ -198,21 +212,24 @@ class _TouchableWebviewViewState extends State<_TouchableWebviewView> {
         widget.session.sendLongPressEnd(_toViewport(d.localPosition));
         _longPressOrigin = null;
       },
+      onVerticalDragStart: (d) {
+        final y = d.localPosition.dy;
+        // Decline to claim drags that begin in the edge bands — let
+        // HubShell's edge-swipe zones handle them (for menu access).
+        _vertDragClaimed = y >= _edgeBand &&
+            y <= widget.size.height - _edgeBand;
+        if (_vertDragClaimed) _resumeIfNeeded();
+      },
       onVerticalDragUpdate: (d) {
-        _resumeIfNeeded();
+        if (!_vertDragClaimed) return;
         widget.session.sendScroll(
           _toViewport(d.localPosition),
           0,
           -d.delta.dy, // negate: drag down means scroll up the page
         );
       },
-      onHorizontalDragUpdate: (d) {
-        _resumeIfNeeded();
-        widget.session.sendScroll(
-          _toViewport(d.localPosition),
-          -d.delta.dx,
-          0,
-        );
+      onVerticalDragEnd: (_) {
+        _vertDragClaimed = false;
       },
       child: FittedBox(
         fit: BoxFit.contain,
