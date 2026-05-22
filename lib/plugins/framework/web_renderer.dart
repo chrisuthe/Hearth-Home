@@ -6,7 +6,7 @@ import 'web_context.dart';
 /// Renders the full settings page HTML from the plugin registry.
 ///
 /// The selected plugin is passed in; the renderer assembles the sidebar
-/// (all plugins + Legacy) and the active plugin's panel (via
+/// (all plugins grouped by category) and the active plugin's panel (via
 /// [HearthPlugin.buildSettingsHtml]).
 class WebRenderer {
   /// Plugins to render in the sidebar, in display order.
@@ -15,11 +15,6 @@ class WebRenderer {
   /// Bearer token to inject so client JS can call /api/* endpoints.
   final String bearerToken;
 
-  /// HTML chunk for the legacy panel (existing flat-page content with
-  /// plugin-owned fields stripped out as plugins migrate). Shown when
-  /// `selectedId == 'legacy'`.
-  final String legacyHtml;
-
   /// Current config snapshot, used to hydrate field values when rendering
   /// each plugin's HTML.
   final HubConfig config;
@@ -27,12 +22,12 @@ class WebRenderer {
   WebRenderer({
     required this.plugins,
     required this.bearerToken,
-    required this.legacyHtml,
     required this.config,
   });
 
-  /// Render the full page. [selectedId] is the currently-selected sidebar
-  /// row — a plugin ID or `'legacy'`.
+  /// Render the full page. [selectedId] is the currently-selected plugin
+  /// id; if it doesn't match any registered plugin we fall back to the
+  /// first plugin in the registry.
   String render({required String selectedId}) {
     final features =
         plugins.where((p) => p.category == PluginCategory.feature).toList();
@@ -40,22 +35,17 @@ class WebRenderer {
         plugins.where((p) => p.category == PluginCategory.device).toList();
 
     HearthPlugin? selected;
-    if (selectedId != 'legacy') {
-      for (final p in plugins) {
-        if (p.id == selectedId) {
-          selected = p;
-          break;
-        }
+    for (final p in plugins) {
+      if (p.id == selectedId) {
+        selected = p;
+        break;
       }
-      // If a non-legacy id didn't match any plugin (stale URL), fall back
-      // to first plugin or legacy.
-      selected ??= plugins.isNotEmpty ? plugins.first : null;
     }
+    selected ??= plugins.isNotEmpty ? plugins.first : null;
 
     String panelHtml;
     if (selected == null) {
-      panelHtml =
-          '<div class="panel-header"><h1>Legacy Settings</h1></div>$legacyHtml';
+      panelHtml = '<div class="panel-header"><h1>No plugins registered</h1></div>';
     } else {
       final ctx = WebContext(
         config: config,
@@ -71,6 +61,7 @@ ${selected.buildSettingsHtml(ctx)}
     }
 
     final pluginPrefix = selected != null ? '/api/plugin/${selected.id}' : '';
+    final activeId = selected?.id ?? '';
 
     return '''
 <!DOCTYPE html>
@@ -83,7 +74,7 @@ ${selected.buildSettingsHtml(ctx)}
 </head>
 <body>
 <aside class="sidebar">
-${_renderSidebar(features, devices, selectedId)}
+${_renderSidebar(features, devices, activeId)}
 </aside>
 <main class="panel">
 $panelHtml
@@ -113,11 +104,6 @@ window.__HEARTH_PLUGIN_PREFIX__ = '${_escapeJs(pluginPrefix)}';
         buf.writeln(_renderRow(p, selectedId));
       }
     }
-    buf.writeln('<div class="category">LEGACY</div>');
-    final legacyClass =
-        selectedId == 'legacy' ? 'row legacy selected' : 'row legacy';
-    buf.writeln(
-        '<a class="$legacyClass" href="?panel=legacy">Legacy Settings</a>');
     return buf.toString();
   }
 

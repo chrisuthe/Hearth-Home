@@ -766,17 +766,16 @@ class LocalApiServer {
     request.response.headers.add('X-Content-Type-Options', 'nosniff');
     request.response.headers.add('X-Frame-Options', 'DENY');
 
-    // Determine selected panel from query string, default to first plugin
-    // or 'legacy' if no plugins.
+    // Determine selected panel from query string, default to the first
+    // registered plugin.
     final panel = request.uri.queryParameters['panel'];
     final plugins = firstPartyPlugins;
     final selectedId =
-        panel ?? (plugins.isNotEmpty ? plugins.first.id : 'legacy');
+        panel ?? (plugins.isNotEmpty ? plugins.first.id : '');
 
     final renderer = WebRenderer(
       plugins: plugins,
       bearerToken: _configNotifier.current.apiKey,
-      legacyHtml: _gateCaptureUi(_legacyConfigHtml),
       config: _configNotifier.current,
     );
     request.response.write(renderer.render(selectedId: selectedId));
@@ -1054,166 +1053,6 @@ final localApiServerProvider = Provider<LocalApiServer>((ref) {
 final webPinProvider = Provider<String>((ref) {
   return ref.read(localApiServerProvider).webPin;
 });
-
-// ---------------------------------------------------------------------------
-// Body fragment for the legacy settings panel. WebRenderer wraps this with
-// the sidebar shell + hearthCss; this fragment is the contents of the
-// "Legacy Settings" panel only — fields not yet migrated to plugins.
-// As plugins are migrated, their fields are stripped from this fragment.
-// ---------------------------------------------------------------------------
-
-const _legacyConfigHtml = r'''
-<style>
-/* Scoped styles for the legacy settings fragment. These rules apply only
-   inside the legacy panel; the rest of the page uses hearthCss. */
-.panel .container { width: 100%; max-width: 520px; }
-.panel .container h2 {
-  font-size: 11px; font-weight: 600; letter-spacing: 1.2px;
-  color: #888; text-transform: uppercase; margin: 24px 0 8px;
-}
-.panel .container label {
-  display: block; font-size: 13px; color: #aaa; margin-bottom: 4px;
-}
-.panel .container input[type="text"],
-.panel .container input[type="password"],
-.panel .container input[type="number"],
-.panel .container input[type="time"],
-.panel .container select {
-  width: 100%; padding: 10px 12px; margin-bottom: 12px;
-  background: #1e1e1e; border: 1px solid #333; border-radius: 6px;
-  color: #e0e0e0; font-size: 14px; outline: none;
-}
-.panel .container .secret-wrap { position: relative; }
-.panel .container .toggle-vis {
-  position: absolute; right: 8px; top: 6px;
-  background: transparent; border: none; cursor: pointer;
-  color: #888; font-size: 16px;
-}
-.panel .container .hint {
-  font-size: 12px; color: #888; margin-bottom: 8px;
-}
-.panel .container .checkbox-label {
-  display: flex; align-items: center; gap: 8px;
-  font-size: 14px; color: #e0e0e0; margin-bottom: 12px;
-}
-.panel .container button.save {
-  padding: 10px 20px; background: #646cff; color: #fff;
-  border: none; border-radius: 6px; cursor: pointer;
-  font-size: 14px; margin-top: 16px;
-}
-.panel .container .toast {
-  position: fixed; bottom: 24px; right: 24px;
-  background: #222; color: #fff; padding: 12px 16px;
-  border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-  opacity: 0; transition: opacity 0.2s;
-  pointer-events: none;
-}
-.panel .container .toast.show { opacity: 1; }
-</style>
-<div class="container">
-  <form id="configForm">
-    <button type="submit" class="save">Save</button>
-  </form>
-  <div class="toast" id="toast"></div>
-</div>
-<script>
-let API_KEY = '';
-function getHeaders() {
-  return {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + API_KEY};
-}
-async function initAuth() {
-  const r = await fetch('/api/session/key');
-  if (r.ok) {
-    const d = await r.json();
-    API_KEY = d.apiKey;
-  }
-}
-
-const textFields = [];
-const intFields = [];
-const boolFields = [];
-const selectFields = [];
-// giteaApiToken stays in secretFields so /api/config redacts it for any
-// client that fetches the config dump — the SystemPlugin web panel writes
-// it via the same redaction-aware POST path.
-const secretFields = ['immichApiKey', 'haToken', 'musicAssistantToken', 'frigatePassword', 'mealieToken', 'giteaApiToken'];
-const REDACTED = '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022';
-
-async function load() {
-  try {
-    const r = await fetch('/api/config', {headers: getHeaders()});
-    const cfg = await r.json();
-    for (const f of textFields) {
-      const el = document.getElementById(f);
-      if (!el) continue;
-      const val = cfg[f];
-      if (secretFields.includes(f)) {
-        const hint = document.getElementById(f + '_hint');
-        if (val === REDACTED && hint) hint.textContent = 'A value is saved. Leave blank to keep it.';
-      } else if (val != null && val !== '') {
-        el.value = val;
-      }
-    }
-    for (const f of intFields) {
-      const el = document.getElementById(f);
-      if (el && cfg[f] != null) el.value = cfg[f];
-    }
-    for (const f of boolFields) {
-      const el = document.getElementById(f);
-      if (el) el.checked = cfg[f] === true;
-    }
-    for (const f of selectFields) {
-      const el = document.getElementById(f);
-      if (el && cfg[f]) el.value = cfg[f];
-    }
-  } catch(e) { showToast('Failed to load config', true); }
-}
-
-document.getElementById('configForm').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const body = {};
-  for (const f of textFields) {
-    const el = document.getElementById(f);
-    if (secretFields.includes(f)) {
-      if (el.value.trim() !== '') body[f] = el.value;
-    } else {
-      body[f] = el.value;
-    }
-  }
-  for (const f of intFields) {
-    const el = document.getElementById(f);
-    body[f] = parseInt(el.value) || 0;
-  }
-  for (const f of boolFields) {
-    const el = document.getElementById(f);
-    body[f] = el.checked;
-  }
-  for (const f of selectFields) {
-    const el = document.getElementById(f);
-    body[f] = el.value;
-  }
-  try {
-    const r = await fetch('/api/config', {method: 'POST', headers: getHeaders(), body: JSON.stringify(body)});
-    if (r.ok) { showToast('Saved!'); }
-    else { showToast('Save failed', true); }
-  } catch(e) { showToast('Save failed', true); }
-});
-
-function toggleVis(btn) {
-  const inp = btn.previousElementSibling;
-  inp.type = inp.type === 'password' ? 'text' : 'password';
-}
-
-function showToast(msg, isError) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.className = 'toast show' + (isError ? ' error' : '');
-  setTimeout(() => t.className = 'toast', 2500);
-}
-
-initAuth().then(() => load());
-</script>
-''';
 
 const _logsPageHtml = r'''
 <!DOCTYPE html>
