@@ -9,6 +9,7 @@ import 'immich/immich_plugin.dart';
 import 'mealie/mealie_plugin.dart';
 import 'music_assistant/music_assistant_plugin.dart';
 import 'network/network_plugin.dart';
+import 'screens_order/screens_order_plugin.dart';
 import 'sendspin/sendspin_plugin.dart';
 import 'system/system_plugin.dart';
 import 'voice/voice_plugin.dart';
@@ -27,6 +28,7 @@ List<HearthPlugin> _firstPartyPlugins = [
   AlarmClockPlugin(),
   SendspinPlugin(),
   WebviewPlugin(),
+  ScreensOrderPlugin(),
   DisplayPlugin(),
   VoicePlugin(),
   NetworkPlugin(),
