@@ -21,6 +21,32 @@ void main() {
       expect(session.state, WebviewSessionState.paused);
     });
 
+    test('setPaused does NOT transition out of LOADING — natural transitions own that', () async {
+      final session = WebviewSession.testing(url: 'https://example.com');
+      // Pre-condition: LOADING (no notifyFirstFrame yet).
+      expect(session.state, WebviewSessionState.loading);
+      // setPaused(false) is a no-op while LOADING — it must not pre-empt
+      // the eventual notifyFirstFrame.
+      await session.setPaused(false);
+      expect(session.state, WebviewSessionState.loading);
+      // setPaused(true) is also a no-op while LOADING.
+      await session.setPaused(true);
+      expect(session.state, WebviewSessionState.loading);
+      // Once notifyFirstFrame finally fires, the natural transition runs.
+      session.notifyFirstFrame();
+      expect(session.state, WebviewSessionState.playing);
+    });
+
+    test('setPaused does NOT transition out of ERROR', () async {
+      final session = WebviewSession.testing(url: 'https://example.com');
+      session.notifyError('boom');
+      expect(session.state, WebviewSessionState.error);
+      await session.setPaused(false);
+      expect(session.state, WebviewSessionState.error);
+      await session.setPaused(true);
+      expect(session.state, WebviewSessionState.error);
+    });
+
     test('transitions from PAUSED back to PLAYING via setPaused(false)', () async {
       final session = WebviewSession.testing(url: 'https://example.com');
       session.notifyFirstFrame();

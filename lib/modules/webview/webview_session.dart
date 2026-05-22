@@ -104,6 +104,16 @@ class WebviewSession extends ChangeNotifier {
   }
 
   Future<void> setPaused(bool paused) async {
+    // setPaused only governs PLAYING ↔ PAUSED. If we're still LOADING
+    // (waiting for the first frame) or in ERROR (recovering), ignore —
+    // the natural state transitions (notifyFirstFrame, reload) own those.
+    // This prevents a user tap during initial load from overriding _state
+    // to PLAYING, which would suppress the eventual notifyFirstFrame and
+    // leave WebviewScreen stuck on the loading placeholder.
+    if (_state != WebviewSessionState.playing &&
+        _state != WebviewSessionState.paused) {
+      return;
+    }
     final target = paused ? WebviewSessionState.paused : WebviewSessionState.playing;
     // Idempotent: if we're already in the target state, do nothing. Both
     // the plugin call AND notifyListeners are skipped — the latter matters
