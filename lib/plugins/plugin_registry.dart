@@ -1,12 +1,14 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'hearth_plugin.dart';
+import 'mealie/mealie_plugin.dart';
 import 'weather/weather_plugin.dart';
 
 /// First-party plugins. Community contributors add entries here via PR.
 /// Order within a category is determined by [HearthPlugin.order].
 List<HearthPlugin> _firstPartyPlugins = [
   WeatherPlugin(),
+  MealiePlugin(),
 ];
 
 /// All plugins, sorted by category then order. Community plugins fall

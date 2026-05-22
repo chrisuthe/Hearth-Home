@@ -268,36 +268,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
         ),
 
-        // -- Mealie (only when enabled) --
-        if (config.enabledModules.contains('mealie')) ...[
-          const _ServiceSubHeader(title: 'Mealie'),
-          _SettingsTile(
-            icon: Icons.restaurant_menu,
-            title: 'URL',
-            subtitle: config.mealieUrl.isEmpty ? 'Not configured' : config.mealieUrl,
-            onTap: () => _showTextInputDialog(
-              title: 'Mealie URL',
-              currentValue: config.mealieUrl,
-              hint: 'http://192.168.1.x:9925',
-              onSave: (value) => _updateConfig((c) => c.copyWith(mealieUrl: value)),
-            ),
-          ),
-          _SettingsTile(
-            icon: Icons.key,
-            title: 'API Token',
-            subtitle: config.mealieToken.isEmpty
-                ? 'Not configured'
-                : '\u2022' * 8,
-            onTap: () => _showTextInputDialog(
-              title: 'Mealie API Token',
-              currentValue: config.mealieToken,
-              hint: 'Paste your Mealie API token',
-              obscure: true,
-              onSave: (value) => _updateConfig((c) => c.copyWith(mealieToken: value)),
-            ),
-          ),
-        ],
-
         // -- Voice Assistant --
         // Pin to a specific assist_satellite entity. Empty = auto-pick the
         // first available one (fine for single-Hearth setups, breaks the

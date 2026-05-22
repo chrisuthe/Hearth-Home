@@ -1149,16 +1149,6 @@ const _legacyConfigHtml = r'''
     </div>
     <div class="hint" id="frigatePassword_hint"></div>
 
-    <h2>Mealie</h2>
-    <label for="mealieUrl">Mealie URL</label>
-    <input type="text" id="mealieUrl" placeholder="http://192.168.1.x:9925">
-    <label for="mealieToken">Mealie API Token</label>
-    <div class="secret-wrap">
-      <input type="password" id="mealieToken" placeholder="Paste your Mealie API token">
-      <button type="button" class="toggle-vis" onclick="toggleVis(this)">&#x1f441;</button>
-    </div>
-    <div class="hint" id="mealieToken_hint"></div>
-
     <h2>Display</h2>
     <label for="idleTimeoutSeconds">Idle Timeout (seconds)</label>
     <input type="number" id="idleTimeoutSeconds" min="30" max="600" step="10" placeholder="120">
@@ -1269,7 +1259,7 @@ async function initAuth() {
 const textFields = [
   'immichUrl','immichApiKey','haUrl','haToken',
   'musicAssistantUrl','musicAssistantToken','defaultMusicZone','frigateUrl','frigateUsername','frigatePassword',
-  'mealieUrl','mealieToken','giteaApiToken',
+  'giteaApiToken',
   'nightModeHaEntity','nightModeClockStart','nightModeClockEnd',
   'sendspinPlayerName','sendspinServerUrl','timezone'
 ];
