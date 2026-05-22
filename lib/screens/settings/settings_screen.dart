@@ -159,45 +159,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         const _ServiceSubHeader(title: 'Immich Photo Sources'),
         const PhotoSourcesSection(),
 
-        // -- Frigate --
-        const _ServiceSubHeader(title: 'Frigate'),
-        _SettingsTile(
-          icon: Icons.videocam,
-          title: 'URL',
-          subtitle: config.frigateUrl.isEmpty ? 'Not configured' : config.frigateUrl,
-          onTap: () => _showTextInputDialog(
-            title: 'Frigate URL',
-            currentValue: config.frigateUrl,
-            hint: 'http://192.168.1.x:5000',
-            onSave: (value) => _updateConfig((c) => c.copyWith(frigateUrl: value)),
-          ),
-        ),
-        _SettingsTile(
-          icon: Icons.person,
-          title: 'Username',
-          subtitle: config.frigateUsername.isEmpty ? 'Not configured' : config.frigateUsername,
-          onTap: () => _showTextInputDialog(
-            title: 'Frigate Username',
-            currentValue: config.frigateUsername,
-            hint: 'admin',
-            onSave: (value) => _updateConfig((c) => c.copyWith(frigateUsername: value)),
-          ),
-        ),
-        _SettingsTile(
-          icon: Icons.key,
-          title: 'Password',
-          subtitle: config.frigatePassword.isEmpty
-              ? 'Not configured'
-              : '\u2022' * 8,
-          onTap: () => _showTextInputDialog(
-            title: 'Frigate Password',
-            currentValue: config.frigatePassword,
-            hint: 'Enter password for Frigate auth',
-            obscure: true,
-            onSave: (value) => _updateConfig((c) => c.copyWith(frigatePassword: value)),
-          ),
-        ),
-
         // -- Voice Assistant --
         // Pin to a specific assist_satellite entity. Empty = auto-pick the
         // first available one (fine for single-Hearth setups, breaks the

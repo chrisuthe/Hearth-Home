@@ -1118,17 +1118,6 @@ const _legacyConfigHtml = r'''
     </div>
     <div class="hint" id="haToken_hint"></div>
 
-    <label for="frigateUrl">Frigate URL</label>
-    <input type="text" id="frigateUrl" placeholder="http://192.168.1.x:5000">
-    <label for="frigateUsername">Frigate Username</label>
-    <input type="text" id="frigateUsername" placeholder="admin (leave blank for unauthenticated)">
-    <label for="frigatePassword">Frigate Password</label>
-    <div class="secret-wrap">
-      <input type="password" id="frigatePassword" placeholder="Password for Frigate auth">
-      <button type="button" class="toggle-vis" onclick="toggleVis(this)">&#x1f441;</button>
-    </div>
-    <div class="hint" id="frigatePassword_hint"></div>
-
     <h2>Display</h2>
     <label for="idleTimeoutSeconds">Idle Timeout (seconds)</label>
     <input type="number" id="idleTimeoutSeconds" min="30" max="600" step="10" placeholder="120">
@@ -1238,7 +1227,6 @@ async function initAuth() {
 
 const textFields = [
   'haUrl','haToken',
-  'frigateUrl','frigateUsername','frigatePassword',
   'giteaApiToken',
   'nightModeHaEntity','nightModeClockStart','nightModeClockEnd',
   'sendspinPlayerName','sendspinServerUrl','timezone'

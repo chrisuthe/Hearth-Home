@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'frigate/frigate_plugin.dart';
 import 'hearth_plugin.dart';
 import 'immich/immich_plugin.dart';
 import 'mealie/mealie_plugin.dart';
@@ -13,6 +14,7 @@ List<HearthPlugin> _firstPartyPlugins = [
   MealiePlugin(),
   ImmichPlugin(),
   MusicAssistantPlugin(),
+  FrigatePlugin(),
 ];
 
 /// All plugins, sorted by category then order. Community plugins fall
