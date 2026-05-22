@@ -2,12 +2,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:meta/meta.dart';
 
 import 'hearth_plugin.dart';
+import 'weather/weather_plugin.dart';
 
 /// First-party plugins. Community contributors add entries here via PR.
 /// Order within a category is determined by [HearthPlugin.order].
-List<HearthPlugin> _firstPartyPlugins = const [
-  // Plugins appear here as they are implemented. WeatherPlugin lands
-  // in Task 11 of the Phase 1 plan.
+List<HearthPlugin> _firstPartyPlugins = [
+  WeatherPlugin(),
 ];
 
 /// All plugins, sorted by category then order. Community plugins fall
