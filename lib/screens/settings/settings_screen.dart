@@ -7,9 +7,7 @@ import '../../services/local_api_server.dart';
 import '../../services/osk_integration.dart';
 import '../../utils/alsa_utils.dart';
 import '../../app/app.dart' show kDialogBackground;
-import '../../services/sendspin/sendspin_service.dart';
 import '../../services/timezone_service.dart';
-import 'package:sendspin_dart/sendspin_dart.dart';
 import 'wifi_settings.dart';
 import 'display_settings.dart';
 import 'photo_sources_section.dart';
@@ -386,117 +384,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ? 'No devices selected'
               : '${config.pinnedEntityIds.length} devices',
           onTap: () => _showEntityPicker(context, ref),
-        ),
-
-        const SizedBox(height: HearthSpacing.x6),
-
-        // ── 5. Audio ────────────────────────────────────────────────
-        const _SectionHeader(
-          title: 'Audio',
-          description: 'Sendspin audio streaming',
-        ),
-        const SizedBox(height: HearthSpacing.x2),
-
-        SwitchListTile(
-          secondary: const Icon(Icons.speaker, color: Colors.white54),
-          title: const Text('Enable Sendspin Player'),
-          subtitle: Text(
-            config.sendspinEnabled ? 'Active' : 'Disabled',
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
-          ),
-          value: config.sendspinEnabled,
-          onChanged: config.sendspinPlayerName.isEmpty
-              ? null
-              : (v) async {
-                  if (v && config.sendspinClientId.isEmpty) {
-                    await _updateConfig((c) => c.copyWith(
-                      sendspinEnabled: true,
-                      sendspinClientId: HubConfig.generateApiKey(),
-                    ));
-                  } else {
-                    await _updateConfig((c) => c.copyWith(sendspinEnabled: v));
-                  }
-                },
-        ),
-        _SettingsTile(
-          icon: Icons.label,
-          title: 'Player Name',
-          subtitle: config.sendspinPlayerName.isEmpty
-              ? 'Required — name shown in Music Assistant'
-              : config.sendspinPlayerName,
-          onTap: () => _showTextInputDialog(
-            title: 'Sendspin Player Name',
-            currentValue: config.sendspinPlayerName,
-            hint: 'Kitchen Display',
-            onSave: (value) => _updateConfig(
-              (c) => c.copyWith(sendspinPlayerName: value),
-            ),
-          ),
-        ),
-        _SettingsTile(
-          icon: Icons.dns,
-          title: 'Server URL',
-          subtitle: config.sendspinServerUrl.isEmpty
-              ? 'Auto-discover via mDNS'
-              : config.sendspinServerUrl,
-          onTap: () => _showTextInputDialog(
-            title: 'Sendspin Server URL',
-            currentValue: config.sendspinServerUrl,
-            hint: 'ws://192.168.1.x:8095 (blank for auto)',
-            onSave: (value) => _updateConfig(
-              (c) => c.copyWith(sendspinServerUrl: value),
-            ),
-          ),
-        ),
-        _SettingsTile(
-          icon: Icons.memory,
-          title: 'Buffer Size',
-          subtitle: '${config.sendspinBufferSeconds}s audio buffer',
-          onTap: () => _showChoiceDialog(
-            title: 'Buffer Size',
-            options: const {
-              '5': '5 seconds',
-              '7': '7 seconds',
-              '10': '10 seconds',
-            },
-            currentValue: config.sendspinBufferSeconds.toString(),
-            onSave: (value) => _updateConfig(
-              (c) => c.copyWith(sendspinBufferSeconds: int.parse(value)),
-            ),
-          ),
-        ),
-        Builder(
-          builder: (context) {
-            final sendspinState = ref.watch(sendspinStateProvider);
-            final statusText = sendspinState.when(
-              data: (s) {
-                switch (s.connectionState) {
-                  case SendspinConnectionState.disabled:
-                    return 'Disabled';
-                  case SendspinConnectionState.advertising:
-                    return 'Waiting for server...';
-                  case SendspinConnectionState.connected:
-                    return 'Connected';
-                  case SendspinConnectionState.syncing:
-                    return 'Synchronizing...';
-                  case SendspinConnectionState.streaming:
-                    final codec = s.codec?.toUpperCase() ?? '';
-                    final rate = s.sampleRate != null ? '${s.sampleRate! ~/ 1000}kHz' : '';
-                    return 'Streaming $codec $rate';
-                  case SendspinConnectionState.disconnected:
-                    return 'Disconnected — reconnecting...';
-                }
-              },
-              loading: () => 'Loading...',
-              error: (_, e) => 'Error',
-            );
-            return _SettingsTile(
-              icon: Icons.info_outline,
-              title: 'Status',
-              subtitle: statusText,
-              onTap: () {},
-            );
-          },
         ),
 
         const SizedBox(height: HearthSpacing.x6),

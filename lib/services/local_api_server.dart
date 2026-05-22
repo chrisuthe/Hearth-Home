@@ -1158,21 +1158,6 @@ const _legacyConfigHtml = r'''
     <label for="pinnedEntityIds">Entity IDs (one per line)</label>
     <textarea id="pinnedEntityIds" rows="6" placeholder="light.kitchen&#10;climate.living_room&#10;switch.garage_door" style="width:100%;padding:10px 12px;margin-bottom:12px;background:#1e1e1e;border:1px solid #333;border-radius:6px;color:#e0e0e0;font-size:14px;outline:none;resize:vertical;font-family:monospace;"></textarea>
 
-    <h2>Sendspin Audio</h2>
-    <label for="sendspinEnabled" class="checkbox-label">
-      <input type="checkbox" id="sendspinEnabled"> Enable Sendspin Player
-    </label>
-    <label for="sendspinPlayerName">Player Name</label>
-    <input type="text" id="sendspinPlayerName" placeholder="Kitchen Display">
-    <label for="sendspinServerUrl">Server URL (blank for auto-discover)</label>
-    <input type="text" id="sendspinServerUrl" placeholder="ws://192.168.1.x:8095">
-    <label for="sendspinBufferSeconds">Buffer Size</label>
-    <select id="sendspinBufferSeconds">
-      <option value="5">5 seconds</option>
-      <option value="7">7 seconds</option>
-      <option value="10">10 seconds</option>
-    </select>
-
     <h2>Alarms</h2>
     <div id="alarmsList" style="margin-bottom:12px;"></div>
     <div style="display:flex;gap:8px;margin-bottom:16px;">
@@ -1229,10 +1214,10 @@ const textFields = [
   'haUrl','haToken',
   'giteaApiToken',
   'nightModeHaEntity','nightModeClockStart','nightModeClockEnd',
-  'sendspinPlayerName','sendspinServerUrl','timezone'
+  'timezone'
 ];
-const intFields = ['idleTimeoutSeconds','sendspinBufferSeconds'];
-const boolFields = ['use24HourClock','sendspinEnabled','autoUpdate','captureToolsEnabled'];
+const intFields = ['idleTimeoutSeconds'];
+const boolFields = ['use24HourClock','autoUpdate','captureToolsEnabled'];
 const selectFields = ['nightModeSource','displayProfile','updateSource'];
 const secretFields = ['immichApiKey', 'haToken', 'musicAssistantToken', 'frigatePassword', 'mealieToken', 'giteaApiToken'];
 const REDACTED = '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022';
