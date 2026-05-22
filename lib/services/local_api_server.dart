@@ -1158,14 +1158,6 @@ const _legacyConfigHtml = r'''
     <label for="pinnedEntityIds">Entity IDs (one per line)</label>
     <textarea id="pinnedEntityIds" rows="6" placeholder="light.kitchen&#10;climate.living_room&#10;switch.garage_door" style="width:100%;padding:10px 12px;margin-bottom:12px;background:#1e1e1e;border:1px solid #333;border-radius:6px;color:#e0e0e0;font-size:14px;outline:none;resize:vertical;font-family:monospace;"></textarea>
 
-    <h2>Alarms</h2>
-    <div id="alarmsList" style="margin-bottom:12px;"></div>
-    <div style="display:flex;gap:8px;margin-bottom:16px;">
-      <input type="time" id="newAlarmTime" value="07:00" style="flex:1;padding:8px;background:#1e1e1e;border:1px solid #333;border-radius:6px;color:#e0e0e0;font-size:14px;">
-      <input type="text" id="newAlarmLabel" placeholder="Label (optional)" style="flex:1;padding:8px;background:#1e1e1e;border:1px solid #333;border-radius:6px;color:#e0e0e0;font-size:13px;">
-      <button type="button" onclick="addAlarm()" style="padding:8px 16px;background:#646cff;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;">Add</button>
-    </div>
-
     <h2>Updates</h2>
     <label for="autoUpdate" class="checkbox-label">
       <input type="checkbox" id="autoUpdate"> Auto-Update
@@ -1367,69 +1359,7 @@ for (const tz of commonTimezones) {
   dl.appendChild(opt);
 }
 
-async function loadAlarms() {
-  try {
-    const r = await fetch('/api/alarms', {headers: getHeaders()});
-    const alarms = await r.json();
-    const el = document.getElementById('alarmsList');
-    el.textContent = '';
-    if (!alarms.length) {
-      const msg = document.createElement('div');
-      msg.style.cssText = 'color:#666;font-size:13px;padding:8px;';
-      msg.textContent = 'No alarms configured.';
-      el.appendChild(msg);
-      return;
-    }
-    for (const a of alarms) {
-      const dayNames = ['','Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-      const days = a.days && a.days.length ? a.days.map(d => dayNames[d]).join(', ') : 'One-time';
-      const row = document.createElement('div');
-      row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:8px 12px;margin-bottom:4px;background:#1a1a1a;border-radius:6px;';
-      const info = document.createElement('div');
-      const timeSpan = document.createElement('span');
-      timeSpan.style.cssText = 'font-size:20px;font-weight:200;color:' + (a.enabled ? '#fff' : '#666');
-      timeSpan.textContent = a.time;
-      info.appendChild(timeSpan);
-      if (a.label) {
-        const labelSpan = document.createElement('span');
-        labelSpan.style.cssText = 'margin-left:8px;font-size:12px;color:#888;';
-        labelSpan.textContent = a.label;
-        info.appendChild(labelSpan);
-      }
-      const daysDiv = document.createElement('div');
-      daysDiv.style.cssText = 'font-size:11px;color:#666;';
-      daysDiv.textContent = days;
-      info.appendChild(daysDiv);
-      row.appendChild(info);
-      const btn = document.createElement('button');
-      btn.style.cssText = 'padding:4px 10px;background:#333;color:#f87171;border:1px solid #444;border-radius:4px;cursor:pointer;font-size:12px;';
-      btn.textContent = 'Delete';
-      btn.addEventListener('click', () => deleteAlarm(a.id));
-      row.appendChild(btn);
-      el.appendChild(row);
-    }
-  } catch(e) {}
-}
-
-async function addAlarm() {
-  const time = document.getElementById('newAlarmTime').value;
-  const label = document.getElementById('newAlarmLabel').value;
-  if (!time) return;
-  try {
-    await fetch('/api/alarms', {method:'POST', headers: getHeaders(), body: JSON.stringify({time: time, label: label})});
-    loadAlarms();
-    document.getElementById('newAlarmLabel').value = '';
-  } catch(e) { showToast('Failed to add alarm', true); }
-}
-
-async function deleteAlarm(id) {
-  try {
-    await fetch('/api/alarms?id=' + id, {method:'DELETE', headers: getHeaders()});
-    loadAlarms();
-  } catch(e) { showToast('Failed to delete alarm', true); }
-}
-
-initAuth().then(() => load().then(() => { updateNightModeFields(); loadAlarms(); }));
+initAuth().then(() => load().then(() => { updateNightModeFields(); }));
 </script>
 ''';
 

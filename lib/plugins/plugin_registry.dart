@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'alarm_clock/alarm_clock_plugin.dart';
 import 'frigate/frigate_plugin.dart';
 import 'hearth_plugin.dart';
 import 'immich/immich_plugin.dart';
@@ -16,6 +17,7 @@ List<HearthPlugin> _firstPartyPlugins = [
   ImmichPlugin(),
   MusicAssistantPlugin(),
   FrigatePlugin(),
+  AlarmClockPlugin(),
   SendspinPlugin(),
 ];
 
