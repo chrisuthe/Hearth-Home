@@ -1109,15 +1109,6 @@ const _legacyConfigHtml = r'''
   <form id="configForm">
 
     <h2>Connections</h2>
-    <label for="immichUrl">Immich URL</label>
-    <input type="text" id="immichUrl" placeholder="http://192.168.1.x:2283">
-    <label for="immichApiKey">Immich API Key</label>
-    <div class="secret-wrap">
-      <input type="password" id="immichApiKey" placeholder="Paste your Immich API key">
-      <button type="button" class="toggle-vis" onclick="toggleVis(this)">&#x1f441;</button>
-    </div>
-    <div class="hint" id="immichApiKey_hint"></div>
-
     <label for="haUrl">Home Assistant URL</label>
     <input type="text" id="haUrl" placeholder="http://192.168.1.x:8123">
     <label for="haToken">HA Long-Lived Access Token</label>
@@ -1257,7 +1248,7 @@ async function initAuth() {
 }
 
 const textFields = [
-  'immichUrl','immichApiKey','haUrl','haToken',
+  'haUrl','haToken',
   'musicAssistantUrl','musicAssistantToken','defaultMusicZone','frigateUrl','frigateUsername','frigatePassword',
   'giteaApiToken',
   'nightModeHaEntity','nightModeClockStart','nightModeClockEnd',

@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'hearth_plugin.dart';
+import 'immich/immich_plugin.dart';
 import 'mealie/mealie_plugin.dart';
 import 'weather/weather_plugin.dart';
 
@@ -9,6 +10,7 @@ import 'weather/weather_plugin.dart';
 List<HearthPlugin> _firstPartyPlugins = [
   WeatherPlugin(),
   MealiePlugin(),
+  ImmichPlugin(),
 ];
 
 /// All plugins, sorted by category then order. Community plugins fall

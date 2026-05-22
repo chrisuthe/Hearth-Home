@@ -152,34 +152,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
         ),
 
-        // -- Immich --
-        const _ServiceSubHeader(title: 'Immich'),
-        _SettingsTile(
-          icon: Icons.photo_library,
-          title: 'URL',
-          subtitle: config.immichUrl.isEmpty ? 'Not configured' : config.immichUrl,
-          onTap: () => _showTextInputDialog(
-            title: 'Immich URL',
-            currentValue: config.immichUrl,
-            hint: 'http://192.168.1.x:2283',
-            onSave: (value) => _updateConfig((c) => c.copyWith(immichUrl: value)),
-          ),
-        ),
-        _SettingsTile(
-          icon: Icons.key,
-          title: 'API Key',
-          subtitle: config.immichApiKey.isEmpty
-              ? 'Not configured'
-              : '\u2022' * 8,
-          onTap: () => _showTextInputDialog(
-            title: 'Immich API Key',
-            currentValue: config.immichApiKey,
-            hint: 'Paste your Immich API key',
-            obscure: true,
-            onSave: (value) => _updateConfig((c) => c.copyWith(immichApiKey: value)),
-          ),
-        ),
-        const SizedBox(height: HearthSpacing.x4),
+        // -- Immich Photo Sources --
+        // Connection settings live in the new Immich plugin. The album /
+        // photo-source picker below is a bespoke widget that stays here
+        // for now and will migrate later as a custom widget contribution.
+        const _ServiceSubHeader(title: 'Immich Photo Sources'),
         const PhotoSourcesSection(),
 
         // -- Music Assistant --
