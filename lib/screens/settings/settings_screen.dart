@@ -159,53 +159,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         const _ServiceSubHeader(title: 'Immich Photo Sources'),
         const PhotoSourcesSection(),
 
-        // -- Music Assistant --
-        const _ServiceSubHeader(title: 'Music Assistant'),
-        _SettingsTile(
-          icon: Icons.music_note,
-          title: 'URL',
-          subtitle: config.musicAssistantUrl.isEmpty
-              ? 'Not configured'
-              : config.musicAssistantUrl,
-          onTap: () => _showTextInputDialog(
-            title: 'Music Assistant URL',
-            currentValue: config.musicAssistantUrl,
-            hint: 'http://192.168.1.x:8095',
-            onSave: (value) => _updateConfig(
-              (c) => c.copyWith(musicAssistantUrl: value),
-            ),
-          ),
-        ),
-        _SettingsTile(
-          icon: Icons.key,
-          title: 'Token',
-          subtitle: config.musicAssistantToken.isEmpty
-              ? 'Not configured'
-              : '\u2022' * 8,
-          onTap: () => _showTextInputDialog(
-            title: 'Music Assistant Token',
-            currentValue: config.musicAssistantToken,
-            hint: 'Paste your MA long-lived token',
-            obscure: true,
-            onSave: (value) => _updateConfig(
-              (c) => c.copyWith(musicAssistantToken: value),
-            ),
-          ),
-        ),
-        _SettingsTile(
-          icon: Icons.speaker_group,
-          title: 'Default Zone',
-          subtitle: config.defaultMusicZone ?? 'Not set',
-          onTap: () => _showTextInputDialog(
-            title: 'Default Music Zone',
-            currentValue: config.defaultMusicZone ?? '',
-            hint: 'media_player.living_room',
-            onSave: (value) => _updateConfig(
-              (c) => c.copyWith(defaultMusicZone: value),
-            ),
-          ),
-        ),
-
         // -- Frigate --
         const _ServiceSubHeader(title: 'Frigate'),
         _SettingsTile(

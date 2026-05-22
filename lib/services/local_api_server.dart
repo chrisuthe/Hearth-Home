@@ -1118,17 +1118,6 @@ const _legacyConfigHtml = r'''
     </div>
     <div class="hint" id="haToken_hint"></div>
 
-    <label for="musicAssistantUrl">Music Assistant URL</label>
-    <input type="text" id="musicAssistantUrl" placeholder="http://192.168.1.x:8095">
-    <label for="musicAssistantToken">Music Assistant Token</label>
-    <div class="secret-wrap">
-      <input type="password" id="musicAssistantToken" placeholder="Paste your MA long-lived token">
-      <button type="button" class="toggle-vis" onclick="toggleVis(this)">&#x1f441;</button>
-    </div>
-    <div class="hint" id="musicAssistantToken_hint"></div>
-    <label for="defaultMusicZone">Default Music Zone</label>
-    <input type="text" id="defaultMusicZone" placeholder="media_player.living_room">
-
     <label for="frigateUrl">Frigate URL</label>
     <input type="text" id="frigateUrl" placeholder="http://192.168.1.x:5000">
     <label for="frigateUsername">Frigate Username</label>
@@ -1249,7 +1238,7 @@ async function initAuth() {
 
 const textFields = [
   'haUrl','haToken',
-  'musicAssistantUrl','musicAssistantToken','defaultMusicZone','frigateUrl','frigateUsername','frigatePassword',
+  'frigateUrl','frigateUsername','frigatePassword',
   'giteaApiToken',
   'nightModeHaEntity','nightModeClockStart','nightModeClockEnd',
   'sendspinPlayerName','sendspinServerUrl','timezone'
