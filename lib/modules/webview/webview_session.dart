@@ -104,13 +104,19 @@ class WebviewSession extends ChangeNotifier {
   }
 
   Future<void> setPaused(bool paused) async {
+    final target = paused ? WebviewSessionState.paused : WebviewSessionState.playing;
+    // Idempotent: if we're already in the target state, do nothing. Both
+    // the plugin call AND notifyListeners are skipped — the latter matters
+    // because every spurious notifyListeners triggers a WebviewScreen
+    // rebuild that discards any in-progress GestureDetector state.
+    if (_state == target) return;
     if (!_isTesting) {
       final c = _controller;
       if (c != null) {
         await c.setPipelineState(paused ? 'PAUSED' : 'PLAYING');
       }
     }
-    _state = paused ? WebviewSessionState.paused : WebviewSessionState.playing;
+    _state = target;
     notifyListeners();
   }
 
