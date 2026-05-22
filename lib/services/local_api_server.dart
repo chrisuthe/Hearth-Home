@@ -1112,34 +1112,6 @@ const _legacyConfigHtml = r'''
 </style>
 <div class="container">
   <form id="configForm">
-
-    <h2>Updates</h2>
-    <label for="autoUpdate" class="checkbox-label">
-      <input type="checkbox" id="autoUpdate"> Auto-Update
-    </label>
-    <label>Update Source</label>
-    <select id="updateSource">
-      <option value="github">GitHub</option>
-      <option value="gitea">Gitea (registry.home)</option>
-    </select>
-    <div id="giteaTokenRow">
-      <label for="giteaApiToken">Gitea API Token</label>
-      <input type="password" id="giteaApiToken" placeholder="Paste Gitea read-only token">
-    </div>
-    <div id="updateInfo" style="margin-bottom:12px;padding:12px;background:#1a1a1a;border-radius:6px;font-size:13px;color:#888;">
-      <span id="updateText">Click "Check for Updates" to check.</span>
-    </div>
-    <div style="display:flex;gap:8px;margin-bottom:16px;">
-      <button type="button" onclick="checkUpdate()" style="flex:1;padding:10px;background:#333;color:#e0e0e0;border:1px solid #444;border-radius:6px;cursor:pointer;font-size:13px;">Check for Updates</button>
-      <button type="button" id="applyBtn" onclick="applyUpdate()" style="flex:1;padding:10px;background:#333;color:#e0e0e0;border:1px solid #444;border-radius:6px;cursor:pointer;font-size:13px;display:none;">Install Update</button>
-    </div>
-
-    <h2>Developer Tools</h2>
-    <label for="captureToolsEnabled" class="checkbox-label">
-      <input type="checkbox" id="captureToolsEnabled"> Enable capture tools
-    </label>
-    <div class="hint" style="margin-top:-6px;margin-bottom:16px;">Exposes <code>/capture</code> for screenshots, screen recording, and touch indicators. Intended for demos and marketing captures — leave off for normal use.</div>
-
     <button type="submit" class="save">Save</button>
   </form>
   <div class="toast" id="toast"></div>
@@ -1157,12 +1129,13 @@ async function initAuth() {
   }
 }
 
-const textFields = [
-  'giteaApiToken',
-];
+const textFields = [];
 const intFields = [];
-const boolFields = ['autoUpdate','captureToolsEnabled'];
-const selectFields = ['updateSource'];
+const boolFields = [];
+const selectFields = [];
+// giteaApiToken stays in secretFields so /api/config redacts it for any
+// client that fetches the config dump — the SystemPlugin web panel writes
+// it via the same redaction-aware POST path.
 const secretFields = ['immichApiKey', 'haToken', 'musicAssistantToken', 'frigatePassword', 'mealieToken', 'giteaApiToken'];
 const REDACTED = '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022';
 
@@ -1193,15 +1166,8 @@ async function load() {
       const el = document.getElementById(f);
       if (el && cfg[f]) el.value = cfg[f];
     }
-    toggleGiteaToken();
   } catch(e) { showToast('Failed to load config', true); }
 }
-function toggleGiteaToken() {
-  const src = document.getElementById('updateSource');
-  const row = document.getElementById('giteaTokenRow');
-  if (src && row) row.style.display = src.value === 'gitea' ? '' : 'none';
-}
-document.getElementById('updateSource').addEventListener('change', toggleGiteaToken);
 
 document.getElementById('configForm').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -1243,45 +1209,6 @@ function showToast(msg, isError) {
   t.textContent = msg;
   t.className = 'toast show' + (isError ? ' error' : '');
   setTimeout(() => t.className = 'toast', 2500);
-}
-
-async function checkUpdate() {
-  const txt = document.getElementById('updateText');
-  const btn = document.getElementById('applyBtn');
-  txt.textContent = 'Checking...';
-  txt.style.color = '#888';
-  btn.style.display = 'none';
-  try {
-    const r = await fetch('/api/update/check', {method:'POST', headers: getHeaders()});
-    const d = await r.json();
-    if (d.updateAvailable) {
-      txt.textContent = 'Update available: v' + d.latestVersion + ' (current: v' + (d.currentVersion || 'unknown') + ')';
-      txt.style.color = '#fbbf24';
-      btn.style.display = 'block';
-    } else {
-      txt.textContent = 'Up to date' + (d.currentVersion ? ' (v' + d.currentVersion + ')' : '') + (d.latestVersion ? ' — latest: v' + d.latestVersion : '');
-      txt.style.color = '#4ade80';
-    }
-  } catch(e) { txt.textContent = 'Check failed'; txt.style.color = '#f87171'; }
-}
-
-async function applyUpdate() {
-  const txt = document.getElementById('updateText');
-  const btn = document.getElementById('applyBtn');
-  txt.textContent = 'Installing update...';
-  txt.style.color = '#888';
-  btn.style.display = 'none';
-  try {
-    const r = await fetch('/api/update/apply', {method:'POST', headers: getHeaders()});
-    const d = await r.json();
-    if (d.success) {
-      txt.textContent = 'Update installed! Hearth is restarting...';
-      txt.style.color = '#4ade80';
-    } else {
-      txt.textContent = 'Update failed: ' + (d.error || 'unknown error');
-      txt.style.color = '#f87171';
-    }
-  } catch(e) { txt.textContent = 'Update failed'; txt.style.color = '#f87171'; }
 }
 
 initAuth().then(() => load());

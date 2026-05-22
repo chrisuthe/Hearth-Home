@@ -10,6 +10,7 @@ import 'mealie/mealie_plugin.dart';
 import 'music_assistant/music_assistant_plugin.dart';
 import 'network/network_plugin.dart';
 import 'sendspin/sendspin_plugin.dart';
+import 'system/system_plugin.dart';
 import 'voice/voice_plugin.dart';
 import 'weather/weather_plugin.dart';
 import 'webview/webview_plugin.dart';
@@ -29,6 +30,7 @@ List<HearthPlugin> _firstPartyPlugins = [
   DisplayPlugin(),
   VoicePlugin(),
   NetworkPlugin(),
+  SystemPlugin(),
 ];
 
 /// All plugins, sorted by category then order. Community plugins fall

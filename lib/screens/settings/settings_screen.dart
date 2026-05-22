@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../config/hub_config.dart';
 import 'photo_sources_section.dart';
-import 'update_settings.dart';
 import '../../modules/hearth_module.dart';
 import '../../modules/module_registry.dart';
 import '../../app/tokens/tokens.dart';
@@ -117,16 +116,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         // for now and will migrate later as a custom widget contribution.
         const _ServiceSubHeader(title: 'Immich Photo Sources'),
         const PhotoSourcesSection(),
-
-        const SizedBox(height: HearthSpacing.x6),
-
-        // ── 7. System ───────────────────────────────────────────────
-        const _SectionHeader(
-          title: 'System',
-          description: 'Updates and maintenance',
-        ),
-        const SizedBox(height: HearthSpacing.x2),
-        const UpdateSettingsSection(),
 
         const SizedBox(height: HearthSpacing.x6),
 
