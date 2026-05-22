@@ -1,7 +1,7 @@
 name: hearth
 description: Smart home kiosk — Immich photos, HA controls, Music Assistant, Frigate cameras.
 publish_to: 'none'
-version: 1.10.4
+version: 1.10.5
 
 environment:
   sdk: ^3.11.4

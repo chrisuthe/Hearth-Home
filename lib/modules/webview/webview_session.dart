@@ -58,23 +58,35 @@ class WebviewSession extends ChangeNotifier {
   VideoPlayerController? get controller => _controller;
 
   /// The actual GStreamer pipeline string. Exposed for tests and logging.
+  ///
+  /// Mirrors the proven RTSP-camera pattern (`source ! ... ! videoconvert
+  /// ! appsink name=sink`) — no explicit caps before appsink, no sync/drop
+  /// flags. The plugin sets appsink caps itself based on EGL formats; an
+  /// upstream caps filter can prevent the plugin from negotiating the
+  /// format/size correctly, which then leaves `controller.value.size` at
+  /// `Size.zero` and the texture never gets a real frame to display.
   String get pipelineString =>
       'wpesrc location=$url draw-background=false '
       '! gldownload '
       '! videoconvert '
-      '! video/x-raw,format=BGRA,width=$textureWidth,height=$textureHeight '
-      '! appsink name=sink sync=false drop=true max-buffers=2';
+      '! appsink name=sink';
 
   Future<void> _initController() async {
+    Log.i('Webview', 'init starting for $url');
     try {
       final c = FlutterpiVideoPlayerController.withGstreamerPipeline(pipelineString);
       _controller = c;
       _errorSub = c.errors.listen((e) {
         notifyError(e.message);
       });
+      Log.i('Webview', 'awaiting controller.initialize for $url');
       await c.initialize();
+      Log.i('Webview', 'controller initialized for $url '
+          '(isInitialized=${c.value.isInitialized} size=${c.value.size})');
       await c.play();
+      Log.i('Webview', 'controller.play returned for $url');
       notifyFirstFrame();
+      Log.i('Webview', 'state -> PLAYING for $url');
     } catch (e, st) {
       Log.e('Webview', 'init failed for $url: $e\n$st');
       notifyError(e.toString());

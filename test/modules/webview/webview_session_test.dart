@@ -84,10 +84,11 @@ void main() {
       expect(session.pipelineString, contains('wpesrc'));
       expect(session.pipelineString, contains('https://ha.example/lovelace'));
       expect(session.pipelineString, contains('gldownload'));
-      expect(session.pipelineString, contains('format=BGRA'));
-      expect(session.pipelineString, contains('width=1184'));
-      expect(session.pipelineString, contains('height=864'));
-      expect(session.pipelineString, contains('appsink'));
+      expect(session.pipelineString, contains('videoconvert'));
+      // Plugin negotiates appsink caps from EGL formats; we deliberately
+      // do NOT add a caps filter upstream of appsink (see comment in
+      // WebviewSession.pipelineString).
+      expect(session.pipelineString, contains('appsink name=sink'));
     });
   });
 }
