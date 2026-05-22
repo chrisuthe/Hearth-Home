@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../config/hub_config.dart';
 import '../../services/local_api_server.dart';
 import '../../services/osk_integration.dart';
-import '../../utils/alsa_utils.dart';
 import '../../app/app.dart' show kDialogBackground;
 import '../../services/timezone_service.dart';
 import 'wifi_settings.dart';
@@ -12,7 +11,6 @@ import 'photo_sources_section.dart';
 import 'update_settings.dart';
 import '../../modules/hearth_module.dart';
 import '../../modules/module_registry.dart';
-import '../../services/toast_service.dart';
 import '../../app/tokens/tokens.dart';
 import '../../plugins/hearth_plugin.dart';
 import '../../plugins/plugin_registry.dart';
@@ -301,48 +299,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               (c) => c.copyWith(bottomSwipeAction: value),
             ),
           ),
-        ),
-
-        const SizedBox(height: HearthSpacing.x6),
-
-        // ── Voice Assistant ─────────────────────────────────────────
-        const _SectionHeader(
-          title: 'Voice Assistant',
-          description: 'Visual feedback for Wyoming voice satellite',
-        ),
-        const SizedBox(height: HearthSpacing.x2),
-        SwitchListTile(
-          secondary: Icon(
-            config.micMuted ? Icons.mic_off : Icons.mic,
-            color: config.micMuted ? Colors.red : Colors.white54,
-          ),
-          title: const Text('Microphone'),
-          subtitle: Text(
-            config.micMuted ? 'Muted — wake word disabled' : 'Listening for wake word',
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
-          ),
-          value: !config.micMuted,
-          onChanged: (listening) {
-            final muted = !listening;
-            _updateConfig((c) => c.copyWith(micMuted: muted));
-            setMicMuted(muted);
-            ref.read(toastProvider.notifier).show(
-              muted ? 'Microphone muted' : 'Microphone unmuted',
-              icon: muted ? Icons.mic_off : Icons.mic,
-            );
-          },
-        ),
-        SwitchListTile(
-          secondary: const Icon(Icons.mic, color: Colors.white54),
-          title: const Text('Show voice feedback'),
-          subtitle: Text(
-            config.showVoiceFeedback
-                ? 'Voice pill overlay visible during interactions'
-                : 'Voice pill overlay hidden',
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
-          ),
-          value: config.showVoiceFeedback,
-          onChanged: (v) => _updateConfig((c) => c.copyWith(showVoiceFeedback: v)),
         ),
 
         const SizedBox(height: HearthSpacing.x6),
