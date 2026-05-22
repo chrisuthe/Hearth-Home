@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../config/hub_config.dart';
-import '../../services/local_api_server.dart';
-import 'wifi_settings.dart';
 import 'photo_sources_section.dart';
 import 'update_settings.dart';
 import '../../modules/hearth_module.dart';
@@ -119,22 +117,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         // for now and will migrate later as a custom widget contribution.
         const _ServiceSubHeader(title: 'Immich Photo Sources'),
         const PhotoSourcesSection(),
-
-        const SizedBox(height: HearthSpacing.x6),
-
-        // ── 6. Network & Access ─────────────────────────────────────
-        const _SectionHeader(
-          title: 'Network & Access',
-          description: 'WiFi and web portal',
-        ),
-        const SizedBox(height: HearthSpacing.x2),
-        const WifiSettingsSection(),
-        _SettingsTile(
-          icon: Icons.pin,
-          title: 'Web Portal PIN',
-          subtitle: ref.watch(webPinProvider),
-          onTap: () {},
-        ),
 
         const SizedBox(height: HearthSpacing.x6),
 
@@ -264,39 +246,6 @@ class _ServiceSubHeader extends StatelessWidget {
           color: Colors.white.withValues(alpha: 0.5),
         ),
       ),
-    );
-  }
-}
-
-/// Individual settings row with icon, title, subtitle, and tap action.
-class _SettingsTile extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final VoidCallback onTap;
-
-  const _SettingsTile({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      leading: Icon(icon, color: Colors.white54, size: HearthIcon.md),
-      title: Text(title, style: const TextStyle(fontSize: HearthFont.body)),
-      subtitle: Text(
-        subtitle,
-        style: TextStyle(
-          fontSize: HearthFont.label,
-          color: Colors.white.withValues(alpha: 0.5),
-        ),
-      ),
-      trailing: const Icon(Icons.chevron_right, color: Colors.white24),
-      onTap: onTap,
-      contentPadding: const EdgeInsets.symmetric(horizontal: HearthSpacing.x2),
     );
   }
 }
