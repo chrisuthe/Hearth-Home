@@ -19,6 +19,10 @@ import '../../modules/module_registry.dart';
 import '../../modules/webview/webview_settings_section.dart';
 import '../../services/toast_service.dart';
 import '../../app/tokens/tokens.dart';
+import '../../plugins/hearth_plugin.dart';
+import '../../plugins/plugin_registry.dart';
+import '../../plugins/framework/plugin_sidebar.dart';
+import '../../plugins/framework/plugin_panel.dart';
 
 /// Settings screen -- configure connections, display, night mode, and music.
 ///
@@ -33,15 +37,51 @@ class SettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
+  String _selectedId = 'hearth.weather';
+
   @override
   Widget build(BuildContext context) {
     final config = ref.watch(hubConfigProvider);
-    final allModules = ref.watch(allModulesProvider);
-
     return Container(
       color: Colors.black.withValues(alpha: 0.7),
-      child: ListView(
-        padding: HearthSpacing.allX6,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          PluginSidebar(
+            selectedId: _selectedId,
+            onSelected: (id) => setState(() => _selectedId = id),
+          ),
+          Expanded(child: _buildSelectedPanel(config)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSelectedPanel(HubConfig config) {
+    if (_selectedId == 'legacy') {
+      return _buildLegacyPanel(config);
+    }
+    final plugins = ref.read(allPluginsProvider);
+    HearthPlugin? plugin;
+    for (final p in plugins) {
+      if (p.id == _selectedId) {
+        plugin = p;
+        break;
+      }
+    }
+    if (plugin == null && plugins.isNotEmpty) {
+      plugin = plugins.first;
+    }
+    if (plugin == null) {
+      return _buildLegacyPanel(config);
+    }
+    return PluginPanel(plugin: plugin);
+  }
+
+  Widget _buildLegacyPanel(HubConfig config) {
+    final allModules = ref.watch(allModulesProvider);
+    return ListView(
+      padding: HearthSpacing.allX6,
       children: [
         // ── 1. Screens ──────────────────────────────────────────────
         const _SectionHeader(
@@ -257,24 +297,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
           ),
         ],
-
-        // -- Weather --
-        const _ServiceSubHeader(title: 'Weather'),
-        _SettingsTile(
-          icon: Icons.thermostat,
-          title: 'Entity ID',
-          subtitle: config.weatherEntityId.isEmpty
-              ? 'Not configured'
-              : config.weatherEntityId,
-          onTap: () => _showTextInputDialog(
-            title: 'Weather Entity ID',
-            currentValue: config.weatherEntityId,
-            hint: 'weather.pirateweather',
-            onSave: (value) => _updateConfig(
-              (c) => c.copyWith(weatherEntityId: value),
-            ),
-          ),
-        ),
 
         // -- Voice Assistant --
         // Pin to a specific assist_satellite entity. Empty = auto-pick the
@@ -702,7 +724,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             .map((m) => m.buildSettingsSection())
             .whereType<Widget>(),
       ],
-      ),
     );
   }
 
