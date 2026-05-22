@@ -12,7 +12,6 @@ import 'photo_sources_section.dart';
 import 'update_settings.dart';
 import '../../modules/hearth_module.dart';
 import '../../modules/module_registry.dart';
-import '../../modules/webview/webview_settings_section.dart';
 import '../../services/toast_service.dart';
 import '../../app/tokens/tokens.dart';
 import '../../plugins/hearth_plugin.dart';
@@ -371,16 +370,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ),
         const SizedBox(height: HearthSpacing.x2),
         const UpdateSettingsSection(),
-
-        const SizedBox(height: HearthSpacing.x6),
-
-        // ── 8. Webviews ────────────────────────────────────────────
-        const _SectionHeader(
-          title: 'Webviews',
-          description: 'Embed Home Assistant dashboards and external pages as full-screen views',
-        ),
-        const SizedBox(height: HearthSpacing.x2),
-        const WebviewSettingsSection(),
 
         const SizedBox(height: HearthSpacing.x6),
 

@@ -9,6 +9,7 @@ import 'mealie/mealie_plugin.dart';
 import 'music_assistant/music_assistant_plugin.dart';
 import 'sendspin/sendspin_plugin.dart';
 import 'weather/weather_plugin.dart';
+import 'webview/webview_plugin.dart';
 
 /// First-party plugins. Community contributors add entries here via PR.
 /// Order within a category is determined by [HearthPlugin.order].
@@ -21,6 +22,7 @@ List<HearthPlugin> _firstPartyPlugins = [
   FrigatePlugin(),
   AlarmClockPlugin(),
   SendspinPlugin(),
+  WebviewPlugin(),
 ];
 
 /// All plugins, sorted by category then order. Community plugins fall
