@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'alarm_clock/alarm_clock_plugin.dart';
+import 'display/display_plugin.dart';
 import 'frigate/frigate_plugin.dart';
 import 'hearth_plugin.dart';
 import 'home_assistant/home_assistant_plugin.dart';
@@ -24,6 +25,7 @@ List<HearthPlugin> _firstPartyPlugins = [
   AlarmClockPlugin(),
   SendspinPlugin(),
   WebviewPlugin(),
+  DisplayPlugin(),
   VoicePlugin(),
 ];
 

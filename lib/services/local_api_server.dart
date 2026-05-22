@@ -404,7 +404,9 @@ class LocalApiServer {
           frigateUsername: json['frigateUsername'] as String?,
           frigatePassword: json['frigatePassword'] as String?,
           weatherEntityId: json['weatherEntityId'] as String?,
-          idleTimeoutSeconds: json['idleTimeoutSeconds'] as int?,
+          idleTimeoutSeconds: (json['idleTimeoutSeconds'] is num)
+              ? (json['idleTimeoutSeconds'] as num).round()
+              : null,
           nightModeSource: json['nightModeSource'] as String?,
           nightModeHaEntity: json['nightModeHaEntity'] as String?,
           nightModeClockStart: json['nightModeClockStart'] as String?,
@@ -414,6 +416,9 @@ class LocalApiServer {
           pinnedEntityIds:
               (json['pinnedEntityIds'] as List<dynamic>?)?.cast<String>(),
           displayProfile: json['displayProfile'] as String?,
+          onScreenKeyboardMode: json['onScreenKeyboardMode'] as String?,
+          topSwipeAction: json['topSwipeAction'] as String?,
+          bottomSwipeAction: json['bottomSwipeAction'] as String?,
           autoUpdate: json['autoUpdate'] as bool?,
           updateSource: json['updateSource'] as String?,
           giteaApiToken: json['giteaApiToken'] as String?,
@@ -1108,42 +1113,6 @@ const _legacyConfigHtml = r'''
 <div class="container">
   <form id="configForm">
 
-    <h2>Display</h2>
-    <label for="idleTimeoutSeconds">Idle Timeout (seconds)</label>
-    <input type="number" id="idleTimeoutSeconds" min="30" max="600" step="10" placeholder="120">
-    <label for="use24HourClock" class="checkbox-label">
-      <input type="checkbox" id="use24HourClock"> Use 24-Hour Clock
-    </label>
-    <label for="timezone">Timezone</label>
-    <input type="text" id="timezone" placeholder="America/New_York (blank = system default)" list="timezoneList">
-    <datalist id="timezoneList"></datalist>
-    <label for="displayProfile">Display Profile</label>
-    <select id="displayProfile">
-      <option value="auto">Auto-detect</option>
-      <option value="amoled-11">11" AMOLED (1184x864)</option>
-      <option value="rpi-7">RPi 7" Touchscreen (800x480)</option>
-      <option value="hdmi">HDMI Monitor (native)</option>
-    </select>
-
-    <h2>Night Mode</h2>
-    <label for="nightModeSource">Source</label>
-    <select id="nightModeSource">
-      <option value="none">Disabled</option>
-      <option value="clock">Clock Schedule</option>
-      <option value="ha_entity">HA Entity</option>
-      <option value="api">External API</option>
-    </select>
-    <div id="nightModeHaFields" style="display:none;">
-      <label for="nightModeHaEntity">Night Mode HA Entity</label>
-      <input type="text" id="nightModeHaEntity" placeholder="binary_sensor.night_mode">
-    </div>
-    <div id="nightModeClockFields" style="display:none;">
-      <label for="nightModeClockStart">Clock Start (HH:MM)</label>
-      <input type="text" id="nightModeClockStart" placeholder="22:00">
-      <label for="nightModeClockEnd">Clock End (HH:MM)</label>
-      <input type="text" id="nightModeClockEnd" placeholder="07:00">
-    </div>
-
     <h2>Updates</h2>
     <label for="autoUpdate" class="checkbox-label">
       <input type="checkbox" id="autoUpdate"> Auto-Update
@@ -1190,12 +1159,10 @@ async function initAuth() {
 
 const textFields = [
   'giteaApiToken',
-  'nightModeHaEntity','nightModeClockStart','nightModeClockEnd',
-  'timezone'
 ];
-const intFields = ['idleTimeoutSeconds'];
-const boolFields = ['use24HourClock','autoUpdate','captureToolsEnabled'];
-const selectFields = ['nightModeSource','displayProfile','updateSource'];
+const intFields = [];
+const boolFields = ['autoUpdate','captureToolsEnabled'];
+const selectFields = ['updateSource'];
 const secretFields = ['immichApiKey', 'haToken', 'musicAssistantToken', 'frigatePassword', 'mealieToken', 'giteaApiToken'];
 const REDACTED = '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022';
 
@@ -1317,29 +1284,7 @@ async function applyUpdate() {
   } catch(e) { txt.textContent = 'Update failed'; txt.style.color = '#f87171'; }
 }
 
-function updateNightModeFields() {
-  const src = document.getElementById('nightModeSource').value;
-  document.getElementById('nightModeHaFields').style.display = src === 'ha_entity' ? '' : 'none';
-  document.getElementById('nightModeClockFields').style.display = src === 'clock' ? '' : 'none';
-}
-document.getElementById('nightModeSource').addEventListener('change', updateNightModeFields);
-
-// Populate timezone datalist with common timezones.
-const commonTimezones = [
-  'America/New_York','America/Chicago','America/Denver','America/Los_Angeles',
-  'America/Anchorage','Pacific/Honolulu','America/Phoenix','America/Toronto',
-  'Europe/London','Europe/Paris','Europe/Berlin','Europe/Moscow',
-  'Asia/Tokyo','Asia/Shanghai','Asia/Kolkata','Asia/Dubai',
-  'Australia/Sydney','Pacific/Auckland','UTC'
-];
-const dl = document.getElementById('timezoneList');
-for (const tz of commonTimezones) {
-  const opt = document.createElement('option');
-  opt.value = tz;
-  dl.appendChild(opt);
-}
-
-initAuth().then(() => load().then(() => { updateNightModeFields(); }));
+initAuth().then(() => load());
 </script>
 ''';
 
