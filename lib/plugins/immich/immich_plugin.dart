@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../config/hub_config.dart';
+import '../../screens/settings/photo_sources_section.dart';
 import '../framework/fields/password_setting_field.dart';
 import '../framework/fields/text_setting_field.dart';
 import '../framework/web_context.dart';
@@ -9,10 +10,9 @@ import '../hearth_plugin.dart';
 
 /// Immich photo-server integration.
 ///
-/// Owns the `immichUrl` + `immichApiKey` HubConfig fields. The album /
-/// photo-source picker (PhotoSourcesSection) is a bespoke widget that
-/// remains in the legacy panel for now — it can migrate later as a richer
-/// custom widget contribution.
+/// Owns the `immichUrl` + `immichApiKey` HubConfig fields, plus the
+/// album / people / memories source picker (PhotoSourcesSection) that
+/// drives the ambient carousel.
 class ImmichPlugin extends HearthPlugin {
   @override
   String get id => 'hearth.immich';
@@ -55,10 +55,14 @@ class ImmichPlugin extends HearthPlugin {
           label: 'API Key',
           hint: 'Paste your Immich API key',
         ).buildWidget(ref),
+        const SizedBox(height: 24),
+        const PhotoSourcesSection(),
       ],
     );
   }
 
+  // Web settings: URL + API key only. The photo source picker is a bespoke
+  // on-device widget (album/people browsing UI) and is deferred for v1.
   @override
   String buildSettingsHtml(WebContext ctx) {
     return const TextSettingField(

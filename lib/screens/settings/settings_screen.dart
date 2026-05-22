@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../config/hub_config.dart';
-import 'photo_sources_section.dart';
 import '../../modules/module_registry.dart';
 import '../../app/tokens/tokens.dart';
 import '../../plugins/hearth_plugin.dart';
@@ -75,15 +74,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ),
         const SizedBox(height: HearthSpacing.x2),
 
-        // -- Immich Photo Sources --
-        // Connection settings live in the new Immich plugin. The album /
-        // photo-source picker below is a bespoke widget that stays here
-        // for now and will migrate later as a custom widget contribution.
-        const _ServiceSubHeader(title: 'Immich Photo Sources'),
-        const PhotoSourcesSection(),
-
-        const SizedBox(height: HearthSpacing.x6),
-
         // Per-module settings (only shown when module is enabled).
         ...allModules
             .where((m) => config.enabledModules.contains(m.id))
@@ -125,27 +115,6 @@ class _SectionHeader extends StatelessWidget {
           ),
         ],
       ],
-    );
-  }
-}
-
-/// Sub-header for grouping settings within a section (e.g., per-service).
-class _ServiceSubHeader extends StatelessWidget {
-  final String title;
-  const _ServiceSubHeader({required this.title});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(left: HearthSpacing.x2, top: HearthSpacing.x3, bottom: HearthSpacing.x1),
-      child: Text(
-        title,
-        style: TextStyle(
-          fontSize: HearthFont.caption,
-          fontWeight: FontWeight.w500,
-          color: Colors.white.withValues(alpha: 0.5),
-        ),
-      ),
     );
   }
 }
