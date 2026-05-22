@@ -1,5 +1,4 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:meta/meta.dart';
 
 import 'hearth_plugin.dart';
 import 'weather/weather_plugin.dart';
@@ -32,8 +31,7 @@ List<HearthPlugin> sortPlugins(List<HearthPlugin> plugins) {
   return list;
 }
 
-/// Test/integration helper to inspect the registered first-party plugins.
-/// Production code consumes [allPluginsProvider]; this getter is exposed
-/// for symmetry but is not the recommended entry point.
-@visibleForTesting
+/// Direct accessor for the registered first-party plugins. Used by
+/// non-Riverpod code paths (e.g. [LocalApiServer]) that don't have a
+/// [WidgetRef]. Widget code should prefer [allPluginsProvider].
 List<HearthPlugin> get firstPartyPlugins => _firstPartyPlugins;

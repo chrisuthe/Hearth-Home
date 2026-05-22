@@ -7,6 +7,9 @@ import '../modules/alarm_clock/alarm_models.dart';
 import '../modules/alarm_clock/alarm_service.dart';
 import '../utils/logger.dart';
 import '../config/hub_config.dart';
+import '../plugins/plugin_registry.dart';
+import '../plugins/framework/plugin_router.dart';
+import '../plugins/framework/web_renderer.dart';
 import 'capture_service.dart';
 import 'display_mode_service.dart';
 import 'timezone_service.dart';
@@ -52,6 +55,10 @@ class LocalApiServer {
   /// Active session tokens granted after successful PIN entry.
   final Set<String> _activeSessions = {};
 
+  /// Router for plugin-contributed `/api/plugin/<id>/...` routes.
+  /// Initialized in [start] after the HTTP server binds.
+  late final PluginRouter _pluginRouter;
+
   LocalApiServer({
     required DisplayModeService displayModeService,
     required HubConfigNotifier configNotifier,
@@ -72,6 +79,11 @@ class LocalApiServer {
 
   Future<int> start({int port = 8090}) async {
     _server = await HttpServer.bind(InternetAddress.anyIPv4, port);
+    _pluginRouter = PluginRouter();
+    for (final plugin in firstPartyPlugins) {
+      _pluginRouter.register(plugin.id);
+      plugin.registerHttpRoutes(_pluginRouter);
+    }
     _server!.listen(_handleRequest);
     return _server!.port;
   }
@@ -161,6 +173,30 @@ class LocalApiServer {
       } else if (path == '/api/system/stats' && request.method == 'GET') {
         if (!_checkAuth(request)) return;
         await _handleSystemStats(request);
+      } else if (path.startsWith('/api/plugin/')) {
+        if (!_checkAuth(request)) return;
+        final handler = _pluginRouter.resolve(request.method, path);
+        if (handler == null) {
+          request.response.statusCode = 404;
+          request.response.headers.contentType = ContentType.json;
+          request.response.write(jsonEncode({'error': 'plugin route not found'}));
+          await request.response.close();
+          return;
+        }
+        Map<String, dynamic> body = {};
+        if (request.method == 'POST' && request.contentLength > 0) {
+          try {
+            body = await _readJsonBody(request);
+          } catch (e) {
+            return; // _readJsonBody already wrote a 413
+          }
+        }
+        await handler(PluginRequest(
+          raw: request,
+          body: body,
+          config: _configNotifier.current,
+        ));
+        return;
       } else if (path.startsWith('/api/')) {
         if (!_checkAuth(request)) return;
         if (path == '/api/config') {
@@ -724,7 +760,21 @@ class LocalApiServer {
     request.response.headers.contentType = ContentType.html;
     request.response.headers.add('X-Content-Type-Options', 'nosniff');
     request.response.headers.add('X-Frame-Options', 'DENY');
-    request.response.write(_gateCaptureUi(_configPageHtml));
+
+    // Determine selected panel from query string, default to first plugin
+    // or 'legacy' if no plugins.
+    final panel = request.uri.queryParameters['panel'];
+    final plugins = firstPartyPlugins;
+    final selectedId =
+        panel ?? (plugins.isNotEmpty ? plugins.first.id : 'legacy');
+
+    final renderer = WebRenderer(
+      plugins: plugins,
+      bearerToken: _configNotifier.current.apiKey,
+      legacyHtml: _gateCaptureUi(_legacyConfigHtml),
+      config: _configNotifier.current,
+    );
+    request.response.write(renderer.render(selectedId: selectedId));
     await request.response.close();
   }
 
@@ -1001,77 +1051,13 @@ final webPinProvider = Provider<String>((ref) {
 });
 
 // ---------------------------------------------------------------------------
-// Inline HTML for the config page. Kept as a raw string to avoid any build
-// tooling — this page is hit once to enter credentials, not a production UI.
-// The {{API_KEY}} placeholder is replaced server-side on each request.
+// Body fragment for the legacy settings panel. WebRenderer wraps this with
+// the sidebar shell + hearthCss; this fragment is the contents of the
+// "Legacy Settings" panel only — fields not yet migrated to plugins.
+// As plugins are migrated, their fields are stripped from this fragment.
 // ---------------------------------------------------------------------------
 
-const _configPageHtml = r'''
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Hearth Setup</title>
-<style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    background: #111; color: #e0e0e0;
-    display: flex; justify-content: center;
-    padding: 24px 16px;
-  }
-  .container { width: 100%; max-width: 520px; }
-  h1 { font-size: 22px; font-weight: 300; margin-bottom: 24px; color: #fff; }
-  h2 {
-    font-size: 11px; font-weight: 600; letter-spacing: 1.2px;
-    color: #888; text-transform: uppercase; margin: 24px 0 8px;
-  }
-  label { display: block; font-size: 13px; color: #aaa; margin-bottom: 4px; }
-  input[type="text"], input[type="password"], input[type="number"] {
-    width: 100%; padding: 10px 12px; margin-bottom: 12px;
-    background: #1e1e1e; border: 1px solid #333; border-radius: 6px;
-    color: #e0e0e0; font-size: 14px; outline: none;
-  }
-  input:focus { border-color: #646cff; }
-  .secret-wrap { position: relative; }
-  .secret-wrap input { padding-right: 40px; }
-  .toggle-vis {
-    position: absolute; right: 8px; top: 8px;
-    background: none; border: none; color: #666; cursor: pointer; font-size: 18px;
-  }
-  button.save {
-    width: 100%; padding: 12px; margin-top: 8px;
-    background: #646cff; color: #fff; border: none; border-radius: 6px;
-    font-size: 15px; cursor: pointer;
-  }
-  button.save:hover { background: #535bf2; }
-  .toast {
-    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
-    background: #2a2a2a; color: #4ade80; padding: 10px 24px;
-    border-radius: 8px; font-size: 14px; opacity: 0; transition: opacity 0.3s;
-  }
-  .toast.show { opacity: 1; }
-  .toast.error { color: #f87171; }
-  .hint {
-    font-size: 11px; color: #666; margin-bottom: 12px;
-  }
-  select {
-    width: 100%; padding: 10px 12px; margin-bottom: 12px;
-    background: #1e1e1e; border: 1px solid #333; border-radius: 6px;
-    color: #e0e0e0; font-size: 14px; outline: none;
-  }
-  select:focus { border-color: #646cff; }
-  .checkbox-label {
-    display: flex; align-items: center; gap: 8px;
-    font-size: 14px; color: #e0e0e0; margin-bottom: 12px; cursor: pointer;
-  }
-  .checkbox-label input[type="checkbox"] {
-    width: 18px; height: 18px; accent-color: #646cff;
-  }
-</style>
-</head>
-<body>
+const _legacyConfigHtml = r'''
 <div class="container">
   <div style="display:flex;justify-content:space-between;align-items:center;">
     <h1>Hearth Setup</h1>
@@ -1132,10 +1118,6 @@ const _configPageHtml = r'''
       <button type="button" class="toggle-vis" onclick="toggleVis(this)">&#x1f441;</button>
     </div>
     <div class="hint" id="mealieToken_hint"></div>
-
-    <h2>Weather</h2>
-    <label for="weatherEntityId">Weather Entity ID</label>
-    <input type="text" id="weatherEntityId" placeholder="weather.pirateweather">
 
     <h2>Display</h2>
     <label for="idleTimeoutSeconds">Idle Timeout (seconds)</label>
@@ -1248,7 +1230,7 @@ const textFields = [
   'immichUrl','immichApiKey','haUrl','haToken',
   'musicAssistantUrl','musicAssistantToken','defaultMusicZone','frigateUrl','frigateUsername','frigatePassword',
   'mealieUrl','mealieToken','giteaApiToken',
-  'weatherEntityId','nightModeHaEntity','nightModeClockStart','nightModeClockEnd',
+  'nightModeHaEntity','nightModeClockStart','nightModeClockEnd',
   'sendspinPlayerName','sendspinServerUrl','timezone'
 ];
 const intFields = ['idleTimeoutSeconds','sendspinBufferSeconds'];
@@ -1466,8 +1448,6 @@ async function deleteAlarm(id) {
 
 initAuth().then(() => load().then(() => { updateNightModeFields(); loadAlarms(); }));
 </script>
-</body>
-</html>
 ''';
 
 const _logsPageHtml = r'''

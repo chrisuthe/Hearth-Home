@@ -121,7 +121,9 @@ void main() {
           headers: {'Cookie': sessionCookie});
       expect(response.statusCode, 200);
       final body = await readBody(response);
-      expect(body, contains('Hearth Setup'));
+      // WebRenderer-rendered settings shell: title + sidebar + legacy row.
+      expect(body, contains('Hearth Settings'));
+      expect(body, contains('Legacy Settings'));
     });
 
     test('GET /api/session/key returns API key with valid session', () async {
