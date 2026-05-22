@@ -121,11 +121,15 @@ window.hearth = (function () {
   function field(configPath, opts) {
     opts = opts || {};
     const debounceMs = opts.debounce != null ? opts.debounce : 300;
-    document.querySelectorAll('input[data-config-path="' + configPath + '"]').forEach(el => {
-      el.addEventListener('input', () => {
+    document.querySelectorAll('input[data-config-path="' + configPath + '"], select[data-config-path="' + configPath + '"]').forEach(el => {
+      const isCheckbox = el.tagName === 'INPUT' && el.type === 'checkbox';
+      const isSelect = el.tagName === 'SELECT';
+      const event = (isCheckbox || isSelect) ? 'change' : 'input';
+      el.addEventListener(event, () => {
         clearTimeout(debounceTimers[configPath]);
         debounceTimers[configPath] = setTimeout(() => {
-          save(configPath, el.value);
+          const value = isCheckbox ? el.checked : el.value;
+          save(configPath, value);
         }, debounceMs);
       });
     });
@@ -161,7 +165,7 @@ window.hearth = (function () {
   // Auto-bind all fields with [data-config-path] on page load. Plugins
   // can opt out by adding [data-no-auto-save].
   function autoBindFields() {
-    document.querySelectorAll('input[data-config-path]:not([data-no-auto-save])')
+    document.querySelectorAll('input[data-config-path]:not([data-no-auto-save]), select[data-config-path]:not([data-no-auto-save])')
       .forEach(el => field(el.dataset.configPath));
   }
 
