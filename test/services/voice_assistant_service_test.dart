@@ -349,7 +349,12 @@ void main() {
       ha.connect('test-token');
       fake.simulateMessage({'type': 'auth_ok'});
       await Future.delayed(const Duration(milliseconds: 20));
-      service = VoiceAssistantService(ha);
+      // Pin the satellite so the MAC-based auto-detect path stays off. On a
+      // Linux CI runner that path runs for real and fires its own competing
+      // config/entity_registry/list request, which would non-deterministically
+      // race the mute-discovery request this test answers.
+      service = VoiceAssistantService(ha,
+          pinnedEntityId: 'assist_satellite.hearth');
       service.start();
     });
 
