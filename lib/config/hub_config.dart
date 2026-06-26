@@ -202,6 +202,12 @@ class HubConfig {
   final Map<String, List<String>> modulePlacements;
   final String mealieUrl;
   final String mealieToken;
+  // MQTT discovery: exposes Hearth as a Home Assistant device. Empty broker
+  // URL means the integration is off (MqttService is a complete no-op).
+  final String mqttBrokerUrl;
+  final String mqttUsername;
+  final String mqttPassword;
+  final String mqttDiscoveryPrefix;
   final bool setupComplete;
   final bool autoUpdate;
   final String updateSource; // 'github' or 'gitea'
@@ -265,6 +271,10 @@ class HubConfig {
     this.modulePlacements = const {},
     this.mealieUrl = '',
     this.mealieToken = '',
+    this.mqttBrokerUrl = '',
+    this.mqttUsername = '',
+    this.mqttPassword = '',
+    this.mqttDiscoveryPrefix = 'homeassistant',
     this.setupComplete = false,
     this.autoUpdate = true,
     this.updateSource = 'github',
@@ -324,6 +334,10 @@ class HubConfig {
     Map<String, List<String>>? modulePlacements,
     String? mealieUrl,
     String? mealieToken,
+    String? mqttBrokerUrl,
+    String? mqttUsername,
+    String? mqttPassword,
+    String? mqttDiscoveryPrefix,
     bool? setupComplete,
     bool? autoUpdate,
     String? updateSource,
@@ -378,6 +392,10 @@ class HubConfig {
       modulePlacements: modulePlacements ?? this.modulePlacements,
       mealieUrl: mealieUrl ?? this.mealieUrl,
       mealieToken: mealieToken ?? this.mealieToken,
+      mqttBrokerUrl: mqttBrokerUrl ?? this.mqttBrokerUrl,
+      mqttUsername: mqttUsername ?? this.mqttUsername,
+      mqttPassword: mqttPassword ?? this.mqttPassword,
+      mqttDiscoveryPrefix: mqttDiscoveryPrefix ?? this.mqttDiscoveryPrefix,
       setupComplete: setupComplete ?? this.setupComplete,
       autoUpdate: autoUpdate ?? this.autoUpdate,
       updateSource: updateSource ?? this.updateSource,
@@ -432,6 +450,10 @@ class HubConfig {
         'modulePlacements': modulePlacements.map((k, v) => MapEntry(k, v)),
         'mealieUrl': mealieUrl,
         'mealieToken': mealieToken,
+        'mqttBrokerUrl': mqttBrokerUrl,
+        'mqttUsername': mqttUsername,
+        'mqttPassword': mqttPassword,
+        'mqttDiscoveryPrefix': mqttDiscoveryPrefix,
         'setupComplete': setupComplete,
         'autoUpdate': autoUpdate,
         'updateSource': updateSource,
@@ -490,6 +512,11 @@ class HubConfig {
             : _migrateEnabledModules(json),
         mealieUrl: json['mealieUrl'] as String? ?? '',
         mealieToken: json['mealieToken'] as String? ?? '',
+        mqttBrokerUrl: json['mqttBrokerUrl'] as String? ?? '',
+        mqttUsername: json['mqttUsername'] as String? ?? '',
+        mqttPassword: json['mqttPassword'] as String? ?? '',
+        mqttDiscoveryPrefix:
+            json['mqttDiscoveryPrefix'] as String? ?? 'homeassistant',
         setupComplete: json['setupComplete'] as bool? ?? false,
         autoUpdate: json['autoUpdate'] as bool? ?? true,
         updateSource: json['updateSource'] as String? ?? 'github',

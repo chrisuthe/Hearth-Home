@@ -36,6 +36,7 @@ dependencies:
       url: https://github.com/chrisuthe/flutterpi_gstreamer_video_player-hearth.git
       ref: main
       path: packages/flutterpi_gstreamer_video_player
+  mqtt_client: ^10.11.11
 
 dev_dependencies:
   flutter_test:

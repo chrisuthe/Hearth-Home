@@ -12,6 +12,7 @@ import 'services/local_api_server.dart';
 import 'services/osk_integration.dart';
 import 'services/timezone_service.dart';
 import 'modules/alarm_clock/alarm_service.dart';
+import 'services/mqtt_service.dart';
 import 'services/sendspin/sendspin_service.dart';
 import 'services/voice_ducker.dart';
 import 'services/video/media_kit_player.dart';
@@ -120,6 +121,12 @@ Future<void> main() async {
   // 30-second ticker starts checking fire times immediately.
   final alarmService = container.read(alarmServiceProvider);
   await alarmService.load();
+
+  // Eager-init the MQTT service so Hearth registers with Home Assistant as
+  // soon as a broker is configured. A complete no-op when unconfigured.
+  if (!kIsWeb) {
+    container.read(mqttServiceProvider);
+  }
 
   runApp(
     UncontrolledProviderScope(
