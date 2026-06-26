@@ -419,5 +419,43 @@ void main() {
           .where((m) => m['type'] == 'call_service' && m['domain'] == 'switch');
       expect(switchCalls, isEmpty);
     });
+
+    test('retries discovery after a transient registry failure', () async {
+      // First satellite tick fires a registry request that fails.
+      fake.simulateMessage(_stateChanged('assist_satellite.hearth', 'idle'));
+      await Future.delayed(const Duration(milliseconds: 20));
+      final firstReq = lastOfType('config/entity_registry/list');
+      fake.simulateMessage(
+          {'id': firstReq['id'], 'type': 'result', 'success': false});
+      await Future.delayed(const Duration(milliseconds: 20));
+      expect(service.muteEntityIdForTest, isNull);
+
+      final reqCountAfterFail = fake.sentMessages
+          .where((s) =>
+              (jsonDecode(s) as Map<String, dynamic>)['type'] ==
+              'config/entity_registry/list')
+          .length;
+
+      // A later state tick must retry rather than give up for the session.
+      fake.simulateMessage(_stateChanged('assist_satellite.hearth', 'listening'));
+      await Future.delayed(const Duration(milliseconds: 20));
+      final retryReqs = fake.sentMessages
+          .map((s) => jsonDecode(s) as Map<String, dynamic>)
+          .where((m) => m['type'] == 'config/entity_registry/list')
+          .toList();
+      expect(retryReqs.length, greaterThan(reqCountAfterFail));
+
+      fake.simulateMessage({
+        'id': retryReqs.last['id'],
+        'type': 'result',
+        'success': true,
+        'result': [
+          {'entity_id': 'assist_satellite.hearth', 'device_id': 'dev1'},
+          {'entity_id': 'switch.hearth_mute', 'device_id': 'dev1'},
+        ],
+      });
+      await Future.delayed(const Duration(milliseconds: 20));
+      expect(service.muteEntityIdForTest, 'switch.hearth_mute');
+    });
   });
 }

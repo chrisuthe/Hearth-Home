@@ -371,7 +371,15 @@ class VoiceAssistantService {
     final satelliteId = _satelliteEntityId;
     if (satelliteId == null) return;
     final registry = await _ha.getEntityRegistry();
-    if (_disposed || registry == null) return;
+    if (_disposed) return;
+    if (registry == null) {
+      // Transient failure (timeout / not-yet-authenticated / HA reconnect).
+      // Clear the guard so the next entity tick retries instead of giving up
+      // for the rest of the session — but only if we're still on the same
+      // satellite (a newer selection owns the guard otherwise).
+      if (_satelliteEntityId == satelliteId) _lastDiscoveredFor = null;
+      return;
+    }
     // Selection may have changed while the registry request was in flight.
     if (_satelliteEntityId != satelliteId) return;
     final muteId = _resolveMuteEntity(registry, satelliteId);
