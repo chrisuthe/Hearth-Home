@@ -75,6 +75,10 @@ class MqttService extends ChangeNotifier {
   String? _lastTimerSig;
   String? _lastAlarmSig;
 
+  // Serializes inbound volume commands so concurrent amixer subprocesses can't
+  // interleave and leave ALSA / the published state at the wrong value.
+  Future<void> _volumeChain = Future.value();
+
   // --- Config-driven lifecycle ---------------------------------------------
 
   /// React to a config change: connect, disconnect, reconnect, or republish
@@ -477,14 +481,21 @@ class MqttService extends ChangeNotifier {
     }
   }
 
-  Future<void> _handleVolumeCommand(String payload) async {
+  Future<void> _handleVolumeCommand(String payload) {
     final v = int.tryParse(payload.trim());
     if (v == null) {
       Log.w('MQTT', 'Bad volume payload: $payload');
-      return;
+      return Future.value();
     }
-    await setMasterVolume(v);
-    await publishVolume();
+    // Chain onto any in-flight volume write so they apply in arrival order;
+    // the catchError keeps the chain alive if a write ever throws.
+    _volumeChain = _volumeChain.then((_) async {
+      await setMasterVolume(v);
+      await publishVolume();
+    }).catchError((Object e) {
+      Log.w('MQTT', 'Volume command failed: $e');
+    });
+    return _volumeChain;
   }
 
   void _handleTimerStart(String payload) {
