@@ -205,6 +205,41 @@ void main() {
       expect(config.enabledModules, contains('cameras'));
     });
 
+    test('mqtt fields have correct defaults', () {
+      const config = HubConfig();
+      expect(config.mqttBrokerUrl, '');
+      expect(config.mqttUsername, '');
+      expect(config.mqttPassword, '');
+      expect(config.mqttDiscoveryPrefix, 'homeassistant');
+    });
+
+    test('mqtt fields round-trip through JSON', () {
+      const config = HubConfig(
+        mqttBrokerUrl: 'mqtt://192.168.1.10:1883',
+        mqttUsername: 'hearth',
+        mqttPassword: 'secret',
+        mqttDiscoveryPrefix: 'ha',
+      );
+      final json = config.toJson();
+      final restored = HubConfig.fromJson(json);
+      expect(restored.mqttBrokerUrl, 'mqtt://192.168.1.10:1883');
+      expect(restored.mqttUsername, 'hearth');
+      expect(restored.mqttPassword, 'secret');
+      expect(restored.mqttDiscoveryPrefix, 'ha');
+    });
+
+    test('mqttDiscoveryPrefix defaults to homeassistant when missing', () {
+      final config = HubConfig.fromJson({'mqttBrokerUrl': 'mqtt://x:1883'});
+      expect(config.mqttDiscoveryPrefix, 'homeassistant');
+    });
+
+    test('mqtt copyWith preserves unchanged fields', () {
+      const config = HubConfig(mqttBrokerUrl: 'mqtt://x:1883');
+      final updated = config.copyWith(mqttUsername: 'u');
+      expect(updated.mqttBrokerUrl, 'mqtt://x:1883');
+      expect(updated.mqttUsername, 'u');
+    });
+
     test('mealie fields round-trip through JSON', () {
       const config = HubConfig(
         mealieUrl: 'http://mealie.local:9925',

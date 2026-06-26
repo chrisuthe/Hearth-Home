@@ -655,8 +655,9 @@ class MqttService extends ChangeNotifier {
 /// recreated by Riverpod (nothing is `watch`ed here), so the live connection
 /// survives unrelated config edits.
 final mqttServiceProvider = ChangeNotifierProvider<MqttService>((ref) {
+  // ChangeNotifierProvider disposes the notifier automatically (which cancels
+  // the reconnect timer, MA subscription, and client) — no explicit onDispose.
   final service = MqttService(ref);
-  ref.onDispose(service.dispose);
 
   // Connect/disconnect/reconnect on config changes.
   ref.listen<HubConfig>(
