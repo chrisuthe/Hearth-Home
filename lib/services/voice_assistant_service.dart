@@ -80,6 +80,21 @@ class VoiceAssistantService {
   bool _disposed = false;
   String? _satelliteEntityId;
 
+  /// The satellite's sibling Mute control (an ESPHome `switch` entity on the
+  /// same HA device). Discovered from the entity registry once a satellite is
+  /// selected; null until found (or if the device exposes no mute switch).
+  String? _muteEntityId;
+
+  /// The satellite we last ran mute discovery for, so we re-discover only when
+  /// the selection actually changes — not on every state tick.
+  String? _lastDiscoveredFor;
+
+  /// Observed mute state from HA (`true` = muted). Null until the mute switch's
+  /// state is first seen. HA is the source of truth, so this reflects mutes
+  /// triggered outside Hearth (HA automation, device button) too.
+  bool? _muted;
+  final _mutedController = StreamController<bool?>.broadcast();
+
   /// Every `assist_satellite.*` entity we've observed, keyed by entity ID.
   /// Owned by this service so selection logic doesn't have to reach back
   /// into HA's entity cache.
@@ -90,6 +105,10 @@ class VoiceAssistantService {
 
   Stream<VoiceAssistantState> get stateStream => _stateController.stream;
   VoiceAssistantState get currentState => _currentState;
+
+  /// Stream of the satellite's mute state (`true` = muted, `null` = unknown).
+  Stream<bool?> get mutedStream => _mutedController.stream;
+  bool? get muted => _muted;
 
   VoiceAssistantService(this._ha, {String pinnedEntityId = ''})
       : _pinnedEntityId = pinnedEntityId;
@@ -198,6 +217,13 @@ class VoiceAssistantService {
       unawaited(_autoDetectByMac());
     }
 
+    // The mute switch lives in the `switch.` domain, so it must be handled
+    // before the assist_satellite filter below.
+    if (_muteEntityId != null && entity.entityId == _muteEntityId) {
+      _updateMuted(entity.state);
+      return;
+    }
+
     if (!entity.entityId.startsWith('assist_satellite.')) return;
 
     // Pinned mode: ignore everything except the configured entity. No
@@ -272,6 +298,10 @@ class VoiceAssistantService {
 
     Log.i('Voice', 'Satellite state: $haState');
 
+    // A new satellite selection means we (re)resolve its mute switch. Cheap to
+    // guard here since this runs on every state tick for the selection.
+    _maybeDiscoverMute();
+
     _cancelIdleTimer();
 
     switch (haState) {
@@ -303,6 +333,88 @@ class VoiceAssistantService {
     }
   }
 
+  /// Mutes/unmutes the satellite by toggling its HA Mute switch. This is the
+  /// single place that actually mutes the LVA voice pipeline — the old ALSA
+  /// `amixer` path never stopped LVA's PipeWire-fed mic. No-op (with a warning)
+  /// until the mute switch has been discovered.
+  void setSatelliteMuted(bool muted) {
+    final id = _muteEntityId;
+    if (id == null) {
+      Log.w('Voice',
+          'setSatelliteMuted($muted) ignored — no mute switch discovered yet');
+      return;
+    }
+    _ha.callService(
+      domain: 'switch',
+      service: muted ? 'turn_on' : 'turn_off',
+      entityId: id,
+    );
+  }
+
+  /// Resolves the satellite's mute switch from the entity registry when the
+  /// selection changes. Runs at most once per selected satellite.
+  void _maybeDiscoverMute() {
+    if (_satelliteEntityId == null) return;
+    if (_satelliteEntityId == _lastDiscoveredFor) return;
+    _lastDiscoveredFor = _satelliteEntityId;
+    _muteEntityId = null;
+    // Drop the stale muted reading until the new satellite's switch resolves,
+    // so the UI falls back to local intent meanwhile.
+    if (_muted != null) {
+      _muted = null;
+      if (!_mutedController.isClosed) _mutedController.add(null);
+    }
+    unawaited(_discoverMuteEntity());
+  }
+
+  Future<void> _discoverMuteEntity() async {
+    final satelliteId = _satelliteEntityId;
+    if (satelliteId == null) return;
+    final registry = await _ha.getEntityRegistry();
+    if (_disposed || registry == null) return;
+    // Selection may have changed while the registry request was in flight.
+    if (_satelliteEntityId != satelliteId) return;
+    final muteId = _resolveMuteEntity(registry, satelliteId);
+    if (muteId == null) {
+      Log.i('Voice',
+          'No mute switch found on the device for satellite $satelliteId');
+      return;
+    }
+    _muteEntityId = muteId;
+    Log.i('Voice', 'Discovered satellite mute entity: $muteId');
+    // Seed the muted state from the cache if HA already streamed the switch.
+    final cached = _ha.entities[muteId];
+    if (cached != null) _updateMuted(cached.state);
+  }
+
+  /// Finds the satellite's sibling mute switch: same `device_id`, domain
+  /// `switch`, with `mute` in the entity ID. Returns null when the device has
+  /// no such control. Pure over the registry so it can be unit-tested.
+  static String? _resolveMuteEntity(
+      List<Map<String, dynamic>> registry, String satelliteEntityId) {
+    String? deviceId;
+    for (final entry in registry) {
+      if (entry['entity_id'] == satelliteEntityId) {
+        deviceId = entry['device_id'] as String?;
+        break;
+      }
+    }
+    if (deviceId == null) return null;
+    for (final entry in registry) {
+      if (entry['device_id'] != deviceId) continue;
+      final id = entry['entity_id'] as String? ?? '';
+      if (id.startsWith('switch.') && id.contains('mute')) return id;
+    }
+    return null;
+  }
+
+  void _updateMuted(String haState) {
+    final muted = haState == 'on';
+    if (_muted == muted) return;
+    _muted = muted;
+    if (!_mutedController.isClosed) _mutedController.add(muted);
+  }
+
   void _updateState(VoiceAssistantState newState) {
     if (newState == _currentState) return;
     _currentState = newState;
@@ -321,6 +433,7 @@ class VoiceAssistantService {
     _cancelIdleTimer();
     _entitySub?.cancel();
     _stateController.close();
+    _mutedController.close();
   }
 
   /// Exposed for testing — injects a satellite state change directly.
@@ -338,6 +451,16 @@ class VoiceAssistantService {
   /// null if none has been chosen yet.
   @visibleForTesting
   String? get selectedEntityIdForTest => _satelliteEntityId;
+
+  /// Exposed for testing — the discovered mute switch entity ID, or null.
+  @visibleForTesting
+  String? get muteEntityIdForTest => _muteEntityId;
+
+  /// Exposed for testing — runs the pure registry resolution directly.
+  @visibleForTesting
+  static String? resolveMuteEntityForTest(
+          List<Map<String, dynamic>> registry, String satelliteEntityId) =>
+      _resolveMuteEntity(registry, satelliteEntityId);
 }
 
 final voiceAssistantServiceProvider = Provider<VoiceAssistantService>((ref) {
@@ -355,4 +478,12 @@ final voiceAssistantServiceProvider = Provider<VoiceAssistantService>((ref) {
 final voiceAssistantStateProvider = StreamProvider<VoiceAssistantState>((ref) {
   final service = ref.watch(voiceAssistantServiceProvider);
   return service.stateStream;
+});
+
+/// Observed mute state of the selected satellite (`true` = muted), or null
+/// until HA's mute switch state is known. HA is the source of truth, so this
+/// reflects mutes triggered outside Hearth too.
+final voiceMutedProvider = StreamProvider<bool?>((ref) {
+  final service = ref.watch(voiceAssistantServiceProvider);
+  return service.mutedStream;
 });

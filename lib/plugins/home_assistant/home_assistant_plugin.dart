@@ -29,7 +29,8 @@ import '../hearth_plugin.dart';
 ///     with a hand-off note to the on-device Settings.
 ///
 /// Out of scope (stays in the legacy panel for now):
-///   * Mic mute toggle (`micMuted`) — kiosk-side, not HA.
+///   * Mic mute toggle (`micMuted`) — lives in the Voice plugin (drives the
+///     satellite's HA Mute switch under the hood).
 ///   * Show voice feedback (`showVoiceFeedback`) — kiosk UI, not HA.
 ///   * The Controls module's PageView screen.
 class HomeAssistantPlugin extends HearthPlugin {
