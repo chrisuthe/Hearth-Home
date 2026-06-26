@@ -156,15 +156,27 @@ class MqttService extends ChangeNotifier {
       );
     } catch (e) {
       Log.w('MQTT', 'Connect failed: $e');
-      await _teardownClient();
-      _setStatus(MqttStatus.disconnected);
-      _scheduleReconnect();
+      _abandonClient(client);
+      // Only drive reconnect if a newer _connect() hasn't superseded us.
+      if (_client == client) {
+        _client = null;
+        _setStatus(MqttStatus.disconnected);
+        _scheduleReconnect();
+      }
+      return;
+    }
+
+    // A concurrent _connect() (e.g. another config change) took over while we
+    // awaited — abandon this attempt and let the newer one own the lifecycle.
+    if (_client != client) {
+      _abandonClient(client);
       return;
     }
 
     if (client.connectionStatus?.state != MqttConnectionState.connected) {
       Log.w('MQTT', 'Connect incomplete: ${client.connectionStatus}');
-      await _teardownClient();
+      _abandonClient(client);
+      _client = null;
       _setStatus(MqttStatus.disconnected);
       _scheduleReconnect();
       return;
@@ -199,12 +211,17 @@ class MqttService extends ChangeNotifier {
   Future<void> _teardownClient() async {
     final c = _client;
     _client = null;
-    if (c != null) {
-      c.onDisconnected = null;
-      try {
-        c.disconnect();
-      } catch (_) {}
-    }
+    if (c != null) _abandonClient(c);
+  }
+
+  /// Detach the disconnect handler and close a specific client. Used for the
+  /// shared `_client` (via [_teardownClient]) and for abandoning a superseded
+  /// connect attempt without touching `_client`.
+  void _abandonClient(MqttServerClient client) {
+    client.onDisconnected = null;
+    try {
+      client.disconnect();
+    } catch (_) {}
   }
 
   void _scheduleReconnect() {
@@ -328,26 +345,30 @@ class MqttService extends ChangeNotifier {
 
   void onTimerChanged() {
     final ts = _ref.read(timerServiceProvider);
-    final sig =
-        '${ts.timers.length}|${ts.hasActiveTimers}|${ts.firedTimers.length}';
-    if (sig == _lastTimerSig) return;
-    _lastTimerSig = sig;
-
     final active = ts.timers;
-    final state = ts.hasActiveTimers
-        ? 'active'
-        : (ts.firedTimers.isNotEmpty ? 'fired' : 'idle');
     HubTimer? soonest;
     for (final t in active) {
       if (soonest == null || t.remaining < soonest.remaining) soonest = t;
     }
+    final remaining = soonest?.remaining.inSeconds;
+    // The 200ms ticker notifies far too often to forward raw. Bucket the
+    // soonest remaining by 30s so a counting-down timer republishes at most
+    // ~once per 30s — fresh enough for HA automations, without flooding.
+    final sig = '${active.length}|${ts.hasActiveTimers}|${ts.firedTimers.length}'
+        '|${remaining == null ? '' : remaining ~/ 30}';
+    if (sig == _lastTimerSig) return;
+    _lastTimerSig = sig;
+
+    final state = ts.hasActiveTimers
+        ? 'active'
+        : (ts.firedTimers.isNotEmpty ? 'fired' : 'idle');
     _publish(_stateTopic('timer'), state);
     _publish(
       _attrTopic('timer'),
       jsonEncode({
         'count': active.length,
         'fired': ts.firedTimers.length,
-        'remaining_seconds': soonest?.remaining.inSeconds,
+        'remaining_seconds': remaining,
         'remaining': soonest?.remainingLabel,
       }),
     );
@@ -432,10 +453,10 @@ class MqttService extends ChangeNotifier {
   /// (and `@visibleForTesting`) so command handling can be exercised against
   /// real TimerService/AlarmService instances without a live broker.
   @visibleForTesting
-  void handleCommand(String topic, String payload) {
+  Future<void> handleCommand(String topic, String payload) async {
     try {
       if (topic == _volumeCmdTopic) {
-        _handleVolumeCommand(payload);
+        await _handleVolumeCommand(payload);
       } else if (topic == _timerStartTopic) {
         _handleTimerStart(payload);
       } else if (topic == _timerCancelTopic) {
