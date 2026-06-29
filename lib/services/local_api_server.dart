@@ -368,7 +368,7 @@ class LocalApiServer {
   Future<void> _handleGetConfig(HttpRequest request) async {
     final json = _configNotifier.current.toJson();
     // Redact secrets — tokens are write-only from the API's perspective.
-    const secretFields = ['apiKey', 'haToken', 'immichApiKey', 'musicAssistantToken', 'frigatePassword', 'mealieToken', 'giteaApiToken'];
+    const secretFields = ['apiKey', 'haToken', 'immichApiKey', 'musicAssistantToken', 'frigatePassword', 'mealieToken', 'giteaApiToken', 'mqttPassword'];
     for (final field in secretFields) {
       final value = json[field] as String? ?? '';
       json[field] = value.isEmpty ? '' : '••••••••';
@@ -386,7 +386,7 @@ class LocalApiServer {
 
     // Filter out redacted markers so clients cannot overwrite real secrets
     // with the placeholder value returned by GET /api/config.
-    const secretFields = ['haToken', 'immichApiKey', 'musicAssistantToken', 'frigatePassword', 'mealieToken', 'giteaApiToken'];
+    const secretFields = ['haToken', 'immichApiKey', 'musicAssistantToken', 'frigatePassword', 'mealieToken', 'giteaApiToken', 'mqttPassword'];
     for (final field in secretFields) {
       if (json[field] == _redactedMarker) {
         json.remove(field);
@@ -428,6 +428,10 @@ class LocalApiServer {
           sendspinServerUrl: json['sendspinServerUrl'] as String?,
           mealieUrl: json['mealieUrl'] as String?,
           mealieToken: json['mealieToken'] as String?,
+          mqttBrokerUrl: json['mqttBrokerUrl'] as String?,
+          mqttUsername: json['mqttUsername'] as String?,
+          mqttPassword: json['mqttPassword'] as String?,
+          mqttDiscoveryPrefix: json['mqttDiscoveryPrefix'] as String?,
           timezone: json['timezone'] as String?,
           captureToolsEnabled: json['captureToolsEnabled'] as bool?,
         ));

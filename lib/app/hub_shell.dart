@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'tokens/tokens.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../config/hub_config.dart';
+import 'current_screen_provider.dart';
 import 'idle_controller.dart';
 import 'page_indicator.dart';
 import '../models/photo_memory.dart';
@@ -44,6 +45,10 @@ class _HubShellState extends ConsumerState<HubShell> {
 
   int _homeIndex = 0;
   int _pageCount = 0;
+  /// Ordered screen ids matching the PageView pages, kept in sync on each
+  /// build so the page listener can map an index to a screen id for
+  /// [currentScreenProvider]. Layout: leftModules · home · rightModules · settings.
+  List<String> _screenIds = const [];
   late final FocusNode _focusNode;
   final _ambientKey = GlobalKey<AmbientScreenState>();
   PhotoMemory? _currentMemory;
@@ -69,6 +74,15 @@ class _HubShellState extends ConsumerState<HubShell> {
     ref.read(idleControllerProvider).onUserActivity();
     // Resume any paused webviews.
     ref.read(webviewSessionPoolProvider).resumeAll();
+  }
+
+  /// Reflect the active page into [currentScreenProvider] so services (MQTT)
+  /// can observe it. Safe to call outside build.
+  void _publishCurrentScreen(int page) {
+    if (page < 0 || page >= _screenIds.length) return;
+    final info = CurrentScreen(id: _screenIds[page], index: page);
+    final notifier = ref.read(currentScreenProvider.notifier);
+    if (notifier.state != info) notifier.state = info;
   }
 
   String? _edgeFor(String action) {
@@ -278,6 +292,15 @@ class _HubShellState extends ConsumerState<HubShell> {
     final homeIndex = leftModules.length;
     _pageCount = leftModules.length + 1 + rightModules.length + 1; // +Home +Settings
 
+    // Mirror the page order as ids so the page listener can resolve an index
+    // to a screen id for currentScreenProvider (consumed by MqttService).
+    _screenIds = <String>[
+      ...leftModules.map((m) => m.id),
+      'home',
+      ...rightModules.map((m) => m.id),
+      'settings',
+    ];
+
     // Recreate PageController when the module layout changes.
     if (_pageController == null || _homeIndex != homeIndex) {
       _homeIndex = homeIndex;
@@ -286,7 +309,15 @@ class _HubShellState extends ConsumerState<HubShell> {
       _currentPage = homeIndex;
       _pageController!.addListener(() {
         final page = _pageController!.page?.round() ?? _homeIndex;
-        if (page != _currentPage) setState(() => _currentPage = page);
+        if (page != _currentPage) {
+          setState(() => _currentPage = page);
+          _publishCurrentScreen(page);
+        }
+      });
+      // Seed the provider with the initial (Home) page once mounted; can't
+      // mutate a provider during build.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _publishCurrentScreen(_homeIndex);
       });
       idleController.onTimeout = () {
         // Pause warm webviews — they keep memory but stop producing frames.
