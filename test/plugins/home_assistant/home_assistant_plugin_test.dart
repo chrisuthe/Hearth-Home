@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hearth/config/hub_config.dart';
+import 'package:hearth/models/ha_entity.dart';
 import 'package:hearth/plugins/framework/web_context.dart';
 import 'package:hearth/plugins/hearth_plugin.dart';
 import 'package:hearth/plugins/home_assistant/home_assistant_plugin.dart';
@@ -80,11 +81,38 @@ void main() {
       expect(html, contains('Voice Assistant Satellite Entity'));
       expect(html, contains('data-config-path="voiceAssistantEntityId"'));
       expect(html, contains('value="assist_satellite.hearth"'));
-      // Pinned entities — read-only list
+      // Pinned entities — interactive picker fed by the plugin's HTTP routes.
+      // The list is loaded client-side via hearth.action, so the entity ids
+      // are not server-rendered; assert the picker scaffold + route wiring.
       expect(html, contains('Pinned Devices'));
-      expect(html, contains('light.kitchen'));
-      expect(html, contains('switch.lamp'));
-      expect(html, contains('Edit items from the on-device Settings screen.'));
+      // Parity-ledger marker (see web_parity_guard_test) on the container.
+      expect(html, contains('data-config-path="pinnedEntityIds"'));
+      expect(html, contains('id="ha-pinned-list"'));
+      expect(html, contains('id="ha-pinned-search"'));
+      expect(html, contains("hearth.action('entities')"));
+      expect(html, contains("hearth.action('pinned'"));
+    });
+
+    test('pinnablePickerEntities filters to pinnable domains, sorted by name',
+        () {
+      final lastChanged = DateTime(2026);
+      HaEntity entity(String id, String name) => HaEntity(
+            entityId: id,
+            state: 'on',
+            attributes: {'friendly_name': name},
+            lastChanged: lastChanged,
+          );
+      final result = HomeAssistantPlugin.pinnablePickerEntities([
+        entity('light.kitchen', 'Kitchen Light'),
+        entity('sensor.cpu_temp', 'CPU Temp'), // excluded: sensor domain
+        entity('switch.lamp', 'Desk Lamp'),
+        entity('climate.bedroom', 'Bedroom AC'),
+        entity('media_player.tv', 'Living Room TV'), // excluded
+      ]);
+      // Only pinnable domains survive, ordered by friendly name.
+      expect(result.map((e) => e['name']).toList(),
+          ['Bedroom AC', 'Desk Lamp', 'Kitchen Light']);
+      expect(result.first, {'id': 'climate.bedroom', 'name': 'Bedroom AC'});
     });
 
     test('pageScreen is null (Controls module still owns the screen)', () {
