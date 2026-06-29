@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../config/hub_config.dart';
@@ -6,9 +8,16 @@ import '../../models/immich_person.dart';
 import '../../services/immich_service.dart';
 import '../../app/tokens/tokens.dart';
 
+/// Debounce delay before a smart-search query keystroke is persisted.
+/// Persisting commits to [PhotoSourcesConfig], which re-creates
+/// [immichServiceProvider] and fires `POST /api/search/smart` — so we wait
+/// until the user stops typing rather than spamming CLIP on every keystroke.
+const _smartSearchDebounce = Duration(milliseconds: 600);
+
 /// Settings section for choosing which Immich sources feed the ambient
-/// carousel. Three independently-toggleable sources: Memories, Album,
-/// People. Album and People expose pickers populated from Immich.
+/// carousel. Four independently-toggleable sources: Memories, Album,
+/// People, Smart search. Album and People expose pickers populated from
+/// Immich; Smart search takes a free-text CLIP query.
 class PhotoSourcesSection extends ConsumerStatefulWidget {
   const PhotoSourcesSection({super.key});
 
@@ -20,6 +29,8 @@ class PhotoSourcesSection extends ConsumerStatefulWidget {
 class _PhotoSourcesSectionState extends ConsumerState<PhotoSourcesSection> {
   Future<List<ImmichAlbum>>? _albumsFuture;
   Future<List<ImmichPerson>>? _peopleFuture;
+  late final TextEditingController _smartSearchController;
+  Timer? _smartSearchTimer;
 
   @override
   void initState() {
@@ -27,6 +38,16 @@ class _PhotoSourcesSectionState extends ConsumerState<PhotoSourcesSection> {
     final svc = ref.read(immichServiceProvider);
     _albumsFuture = svc.listAlbums();
     _peopleFuture = svc.listNamedPeople();
+    _smartSearchController = TextEditingController(
+      text: ref.read(hubConfigProvider).photoSources.smartSearchQuery,
+    );
+  }
+
+  @override
+  void dispose() {
+    _smartSearchTimer?.cancel();
+    _smartSearchController.dispose();
+    super.dispose();
   }
 
   @override
@@ -87,8 +108,55 @@ class _PhotoSourcesSectionState extends ConsumerState<PhotoSourcesSection> {
               onChanged: (ids) => update(config.copyWith(personIds: ids)),
             ),
           ),
+        SwitchListTile(
+          title: const Text('Smart search'),
+          subtitle: config.smartSearchEnabled && config.smartSearchQuery.isEmpty
+              ? const Text('Enter a query below',
+                  style: TextStyle(color: Colors.amber))
+              : null,
+          value: config.smartSearchEnabled,
+          onChanged: (v) => update(config.copyWith(smartSearchEnabled: v)),
+        ),
+        if (config.smartSearchEnabled)
+          Padding(
+            padding: const EdgeInsets.symmetric(
+                horizontal: HearthSpacing.x4, vertical: HearthSpacing.x2),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  controller: _smartSearchController,
+                  decoration: const InputDecoration(
+                    labelText: 'Search query',
+                    hintText: 'e.g. beach, sunset, autumn leaves',
+                  ),
+                  onChanged: (value) => _onSmartSearchChanged(value, update),
+                ),
+                const SizedBox(height: HearthSpacing.x2),
+                const Text(
+                  "Works best for visual concepts like 'beach' or 'sunset' — "
+                  'searches understand the image content, not filenames.',
+                  style: TextStyle(fontSize: HearthFont.caption),
+                ),
+              ],
+            ),
+          ),
       ],
     );
+  }
+
+  /// Debounce the query: persist ~600ms after the user stops typing rather
+  /// than per keystroke, since each commit re-creates the Immich service and
+  /// fires a fresh CLIP search.
+  void _onSmartSearchChanged(
+    String value,
+    void Function(PhotoSourcesConfig) update,
+  ) {
+    _smartSearchTimer?.cancel();
+    _smartSearchTimer = Timer(_smartSearchDebounce, () {
+      final current = ref.read(hubConfigProvider).photoSources;
+      update(current.copyWith(smartSearchQuery: value));
+    });
   }
 }
 

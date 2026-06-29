@@ -520,6 +520,8 @@ void main() {
         albumId: 'album-uuid',
         peopleEnabled: true,
         personIds: ['p1', 'p2'],
+        smartSearchEnabled: true,
+        smartSearchQuery: 'sunset over the lake',
       );
       final restored = PhotoSourcesConfig.fromJson(c.toJson());
       expect(restored.memoriesEnabled, false);
@@ -527,6 +529,8 @@ void main() {
       expect(restored.albumId, 'album-uuid');
       expect(restored.peopleEnabled, true);
       expect(restored.personIds, ['p1', 'p2']);
+      expect(restored.smartSearchEnabled, true);
+      expect(restored.smartSearchQuery, 'sunset over the lake');
     });
 
     test('fromJson empty map yields memories-only defaults', () {
@@ -540,6 +544,39 @@ void main() {
       const a = PhotoSourcesConfig(albumEnabled: true, personIds: ['p1', 'p2']);
       const b = PhotoSourcesConfig(albumEnabled: true, personIds: ['p1', 'p2']);
       const c = PhotoSourcesConfig(albumEnabled: true, personIds: ['p1']);
+      expect(a, equals(b));
+      expect(a, isNot(equals(c)));
+      expect(a.hashCode, equals(b.hashCode));
+    });
+
+    test('smart-search defaults to off with empty query', () {
+      const c = PhotoSourcesConfig();
+      expect(c.smartSearchEnabled, false);
+      expect(c.smartSearchQuery, '');
+    });
+
+    test('smart-search copyWith updates specified fields', () {
+      const c = PhotoSourcesConfig();
+      final next =
+          c.copyWith(smartSearchEnabled: true, smartSearchQuery: 'beach');
+      expect(next.smartSearchEnabled, true);
+      expect(next.smartSearchQuery, 'beach');
+      expect(next.memoriesEnabled, true); // unchanged
+    });
+
+    test('smart-search missing JSON keys fall back to defaults', () {
+      final c = PhotoSourcesConfig.fromJson({'albumEnabled': true});
+      expect(c.smartSearchEnabled, false);
+      expect(c.smartSearchQuery, '');
+    });
+
+    test('smart-search equality is structural', () {
+      const a = PhotoSourcesConfig(
+          smartSearchEnabled: true, smartSearchQuery: 'beach');
+      const b = PhotoSourcesConfig(
+          smartSearchEnabled: true, smartSearchQuery: 'beach');
+      const c = PhotoSourcesConfig(
+          smartSearchEnabled: true, smartSearchQuery: 'sunset');
       expect(a, equals(b));
       expect(a, isNot(equals(c)));
       expect(a.hashCode, equals(b.hashCode));

@@ -80,6 +80,13 @@ class ImmichService {
         personIds: config.personIds,
       ));
     }
+    if (config.smartSearchEnabled && config.smartSearchQuery.isNotEmpty) {
+      sources.add(SmartSearchSource(
+        dio: _dio,
+        baseUrl: _baseUrl,
+        query: config.smartSearchQuery,
+      ));
+    }
     final merged = await mergeSources(sources, limitPerSource: kSourceQuota);
     if (merged.isEmpty) {
       Log.w('Immich',

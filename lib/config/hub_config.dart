@@ -87,6 +87,8 @@ class PhotoSourcesConfig {
   final String albumId;
   final bool peopleEnabled;
   final List<String> personIds;
+  final bool smartSearchEnabled;
+  final String smartSearchQuery;
 
   const PhotoSourcesConfig({
     this.memoriesEnabled = true,
@@ -94,6 +96,8 @@ class PhotoSourcesConfig {
     this.albumId = '',
     this.peopleEnabled = false,
     this.personIds = const [],
+    this.smartSearchEnabled = false,
+    this.smartSearchQuery = '',
   });
 
   PhotoSourcesConfig copyWith({
@@ -102,6 +106,8 @@ class PhotoSourcesConfig {
     String? albumId,
     bool? peopleEnabled,
     List<String>? personIds,
+    bool? smartSearchEnabled,
+    String? smartSearchQuery,
   }) {
     return PhotoSourcesConfig(
       memoriesEnabled: memoriesEnabled ?? this.memoriesEnabled,
@@ -109,6 +115,8 @@ class PhotoSourcesConfig {
       albumId: albumId ?? this.albumId,
       peopleEnabled: peopleEnabled ?? this.peopleEnabled,
       personIds: personIds ?? this.personIds,
+      smartSearchEnabled: smartSearchEnabled ?? this.smartSearchEnabled,
+      smartSearchQuery: smartSearchQuery ?? this.smartSearchQuery,
     );
   }
 
@@ -118,6 +126,8 @@ class PhotoSourcesConfig {
         'albumId': albumId,
         'peopleEnabled': peopleEnabled,
         'personIds': personIds,
+        'smartSearchEnabled': smartSearchEnabled,
+        'smartSearchQuery': smartSearchQuery,
       };
 
   factory PhotoSourcesConfig.fromJson(Map<String, dynamic> json) =>
@@ -128,6 +138,8 @@ class PhotoSourcesConfig {
         peopleEnabled: json['peopleEnabled'] as bool? ?? false,
         personIds: (json['personIds'] as List<dynamic>?)?.cast<String>() ??
             const [],
+        smartSearchEnabled: json['smartSearchEnabled'] as bool? ?? false,
+        smartSearchQuery: json['smartSearchQuery'] as String? ?? '',
       );
 
   @override
@@ -138,7 +150,9 @@ class PhotoSourcesConfig {
           albumEnabled == other.albumEnabled &&
           albumId == other.albumId &&
           peopleEnabled == other.peopleEnabled &&
-          listEquals(personIds, other.personIds);
+          listEquals(personIds, other.personIds) &&
+          smartSearchEnabled == other.smartSearchEnabled &&
+          smartSearchQuery == other.smartSearchQuery;
 
   @override
   int get hashCode => Object.hash(
@@ -147,6 +161,8 @@ class PhotoSourcesConfig {
         albumId,
         peopleEnabled,
         Object.hashAll(personIds),
+        smartSearchEnabled,
+        smartSearchQuery,
       );
 }
 

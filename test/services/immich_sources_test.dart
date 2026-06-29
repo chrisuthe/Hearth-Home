@@ -1,7 +1,22 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hearth/services/immich_sources.dart';
 
 void main() {
+  group('SmartSearchSource', () {
+    test('returns empty list without hitting the API when query is empty',
+        () async {
+      // A bare Dio with no base URL would throw on any real request, so an
+      // empty result proves the empty-query guard short-circuits first.
+      final source = SmartSearchSource(
+        dio: Dio(),
+        baseUrl: 'https://immich.example',
+        query: '',
+      );
+      expect(await source.fetch(limit: 50), isEmpty);
+    });
+  });
+
   group('parseAssetList', () {
     test('parses a list of Immich asset JSON into PhotoMemory list', () {
       final json = [
