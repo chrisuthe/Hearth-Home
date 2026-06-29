@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../config/hub_config.dart';
 import '../../services/toast_service.dart';
-import '../../utils/alsa_utils.dart';
+import '../../services/voice_assistant_service.dart';
 import '../framework/fields/bool_setting_field.dart';
 import '../framework/web_context.dart';
 import '../hearth_plugin.dart';
@@ -11,21 +11,21 @@ import '../hearth_plugin.dart';
 /// Voice plugin — first device-category plugin.
 ///
 /// Owns kiosk-side voice settings:
-///   * `micMuted` — toggles the ALSA capture device on/off. Side effect:
-///     calls [setMicMuted] so the hardware mic actually mutes, and shows a
-///     toast notification matching legacy behaviour. The on-device toggle is
-///     semantically inverted (UI shows "Microphone on/off", config stores
-///     "muted"); the web checkbox is presented as a raw "Mute microphone"
-///     option so the bool maps directly to the field and `hearth.js` needs no
-///     special-case inversion handling.
+///   * `micMuted` — the on-device toggle mutes the LVA satellite by driving its
+///     HA Mute switch (via [VoiceAssistantService.setSatelliteMuted]) and shows
+///     a toast. `micMuted` is kept as the persisted local intent / display
+///     hint. The on-device toggle is semantically inverted (UI shows
+///     "Microphone on/off", config stores "muted"); the web checkbox is
+///     presented as a raw "Mute microphone" option so the bool maps directly to
+///     the field and `hearth.js` needs no special-case inversion handling.
 ///   * `showVoiceFeedback` — toggles the floating voice-pill overlay.
 ///
 /// Status is always [PluginConfigStatus.configured] — these are toggles, not
 /// configuration that can be "missing".
 ///
-/// NOTE: The ALSA mute side effect only fires on-device. When the web client
-/// updates `micMuted` via `/api/config`, the legacy server-side update path
-/// applies the config change without touching ALSA (legacy didn't either).
+/// NOTE: The HA mute side effect only fires on-device. When the web client
+/// updates `micMuted` via `/api/config`, the server-side update path applies
+/// the config change without driving HA.
 class VoicePlugin extends HearthPlugin {
   @override
   String get id => 'hearth.voice';
@@ -67,8 +67,8 @@ class VoicePlugin extends HearthPlugin {
             final muted = !listening;
             final notifier = ref.read(hubConfigProvider.notifier);
             await notifier.update((c) => c.copyWith(micMuted: muted));
-            // Side effect: actually mute/unmute the ALSA mic.
-            await setMicMuted(muted);
+            // Side effect: actually mute/unmute the LVA satellite via HA.
+            ref.read(voiceAssistantServiceProvider).setSatelliteMuted(muted);
             // Show a toast notification (matching legacy behaviour).
             ref.read(toastProvider.notifier).show(
                   muted ? 'Microphone muted' : 'Microphone unmuted',
@@ -90,12 +90,12 @@ class VoicePlugin extends HearthPlugin {
   String buildSettingsHtml(WebContext ctx) {
     // Web shows the raw "Mute microphone" checkbox (checked = muted) so the
     // bool maps directly to `micMuted` without needing inversion logic in
-    // hearth.js. The ALSA side-effect only applies on-device.
+    // hearth.js. The HA mute side-effect only applies on-device.
     return const BoolSettingField(
           label: 'Mute microphone',
           configPath: 'micMuted',
           subtitle:
-              'Disables wake word. ALSA mute side-effect applies on-device only.',
+              'Disables wake word. Mute switch is driven on-device only.',
         ).buildHtml(ctx) +
         const BoolSettingField(
           label: 'Show voice feedback',
