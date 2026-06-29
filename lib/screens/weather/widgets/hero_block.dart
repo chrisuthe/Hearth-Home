@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:weather_icons/weather_icons.dart';
+import '../../../utils/weather_icons.dart';
 import '../../../app/tokens/tokens.dart';
 import '../../../models/weather_state.dart';
 import '../palette.dart';
