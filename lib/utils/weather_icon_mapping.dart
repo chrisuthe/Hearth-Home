@@ -1,4 +1,4 @@
-import 'package:weather_icons/weather_icons.dart';
+import 'weather_icons.dart';
 import 'package:flutter/widgets.dart';
 
 /// Maps HA weather condition strings to weather_icons glyphs.

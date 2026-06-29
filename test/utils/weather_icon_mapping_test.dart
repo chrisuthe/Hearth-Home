@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:weather_icons/weather_icons.dart';
+import 'package:hearth/utils/weather_icons.dart';
 import 'package:hearth/utils/weather_icon_mapping.dart';
 
 void main() {

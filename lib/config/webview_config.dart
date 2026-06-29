@@ -53,7 +53,13 @@ class WebviewConfig {
   int get defaultOrder => 100 + order;
 
   /// Reconstructed IconData for UI use.
+  ///
+  /// [iconCodePoint] is loaded from JSON at runtime, so it can't be a constant —
+  /// the analyzer's const-codePoint hint (needed only for `--tree-shake-icons`,
+  /// which is disabled for dynamic icons) doesn't apply here. The ignore must
+  /// sit on the same line as the constructor call for the analyzer to honor it.
   IconData get icon =>
+      // ignore: non_const_argument_for_const_parameter
       IconData(iconCodePoint, fontFamily: 'MaterialIcons');
 
   WebviewConfig copyWith({
