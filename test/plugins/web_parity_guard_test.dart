@@ -69,9 +69,6 @@ void main() {
     'displayHeight': 'device-only: part of the display-profile override',
 
     // --- Deferred: parity gaps to close in a later phase ---
-    'photoSources':
-        'deferred: Immich photo-source picker (album/people/memories/'
-            'smart-search) — needs a plugin route',
     'pinnedEntityIds':
         'deferred: HA pinned-entity multi-select picker — needs live entity '
             'lists from a plugin route',

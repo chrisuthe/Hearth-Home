@@ -58,6 +58,22 @@ void main() {
       expect(html, contains('data-config-path="immichApiKey"'));
     });
 
+    test('buildSettingsHtml renders the photo-source picker', () {
+      final p = ImmichPlugin();
+      final html = p.buildSettingsHtml(const WebContext(
+        config: HubConfig(),
+        apiBearerToken: 'auth',
+        pluginActionPrefix: '/api/plugin/hearth.immich',
+      ));
+      // The picker is backed by the photo-sources plugin route...
+      expect(html, contains("hearth.action('photo-sources'"));
+      // ...and carries the drift-guard marker (opted out of scalar auto-save
+      // since the object is saved through the plugin route).
+      expect(html, contains('data-config-path="photoSources"'));
+      expect(html, contains('data-no-auto-save'));
+      expect(html, contains('Photo sources'));
+    });
+
     test('pageScreen is null (Immich has no PageView screen)', () {
       final p = ImmichPlugin();
       expect(p.pageScreen, isNull);
