@@ -23,11 +23,11 @@ import 'setting_field.dart';
 /// works for `double` HubConfig fields but loses fidelity for `int` fields —
 /// in that case supply [writeOverride] and round before persisting.
 ///
-/// TODO(web): the portal posts the range value back as the raw `<input>`
-/// string. Server-side `/api/config` POST handling coerces a small allow-list
-/// of int fields (see `intFields` in local_api_server.dart). Plugins exposing
-/// integer settings via this field should rely on [writeOverride] until the
-/// portal/legacy save path is unified.
+/// Web note: the portal posts the range value back as the raw `<input>`
+/// string. The `/api/config` POST handler coerces each field to its declared
+/// HubConfig type (see `_coerceConfigValue` in local_api_server.dart), so an
+/// int or double field backed purely by [configPath] saves correctly from the
+/// web with no [writeOverride] needed.
 class SliderSettingField extends SettingField<num> {
   final double min;
   final double max;
@@ -36,6 +36,19 @@ class SliderSettingField extends SettingField<num> {
   /// Format the current value for display under the slider (e.g. "30s",
   /// "1.5x"). Default: '${value.round()}'.
   final String Function(double value)? labelBuilder;
+
+  /// Multiplier applied to the raw slider value before the web portal's
+  /// live-drag readout rounds it. The on-load / post-save readout uses
+  /// [labelBuilder] (Dart), but mid-drag the browser updates the number with
+  /// inline JS, which can't call [labelBuilder]. Set this (with
+  /// [htmlDisplaySuffix]) so fractional fields read sensibly while dragging —
+  /// e.g. uiScale uses scale 100, suffix '%' to show "125%" instead of "1".
+  /// Default 1.0 leaves integer sliders (idle timeout, etc.) unchanged.
+  final double htmlDisplayScale;
+
+  /// Suffix appended to the web portal's live-drag readout. See
+  /// [htmlDisplayScale]. Default '' (no suffix).
+  final String htmlDisplaySuffix;
 
   /// Custom read override (takes precedence over configPath).
   final double Function(HubConfig)? readOverride;
@@ -51,6 +64,8 @@ class SliderSettingField extends SettingField<num> {
     required this.max,
     this.divisions,
     this.labelBuilder,
+    this.htmlDisplayScale = 1.0,
+    this.htmlDisplaySuffix = '',
     this.readOverride,
     this.writeOverride,
   });
@@ -111,7 +126,7 @@ class SliderSettingField extends SettingField<num> {
            step="$step"
            value="$current"
            style="flex:1"
-           oninput="this.nextElementSibling.textContent=Math.round(this.value)">
+           oninput="this.nextElementSibling.textContent=Math.round(this.value*$htmlDisplayScale)+'${_escapeHtml(htmlDisplaySuffix)}'">
     <span style="color:#aaa;font-size:13px;min-width:60px;text-align:right">${_escapeHtml(display)}</span>
   </div>
 </div>

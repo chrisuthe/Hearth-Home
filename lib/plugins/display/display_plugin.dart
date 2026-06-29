@@ -33,10 +33,11 @@ import '../hearth_plugin.dart';
 ///     bespoke dialog. Night-mode sub-fields are cascading — only the
 ///     relevant ones render based on `nightModeSource`.
 ///   * Web portal: timezone degrades to text input. UI scale is a slider
-///     using a `writeOverride` so the int-vs-double doesn't matter. Display
-///     profile is omitted with a hand-off hint. Night-mode sub-fields all
-///     render at once (HTML can't reactively show/hide without scripting we
-///     don't have for plugin panels yet).
+///     bound directly to the `uiScale` double (the `/api/config` POST handler
+///     coerces it to the right type). Display profile is omitted with a
+///     hand-off hint. Night-mode sub-fields all render at once (HTML can't
+///     reactively show/hide without scripting we don't have for plugin panels
+///     yet).
 ///
 /// Status: always [PluginConfigStatus.configured] — every field has a sane
 /// default; there's nothing the user must fill in.
@@ -94,17 +95,20 @@ class DisplayPlugin extends HearthPlugin {
       labelBuilder: (v) => '${v.round()}s',
     ).buildHtml(ctx);
 
-    // UI scale and display profile are on-device-only for v1. UI scale uses
-    // a double field that the legacy `/api/config` POST handler doesn't
-    // accept; display profile picks a flutter-pi connector the browser
-    // can't query. Both render as a hand-off note here.
-    final scale = ctx.config.uiScale;
-    final uiScaleHtml =
-        '<div class="field"><label>UI Scale</label>'
-        '<div class="hint" style="font-size:12px;color:#888;">'
-        'Current scale: ${(scale * 100).round()}%. Adjust UI scale from the '
-        'on-device Settings.'
-        '</div></div>';
+    // UI scale is a plain double field now that `/api/config` coerces typed
+    // values, so the shared slider drives it directly (htmlDisplayScale/suffix
+    // make the live-drag readout show a percentage). Display profile stays a
+    // hand-off note — it picks a flutter-pi connector the browser can't query.
+    final uiScaleHtml = SliderSettingField(
+      configPath: 'uiScale',
+      label: 'UI Scale',
+      min: 0.75,
+      max: 1.5,
+      divisions: 15,
+      labelBuilder: (v) => '${(v * 100).round()}%',
+      htmlDisplayScale: 100,
+      htmlDisplaySuffix: '%',
+    ).buildHtml(ctx);
 
     const displayProfileNote =
         '<div class="field"><label>Display Profile</label>'

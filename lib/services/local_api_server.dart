@@ -381,6 +381,55 @@ class LocalApiServer {
 
   static const _redactedMarker = '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022';
 
+  /// Config keys that must never be written through the web API, regardless
+  /// of what a client posts:
+  ///   * [apiKey] \u2014 the bearer token itself; overwriting it would brick web
+  ///     and API access (and it's redacted on GET).
+  ///   * [sendspinClientId] \u2014 internal device identity, app-seeded when the
+  ///     Sendspin player is first enabled.
+  ///   * [currentVersion] \u2014 managed by the updater, not user-editable.
+  ///   * [setupComplete] \u2014 first-run flow state.
+  static const _webReadOnlyConfigKeys = {
+    'apiKey',
+    'sendspinClientId',
+    'currentVersion',
+    'setupComplete',
+  };
+
+  /// Coerce an incoming JSON value to match the runtime type of the existing
+  /// config value. The web auto-save helper (`hearth.js`) posts numbers and
+  /// enum selections as strings (text / select / range inputs), so without
+  /// this an int or double field would be silently dropped or corrupted on
+  /// save. Booleans arrive as real bools from checkboxes. List/Map values and
+  /// string fields pass through unchanged. Falls back to [existing] when a
+  /// value can't be parsed so a malformed post can't blank a typed field.
+  static dynamic _coerceConfigValue(dynamic incoming, dynamic existing) {
+    if (incoming == null) return null;
+    if (existing is bool) {
+      if (incoming is bool) return incoming;
+      if (incoming is String) return incoming == 'true' || incoming == '1';
+      return existing;
+    }
+    if (existing is int) {
+      if (incoming is int) return incoming;
+      if (incoming is num) return incoming.round();
+      if (incoming is String) {
+        return int.tryParse(incoming) ??
+            double.tryParse(incoming)?.round() ??
+            existing;
+      }
+      return existing;
+    }
+    if (existing is double) {
+      if (incoming is num) return incoming.toDouble();
+      if (incoming is String) return double.tryParse(incoming) ?? existing;
+      return existing;
+    }
+    // String, List, Map, or a null-typed existing value: pass the JSON value
+    // straight through; HubConfig.fromJson applies the final cast.
+    return incoming;
+  }
+
   Future<void> _handlePostConfig(HttpRequest request) async {
     final json = await _readJsonBody(request);
 
@@ -393,52 +442,25 @@ class LocalApiServer {
       }
     }
 
-    await _configNotifier.update((c) => c.copyWith(
-          immichUrl: json['immichUrl'] as String?,
-          immichApiKey: json['immichApiKey'] as String?,
-          haUrl: json['haUrl'] as String?,
-          haToken: json['haToken'] as String?,
-          musicAssistantUrl: json['musicAssistantUrl'] as String?,
-          musicAssistantToken: json['musicAssistantToken'] as String?,
-          frigateUrl: json['frigateUrl'] as String?,
-          frigateUsername: json['frigateUsername'] as String?,
-          frigatePassword: json['frigatePassword'] as String?,
-          weatherEntityId: json['weatherEntityId'] as String?,
-          idleTimeoutSeconds: (json['idleTimeoutSeconds'] is num)
-              ? (json['idleTimeoutSeconds'] as num).round()
-              : null,
-          nightModeSource: json['nightModeSource'] as String?,
-          nightModeHaEntity: json['nightModeHaEntity'] as String?,
-          nightModeClockStart: json['nightModeClockStart'] as String?,
-          nightModeClockEnd: json['nightModeClockEnd'] as String?,
-          defaultMusicZone: json['defaultMusicZone'] as String?,
-          use24HourClock: json['use24HourClock'] as bool?,
-          pinnedEntityIds:
-              (json['pinnedEntityIds'] as List<dynamic>?)?.cast<String>(),
-          displayProfile: json['displayProfile'] as String?,
-          onScreenKeyboardMode: json['onScreenKeyboardMode'] as String?,
-          topSwipeAction: json['topSwipeAction'] as String?,
-          bottomSwipeAction: json['bottomSwipeAction'] as String?,
-          autoUpdate: json['autoUpdate'] as bool?,
-          updateSource: json['updateSource'] as String?,
-          giteaApiToken: json['giteaApiToken'] as String?,
-          sendspinEnabled: json['sendspinEnabled'] as bool?,
-          sendspinPlayerName: json['sendspinPlayerName'] as String?,
-          sendspinBufferSeconds: json['sendspinBufferSeconds'] as int?,
-          sendspinServerUrl: json['sendspinServerUrl'] as String?,
-          mealieUrl: json['mealieUrl'] as String?,
-          mealieToken: json['mealieToken'] as String?,
-          mqttBrokerUrl: json['mqttBrokerUrl'] as String?,
-          mqttUsername: json['mqttUsername'] as String?,
-          mqttPassword: json['mqttPassword'] as String?,
-          mqttDiscoveryPrefix: json['mqttDiscoveryPrefix'] as String?,
-          timezone: json['timezone'] as String?,
-          captureToolsEnabled: json['captureToolsEnabled'] as bool?,
-        ));
+    // Generic, type-aware merge over HubConfig \u2014 mirrors the on-device write
+    // path (HubConfig.fromJson({...toJson(), key: value})) so the web portal
+    // and the kiosk save the same fields the same way. Unknown and read-only
+    // keys are ignored; everything else is coerced to its declared type.
+    await _configNotifier.update((c) {
+      final current = c.toJson();
+      final merged = Map<String, dynamic>.from(current);
+      for (final entry in json.entries) {
+        final key = entry.key;
+        if (!current.containsKey(key)) continue;
+        if (_webReadOnlyConfigKeys.contains(key)) continue;
+        merged[key] = _coerceConfigValue(entry.value, current[key]);
+      }
+      return HubConfig.fromJson(merged);
+    });
 
     // Apply timezone change immediately on Linux.
-    final tz = json['timezone'] as String?;
-    if (tz != null && tz.isNotEmpty) {
+    final tz = json['timezone'];
+    if (tz is String && tz.isNotEmpty) {
       await _timezoneService.applyTimezone(tz);
     }
 

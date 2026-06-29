@@ -175,6 +175,96 @@ void main() {
       expect(json['immichApiKey'], '');
     });
 
+    // --- Typed config writes (Enabler A) ---
+    //
+    // The web auto-save helper posts range/select/text values as strings.
+    // POST /api/config must coerce each to its declared HubConfig type.
+
+    test('POST /api/config coerces a string into a double field', () async {
+      final r = await post('/api/config',
+          body: jsonEncode({'uiScale': '1.25'}), headers: authHeaders);
+      expect(r.statusCode, 200);
+      expect(configNotifier.state.uiScale, 1.25);
+    });
+
+    test('POST /api/config coerces a string into an int field', () async {
+      final r = await post('/api/config',
+          body: jsonEncode({'sendspinBufferSeconds': '10'}),
+          headers: authHeaders);
+      expect(r.statusCode, 200);
+      expect(configNotifier.state.sendspinBufferSeconds, 10);
+    });
+
+    test('POST /api/config saves idleTimeoutSeconds posted as a string',
+        () async {
+      // Regression: the old handler only accepted `is num`, so the range
+      // slider's string value was silently dropped.
+      final r = await post('/api/config',
+          body: jsonEncode({'idleTimeoutSeconds': '300'}),
+          headers: authHeaders);
+      expect(r.statusCode, 200);
+      expect(configNotifier.state.idleTimeoutSeconds, 300);
+    });
+
+    test('POST /api/config saves a bool field absent from the legacy handler',
+        () async {
+      // Regression: micMuted / showVoiceFeedback were rendered on web but not
+      // in the old copyWith allow-list, so toggling them did nothing.
+      final r = await post('/api/config',
+          body: jsonEncode({'micMuted': true, 'showVoiceFeedback': false}),
+          headers: authHeaders);
+      expect(r.statusCode, 200);
+      expect(configNotifier.state.micMuted, true);
+      expect(configNotifier.state.showVoiceFeedback, false);
+    });
+
+    test('POST /api/config still saves plain string fields', () async {
+      final r = await post('/api/config',
+          body: jsonEncode({'haUrl': 'http://ha.local:8123'}),
+          headers: authHeaders);
+      expect(r.statusCode, 200);
+      expect(configNotifier.state.haUrl, 'http://ha.local:8123');
+    });
+
+    test('POST /api/config ignores read-only keys (apiKey)', () async {
+      final r = await post('/api/config',
+          body: jsonEncode({'apiKey': 'attacker-key', 'haUrl': 'http://x'}),
+          headers: authHeaders);
+      expect(r.statusCode, 200);
+      expect(configNotifier.state.apiKey, testApiKey);
+      expect(configNotifier.state.haUrl, 'http://x');
+    });
+
+    test('POST /api/config ignores unknown keys without error', () async {
+      final r = await post('/api/config',
+          body: jsonEncode({'notARealField': 'whatever', 'haUrl': 'http://y'}),
+          headers: authHeaders);
+      expect(r.statusCode, 200);
+      expect(configNotifier.state.haUrl, 'http://y');
+    });
+
+    test('POST /api/config leaves a secret untouched when posted redacted',
+        () async {
+      configNotifier.state =
+          const HubConfig(apiKey: testApiKey, haToken: 'real-token');
+      final r = await post('/api/config',
+          body: jsonEncode({'haToken': '••••••••'}), headers: authHeaders);
+      expect(r.statusCode, 200);
+      expect(configNotifier.state.haToken, 'real-token');
+    });
+
+    test('POST /api/config does not corrupt typed fields with garbage',
+        () async {
+      configNotifier.state =
+          const HubConfig(apiKey: testApiKey, sendspinBufferSeconds: 7);
+      final r = await post('/api/config',
+          body: jsonEncode({'sendspinBufferSeconds': 'not-a-number'}),
+          headers: authHeaders);
+      expect(r.statusCode, 200);
+      // Unparseable value falls back to the existing value, not 0/null.
+      expect(configNotifier.state.sendspinBufferSeconds, 7);
+    });
+
     // --- Display mode ---
 
     test('POST /api/display-mode sets night mode', () async {
