@@ -8,6 +8,7 @@ import '../modules/alarm_clock/alarm_service.dart';
 import '../utils/logger.dart';
 import '../config/hub_config.dart';
 import '../plugins/plugin_registry.dart';
+import '../plugins/hearth_plugin.dart';
 import '../plugins/framework/plugin_router.dart';
 import '../plugins/framework/web_renderer.dart';
 import 'capture_service.dart';
@@ -43,6 +44,17 @@ class LocalApiServer {
   final UpdateService _updateService;
   final AlarmService? _alarmService;
   final CaptureService? _captureService;
+
+  /// Reads service providers for plugin routes. Production wires `ref.read`
+  /// (see [localApiServerProvider]); null in constructions made without a
+  /// Riverpod `ref`, where [PluginRequest.readProvider] then throws.
+  final ProviderReader? _readProvider;
+
+  /// Plugins whose HTTP routes are registered in [start]. Defaults to the
+  /// first-party registry; overridable so tests can drive a bespoke route
+  /// through the full request stack.
+  final List<HearthPlugin> _plugins;
+
   HttpServer? _server;
 
   static const int _maxBodySize = 64 * 1024; // 64 KB
@@ -67,6 +79,8 @@ class LocalApiServer {
     UpdateService? updateService,
     AlarmService? alarmService,
     CaptureService? captureService,
+    ProviderReader? readProvider,
+    List<HearthPlugin>? plugins,
     String? webPin,
   })  : _displayModeService = displayModeService,
         _configNotifier = configNotifier,
@@ -75,12 +89,14 @@ class LocalApiServer {
         _updateService = updateService ?? UpdateService(),
         _alarmService = alarmService,
         _captureService = captureService,
+        _readProvider = readProvider,
+        _plugins = plugins ?? firstPartyPlugins,
         _webPin = webPin ?? (Random.secure().nextInt(9000) + 1000).toString();
 
   Future<int> start({int port = 8090}) async {
     _server = await HttpServer.bind(InternetAddress.anyIPv4, port);
     _pluginRouter = PluginRouter();
-    for (final plugin in firstPartyPlugins) {
+    for (final plugin in _plugins) {
       _pluginRouter.register(plugin.id);
       plugin.registerHttpRoutes(_pluginRouter);
     }
@@ -195,6 +211,8 @@ class LocalApiServer {
           raw: request,
           body: body,
           config: _configNotifier.current,
+          configNotifier: _configNotifier,
+          readProvider: _readProvider,
         ));
         return;
       } else if (path.startsWith('/api/')) {
@@ -1071,6 +1089,9 @@ final localApiServerProvider = Provider<LocalApiServer>((ref) {
     updateService: updateService,
     alarmService: alarmService,
     captureService: captureService,
+    // Generic tearoff: lets plugin routes reach any service provider
+    // (HA, Immich, AlarmService, WifiService, ...) via readProvider<T>.
+    readProvider: ref.read,
   );
   ref.onDispose(() => server.stop());
   return server;
