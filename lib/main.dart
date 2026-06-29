@@ -2,7 +2,6 @@ import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'utils/logger.dart';
-import 'utils/alsa_utils.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'app/app.dart';
 import 'config/hub_config.dart';
@@ -77,14 +76,6 @@ Future<void> main() async {
     if (tz.isNotEmpty) {
       final tzService = container.read(timezoneServiceProvider);
       await tzService.applyTimezone(tz);
-    }
-  }
-
-  // Apply persisted mic mute state to ALSA capture device.
-  if (!kIsWeb) {
-    final micMuted = container.read(hubConfigProvider).micMuted;
-    if (micMuted) {
-      await setMicMuted(true);
     }
   }
 

@@ -22,7 +22,7 @@ import '../services/sendspin/sendspin_service.dart';
 import '../services/toast_service.dart';
 import '../widgets/toast_overlay.dart';
 import '../widgets/voice_pill.dart';
-import '../utils/alsa_utils.dart';
+import '../services/voice_assistant_service.dart';
 
 /// The main shell that manages the layered navigation model.
 ///
@@ -414,13 +414,21 @@ class _HubShellState extends ConsumerState<HubShell> {
             const VoicePillOverlay(),
 
             // Mic mute toggle — always visible, top-left corner.
+            // Reflects the satellite's actual HA Mute switch state (so mutes
+            // from HA automations / the device button show here too), falling
+            // back to the locally-stored intent until HA's state is known.
             Positioned(
               top: HearthSpacing.x6,
               left: HearthSpacing.x6,
               child: Consumer(builder: (context, ref, _) {
-                final muted = ref.watch(
-                  hubConfigProvider.select((c) => c.micMuted),
-                );
+                // HA's switch state wins when known; until then fall back to
+                // the locally-stored intent.
+                final bool muted =
+                    switch (ref.watch(voiceMutedProvider).valueOrNull) {
+                  final bool haMuted => haMuted,
+                  null => ref
+                      .watch(hubConfigProvider.select((c) => c.micMuted)),
+                };
                 return IconButton(
                   icon: Icon(
                     muted ? Icons.mic_off : Icons.mic,
@@ -429,10 +437,14 @@ class _HubShellState extends ConsumerState<HubShell> {
                   ),
                   onPressed: () {
                     final newValue = !muted;
+                    // Drive the real mute via HA; keep micMuted as the persisted
+                    // local intent / fallback display until HA confirms.
+                    ref
+                        .read(voiceAssistantServiceProvider)
+                        .setSatelliteMuted(newValue);
                     ref.read(hubConfigProvider.notifier).update(
                       (c) => c.copyWith(micMuted: newValue),
                     );
-                    setMicMuted(newValue);
                     ref.read(toastProvider.notifier).show(
                       newValue ? 'Microphone muted' : 'Microphone unmuted',
                       icon: newValue ? Icons.mic_off : Icons.mic,
