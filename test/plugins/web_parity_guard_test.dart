@@ -72,9 +72,6 @@ void main() {
     'photoSources':
         'deferred: Immich photo-source picker (album/people/memories/'
             'smart-search) — needs a plugin route',
-    'pinnedEntityIds':
-        'deferred: HA pinned-entity multi-select picker — needs live entity '
-            'lists from a plugin route',
     'webviews':
         'deferred: webview add/edit/delete — needs a plugin route',
     'updateSource':

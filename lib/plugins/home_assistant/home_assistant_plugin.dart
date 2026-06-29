@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../config/hub_config.dart';
+import '../../models/ha_entity.dart';
 import '../../services/home_assistant_service.dart';
 import '../../widgets/entity_picker_dialog.dart';
 import '../framework/fields/password_setting_field.dart';
 import '../framework/fields/select_setting_field.dart';
 import '../framework/fields/text_setting_field.dart';
-import '../framework/list_section.dart';
+import '../framework/plugin_router.dart';
 import '../framework/web_context.dart';
 import '../hearth_plugin.dart';
 
@@ -25,8 +26,10 @@ import '../hearth_plugin.dart';
 ///     are populated dynamically from the live HA entity list (any
 ///     `assist_satellite.*`). Pinned devices opens [EntityPickerDialog].
 ///   * Web portal: voice satellite degrades to a plain text input (paste
-///     the entity ID). Pinned devices renders as a read-only [ListSection]
-///     with a hand-off note to the on-device Settings.
+///     the entity ID). Pinned devices renders a searchable multi-select that
+///     loads the live HA entity list through this plugin's `entities` HTTP
+///     route (the browser has no HA connection) and persists picks through
+///     the `pinned` route.
 ///
 /// Out of scope (stays in the legacy panel for now):
 ///   * Mic mute toggle (`micMuted`) — lives in the Voice plugin (drives the
@@ -94,19 +97,155 @@ class HomeAssistantPlugin extends HearthPlugin {
       hint: 'assist_satellite.hearth_kiosk (blank = auto-detect by MAC)',
     ).buildHtml(ctx);
 
-    // Pinned devices: read-only on web. Editing happens on-device via
-    // EntityPickerDialog (no HA state in the browser).
-    final pinnedSection = ListSection<String>(
-      label: 'Pinned Devices',
-      items: ctx.config.pinnedEntityIds,
-      summaryFor: (id) => id,
-      onListChanged: (_) async {},
-      editorBuilder: (_, existing) async => null,
-    );
+    return urlHtml + tokenHtml + satelliteHtml + _pinnedDevicesHtml;
+  }
 
-    return urlHtml + tokenHtml + satelliteHtml + pinnedSection.buildHtml();
+  @override
+  void registerHttpRoutes(PluginRouter router) {
+    // GET entities — the live HA entity list (id + friendly name) for the web
+    // pinned-device picker, plus the currently-pinned ids so the front-end can
+    // pre-check them. Only the backend can reach the live HA service, so the
+    // browser fetches it from here rather than holding an HA connection.
+    router.get('entities', (req) async {
+      final ha = req.readProvider(homeAssistantServiceProvider);
+      await req.respondJson({
+        'entities': pinnablePickerEntities(ha.entities.values),
+        'pinned': req.config.pinnedEntityIds,
+      });
+    });
+
+    // POST pinned — persist the selected entity ids into pinnedEntityIds via
+    // the same notifier an on-device save would use.
+    router.post('pinned', (req) async {
+      final ids =
+          (req.body['ids'] as List?)?.cast<String>() ?? const <String>[];
+      await req.updateConfig((c) => c.copyWith(pinnedEntityIds: ids));
+      await req.respondJson({'status': 'saved', 'count': ids.length});
+    });
+  }
+
+  /// Entity domains offered in the pinned-device picker. Mirrors the on-device
+  /// [EntityPickerDialog] so the two surfaces show the same set.
+  static const _pinnableDomains = {
+    'light',
+    'switch',
+    'climate',
+    'fan',
+    'cover',
+    'lock',
+    'input_boolean',
+  };
+
+  /// Shapes the live HA entities into the `{id, name}` list the web picker
+  /// renders: filtered to [_pinnableDomains] and sorted by friendly name,
+  /// matching [EntityPickerDialog]'s on-device ordering.
+  @visibleForTesting
+  static List<Map<String, String>> pinnablePickerEntities(
+      Iterable<HaEntity> entities) {
+    final list = entities
+        .where((e) => _pinnableDomains.contains(e.domain))
+        .toList()
+      ..sort((a, b) => a.name.compareTo(b.name));
+    return [
+      for (final e in list) {'id': e.entityId, 'name': e.name},
+    ];
   }
 }
+
+/// Web pinned-device picker: a searchable checkbox list bound to
+/// `pinnedEntityIds`. The container carries `data-config-path="pinnedEntityIds"`
+/// as the web-parity ledger marker (see `web_parity_guard_test`); persistence
+/// runs through the plugin's `pinned` route, not the generic config auto-save,
+/// so the marker lives on the (non-input) `<div>` the auto-binder ignores.
+const _pinnedDevicesHtml = '''
+<div class="field" data-config-path="pinnedEntityIds">
+  <label>Pinned Devices</label>
+  <input type="text" id="ha-pinned-search" placeholder="Search entities…" autocomplete="off">
+  <div id="ha-pinned-list" style="margin-top:8px"></div>
+  <div id="ha-pinned-status" style="font-size:11px;color:#666;margin-top:6px"></div>
+</div>
+<script>$_pinnedDevicesScript</script>
+''';
+
+const _pinnedDevicesScript = r'''
+(function () {
+  function init() {
+    var list = document.getElementById('ha-pinned-list');
+    var search = document.getElementById('ha-pinned-search');
+    var status = document.getElementById('ha-pinned-status');
+    if (!list) return;
+    var all = [];
+    var selected = new Set();
+    var saveTimer = null;
+
+    function save() {
+      if (saveTimer) clearTimeout(saveTimer);
+      saveTimer = setTimeout(function () {
+        hearth.action('pinned', { ids: Array.from(selected) })
+          .then(function () { status.textContent = selected.size + ' selected'; })
+          .catch(function () { status.textContent = 'Save failed'; });
+      }, 400);
+    }
+
+    function render() {
+      var q = (search.value || '').toLowerCase();
+      list.textContent = '';
+      var shown = all.filter(function (e) {
+        return e.name.toLowerCase().indexOf(q) >= 0 ||
+               e.id.toLowerCase().indexOf(q) >= 0;
+      });
+      if (!shown.length) {
+        var empty = document.createElement('div');
+        empty.style.cssText = 'color:#666;font-style:italic;padding:8px 0';
+        empty.textContent = all.length
+          ? 'No matches.'
+          : 'No entities available. Is Home Assistant connected?';
+        list.appendChild(empty);
+        return;
+      }
+      shown.forEach(function (e) {
+        var row = document.createElement('label');
+        row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 10px;background:#161618;border-radius:6px;margin-bottom:4px;cursor:pointer';
+        var cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.checked = selected.has(e.id);
+        cb.addEventListener('change', function () {
+          if (cb.checked) selected.add(e.id); else selected.delete(e.id);
+          save();
+        });
+        var txt = document.createElement('div');
+        var nm = document.createElement('div');
+        nm.textContent = e.name;
+        var id = document.createElement('div');
+        id.textContent = e.id;
+        id.style.cssText = 'font-size:11px;color:#777';
+        txt.appendChild(nm);
+        txt.appendChild(id);
+        row.appendChild(cb);
+        row.appendChild(txt);
+        list.appendChild(row);
+      });
+    }
+
+    search.addEventListener('input', render);
+    status.textContent = 'Loading…';
+    hearth.action('entities').then(function (data) {
+      all = data.entities || [];
+      selected = new Set(data.pinned || []);
+      status.textContent = selected.size + ' selected';
+      render();
+    }).catch(function () {
+      status.textContent = 'Failed to load entities';
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
+''';
 
 class _HomeAssistantPanel extends ConsumerWidget {
   const _HomeAssistantPanel();
