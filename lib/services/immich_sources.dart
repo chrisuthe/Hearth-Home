@@ -124,9 +124,50 @@ class PeopleSource implements PhotoSource {
   }
 }
 
+/// Smart-search source. Posts `/api/search/smart` with a free-text CLIP
+/// query. Immich runs the query through its CLIP model and returns the
+/// most semantically-similar images — so "beach" or "sunset" matches photo
+/// content, not filenames. Response shape is identical to [PeopleSource]'s
+/// metadata search: the assets arrive under `assets.items`.
+class SmartSearchSource implements PhotoSource {
+  final Dio _dio;
+  final String _baseUrl;
+  final String _query;
+
+  SmartSearchSource({
+    required Dio dio,
+    required String baseUrl,
+    required String query,
+  })  : _dio = dio,
+        _baseUrl = baseUrl,
+        _query = query;
+
+  @override
+  Future<List<PhotoMemory>> fetch({required int limit}) async {
+    if (_query.isEmpty) return const [];
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/api/search/smart',
+      data: {
+        'query': _query,
+        'size': limit,
+      },
+    );
+    final result = response.data ?? const <String, dynamic>{};
+    final assetsObj = result['assets'] as Map<String, dynamic>?;
+    final items =
+        (assetsObj?['items'] as List<dynamic>?) ?? const <dynamic>[];
+    return parseAssetList(
+      items.cast<Map<String, dynamic>>(),
+      _baseUrl,
+      limit: limit,
+    );
+  }
+}
+
 /// Helper: convert a raw asset JSON list into [PhotoMemory] instances,
-/// optionally truncated to [limit]. Shared by [AlbumSource] and
-/// [PeopleSource] (memories has its own per-memory year math).
+/// optionally truncated to [limit]. Shared by [AlbumSource],
+/// [PeopleSource], and [SmartSearchSource] (memories has its own
+/// per-memory year math).
 List<PhotoMemory> parseAssetList(
   List<Map<String, dynamic>> assets,
   String baseUrl, {
