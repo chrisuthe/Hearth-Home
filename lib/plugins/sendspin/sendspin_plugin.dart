@@ -25,14 +25,13 @@ import '../hearth_plugin.dart';
 /// surfaces only the configuration fields. A future pass can wire it back in
 /// via a `/api/plugin/<id>/status` route.
 ///
-/// Web caveats (deferred until a plugin HTTP route handles them):
+/// Web caveats:
 ///   * The enable checkbox in the web portal posts `sendspinEnabled` directly
 ///     to `/api/config` and does NOT generate `sendspinClientId`. Users must
 ///     toggle once on-device to seed the clientId. Legacy behavior matched
-///     this — the web form never generated a clientId either.
-///   * Buffer size is intentionally omitted from the web panel because the
-///     auto-save helper writes string values, which would corrupt the int
-///     field on save. Edit buffer size on-device.
+///     this — the web form never generated a clientId either. (Seeding the
+///     clientId from the web is deferred until a plugin HTTP route handles
+///     the side-effect.)
 class SendspinPlugin extends HearthPlugin {
   @override
   String get id => 'hearth.sendspin';
@@ -117,10 +116,6 @@ class SendspinPlugin extends HearthPlugin {
 
   @override
   String buildSettingsHtml(WebContext ctx) {
-    // Buffer size is omitted from the web until a plugin HTTP route handles
-    // the string -> int conversion (the configPath auto-save would otherwise
-    // write a string into the int field). On-device buffer size editing
-    // works correctly via the SelectSettingField writeOverride above.
     final enable = BoolSettingField(
       label: 'Enable Sendspin Player',
       configPath: 'sendspinEnabled',
@@ -140,8 +135,23 @@ class SendspinPlugin extends HearthPlugin {
       label: 'Server URL',
       hint: 'ws://192.168.1.x:8095 (blank for mDNS auto-discover)',
     );
+    // Buffer size now works on the web: the auto-save helper posts the select
+    // value as a string and `/api/config` coerces it to the int field. The
+    // configPath drives the web auto-save; readOverride reads the int back as
+    // the string the <select> expects.
+    final bufferSize = SelectSettingField(
+      configPath: 'sendspinBufferSeconds',
+      label: 'Buffer Size',
+      options: const {
+        '5': '5 seconds',
+        '7': '7 seconds',
+        '10': '10 seconds',
+      },
+      readOverride: (c) => c.sendspinBufferSeconds.toString(),
+    );
     return enable.buildHtml(ctx) +
         playerName.buildHtml(ctx) +
-        serverUrl.buildHtml(ctx);
+        serverUrl.buildHtml(ctx) +
+        bufferSize.buildHtml(ctx);
   }
 }

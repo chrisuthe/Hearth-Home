@@ -73,15 +73,23 @@ void main() {
       expect(html, contains('data-config-path="sendspinServerUrl"'));
     });
 
-    test('buildSettingsHtml omits Buffer Size (on-device only)', () {
+    test('buildSettingsHtml renders Buffer Size bound to the int field', () {
+      // Buffer Size is now editable on web (Enabler A coerces the string the
+      // <select> posts into the int field). readOverride renders the current
+      // int value as the selected option.
       final p = SendspinPlugin();
-      final html = p.buildSettingsHtml(WebContext(
-        config: const HubConfig(sendspinPlayerName: 'Kitchen'),
+      final html = p.buildSettingsHtml(const WebContext(
+        config: HubConfig(
+          sendspinPlayerName: 'Kitchen',
+          sendspinBufferSeconds: 10,
+        ),
         apiBearerToken: 'auth',
         pluginActionPrefix: '/api/plugin/hearth.sendspin',
       ));
-      expect(html, isNot(contains('Buffer Size')));
-      expect(html, isNot(contains('sendspinBufferSeconds')));
+      expect(html, contains('Buffer Size'));
+      expect(html, contains('data-config-path="sendspinBufferSeconds"'));
+      // Current value (10) is the selected option.
+      expect(RegExp(r'value="10"\s+selected').hasMatch(html), isTrue);
     });
 
     test('pageScreen is null', () {

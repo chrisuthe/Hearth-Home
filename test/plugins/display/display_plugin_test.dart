@@ -44,6 +44,8 @@ void main() {
       expect(html, contains('data-config-path="timezone"'));
       expect(html, contains('data-config-path="idleTimeoutSeconds"'));
       expect(html, contains('UI Scale'));
+      // UI Scale is now an editable slider on web (Enabler A typed writes).
+      expect(html, contains('data-config-path="uiScale"'));
       expect(html, contains('data-config-path="onScreenKeyboardMode"'));
       expect(html, contains('data-config-path="nightModeSource"'));
       expect(html, contains('data-config-path="nightModeHaEntity"'));
