@@ -85,7 +85,7 @@ class MqttService extends ChangeNotifier {
   /// discovery as appropriate. Called with `fireImmediately` on creation.
   void updateConfig(HubConfig config) {
     if (kIsWeb) return; // The MQTT client is native-only.
-    _swVersion = config.currentVersion;
+    _swVersion = readInstalledVersion(fallback: config.currentVersion);
     final url = config.mqttBrokerUrl.trim();
     final user = config.mqttUsername;
     final pass = config.mqttPassword;
@@ -665,6 +665,21 @@ class MqttService extends ChangeNotifier {
     }
     if (host.isEmpty) host = 'localhost';
     return (host: host, port: port, secure: secure);
+  }
+
+  /// The running Hearth version, reported to HA as the device firmware
+  /// (`sw_version`). Reads `/etc/hearth-version` — the file the installer and
+  /// OTA updater maintain, and the same source Settings → Updates displays —
+  /// so the HA "firmware" stays in lockstep with the installed bundle. Returns
+  /// [fallback] when the file is absent (Windows dev) or unreadable.
+  @visibleForTesting
+  static String readInstalledVersion({String fallback = ''}) {
+    if (kIsWeb) return fallback;
+    try {
+      final v = File('/etc/hearth-version').readAsStringSync().trim();
+      if (v.isNotEmpty) return v;
+    } catch (_) {}
+    return fallback;
   }
 
   /// A stable client identifier derived from the device hostname, sanitized
