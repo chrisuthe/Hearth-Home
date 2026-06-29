@@ -1,11 +1,34 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../config/hub_config.dart';
 import '../../screens/settings/wifi_settings.dart';
 import '../../services/local_api_server.dart';
 import '../framework/web_context.dart';
 import '../hearth_plugin.dart';
+
+/// Resolves the device's primary non-loopback IPv4 address, or null on failure.
+///
+/// Reuses the setup-wizard pattern ([NetworkInterface.list], first non-loopback
+/// IPv4) so the Network settings panel can show the address a user types into a
+/// browser to reach the web portal. Degrades gracefully — any failure (no
+/// network, platform quirk) resolves to null rather than throwing to the UI.
+final deviceIpProvider = FutureProvider<String?>((ref) async {
+  try {
+    final interfaces = await NetworkInterface.list();
+    for (final iface in interfaces) {
+      for (final addr in iface.addresses) {
+        if (addr.type == InternetAddressType.IPv4 && !addr.isLoopback) {
+          return addr.address;
+        }
+      }
+    }
+  } catch (_) {}
+  return null;
+});
 
 /// Network plugin — third device-category plugin.
 ///
@@ -60,10 +83,49 @@ class NetworkPlugin extends HearthPlugin {
   Widget buildSettingsWidget(WidgetRef ref) {
     return Consumer(builder: (context, ref, _) {
       final pin = ref.watch(webPinProvider);
+      final ip = ref.watch(deviceIpProvider).asData?.value;
+      final ipUrl = ip != null ? 'http://$ip:8090' : null;
+      const hostUrl = 'http://hearth.local:8090';
+      // Prefer the IP URL for the QR — mDNS `.local` is less reliable to scan
+      // from a phone — and fall back to the hostname when no IPv4 resolved.
+      final qrData = ipUrl ?? hostUrl;
+      const urlStyle = TextStyle(color: Color(0xFF646CFF), fontSize: 16);
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const WifiSettingsSection(),
+          const SizedBox(height: 24),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.language, color: Colors.white54),
+            title: const Text(
+              'Web Interface',
+              style: TextStyle(color: Colors.white),
+            ),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (ipUrl != null) Text(ipUrl, style: urlStyle),
+                const Text(hostUrl, style: urlStyle),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          // White background + padding so the dark modules scan against the
+          // true-black AMOLED theme.
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: QrImageView(
+              data: qrData,
+              version: QrVersions.auto,
+              size: 160,
+              backgroundColor: Colors.white,
+            ),
+          ),
           const SizedBox(height: 24),
           ListTile(
             contentPadding: EdgeInsets.zero,
