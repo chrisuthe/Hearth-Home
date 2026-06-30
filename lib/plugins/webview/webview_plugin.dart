@@ -310,7 +310,9 @@ const _webviewsHtml = r'''
 
   // --- Custom URLs section ---
   function startEdit(item) {
-    var def = icons.length ? icons[0].codePoint : 0;
+    // New custom URLs default to the "Web" icon, matching the on-device editor.
+    var web = icons.filter(function (i) { return i.name === 'Web'; })[0];
+    var def = web ? web.codePoint : (icons.length ? icons[0].codePoint : 0);
     editing = item
       ? { id: item.id, name: item.name, url: item.url, iconCodePoint: item.iconCodePoint }
       : { id: null, name: '', url: '', iconCodePoint: def };
