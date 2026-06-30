@@ -81,7 +81,7 @@ void main() {
 
     test('builds correct pipeline string', () {
       final session = WebviewSession.testing(url: 'https://ha.example/lovelace');
-      expect(session.pipelineString, contains('wpesrc'));
+      expect(session.pipelineString, contains('wpevideosrc'));
       expect(session.pipelineString, contains('https://ha.example/lovelace'));
       expect(session.pipelineString, contains('gldownload'));
       expect(session.pipelineString, contains('videoconvert'));

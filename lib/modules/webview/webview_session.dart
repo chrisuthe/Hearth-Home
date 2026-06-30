@@ -16,7 +16,7 @@ enum WebviewSessionState {
 
 /// One running webview tied to a specific URL.
 ///
-/// Owns a [VideoPlayerController] backed by a `wpesrc`-based GStreamer
+/// Owns a [VideoPlayerController] backed by a `wpevideosrc`-based GStreamer
 /// pipeline, tracks lifecycle state, sends GstNavigation events for touch
 /// input, and observes pipeline errors.
 ///
@@ -79,14 +79,20 @@ class WebviewSession extends ChangeNotifier {
   /// upstream caps filter can prevent the plugin from negotiating the
   /// format/size correctly, which then leaves `controller.value.size` at
   /// `Size.zero` and the texture never gets a real frame to display.
-  /// The `wpesrc` is given a stable element name so the native side can find
+  /// The source is given a stable element name so the native side can find
   /// it (`gst_bin_get_by_name`) and connect its `configure-web-view` signal to
   /// register the document-start [initScript]. This name is a contract with
   /// the flutter-pi `gstreamer_video_player` plugin.
+  ///
+  /// It must be `wpevideosrc`, not `wpesrc`: on GStreamer 1.26 `wpesrc` is a
+  /// `GstBin` wrapper that does not expose `configure-web-view`, so connecting
+  /// the signal fails at runtime ("signal is invalid for GstWpeSrc") and the
+  /// token never injects. `wpevideosrc` owns the signal and accepts the same
+  /// `location`/`draw-background` props.
   static const String wpeSrcName = 'websrc';
 
   String get pipelineString =>
-      'wpesrc name=$wpeSrcName location=$url draw-background=false '
+      'wpevideosrc name=$wpeSrcName location=$url draw-background=false '
       '! gldownload '
       '! videoconvert '
       '! appsink name=sink';
