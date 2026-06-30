@@ -1,9 +1,73 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hearth/models/immich_album.dart';
 import 'package:hearth/models/immich_person.dart';
 import 'package:hearth/models/photo_memory.dart';
 import 'package:hearth/services/immich_service.dart';
 import 'package:hearth/services/immich_sources.dart';
+
+/// Fake Dio interceptor modeling Immich's people endpoints: `/api/people`
+/// returns the person list **without** asset counts (Immich's
+/// `PersonResponseDto` has no `numberOfAssets`), and the per-person count
+/// lives only at `/api/people/:id/statistics`. [assetCounts] supplies each
+/// person's count; ids in [failingStatsIds] make their statistics call fail.
+class _PeopleInterceptor extends Interceptor {
+  final List<Map<String, dynamic>> peopleList;
+  final Map<String, int> assetCounts;
+  final Set<String> failingStatsIds;
+  final List<String> statsRequested = [];
+
+  _PeopleInterceptor({
+    required this.peopleList,
+    required this.assetCounts,
+    this.failingStatsIds = const {},
+  });
+
+  @override
+  void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
+    final path = options.path;
+    if (path == '/api/people') {
+      handler.resolve(Response<Map<String, dynamic>>(
+        requestOptions: options,
+        statusCode: 200,
+        data: {'people': peopleList},
+      ));
+      return;
+    }
+    final stats = RegExp(r'^/api/people/([^/]+)/statistics$').firstMatch(path);
+    if (stats != null) {
+      final id = stats.group(1)!;
+      statsRequested.add(id);
+      if (failingStatsIds.contains(id)) {
+        handler.reject(DioException(
+          requestOptions: options,
+          error: 'simulated statistics failure',
+        ));
+        return;
+      }
+      handler.resolve(Response<Map<String, dynamic>>(
+        requestOptions: options,
+        statusCode: 200,
+        data: {'assets': assetCounts[id] ?? 0},
+      ));
+      return;
+    }
+    handler.reject(DioException(
+      requestOptions: options,
+      error: 'unexpected path: $path',
+    ));
+  }
+}
+
+ImmichService _serviceWith(_PeopleInterceptor interceptor) {
+  final dio = Dio(BaseOptions(baseUrl: 'https://immich.example'));
+  dio.interceptors.add(interceptor);
+  return ImmichService(
+    baseUrl: 'https://immich.example',
+    apiKey: 'k',
+    dio: dio,
+  );
+}
 
 class _FakeSource implements PhotoSource {
   final List<PhotoMemory> result;
@@ -129,6 +193,67 @@ void main() {
       final p = ImmichPerson.fromJson({'id': 'x', 'name': 'Y'});
       expect(p.numberOfAssets, 0);
       expect(p.thumbnailPath, isNull);
+    });
+  });
+
+  group('ImmichService.listNamedPeople', () {
+    test('enriches each named person with their /statistics asset count', () async {
+      final interceptor = _PeopleInterceptor(
+        peopleList: [
+          {'id': 'p1', 'name': 'Margaret'},
+          {'id': 'p2', 'name': 'Chris'},
+        ],
+        assetCounts: {'p1': 3106, 'p2': 412},
+      );
+      final people = await _serviceWith(interceptor).listNamedPeople();
+
+      // One statistics request per named person — the count is NOT on /people.
+      expect(interceptor.statsRequested..sort(), ['p1', 'p2']);
+      expect({for (final p in people) p.id: p.numberOfAssets},
+          {'p1': 3106, 'p2': 412});
+    });
+
+    test('sorts by asset count descending', () async {
+      final interceptor = _PeopleInterceptor(
+        peopleList: [
+          {'id': 'low', 'name': 'A'},
+          {'id': 'high', 'name': 'B'},
+          {'id': 'mid', 'name': 'C'},
+        ],
+        assetCounts: {'low': 5, 'high': 900, 'mid': 50},
+      );
+      final people = await _serviceWith(interceptor).listNamedPeople();
+      expect(people.map((p) => p.id).toList(), ['high', 'mid', 'low']);
+    });
+
+    test('filters out unnamed face clusters before fetching statistics',
+        () async {
+      final interceptor = _PeopleInterceptor(
+        peopleList: [
+          {'id': 'named', 'name': 'Real'},
+          {'id': 'blank', 'name': '   '},
+          {'id': 'missing'},
+        ],
+        assetCounts: {'named': 10},
+      );
+      final people = await _serviceWith(interceptor).listNamedPeople();
+      expect(people.map((p) => p.id).toList(), ['named']);
+      expect(interceptor.statsRequested, ['named']);
+    });
+
+    test('keeps a person with 0 count when their statistics call fails',
+        () async {
+      final interceptor = _PeopleInterceptor(
+        peopleList: [
+          {'id': 'ok', 'name': 'Ok'},
+          {'id': 'bad', 'name': 'Bad'},
+        ],
+        assetCounts: {'ok': 80, 'bad': 999},
+        failingStatsIds: {'bad'},
+      );
+      final people = await _serviceWith(interceptor).listNamedPeople();
+      expect({for (final p in people) p.id: p.numberOfAssets},
+          {'ok': 80, 'bad': 0});
     });
   });
 

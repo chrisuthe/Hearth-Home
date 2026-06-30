@@ -20,4 +20,11 @@ class ImmichPerson {
         numberOfAssets: (json['numberOfAssets'] as num?)?.toInt() ?? 0,
         thumbnailPath: json['thumbnailPath'] as String?,
       );
+
+  ImmichPerson copyWith({int? numberOfAssets}) => ImmichPerson(
+        id: id,
+        name: name,
+        numberOfAssets: numberOfAssets ?? this.numberOfAssets,
+        thumbnailPath: thumbnailPath,
+      );
 }
