@@ -47,6 +47,9 @@ jobs:
             echo "ERROR: Could not find flutter-pi bundle"
             exit 1
           fi
+          # Ship the OTA updater inside the bundle so devices self-refresh
+          # /usr/bin/hearth-updater on the next run (see scripts/hearth-updater.sh).
+          cp scripts/hearth-updater.sh "$SRC_DIR/hearth-updater.sh"
           # Package the full flutterpi_tool output as-is (default layout).
           # Includes flutter-pi binary, libflutter_engine.so, app.so, and assets.
           tar czf "hearth-bundle-${VERSION}.tar.gz" -C "$SRC_DIR" .

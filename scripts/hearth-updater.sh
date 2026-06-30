@@ -164,5 +164,22 @@ chown -R hearth:hearth "$BUNDLE_DIR" 2>/dev/null || true
 cp /etc/hearth-version /etc/hearth-version.prev 2>/dev/null
 echo "$LATEST_VERSION" > "$VERSION_FILE"
 
+# Self-refresh the updater for the NEXT run. The bundle now ships its own copy
+# of this script, so install it over /usr/bin/hearth-updater when it differs.
+# Do not re-exec mid-run. Write to a temp file and atomically mv into place so a
+# partial copy can never truncate the running updater (the file systemd execs
+# next run); a missing/empty bundled script or a failed copy leaves it intact.
+BUNDLED_UPDATER="$BUNDLE_DIR/hearth-updater.sh"
+SELF="/usr/bin/hearth-updater"
+if [ -s "$BUNDLED_UPDATER" ] && ! cmp -s "$BUNDLED_UPDATER" "$SELF"; then
+    TMP="$SELF.new.$$"
+    if err=$(cp "$BUNDLED_UPDATER" "$TMP" 2>&1) && chmod +x "$TMP" && mv -f "$TMP" "$SELF"; then
+        log "Updater self-updated (effective next run)"
+    else
+        rm -f "$TMP"
+        log "Updater self-update failed, kept existing $SELF: $err"
+    fi
+fi
+
 log "Updated to $LATEST_VERSION, restarting hearth.service"
 systemctl restart hearth.service
