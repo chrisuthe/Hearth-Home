@@ -90,5 +90,26 @@ void main() {
       // WebviewSession.pipelineString).
       expect(session.pipelineString, contains('appsink name=sink'));
     });
+
+    test('pipeline includes size caps when useSizeCaps is set', () {
+      final session = WebviewSession.testing(
+        url: 'https://ha.example/lovelace',
+        renderWidth: 1920,
+        renderHeight: 1200,
+        useSizeCaps: true,
+      );
+      expect(
+        session.pipelineString,
+        contains('video/x-raw(memory:GLMemory),width=1920,height=1200'),
+      );
+      expect(session.pipelineString, contains('wpevideosrc'));
+      expect(session.pipelineString, contains('appsink name=sink'));
+    });
+
+    test('pipeline omits size caps when useSizeCaps is false', () {
+      final session = WebviewSession.testing(url: 'https://ha.example');
+      expect(session.pipelineString, isNot(contains('video/x-raw')));
+      expect(session.pipelineString, contains('wpevideosrc'));
+    });
   });
 }

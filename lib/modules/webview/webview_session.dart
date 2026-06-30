@@ -25,8 +25,17 @@ enum WebviewSessionState {
 /// Use [WebviewSession.testing] in unit tests to skip plugin calls.
 class WebviewSession extends ChangeNotifier {
   final String url;
-  final int textureWidth;
-  final int textureHeight;
+  /// Target physical pixel size for the wpe frame. Requested by the screen
+  /// from the panel geometry; used by the pool as part of session identity.
+  final int renderWidth;
+  final int renderHeight;
+
+  /// Whether to pin the wpe render size with a caps filter. When the sized
+  /// pipeline fails to negotiate on a panel, the session flips this off and
+  /// rebuilds once (see [_initController]).
+  final bool useSizeCaps;
+  bool _capsActive;
+  bool _sizeCapsFallbackTried = false;
 
   /// Optional document-start JavaScript registered on the WPE WebView's
   /// user-content manager, run before the page bootstraps. Used to seed the
@@ -50,22 +59,26 @@ class WebviewSession extends ChangeNotifier {
 
   WebviewSession({
     required this.url,
-    this.textureWidth = 1184,
-    this.textureHeight = 864,
     this.initScript,
     this.initScriptAllowOrigin,
-  }) : _isTesting = false {
+    this.renderWidth = 1920,
+    this.renderHeight = 1080,
+    this.useSizeCaps = false,
+  })  : _isTesting = false,
+        _capsActive = useSizeCaps {
     _initController();
   }
 
   @visibleForTesting
   WebviewSession.testing({
     required this.url,
-    this.textureWidth = 1184,
-    this.textureHeight = 864,
     this.initScript,
     this.initScriptAllowOrigin,
-  }) : _isTesting = true;
+    this.renderWidth = 1920,
+    this.renderHeight = 1080,
+    this.useSizeCaps = false,
+  })  : _isTesting = true,
+        _capsActive = useSizeCaps;
 
   WebviewSessionState get state => _state;
   String? get lastError => _lastError;
@@ -91,11 +104,15 @@ class WebviewSession extends ChangeNotifier {
   /// `location`/`draw-background` props.
   static const String wpeSrcName = 'websrc';
 
-  String get pipelineString =>
-      'wpevideosrc name=$wpeSrcName location=$url draw-background=false '
-      '! gldownload '
-      '! videoconvert '
-      '! appsink name=sink';
+  String get pipelineString {
+    final caps = _capsActive
+        ? ' ! video/x-raw(memory:GLMemory),width=$renderWidth,height=$renderHeight'
+        : '';
+    return 'wpevideosrc name=$wpeSrcName location=$url draw-background=false$caps '
+        '! gldownload '
+        '! videoconvert '
+        '! appsink name=sink';
+  }
 
   Future<void> _initController() async {
     Log.i('Webview', 'init starting for $url');
