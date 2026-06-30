@@ -15,7 +15,8 @@ import '../hearth_plugin.dart';
 ///   * `autoUpdate` — install daily updates automatically
 ///   * `giteaApiToken` — web-only; typing a long token via OSK is painful,
 ///     so we expose it only in the web portal
-///   * `captureToolsEnabled` — gates `/capture` (screenshots + recording)
+///   * `captureToolsEnabled` — gates the Capture plugin's sidebar entry
+///     (screenshots + recording)
 ///   * Update check / install actions — reuse the existing
 ///     `/api/update/check` and `/api/update/apply` HTTP routes
 ///

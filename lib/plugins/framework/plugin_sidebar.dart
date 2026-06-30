@@ -23,7 +23,7 @@ class PluginSidebar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final plugins = ref.watch(allPluginsProvider);
+    final plugins = ref.watch(visiblePluginsProvider);
     final features = plugins.where((p) => p.category == PluginCategory.feature).toList();
     final devices = plugins.where((p) => p.category == PluginCategory.device).toList();
 

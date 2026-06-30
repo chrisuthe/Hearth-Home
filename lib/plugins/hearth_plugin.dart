@@ -77,6 +77,14 @@ abstract class HearthPlugin {
   /// trust badge.
   bool get isCommunity;
 
+  /// Whether this plugin appears as a sidebar entry, given the current
+  /// config. Default `true` — every plugin is always visible. Override to
+  /// gate a plugin behind a config flag (e.g. Capture appears only when
+  /// `captureToolsEnabled` is set). Filtered where the sidebar lists are
+  /// built, on both surfaces; routes are NOT auto-gated, so a hidden
+  /// plugin's handlers must enforce the same gate themselves.
+  bool isVisible(HubConfig config) => true;
+
   /// Configuration status derived from the current HubConfig.
   PluginConfigStatus statusFor(HubConfig config);
 

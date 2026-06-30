@@ -237,8 +237,9 @@ class HubConfig {
   final bool micMuted;
   final TouchIndicatorConfig touchIndicator;
   /// Master toggle for developer capture tools (screenshots, recording, touch
-  /// indicators). When false the `/capture` web page and `/api/capture/*`
-  /// endpoints return 404, and the portal's "Captures" link is hidden.
+  /// indicators). Gates the Capture plugin: when false it's hidden from the
+  /// sidebar on both surfaces and its `/api/plugin/hearth.capture/*` routes
+  /// return 404. The toggle itself lives in the System plugin.
   final bool captureToolsEnabled;
 
   final PhotoSourcesConfig photoSources;
