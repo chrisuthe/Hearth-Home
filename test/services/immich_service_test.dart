@@ -432,14 +432,35 @@ void main() {
     });
   });
 
-  group('ImmichService.getFocalPoint', () {
-    test('defaults to center for an un-warmed asset', () {
-      final service = ImmichService(
-        baseUrl: 'https://immich.example',
-        apiKey: 'k',
-        dio: Dio(BaseOptions(baseUrl: 'https://immich.example')),
+  group('ImmichService.resolveFocalPoint', () {
+    test('fetches a cold asset and caches it (second call does not re-request)',
+        () async {
+      final interceptor = _FacesInterceptor(facesByAsset: {
+        'asset-1': [
+          _face(x1: 100, y1: 100, x2: 300, y2: 500,
+              imageWidth: 400, imageHeight: 800),
+        ],
+      });
+      final service = _serviceWithFaces(interceptor);
+
+      final first = await service.resolveFocalPoint('asset-1');
+      final second = await service.resolveFocalPoint('asset-1');
+
+      expect(first.x, closeTo(0.5, 1e-9));
+      expect(first.y, closeTo(0.375, 1e-9));
+      expect(second, first);
+      // Cached after the first fetch — only one network request.
+      expect(interceptor.requestedIds, ['asset-1']);
+    });
+
+    test('a failing fetch resolves to center (cached, no throw)', () async {
+      final interceptor = _FacesInterceptor(
+        facesByAsset: const {},
+        failingIds: {'asset-1'},
       );
-      expect(service.getFocalPoint('never-fetched'), kCenterFocalPoint);
+      final focal =
+          await _serviceWithFaces(interceptor).resolveFocalPoint('asset-1');
+      expect(focal, kCenterFocalPoint);
     });
   });
 

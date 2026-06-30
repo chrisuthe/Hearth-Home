@@ -216,11 +216,17 @@ class ImmichService {
     }
   }
 
-  /// Looks up a previously warmed focal point by asset ID, defaulting to
-  /// [kCenterFocalPoint] on a miss so a not-yet-fetched photo renders centered
-  /// (today's behavior) without blocking the crossfade.
-  FocalPoint getFocalPoint(String assetId) =>
-      _cachedFocalPoints[assetId] ?? kCenterFocalPoint;
+  /// Returns the focal point for [assetId], serving a previously warmed value
+  /// instantly and otherwise fetching it from Immich and caching the result.
+  /// Because [fetchFocalPoint] falls back to [kCenterFocalPoint] on any error,
+  /// a failed or faceless lookup just renders centered (today's behavior).
+  Future<FocalPoint> resolveFocalPoint(String assetId) async {
+    final cached = _cachedFocalPoints[assetId];
+    if (cached != null) return cached;
+    final focal = await fetchFocalPoint(assetId);
+    _cachedFocalPoints[assetId] = focal;
+    return focal;
+  }
 
   /// Returns the next photo in rotation, wrapping around when exhausted.
   PhotoMemory? get nextPhoto {
@@ -333,8 +339,7 @@ class ImmichService {
       final memory = _cachedMemories[idx];
       final path = await cachePhoto(memory);
       _cachedFilePaths.add(path);
-      _cachedFocalPoints[memory.assetId] =
-          await fetchFocalPoint(memory.assetId);
+      await resolveFocalPoint(memory.assetId);
     }
   }
 

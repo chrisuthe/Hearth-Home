@@ -89,10 +89,14 @@ class AmbientScreenState extends ConsumerState<AmbientScreen> {
       setState(() => _currentMemory = memory);
       widget.onMemoryChanged?.call(memory);
 
+      // Resolve the image and its focal point concurrently so a face fetch
+      // never delays the photo past the image download it overlaps with.
       final cachedPath = immich.getCachedPath(memory.assetId);
-      final path = cachedPath ?? await immich.cachePhoto(memory);
-      final focal = immich.getFocalPoint(memory.assetId);
-      _photoController.add((path: path, focal: focal));
+      final pathFuture = cachedPath != null
+          ? Future.value(cachedPath)
+          : immich.cachePhoto(memory);
+      final focalFuture = immich.resolveFocalPoint(memory.assetId);
+      _photoController.add((path: await pathFuture, focal: await focalFuture));
     } catch (e) {
       Log.w('Immich', 'Photo load failed: $e');
     }
