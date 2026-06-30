@@ -17,15 +17,20 @@ final List<HearthModule> _staticModules = <HearthModule>[
   MealieModule(),
 ];
 
+/// All modules for a given config: static modules first, then webviews in
+/// their configured order. Plain (non-Riverpod) accessor so code without a
+/// [WidgetRef] — e.g. the Screens & Order web panel render — can enumerate
+/// modules. Widget code should prefer [allModulesProvider].
+List<HearthModule> modulesForConfig(HubConfig config) => [
+      ..._staticModules,
+      ...config.webviews.map((w) => WebviewModule(config: w)),
+    ];
+
 /// All modules available in the app, including dynamic ones derived from
 /// the user's webview configuration. Static modules come first; webviews
 /// follow in their configured order.
 final allModulesProvider = Provider<List<HearthModule>>((ref) {
-  final config = ref.watch(hubConfigProvider);
-  return [
-    ..._staticModules,
-    ...config.webviews.map((w) => WebviewModule(config: w)),
-  ];
+  return modulesForConfig(ref.watch(hubConfigProvider));
 });
 
 /// Modules placed in the swipe PageView, sorted by order.

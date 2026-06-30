@@ -73,12 +73,6 @@ void main() {
         'deferred: webview add/edit/delete — needs a plugin route',
     'updateSource':
         'deferred: System update-source toggle + force-update',
-    'enabledModules':
-        'deferred: Screens & Order module enable/placement parity',
-    'modulePlacements':
-        'deferred: Screens & Order module enable/placement parity',
-    'moduleOrder':
-        'deferred: Screens & Order module reorder parity',
   };
 
   test('every HubConfig field is web-editable or documented as exempt', () {
