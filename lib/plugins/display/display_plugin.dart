@@ -8,6 +8,7 @@ import '../../services/osk_integration.dart';
 import '../../services/timezone_service.dart';
 import '../../widgets/timezone_picker_dialog.dart';
 import '../framework/fields/bool_setting_field.dart';
+import '../framework/fields/ha_entity_picker_field.dart';
 import '../framework/fields/select_setting_field.dart';
 import '../framework/fields/slider_setting_field.dart';
 import '../framework/fields/text_setting_field.dart';
@@ -35,9 +36,10 @@ import '../hearth_plugin.dart';
 ///   * Web portal: timezone degrades to text input. UI scale is a slider
 ///     bound directly to the `uiScale` double (the `/api/config` POST handler
 ///     coerces it to the right type). Display profile is omitted with a
-///     hand-off hint. Night-mode sub-fields all render at once (HTML can't
-///     reactively show/hide without scripting we don't have for plugin panels
-///     yet).
+///     hand-off hint. The night-mode HA entity is a searchable
+///     [HaEntityPickerField] fed by the HA plugin's shared `entities` route.
+///     Night-mode sub-fields all render at once (HTML can't reactively
+///     show/hide without scripting we don't have for plugin panels yet).
 ///
 /// Status: always [PluginConfigStatus.configured] — every field has a sane
 /// default; there's nothing the user must fill in.
@@ -138,7 +140,13 @@ class DisplayPlugin extends HearthPlugin {
     // Conditional fields render unconditionally on web — HTML can't react
     // to the source dropdown without bespoke JS, so the user just ignores
     // the ones not relevant to their chosen mode.
-    final nightEntityHtml = const TextSettingField(
+    //
+    // The HA entity is a searchable picker over the live entity list (any
+    // domain, mirroring the on-device free-text dialog), served by the Home
+    // Assistant plugin's shared `entities` route. It reaches that route by
+    // absolute path because this Display panel's own plugin prefix can't see
+    // it. Free-text fallback persists when HA is unreachable.
+    final nightEntityHtml = const HaEntityPickerField(
       configPath: 'nightModeHaEntity',
       label: 'Night Mode HA Entity',
       hint: 'binary_sensor.night_mode (only used when source = HA Entity)',

@@ -79,6 +79,28 @@ void main() {
       expect(html, contains('value="api"'));
     });
 
+    test('buildSettingsHtml night mode entity renders as an HA entity picker',
+        () {
+      final p = DisplayPlugin();
+      final html = p.buildSettingsHtml(const WebContext(
+        config: HubConfig(nightModeHaEntity: 'binary_sensor.dusk'),
+        apiBearerToken: 'auth',
+        pluginActionPrefix: '/api/plugin/hearth.display',
+      ));
+      // Bound free-text input keeps the parity-ledger marker + current value.
+      expect(html, contains('data-config-path="nightModeHaEntity"'));
+      expect(html, contains('value="binary_sensor.dusk"'));
+      // Picker scaffold (search box + option list) is present.
+      expect(html, contains('id="haep-nightModeHaEntity-input"'));
+      expect(html, contains('id="haep-nightModeHaEntity-search"'));
+      expect(html, contains('id="haep-nightModeHaEntity-list"'));
+      // Reaches the HA plugin's shared route by absolute path, unfiltered
+      // (night mode accepts any entity), since the Display panel's own prefix
+      // can't see that route.
+      expect(html, contains("fetch('/api/plugin/hearth.ha/entities'"));
+      expect(html, isNot(contains('hearth.ha/entities?domains')));
+    });
+
     test('buildSettingsHtml swipe selects have all five actions', () {
       final p = DisplayPlugin();
       final html = p.buildSettingsHtml(const WebContext(
