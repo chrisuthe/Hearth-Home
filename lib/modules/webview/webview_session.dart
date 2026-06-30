@@ -180,14 +180,22 @@ class WebviewSession extends ChangeNotifier {
   }
 
   /// Tears down the current controller so [_initController] can retry without
-  /// the size caps. Marks the one-shot so we never loop.
+  /// the size caps. Marks the one-shot so we never loop. Mirrors [reload]'s
+  /// teardown: cancels any armed restart timer and resets to LOADING so the
+  /// rebuilt controller's [notifyFirstFrame] transitions cleanly — otherwise a
+  /// stray error event during the sized attempt would leave the session ERRORed
+  /// and reliant on the restart timer to recover.
   Future<void> _teardownForFallback() async {
     _sizeCapsFallbackTried = true;
     _capsActive = false;
+    _restartTimer?.cancel();
     await _controller?.dispose();
     await _errorSub?.cancel();
     _controller = null;
     _errorSub = null;
+    _lastError = null;
+    _state = WebviewSessionState.loading;
+    notifyListeners();
   }
 
   void notifyFirstFrame() {

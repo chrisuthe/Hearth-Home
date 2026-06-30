@@ -53,11 +53,6 @@ class _WebviewScreenState extends ConsumerState<WebviewScreen> {
   WebviewSession? _session;
   Size? _lastRenderPx;
 
-  @override
-  void initState() {
-    super.initState();
-  }
-
   /// Resolves (or re-resolves) the session for this webview, applying the
   /// HA-token injector when applicable. Safe to call repeatedly: it only swaps
   /// the session when the pool hands back a different instance (e.g. the HA
