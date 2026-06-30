@@ -69,6 +69,73 @@ ImmichService _serviceWith(_PeopleInterceptor interceptor) {
   );
 }
 
+/// Fake Dio interceptor modeling Immich's `GET /api/faces?id={assetId}`
+/// endpoint (`AssetFaceResponseDto[]`). [facesByAsset] supplies the face
+/// records per asset id; ids in [failingIds] make the call fail.
+class _FacesInterceptor extends Interceptor {
+  final Map<String, List<Map<String, dynamic>>> facesByAsset;
+  final Set<String> failingIds;
+  final List<String> requestedIds = [];
+
+  _FacesInterceptor({
+    required this.facesByAsset,
+    this.failingIds = const {},
+  });
+
+  @override
+  void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
+    if (options.path != '/api/faces') {
+      handler.reject(DioException(
+        requestOptions: options,
+        error: 'unexpected path: ${options.path}',
+      ));
+      return;
+    }
+    final id = options.queryParameters['id'] as String?;
+    requestedIds.add(id ?? '');
+    if (id != null && failingIds.contains(id)) {
+      handler.reject(DioException(
+        requestOptions: options,
+        error: 'simulated faces failure',
+      ));
+      return;
+    }
+    handler.resolve(Response<List<dynamic>>(
+      requestOptions: options,
+      statusCode: 200,
+      data: facesByAsset[id] ?? const [],
+    ));
+  }
+}
+
+ImmichService _serviceWithFaces(_FacesInterceptor interceptor) {
+  final dio = Dio(BaseOptions(baseUrl: 'https://immich.example'));
+  dio.interceptors.add(interceptor);
+  return ImmichService(
+    baseUrl: 'https://immich.example',
+    apiKey: 'k',
+    dio: dio,
+  );
+}
+
+/// Builds an Immich face record (`AssetFaceResponseDto` shape) for tests.
+Map<String, dynamic> _face({
+  required num x1,
+  required num y1,
+  required num x2,
+  required num y2,
+  num imageWidth = 1000,
+  num imageHeight = 1000,
+}) =>
+    {
+      'boundingBoxX1': x1,
+      'boundingBoxY1': y1,
+      'boundingBoxX2': x2,
+      'boundingBoxY2': y2,
+      'imageWidth': imageWidth,
+      'imageHeight': imageHeight,
+    };
+
 class _FakeSource implements PhotoSource {
   final List<PhotoMemory> result;
   final Object? throwsError;
@@ -254,6 +321,146 @@ void main() {
       final people = await _serviceWith(interceptor).listNamedPeople();
       expect({for (final p in people) p.id: p.numberOfAssets},
           {'ok': 80, 'bad': 0});
+    });
+  });
+
+  group('ImmichService.computeFocalPoint', () {
+    test('single face returns the center of its normalized box', () {
+      // Box (100,100)-(300,500) in a 400x800 frame -> normalized
+      // (0.25,0.125)-(0.75,0.625); center (0.5, 0.375).
+      final focal = ImmichService.computeFocalPoint([
+        _face(x1: 100, y1: 100, x2: 300, y2: 500,
+            imageWidth: 400, imageHeight: 800),
+      ]);
+      expect(focal.x, closeTo(0.5, 1e-9));
+      expect(focal.y, closeTo(0.375, 1e-9));
+    });
+
+    test('multiple faces use the center of their union box', () {
+      // Two faces normalized in a 1000x1000 frame: union x in [0.1,0.8],
+      // y in [0.2,0.6] -> center (0.45, 0.40).
+      final focal = ImmichService.computeFocalPoint([
+        _face(x1: 100, y1: 200, x2: 300, y2: 400),
+        _face(x1: 600, y1: 500, x2: 800, y2: 600),
+      ]);
+      expect(focal.x, closeTo(0.45, 1e-9));
+      expect(focal.y, closeTo(0.40, 1e-9));
+    });
+
+    test('a top-biased portrait face yields an upward focal point (y < 0.5)',
+        () {
+      // Face high in a tall portrait frame: y center 0.2 -> Alignment.y < 0.
+      final focal = ImmichService.computeFocalPoint([
+        _face(x1: 350, y1: 80, x2: 650, y2: 240,
+            imageWidth: 1000, imageHeight: 2000),
+      ]);
+      expect(focal.x, closeTo(0.5, 1e-9));
+      expect(focal.y, lessThan(0.5));
+      expect(focal.y, closeTo(0.08, 1e-9)); // (80+240)/2 / 2000
+    });
+
+    test('empty list falls back to center', () {
+      expect(ImmichService.computeFocalPoint(const []), kCenterFocalPoint);
+    });
+
+    test('zero image dimensions fall back to center', () {
+      final focal = ImmichService.computeFocalPoint([
+        _face(x1: 100, y1: 100, x2: 300, y2: 300,
+            imageWidth: 0, imageHeight: 0),
+      ]);
+      expect(focal, kCenterFocalPoint);
+    });
+
+    test('zero-area boxes fall back to center', () {
+      final focal = ImmichService.computeFocalPoint([
+        _face(x1: 200, y1: 200, x2: 200, y2: 200),
+      ]);
+      expect(focal, kCenterFocalPoint);
+    });
+
+    test('records missing corners are skipped, falling back to center', () {
+      final focal = ImmichService.computeFocalPoint([
+        {'imageWidth': 1000, 'imageHeight': 1000, 'boundingBoxX1': 100},
+      ]);
+      expect(focal, kCenterFocalPoint);
+    });
+
+    test('a degenerate face is skipped while a valid one still counts', () {
+      // First record is zero-dimension (skipped); second is valid.
+      final focal = ImmichService.computeFocalPoint([
+        _face(x1: 100, y1: 100, x2: 300, y2: 300,
+            imageWidth: 0, imageHeight: 0),
+        _face(x1: 100, y1: 100, x2: 300, y2: 300),
+      ]);
+      expect(focal.x, closeTo(0.2, 1e-9));
+      expect(focal.y, closeTo(0.2, 1e-9));
+    });
+  });
+
+  group('ImmichService.fetchFocalPoint', () {
+    test('requests /api/faces?id= and reduces to the face focal point',
+        () async {
+      final interceptor = _FacesInterceptor(facesByAsset: {
+        'asset-1': [
+          _face(x1: 100, y1: 100, x2: 300, y2: 500,
+              imageWidth: 400, imageHeight: 800),
+        ],
+      });
+      final focal =
+          await _serviceWithFaces(interceptor).fetchFocalPoint('asset-1');
+      expect(interceptor.requestedIds, ['asset-1']);
+      expect(focal.x, closeTo(0.5, 1e-9));
+      expect(focal.y, closeTo(0.375, 1e-9));
+    });
+
+    test('an asset with no faces returns the center focal point', () async {
+      final interceptor = _FacesInterceptor(facesByAsset: {'asset-1': []});
+      final focal =
+          await _serviceWithFaces(interceptor).fetchFocalPoint('asset-1');
+      expect(focal, kCenterFocalPoint);
+    });
+
+    test('a failing faces fetch falls back to center without throwing',
+        () async {
+      final interceptor = _FacesInterceptor(
+        facesByAsset: const {},
+        failingIds: {'asset-1'},
+      );
+      final focal =
+          await _serviceWithFaces(interceptor).fetchFocalPoint('asset-1');
+      expect(focal, kCenterFocalPoint);
+    });
+  });
+
+  group('ImmichService.resolveFocalPoint', () {
+    test('fetches a cold asset and caches it (second call does not re-request)',
+        () async {
+      final interceptor = _FacesInterceptor(facesByAsset: {
+        'asset-1': [
+          _face(x1: 100, y1: 100, x2: 300, y2: 500,
+              imageWidth: 400, imageHeight: 800),
+        ],
+      });
+      final service = _serviceWithFaces(interceptor);
+
+      final first = await service.resolveFocalPoint('asset-1');
+      final second = await service.resolveFocalPoint('asset-1');
+
+      expect(first.x, closeTo(0.5, 1e-9));
+      expect(first.y, closeTo(0.375, 1e-9));
+      expect(second, first);
+      // Cached after the first fetch — only one network request.
+      expect(interceptor.requestedIds, ['asset-1']);
+    });
+
+    test('a failing fetch resolves to center (cached, no throw)', () async {
+      final interceptor = _FacesInterceptor(
+        facesByAsset: const {},
+        failingIds: {'asset-1'},
+      );
+      final focal =
+          await _serviceWithFaces(interceptor).resolveFocalPoint('asset-1');
+      expect(focal, kCenterFocalPoint);
     });
   });
 
