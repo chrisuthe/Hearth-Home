@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hearth/config/hub_config.dart';
+import 'package:hearth/plugins/capture/capture_plugin.dart';
 import 'package:hearth/services/local_api_server.dart';
 import 'package:hearth/services/display_mode_service.dart';
 import 'package:hearth/services/capture_service.dart';
@@ -29,7 +31,12 @@ void main() {
       final request = await client.post('localhost', port, path);
       request.headers.contentType = ContentType.json;
       headers?.forEach((k, v) => request.headers.add(k, v));
-      request.write(body);
+      // Set an explicit Content-Length (real browser fetch always does). The
+      // plugin route dispatch only decodes a POST body when contentLength > 0,
+      // so a chunked request (length -1) would arrive with an empty body.
+      final bytes = utf8.encode(body);
+      request.contentLength = bytes.length;
+      request.add(bytes);
       return request.close();
     }
 
@@ -351,6 +358,7 @@ void main() {
     group('capture endpoints', () {
       late Directory tempDir;
       late CaptureService captureService;
+      late ProviderContainer container;
       late int nextNow;
 
       setUp(() async {
@@ -369,17 +377,23 @@ void main() {
               DateTime(2026, 4, 21, 14, 30, nextNow++),
         );
         // Capture tools are gated behind HubConfig.captureToolsEnabled — the
-        // endpoints return 404 when it's false (see _handleRequest). Flip it
-        // on so these tests exercise the real endpoint behavior.
+        // plugin routes return 404 when it's false. Flip it on so these tests
+        // exercise the real endpoint behavior.
         await configNotifier
             .update((c) => c.copyWith(captureToolsEnabled: true));
 
-        // Rebuild server with the capture service injected.
+        // Capture lives in the CapturePlugin now; its routes reach the service
+        // via readProvider, so override captureServiceProvider and wire the
+        // plugin through the full LocalApiServer request stack.
+        container = ProviderContainer(overrides: [
+          captureServiceProvider.overrideWith((ref) => captureService),
+        ]);
         await server.stop();
         server = LocalApiServer(
           displayModeService: displayService,
           configNotifier: configNotifier,
-          captureService: captureService,
+          readProvider: container.read,
+          plugins: [CapturePlugin()],
         );
         port = await server.start(port: 0);
       });
@@ -387,10 +401,11 @@ void main() {
       tearDown(() async {
         await captureService.dispose();
         await tempDir.delete(recursive: true);
+        container.dispose();
       });
 
-      test('POST /api/capture/screenshot creates a file', () async {
-        final r = await post('/api/capture/screenshot',
+      test('POST /api/plugin/hearth.capture/screenshot creates a file', () async {
+        final r = await post('/api/plugin/hearth.capture/screenshot',
             body: '', headers: authHeaders);
         expect(r.statusCode, 200);
         final json = jsonDecode(await readBody(r)) as Map<String, dynamic>;
@@ -400,8 +415,8 @@ void main() {
             true);
       });
 
-      test('POST /api/capture/recording/start then /stop', () async {
-        final startResp = await post('/api/capture/recording/start',
+      test('POST /api/plugin/hearth.capture/recording/start then /stop', () async {
+        final startResp = await post('/api/plugin/hearth.capture/recording/start',
             body: '', headers: authHeaders);
         expect(startResp.statusCode, 200);
         final startJson =
@@ -409,7 +424,7 @@ void main() {
         expect(startJson['filename'],
             matches(RegExp(r'^hearth-\d{8}-\d{6}\.mp4$')));
 
-        final stopResp = await post('/api/capture/recording/stop',
+        final stopResp = await post('/api/plugin/hearth.capture/recording/stop',
             body: '', headers: authHeaders);
         expect(stopResp.statusCode, 200);
         final stopJson =
@@ -418,32 +433,32 @@ void main() {
         expect(stopJson['sizeBytes'], greaterThan(0));
       });
 
-      test('POST /api/capture/recording/start twice returns 409', () async {
-        final first = await post('/api/capture/recording/start',
+      test('POST /api/plugin/hearth.capture/recording/start twice returns 409', () async {
+        final first = await post('/api/plugin/hearth.capture/recording/start',
             body: '', headers: authHeaders);
         expect(first.statusCode, 200);
-        final second = await post('/api/capture/recording/start',
+        final second = await post('/api/plugin/hearth.capture/recording/start',
             body: '', headers: authHeaders);
         expect(second.statusCode, 409);
       });
 
-      test('POST /api/capture/recording/stop with no active returns 400',
+      test('POST /api/plugin/hearth.capture/recording/stop with no active returns 400',
           () async {
-        final r = await post('/api/capture/recording/stop',
+        final r = await post('/api/plugin/hearth.capture/recording/stop',
             body: '', headers: authHeaders);
         expect(r.statusCode, 400);
       });
 
-      test('GET /api/capture/list enumerates captures and ignores garbage',
+      test('GET /api/plugin/hearth.capture/list enumerates captures and ignores garbage',
           () async {
-        await post('/api/capture/screenshot',
+        await post('/api/plugin/hearth.capture/screenshot',
             body: '', headers: authHeaders);
-        await post('/api/capture/screenshot',
+        await post('/api/plugin/hearth.capture/screenshot',
             body: '', headers: authHeaders);
         // Drop a malformed file — must be ignored.
         await File('${tempDir.path}/garbage.png').writeAsBytes([0]);
 
-        final r = await get('/api/capture/list', headers: authHeaders);
+        final r = await get('/api/plugin/hearth.capture/list', headers: authHeaders);
         expect(r.statusCode, 200);
         final list = jsonDecode(await readBody(r)) as List<dynamic>;
         expect(list, hasLength(2));
@@ -455,14 +470,14 @@ void main() {
         }
       });
 
-      test('GET /api/capture/file?name=... streams the file bytes',
+      test('GET /api/plugin/hearth.capture/file?name=... streams the file bytes',
           () async {
-        final screenshotResp = await post('/api/capture/screenshot',
+        final screenshotResp = await post('/api/plugin/hearth.capture/screenshot',
             body: '', headers: authHeaders);
         final name = (jsonDecode(await readBody(screenshotResp))
             as Map<String, dynamic>)['filename'] as String;
 
-        final r = await get('/api/capture/file?name=$name',
+        final r = await get('/api/plugin/hearth.capture/file?name=$name',
             headers: authHeaders);
         expect(r.statusCode, 200);
         final bytes = await r.fold<List<int>>(
@@ -470,25 +485,25 @@ void main() {
         expect(bytes, [0x89, 0x50, 0x4E, 0x47]);
       });
 
-      test('GET /api/capture/file rejects invalid names with 400',
+      test('GET /api/plugin/hearth.capture/file rejects invalid names with 400',
           () async {
-        final r = await get('/api/capture/file?name=../etc/passwd',
+        final r = await get('/api/plugin/hearth.capture/file?name=../etc/passwd',
             headers: authHeaders);
         expect(r.statusCode, 400);
       });
 
-      test('GET /api/capture/file returns 404 when file missing', () async {
+      test('GET /api/plugin/hearth.capture/file returns 404 when file missing', () async {
         final r = await get(
-            '/api/capture/file?name=hearth-99999999-999999.png',
+            '/api/plugin/hearth.capture/file?name=hearth-99999999-999999.png',
             headers: authHeaders);
         expect(r.statusCode, 404);
       });
 
       test(
-          'GET /api/capture/file accepts session cookie instead of Bearer',
+          'GET /api/plugin/hearth.capture/file accepts session cookie instead of Bearer',
           () async {
         // First screenshot via Bearer.
-        final screenshotResp = await post('/api/capture/screenshot',
+        final screenshotResp = await post('/api/plugin/hearth.capture/screenshot',
             body: '', headers: authHeaders);
         final name = (jsonDecode(await readBody(screenshotResp))
             as Map<String, dynamic>)['filename'] as String;
@@ -502,27 +517,27 @@ void main() {
             RegExp(r'hearth_session=(\w+)').firstMatch(setCookie);
         final cookie = 'hearth_session=${match!.group(1)}';
 
-        final r = await get('/api/capture/file?name=$name',
+        final r = await get('/api/plugin/hearth.capture/file?name=$name',
             headers: {'Cookie': cookie});
         expect(r.statusCode, 200,
-            reason: 'Session cookie must be accepted on /api/capture/file');
+            reason: 'Session cookie must be accepted on /api/plugin/hearth.capture/file');
       });
 
-      test('DELETE /api/capture/file?name=... removes the file', () async {
-        final screenshotResp = await post('/api/capture/screenshot',
+      test('DELETE /api/plugin/hearth.capture/file?name=... removes the file', () async {
+        final screenshotResp = await post('/api/plugin/hearth.capture/screenshot',
             body: '', headers: authHeaders);
         final name = (jsonDecode(await readBody(screenshotResp))
             as Map<String, dynamic>)['filename'] as String;
 
-        final r = await delete('/api/capture/file?name=$name',
+        final r = await delete('/api/plugin/hearth.capture/file?name=$name',
             headers: authHeaders);
         expect(r.statusCode, 200);
         expect(await File('${tempDir.path}/$name').exists(), false);
       });
 
-      test('POST /api/capture/indicator-config updates HubConfig',
+      test('POST /api/plugin/hearth.capture/indicator-config updates HubConfig',
           () async {
-        final r = await post('/api/capture/indicator-config',
+        final r = await post('/api/plugin/hearth.capture/indicator-config',
             body: jsonEncode({
               'enabled': true,
               'radius': 55.0,
@@ -538,7 +553,7 @@ void main() {
         expect(configNotifier.state.touchIndicator.fadeMs, 600);
       });
 
-      test('GET /api/capture/indicator-config returns current state',
+      test('GET /api/plugin/hearth.capture/indicator-config returns current state',
           () async {
         configNotifier.state = const HubConfig(
           apiKey: testApiKey,
@@ -548,7 +563,7 @@ void main() {
             radius: 50.0,
           ),
         );
-        final r = await get('/api/capture/indicator-config',
+        final r = await get('/api/plugin/hearth.capture/indicator-config',
             headers: authHeaders);
         expect(r.statusCode, 200);
         final json = jsonDecode(await readBody(r)) as Map<String, dynamic>;
@@ -556,45 +571,61 @@ void main() {
         expect(json['radius'], 50.0);
       });
 
-      test('GET /capture serves HTML with valid session', () async {
+      // Helper: unlock a web session and return its cookie header.
+      Future<String> sessionCookie() async {
         final pin = server.webPin;
         final authResp =
             await post('/auth/pin', body: jsonEncode({'pin': pin}));
         final setCookie = authResp.headers['set-cookie']!.first;
-        final match =
-            RegExp(r'hearth_session=(\w+)').firstMatch(setCookie);
-        final cookie = 'hearth_session=${match!.group(1)}';
+        final match = RegExp(r'hearth_session=(\w+)').firstMatch(setCookie);
+        return 'hearth_session=${match!.group(1)}';
+      }
 
-        final r = await get('/capture', headers: {'Cookie': cookie});
+      test('web portal renders the Capture panel when enabled', () async {
+        final cookie = await sessionCookie();
+        // The Capture panel is the full interactive tools.
+        final r = await get('/?panel=hearth.capture',
+            headers: {'Cookie': cookie});
         expect(r.statusCode, 200);
         final body = await readBody(r);
-        expect(body, contains('Hearth Captures'));
+        expect(body, contains('Capture'));
         expect(body, contains('Take Screenshot'));
+        expect(body, contains('Touch Indicator'));
       });
 
-      test('GET /capture without session returns PIN page', () async {
-        final r = await get('/capture');
+      test('legacy /capture route is gone (404 even with a session)',
+          () async {
+        final cookie = await sessionCookie();
+        final r = await get('/capture', headers: {'Cookie': cookie});
+        expect(r.statusCode, 404);
+      });
+
+      test('Capture sidebar entry hidden on web when disabled', () async {
+        await configNotifier
+            .update((c) => c.copyWith(captureToolsEnabled: false));
+        final cookie = await sessionCookie();
+        // Asking for the hidden panel falls back to the first visible plugin —
+        // none of the Capture panel chrome renders.
+        final r = await get('/?panel=hearth.capture',
+            headers: {'Cookie': cookie});
         expect(r.statusCode, 200);
         final body = await readBody(r);
-        expect(body, contains('Enter the PIN'));
+        expect(body, isNot(contains('Take Screenshot')));
       });
 
       test('all capture routes 404 when captureToolsEnabled is false', () async {
         await configNotifier
             .update((c) => c.copyWith(captureToolsEnabled: false));
 
-        final page = await get('/capture');
-        expect(page.statusCode, 404);
-
-        final screenshot = await post('/api/capture/screenshot',
+        final screenshot = await post('/api/plugin/hearth.capture/screenshot',
             body: '', headers: authHeaders);
         expect(screenshot.statusCode, 404);
 
-        final list = await get('/api/capture/list', headers: authHeaders);
+        final list = await get('/api/plugin/hearth.capture/list', headers: authHeaders);
         expect(list.statusCode, 404);
 
         final indicator =
-            await get('/api/capture/indicator-config', headers: authHeaders);
+            await get('/api/plugin/hearth.capture/indicator-config', headers: authHeaders);
         expect(indicator.statusCode, 404);
       });
     });

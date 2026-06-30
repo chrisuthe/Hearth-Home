@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../config/hub_config.dart';
 import 'alarm_clock/alarm_clock_plugin.dart';
+import 'capture/capture_plugin.dart';
 import 'display/display_plugin.dart';
 import 'frigate/frigate_plugin.dart';
 import 'hearth_plugin.dart';
@@ -34,13 +36,29 @@ List<HearthPlugin> _firstPartyPlugins = [
   DisplayPlugin(),
   VoicePlugin(),
   NetworkPlugin(),
+  CapturePlugin(),
   SystemPlugin(),
 ];
 
 /// All plugins, sorted by category then order. Community plugins fall
 /// after first-party plugins within the same `(category, order)` bucket.
+///
+/// This is the full registry — conditionally-hidden plugins (those whose
+/// [HearthPlugin.isVisible] returns false for the current config) are still
+/// included. Sidebar surfaces should watch [visiblePluginsProvider] instead.
 final allPluginsProvider = Provider<List<HearthPlugin>>((ref) {
   return sortPlugins(_firstPartyPlugins);
+});
+
+/// Plugins to show as sidebar entries for the current config — [allPlugins]
+/// minus any whose [HearthPlugin.isVisible] is false. Watches the config so
+/// a plugin appears/disappears live as its gating flag toggles.
+final visiblePluginsProvider = Provider<List<HearthPlugin>>((ref) {
+  final config = ref.watch(hubConfigProvider);
+  return ref
+      .watch(allPluginsProvider)
+      .where((p) => p.isVisible(config))
+      .toList();
 });
 
 /// Stable sort: category (feature first), then order ascending, then

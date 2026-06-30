@@ -123,6 +123,15 @@ class PluginRouter {
     _routes[_RouteKey('POST', '/api/plugin/$id/$path')] = handler;
   }
 
+  /// Register a DELETE handler at `/api/plugin/<current-id>/<path>`.
+  void delete(String path, PluginRouteHandler handler) {
+    final id = _currentPluginId;
+    if (id == null) {
+      throw StateError('Call register(pluginId) before adding routes');
+    }
+    _routes[_RouteKey('DELETE', '/api/plugin/$id/$path')] = handler;
+  }
+
   /// Resolve a request to its handler, or null if no route matches.
   PluginRouteHandler? resolve(String method, String path) {
     return _routes[_RouteKey(method, path)];

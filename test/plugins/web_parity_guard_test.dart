@@ -107,7 +107,8 @@ void main() {
         'internal: advanced sync tuning, not surfaced in any settings panel',
     'setupComplete': 'internal: first-run flow state',
     'touchIndicator':
-        'edited via the /capture dev-tools page, not the main settings portal',
+        'nested object edited via the Capture plugin panel through the '
+            'indicator-config route, not a flat data-config-path field',
 
     // --- Permanent: device-only (browser cannot drive) ---
     'displayProfile':

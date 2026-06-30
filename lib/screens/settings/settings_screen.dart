@@ -20,8 +20,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final plugins = ref.watch(allPluginsProvider);
-    final selectedId = _selectedId ?? (plugins.isNotEmpty ? plugins.first.id : '');
+    final plugins = ref.watch(visiblePluginsProvider);
+    // Fall back to the first visible plugin when nothing is selected yet, or
+    // when the previously-selected plugin has since been hidden (e.g. Capture
+    // after its enable flag was turned off).
+    final fallbackId = plugins.isNotEmpty ? plugins.first.id : '';
+    final selectedId = (_selectedId != null && plugins.any((p) => p.id == _selectedId))
+        ? _selectedId!
+        : fallbackId;
     return Container(
       color: Colors.black.withValues(alpha: 0.7),
       child: Row(
