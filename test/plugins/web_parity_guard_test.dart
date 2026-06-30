@@ -69,8 +69,6 @@ void main() {
     'displayHeight': 'device-only: part of the display-profile override',
 
     // --- Deferred: parity gaps to close in a later phase ---
-    'webviews':
-        'deferred: webview add/edit/delete — needs a plugin route',
     'updateSource':
         'deferred: System update-source toggle + force-update',
     'enabledModules':
