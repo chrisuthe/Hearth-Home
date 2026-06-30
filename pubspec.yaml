@@ -43,6 +43,11 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^6.0.0
   mockito: ^5.4.4
+  # Lets tests mock the app-support directory (PathProviderPlatform.instance)
+  # without TestWidgetsFlutterBinding, so real-socket server tests can also
+  # exercise on-disk config persistence. See update_source_persistence_test.dart.
+  path_provider_platform_interface: ^2.1.2
+  plugin_platform_interface: ^2.1.8
 
 flutter:
   uses-material-design: true
