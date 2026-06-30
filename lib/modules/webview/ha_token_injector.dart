@@ -80,5 +80,15 @@ HaTokenInjector? injectorForWebview(
 }) {
   if (config.source != WebviewSource.haDashboard) return null;
   if (haUrl.isEmpty || haToken.isEmpty) return null;
+  // Require an absolute http(s) URL with a host: anything else makes
+  // HaTokenInjector.allowOrigin (Uri.origin) throw. Gate it out so a
+  // misconfigured haUrl degrades to "no injection" rather than crashing.
+  final uri = Uri.tryParse(haUrl);
+  if (uri == null ||
+      !uri.hasScheme ||
+      (uri.scheme != 'http' && uri.scheme != 'https') ||
+      uri.host.isEmpty) {
+    return null;
+  }
   return HaTokenInjector(haUrl: haUrl, token: haToken);
 }

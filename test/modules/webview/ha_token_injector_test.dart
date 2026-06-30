@@ -127,5 +127,24 @@ void main() {
       );
       expect(inj, isNull);
     });
+
+    test('returns null (no crash) for a haUrl with no scheme/host', () {
+      // A non-absolute URL would make Uri.origin throw; gate it out instead.
+      final inj = injectorForWebview(
+        cfg(WebviewSource.haDashboard),
+        haUrl: 'ha.home.example.com',
+        haToken: 'llat-abc123',
+      );
+      expect(inj, isNull);
+    });
+
+    test('returns null (no crash) for a non-http(s) haUrl scheme', () {
+      final inj = injectorForWebview(
+        cfg(WebviewSource.haDashboard),
+        haUrl: 'ftp://ha.home.example.com',
+        haToken: 'llat-abc123',
+      );
+      expect(inj, isNull);
+    });
   });
 }
