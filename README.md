@@ -130,6 +130,27 @@ flutter analyze
 - 11" AMOLED (2368x1728, rendered at 1184x864 for performance)
 - Also supports: Official RPi 7" touchscreen, generic HDMI monitors
 
+### Releasing
+
+Hearth ships from two remotes, and devices update from one or the other:
+
+- `origin` → `registry.home.chrisuthe.com/chris/Hearth` (Gitea Actions)
+- `github` → `github.com/chrisuthe/Hearth-Home` (GitHub Actions)
+
+Both `.gitea/workflows/build-pi-image.yml` and `.github/workflows/build-pi-image.yml`
+build the flutter-pi bundle and publish a release when a `v*` tag is pushed — but
+each only fires on the remote the tag was pushed to. **Always push release tags to
+both remotes** so neither platform's devices fall behind:
+
+```bash
+# After bumping the version in pubspec.yaml and committing:
+./scripts/release.sh            # tags v<version from pubspec.yaml>, pushes to both remotes
+./scripts/release.sh v1.13.3    # or tag an explicit version
+```
+
+Pushing a tag to only one remote (e.g. `git push origin v1.13.3`) publishes the
+release on that platform alone and is the cause of version drift between them.
+
 ## License
 
 MIT
