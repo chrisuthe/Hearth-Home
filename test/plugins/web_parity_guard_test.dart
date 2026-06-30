@@ -71,8 +71,6 @@ void main() {
     // --- Deferred: parity gaps to close in a later phase ---
     'webviews':
         'deferred: webview add/edit/delete — needs a plugin route',
-    'updateSource':
-        'deferred: System update-source toggle + force-update',
     'enabledModules':
         'deferred: Screens & Order module enable/placement parity',
     'modulePlacements':

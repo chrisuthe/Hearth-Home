@@ -5,6 +5,7 @@ import '../../config/hub_config.dart';
 import '../../screens/settings/update_settings.dart';
 import '../framework/fields/bool_setting_field.dart';
 import '../framework/fields/password_setting_field.dart';
+import '../framework/fields/select_setting_field.dart';
 import '../framework/web_context.dart';
 import '../hearth_plugin.dart';
 
@@ -77,6 +78,14 @@ class SystemPlugin extends HearthPlugin {
           configPath: 'autoUpdate',
           subtitle: 'Automatically install daily updates',
         ).buildHtml(ctx) +
+        const SelectSettingField(
+          label: 'Update Source',
+          configPath: 'updateSource',
+          options: {
+            'github': 'GitHub',
+            'gitea': 'Gitea (registry.home)',
+          },
+        ).buildHtml(ctx) +
         const PasswordSettingField(
           configPath: 'giteaApiToken',
           label: 'Gitea API Token',
@@ -98,6 +107,7 @@ class SystemPlugin extends HearthPlugin {
     <button type="button" id="check-updates-btn" style="flex:1;padding:10px;background:#333;color:#e0e0e0;border:1px solid #444;border-radius:6px;cursor:pointer;font-size:13px">Check for Updates</button>
     <button type="button" id="apply-update-btn" style="flex:1;padding:10px;background:#333;color:#e0e0e0;border:1px solid #444;border-radius:6px;cursor:pointer;font-size:13px;display:none">Install Update</button>
   </div>
+  <button type="button" id="force-update-btn" style="width:100%;margin-top:8px;padding:10px;background:#333;color:#e0e0e0;border:1px solid #444;border-radius:6px;cursor:pointer;font-size:13px">Force Update</button>
   <div id="update-status" class="hint" style="font-size:12px;color:#888;margin-top:6px"></div>
 </div>
 
@@ -106,6 +116,7 @@ class SystemPlugin extends HearthPlugin {
   const TOKEN = window.__HEARTH_BEARER__;
   const checkBtn = document.getElementById('check-updates-btn');
   const applyBtn = document.getElementById('apply-update-btn');
+  const forceBtn = document.getElementById('force-update-btn');
   const status = document.getElementById('update-status');
 
   checkBtn.addEventListener('click', async () => {
@@ -149,6 +160,30 @@ class SystemPlugin extends HearthPlugin {
     } catch (e) {
       status.textContent = 'Install error: ' + e.message;
       applyBtn.disabled = false;
+    }
+  });
+
+  // Force update — download and install the latest bundle without a prior
+  // check, matching the on-device Force Update affordance. Hits the same
+  // /api/update/apply route.
+  forceBtn.addEventListener('click', async () => {
+    if (!confirm('Force download and install the latest bundle? The kiosk will restart.')) return;
+    status.textContent = 'Forcing update...';
+    forceBtn.disabled = true;
+    try {
+      const res = await fetch('/api/update/apply', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + TOKEN }
+      });
+      if (res.ok) {
+        status.textContent = 'Update started. Kiosk will restart shortly.';
+      } else {
+        status.textContent = 'Force update failed: ' + res.status;
+        forceBtn.disabled = false;
+      }
+    } catch (e) {
+      status.textContent = 'Force update error: ' + e.message;
+      forceBtn.disabled = false;
     }
   });
 })();
