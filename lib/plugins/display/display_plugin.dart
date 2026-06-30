@@ -79,14 +79,12 @@ class DisplayPlugin extends HearthPlugin {
       configPath: 'use24HourClock',
     ).buildHtml(ctx);
 
-    // Web degradation: free-text IANA zone (the legacy panel used the same
-    // approach with a datalist of common zones). A future enhancement could
-    // expose a plugin route returning the full list.
-    final timezoneHtml = const TextSettingField(
-      configPath: 'timezone',
-      label: 'Timezone',
-      hint: 'America/New_York (blank = system default)',
-    ).buildHtml(ctx);
+    // Web parity with the on-device TimezonePickerDialog: a searchable picker
+    // over IANA zones. A `<datalist>`-backed text input filters as the user
+    // types (the searchable part) while still accepting free-text entry (the
+    // fallback). The zone list is inlined from TimezoneService — the web HTML
+    // renders synchronously and can't run the async system enumeration.
+    final timezoneHtml = _timezoneHtml(ctx);
 
     final idleHtml = SliderSettingField(
       configPath: 'idleTimeoutSeconds',
@@ -201,6 +199,43 @@ class DisplayPlugin extends HearthPlugin {
         topSwipeHtml +
         bottomSwipeHtml;
   }
+
+  /// Searchable timezone picker for the web portal — the parity counterpart of
+  /// the on-device [TimezonePickerDialog]. Common zones lead (mirroring the
+  /// dialog's "Common" group), then the rest of the curated IANA list, deduped.
+  String _timezoneHtml(WebContext ctx) {
+    final seen = <String>{};
+    final zones = <String>[
+      ...TimezoneService.commonTimezones,
+      ...TimezoneService.fallbackTimezones,
+    ].where(seen.add);
+    final options =
+        zones.map((z) => '<option value="${_escapeHtml(z)}"></option>').join();
+    final current = _escapeHtml(ctx.config.timezone);
+    return '''
+<div class="field">
+  <label>Timezone</label>
+  <input type="text"
+         class="hearth-field"
+         data-config-path="timezone"
+         list="timezone-zones"
+         value="$current"
+         placeholder="Search or type an IANA zone (blank = system default)">
+  <datalist id="timezone-zones">
+    $options
+  </datalist>
+</div>
+''';
+  }
+}
+
+String _escapeHtml(String value) {
+  return value
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#39;');
 }
 
 class _DisplayPanel extends ConsumerWidget {
