@@ -1,6 +1,7 @@
 #!/bin/sh
 # Hearth OTA Updater
-# Checks GitHub Releases for a newer app bundle and installs it.
+# Checks GitHub or Gitea Releases for a newer app bundle and installs it.
+# Honors the device's updateSource toggle in hub_config.json (github | gitea).
 # Called by hearth-updater.timer (systemd) on boot and daily.
 
 set -e
@@ -9,8 +10,14 @@ BUNDLE_DIR="/opt/hearth/bundle"
 STAGING_DIR="/opt/hearth/bundle.staging"
 PREV_DIR="/opt/hearth/bundle.prev"
 VERSION_FILE="/etc/hearth-version"
-RELEASE_URL="https://api.github.com/repos/chrisuthe/Hearth-Home/releases/latest"
 LOG_TAG="hearth-updater"
+
+# Release API endpoints, mirroring lib/services/update_service.dart.
+GITHUB_RELEASE_URL="https://api.github.com/repos/chrisuthe/Hearth-Home/releases/latest"
+GITEA_RELEASE_URL="https://registry.home.chrisuthe.com/api/v1/repos/chris/Hearth/releases?limit=1"
+
+# hub_config.json drives both the auto-update gate and the update source.
+CONFIG_FILE=$(find /root /home -name hub_config.json -type f 2>/dev/null | head -1)
 
 log() {
     logger -t "$LOG_TAG" "$1"
@@ -21,12 +28,26 @@ current_version() {
 }
 
 auto_update_enabled() {
-    CONFIG_FILE=$(find /root /home -name hub_config.json -type f 2>/dev/null | head -1)
-    if [ -z "$CONFIG_FILE" ]; then
-        return 0
-    fi
+    [ -n "$CONFIG_FILE" ] || return 0
     grep -q '"autoUpdate":false' "$CONFIG_FILE" && return 1
     return 0
+}
+
+# Read a string value for a JSON key from hub_config.json. Matches the compact
+# format Flutter's jsonEncode writes ("key":"value"); empty if unset/missing.
+config_value() {
+    [ -n "$CONFIG_FILE" ] || return 0
+    grep -o "\"$1\":\"[^\"]*\"" "$CONFIG_FILE" | head -1 | sed 's/^[^:]*:"//; s/"$//'
+}
+
+# wget wrapper that attaches the Gitea auth header when one is set (the Gitea
+# API rejects unauthenticated reads; GitHub needs no header).
+fetch() {
+    if [ -n "$AUTH_HEADER" ]; then
+        wget -q --header="$AUTH_HEADER" "$@"
+    else
+        wget -q "$@"
+    fi
 }
 
 if ! auto_update_enabled; then
@@ -34,9 +55,26 @@ if ! auto_update_enabled; then
     exit 0
 fi
 
-log "Checking for updates..."
+# Pick the release source from the device toggle (absent/empty -> github).
+UPDATE_SOURCE=$(config_value updateSource)
+[ -n "$UPDATE_SOURCE" ] || UPDATE_SOURCE="github"
 
-RELEASE_JSON=$(wget -q -O - "$RELEASE_URL" 2>/dev/null) || {
+if [ "$UPDATE_SOURCE" = "gitea" ]; then
+    RELEASE_URL="$GITEA_RELEASE_URL"
+    GITEA_TOKEN=$(config_value giteaApiToken)
+    if [ -n "$GITEA_TOKEN" ]; then
+        AUTH_HEADER="Authorization: token $GITEA_TOKEN"
+    else
+        AUTH_HEADER=""
+    fi
+else
+    RELEASE_URL="$GITHUB_RELEASE_URL"
+    AUTH_HEADER=""
+fi
+
+log "Checking for updates (source: $UPDATE_SOURCE)..."
+
+RELEASE_JSON=$(fetch -O - "$RELEASE_URL" 2>/dev/null) || {
     log "Failed to fetch release info"
     exit 1
 }
@@ -81,7 +119,7 @@ mkdir -p "$STAGING_DIR"
 BUNDLE_FILENAME=$(basename "$BUNDLE_URL")
 LOCAL_BUNDLE="/tmp/${BUNDLE_FILENAME}"
 
-wget -q -O "$LOCAL_BUNDLE" "$BUNDLE_URL" || {
+fetch -O "$LOCAL_BUNDLE" "$BUNDLE_URL" || {
     log "Download failed"
     rm -f "$LOCAL_BUNDLE"
     rm -rf "$STAGING_DIR"
@@ -93,7 +131,7 @@ CHECKSUM_FILENAME=$(basename "$CHECKSUM_URL")
 LOCAL_CHECKSUM="/tmp/${CHECKSUM_FILENAME}"
 
 # Download checksum (delete on failure so the -s check below skips it)
-wget -q -O "$LOCAL_CHECKSUM" "$CHECKSUM_URL" || {
+fetch -O "$LOCAL_CHECKSUM" "$CHECKSUM_URL" || {
     rm -f "$LOCAL_CHECKSUM"
     log "Checksum file not found, skipping verification"
 }
