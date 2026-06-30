@@ -10,8 +10,30 @@ import 'package:flutter/material.dart';
 abstract class HearthVideoPlayer {
   Future<void> play(String url);
   Future<void> stop();
+
+  /// Pause playback, keeping the current position. No-op if not playing.
+  Future<void> pause();
+
+  /// Resume playback after [pause]. No-op if nothing is loaded.
+  Future<void> resume();
+
+  /// Seek to [position] within the current media.
+  Future<void> seek(Duration position);
+
+  /// Set output volume in the range 0.0–1.0. Used by DLNA RenderingControl
+  /// (the renderer maps a 0–100 SetVolume onto this).
+  Future<void> setVolume(double volume);
+
   void dispose();
   bool get isPlaying;
+
+  /// Latest known playback position (snapshot). [Duration.zero] when idle.
+  /// Used by DLNA AVTransport's GetPositionInfo.
+  Duration get position;
+
+  /// Total media duration (snapshot). [Duration.zero] when unknown.
+  Duration get duration;
+
   Widget buildView({BoxFit fit = BoxFit.contain});
 
   static HearthVideoPlayer create() {

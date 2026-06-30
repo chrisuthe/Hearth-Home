@@ -137,6 +137,42 @@ void main() {
       expect(updated.sendspinEnabled, true);
     });
 
+    test('dlna fields have correct defaults', () {
+      const config = HubConfig();
+      expect(config.dlnaEnabled, false);
+      expect(config.dlnaRendererName, '');
+      expect(config.dlnaUuid, '');
+    });
+
+    test('dlna fields round-trip through JSON', () {
+      final config = HubConfig(
+        dlnaEnabled: true,
+        dlnaRendererName: 'Hearth',
+        dlnaUuid: '9ab0c000-f668-11de-9976-00a0de1b6a3f',
+      );
+      final restored = HubConfig.fromJson(config.toJson());
+      expect(restored.dlnaEnabled, true);
+      expect(restored.dlnaRendererName, 'Hearth');
+      expect(restored.dlnaUuid, '9ab0c000-f668-11de-9976-00a0de1b6a3f');
+    });
+
+    test('dlna fields missing from JSON fall back to defaults', () {
+      final config = HubConfig.fromJson({});
+      expect(config.dlnaEnabled, false);
+      expect(config.dlnaRendererName, '');
+      expect(config.dlnaUuid, '');
+    });
+
+    test('generateUuid produces a valid RFC-4122 v4 UUID', () {
+      final uuid = HubConfig.generateUuid();
+      expect(
+        RegExp(r'^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$')
+            .hasMatch(uuid),
+        isTrue,
+        reason: 'got $uuid',
+      );
+    });
+
     test('copyWith can clear nullable fields to null', () {
       const config = HubConfig(
         nightModeHaEntity: 'binary_sensor.night',

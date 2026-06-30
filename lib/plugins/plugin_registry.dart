@@ -4,6 +4,7 @@ import '../config/hub_config.dart';
 import 'alarm_clock/alarm_clock_plugin.dart';
 import 'capture/capture_plugin.dart';
 import 'display/display_plugin.dart';
+import 'dlna/dlna_plugin.dart';
 import 'frigate/frigate_plugin.dart';
 import 'hearth_plugin.dart';
 import 'home_assistant/home_assistant_plugin.dart';
@@ -30,6 +31,7 @@ List<HearthPlugin> _firstPartyPlugins = [
   FrigatePlugin(),
   AlarmClockPlugin(),
   SendspinPlugin(),
+  DlnaPlugin(),
   MqttPlugin(),
   WebviewPlugin(),
   ScreensOrderPlugin(),

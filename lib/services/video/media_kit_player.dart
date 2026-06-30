@@ -26,10 +26,40 @@ class MediaKitVideoPlayer implements HearthVideoPlayer {
   }
 
   @override
+  Future<void> pause() async {
+    await _player?.pause();
+    _playing = false;
+  }
+
+  @override
+  Future<void> resume() async {
+    if (_player == null) return;
+    await _player!.play();
+    _playing = true;
+  }
+
+  @override
+  Future<void> seek(Duration position) async {
+    await _player?.seek(position);
+  }
+
+  @override
+  Future<void> setVolume(double volume) async {
+    // media_kit volume is 0–100.
+    await _player?.setVolume((volume.clamp(0.0, 1.0)) * 100);
+  }
+
+  @override
   void dispose() => stop();
 
   @override
   bool get isPlaying => _playing;
+
+  @override
+  Duration get position => _player?.state.position ?? Duration.zero;
+
+  @override
+  Duration get duration => _player?.state.duration ?? Duration.zero;
 
   @override
   Widget buildView({BoxFit fit = BoxFit.contain}) {
