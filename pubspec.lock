@@ -324,8 +324,8 @@ packages:
     dependency: "direct main"
     description:
       path: "packages/flutterpi_gstreamer_video_player"
-      ref: main
-      resolved-ref: e62847617efba1b6d033e49536189083d28de1ce
+      ref: "chrisuthe/feat/webview-init-script"
+      resolved-ref: abec48a0c41716c26a45e0178c1972be8d7b0bfc
       url: "https://github.com/chrisuthe/flutterpi_gstreamer_video_player-hearth.git"
     source: git
     version: "0.2.0"

@@ -51,6 +51,34 @@ void main() {
       expect(pool.activeUrls.toSet(), {'https://a.example', 'https://c.example'});
     });
 
+    test('stores the init script and allow-origin on the created session', () {
+      final pool = WebviewSessionPool(sessionFactory: WebviewSession.testing);
+      final session = pool.getOrCreate(
+        'https://ha.example/lovelace',
+        initScript: 'INJECT;',
+        initScriptAllowOrigin: 'https://ha.example/*',
+      );
+      expect(session.initScript, 'INJECT;');
+      expect(session.initScriptAllowOrigin, 'https://ha.example/*');
+    });
+
+    test('returns the same session when the init script is unchanged', () {
+      final pool = WebviewSessionPool(sessionFactory: WebviewSession.testing);
+      final a = pool.getOrCreate('https://ha.example', initScript: 'A;');
+      final b = pool.getOrCreate('https://ha.example', initScript: 'A;');
+      expect(identical(a, b), isTrue);
+    });
+
+    test('replaces the session when the init script changes (token change)', () {
+      final pool = WebviewSessionPool(sessionFactory: WebviewSession.testing);
+      final a = pool.getOrCreate('https://ha.example', initScript: 'OLD-TOKEN;');
+      final b = pool.getOrCreate('https://ha.example', initScript: 'NEW-TOKEN;');
+      expect(identical(a, b), isFalse);
+      expect(b.initScript, 'NEW-TOKEN;');
+      // The replaced session is no longer tracked by the pool.
+      expect(pool.activeUrls.toSet(), {'https://ha.example'});
+    });
+
     test('pauseAll pauses every session', () async {
       final pool = WebviewSessionPool(sessionFactory: WebviewSession.testing);
       final a = pool.getOrCreate('https://a.example');

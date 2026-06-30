@@ -12,7 +12,8 @@ The smoke-test phase has already validated the technical backbone — see [[proj
 
 **Out of scope for this spec (deferred to later phases):**
 
-- HA authentication / cookie-persistence hardening
+- ~~HA authentication~~ — **now shipped** (token injection; see "HA auth" under
+  "What's out of scope" below for the mechanism)
 - Pinch-zoom, multi-touch, keyboard input beyond what auth needs
 - Audio routing from webviews into PipeWire
 - Migration of the existing Controls module — it stays; users can have either, both, or neither
@@ -275,7 +276,7 @@ Manual perf measurements via existing `gst-launch` shell harness: drop `pngenc` 
 
 ## What's out of scope
 
-- **HA auth**: Login persists via WPE's NetworkSession cookies; first ship requires manual login per webview the first time. The "trusted networks" auth provider option in HA can short-circuit this if the user opts in. Token-injection automation is a follow-up phase.
+- **HA auth** — _shipped (token injection)._ HA-dashboard webviews now load already authenticated by seeding `localStorage['hassTokens']` at document-start with Hearth's existing long-lived `config.haToken` (the same LLAT as the native HA WebSocket integration). The payload mirrors `home-assistant-js-websocket`'s `createLongLivedTokenAuth` (`clientId: null`, empty `refresh_token`, far-future `expires`), built in Dart (`HaTokenInjector`) and registered natively as a document-start `WebKitUserScript` on the `wpesrc` WebView via its `configure-web-view` signal, scoped to the HA origin. It re-seeds on every load, so auth survives reboot without relying on WPE persisting localStorage. Scope is HA dashboards only — custom-URL webviews receive no token and are unchanged; with no `config.haToken` set, behaviour is as before (manual login). Requires the flutter-pi build to link WPE WebKit (`wpe-webkit-2.0`); without it the webview still renders but injection is compiled out. Keyboard-input/OSK for manual login forms remains a follow-up.
 - **Audio routing**: wpesrc's audio output pad is unconnected in the first ship. Media browser previews from Lovelace will be silent. Routing into PipeWire (matching Hearth's existing audio stack) is a follow-up phase.
 - **Pinch-zoom, multi-touch**: not wired. Lovelace doesn't need either for normal use.
 - **Migration of Controls module**: untouched. Users keep both.

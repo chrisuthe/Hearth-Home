@@ -2,9 +2,22 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'webview_session.dart';
 
 /// Factory shape so tests can substitute `WebviewSession.testing`.
-typedef WebviewSessionFactory = WebviewSession Function({required String url});
+typedef WebviewSessionFactory = WebviewSession Function({
+  required String url,
+  String? initScript,
+  String? initScriptAllowOrigin,
+});
 
-WebviewSession _defaultFactory({required String url}) => WebviewSession(url: url);
+WebviewSession _defaultFactory({
+  required String url,
+  String? initScript,
+  String? initScriptAllowOrigin,
+}) =>
+    WebviewSession(
+      url: url,
+      initScript: initScript,
+      initScriptAllowOrigin: initScriptAllowOrigin,
+    );
 
 /// URL-keyed cache of running [WebviewSession]s.
 ///
@@ -21,8 +34,34 @@ class WebviewSessionPool {
       : _factory = sessionFactory ?? _defaultFactory;
 
   /// Returns the existing session for [url], or creates one if none exists.
-  WebviewSession getOrCreate(String url) {
-    return _sessions.putIfAbsent(url, () => _factory(url: url));
+  ///
+  /// [initScript]/[initScriptAllowOrigin] carry the optional document-start
+  /// injector (see [WebviewSession.initScript]). If a cached session exists for
+  /// [url] but its injector differs from the requested one — e.g. the HA token
+  /// changed in Settings — the stale session is disposed and replaced so the
+  /// new script takes effect (sessions are keyed by URL, which alone wouldn't
+  /// capture a token change).
+  WebviewSession getOrCreate(
+    String url, {
+    String? initScript,
+    String? initScriptAllowOrigin,
+  }) {
+    final existing = _sessions[url];
+    if (existing != null) {
+      if (existing.initScript == initScript &&
+          existing.initScriptAllowOrigin == initScriptAllowOrigin) {
+        return existing;
+      }
+      existing.dispose();
+      _sessions.remove(url);
+    }
+    final session = _factory(
+      url: url,
+      initScript: initScript,
+      initScriptAllowOrigin: initScriptAllowOrigin,
+    );
+    _sessions[url] = session;
+    return session;
   }
 
   /// Disposes the session for [url] and removes it from the pool.
