@@ -85,9 +85,15 @@ class AlbumSource implements PhotoSource {
   }
 }
 
-/// People-filter source. Posts `/api/search/metadata` with the configured
-/// person IDs. Immich treats `personIds` as OR-combined: any photo
-/// containing any of the listed people matches.
+/// People-filter source. Posts `/api/search/metadata` per configured person.
+///
+/// Immich **AND-combines** `personIds` in a single metadata search — a photo
+/// must contain *every* listed person, so a multi-person request returns the
+/// intersection (empty when no single photo has them all). To get the desired
+/// "any selected person" (OR) semantics, this source fans out **one request
+/// per person UUID** and unions the results client-side, deduping by
+/// `assetId`. The union is shuffled before truncating to `limit` so no single
+/// person monopolizes the source's quota.
 class PeopleSource implements PhotoSource {
   final Dio _dio;
   final String _baseUrl;
@@ -104,23 +110,44 @@ class PeopleSource implements PhotoSource {
   @override
   Future<List<PhotoMemory>> fetch({required int limit}) async {
     if (_personIds.isEmpty) return const [];
-    final response = await _dio.post<Map<String, dynamic>>(
-      '/api/search/metadata',
-      data: {
-        'personIds': _personIds,
-        'type': 'IMAGE',
-        'size': limit,
-      },
-    );
-    final result = response.data ?? const <String, dynamic>{};
-    final assetsObj = result['assets'] as Map<String, dynamic>?;
-    final items =
-        (assetsObj?['items'] as List<dynamic>?) ?? const <dynamic>[];
-    return parseAssetList(
-      items.cast<Map<String, dynamic>>(),
-      _baseUrl,
-      limit: limit,
-    );
+    // One metadata search per person (single-element personIds), in parallel.
+    // A single person failing is logged and skipped, not fatal to the others.
+    final results = await Future.wait(_personIds.map((personId) async {
+      try {
+        final response = await _dio.post<Map<String, dynamic>>(
+          '/api/search/metadata',
+          data: {
+            'personIds': [personId],
+            'type': 'IMAGE',
+            'size': limit,
+          },
+        );
+        final result = response.data ?? const <String, dynamic>{};
+        final assetsObj = result['assets'] as Map<String, dynamic>?;
+        final items =
+            (assetsObj?['items'] as List<dynamic>?) ?? const <dynamic>[];
+        return parseAssetList(items.cast<Map<String, dynamic>>(), _baseUrl);
+      } catch (e) {
+        Log.w('Immich', 'PeopleSource person $personId failed: $e');
+        return const <PhotoMemory>[];
+      }
+    }));
+
+    // Union the per-person results, deduping by assetId (a photo of two
+    // selected people would otherwise appear twice).
+    final seen = <String>{};
+    final union = <PhotoMemory>[];
+    for (final photos in results) {
+      for (final photo in photos) {
+        if (seen.add(photo.assetId)) union.add(photo);
+      }
+    }
+
+    // Shuffle before truncating so the limit isn't filled by the first
+    // person's photos alone.
+    union.shuffle();
+    if (union.length > limit) return union.sublist(0, limit);
+    return union;
   }
 }
 

@@ -34,7 +34,9 @@ can't drown out a 30-photo memory set.
 - Tag-based filtering — Immich's tag system isn't populated on the target
   install, no current value.
 - Web-portal mirroring of the new Settings section.
-- AND semantics for People — multiple selected people are OR-combined.
+- Server-side OR for People — Immich's `/api/search/metadata` AND-combines
+  `personIds`, so multiple selected people are OR-combined client-side
+  (one request per person, unioned) rather than in a single request.
 - Daily refresh timer for "today's memories changing at midnight" — not a
   user-facing problem until someone reports it.
 
@@ -82,11 +84,14 @@ can't drown out a 30-photo memory set.
 - **`AlbumSource(albumId)`.** Calls `/api/albums/{albumId}` (which returns the
   album with its asset list). Truncates to `limit` after parsing.
 
-- **`PeopleSource(personIds)`.** Calls
-  `POST /api/search/metadata` with body `{ personIds: [...], type: "IMAGE",
-  size: 50 }`. Immich's `personIds` is OR-combined when multiple are
-  provided — matches the chosen v1 semantics. Pages aren't followed; one
-  page of 50 is the entire contribution.
+- **`PeopleSource(personIds)`.** Calls `POST /api/search/metadata` with body
+  `{ personIds: [oneId], type: "IMAGE", size: 50 }` **once per selected
+  person**. Immich's `personIds` is **AND-combined** (a photo must contain
+  every listed person), which returns the empty intersection for 2+ disjoint
+  people — so the desired OR semantics are assembled client-side: fan out one
+  request per person, union the results, dedupe by `assetId`, shuffle, then
+  truncate to 50. Pages aren't followed; one page of 50 per person is the
+  entire contribution.
 
 - **`ImmichService`.** Owns the cache and the rotation. The previous
   `loadMemories()` becomes `refresh()` and consults config to decide which
