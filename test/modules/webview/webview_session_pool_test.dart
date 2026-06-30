@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hearth/modules/webview/webview_session.dart';
 import 'package:hearth/modules/webview/webview_session_pool.dart';
@@ -97,6 +99,40 @@ void main() {
       await pool.pauseAll();
       await pool.resumeAll();
       expect(a.state, WebviewSessionState.playing);
+    });
+
+    test('stores requested render size and enables caps', () {
+      final pool = WebviewSessionPool(sessionFactory: WebviewSession.testing);
+      final s = pool.getOrCreate('https://a.example',
+          renderSize: const Size(1920, 1200));
+      expect(s.renderWidth, 1920);
+      expect(s.renderHeight, 1200);
+      expect(s.useSizeCaps, isTrue);
+    });
+
+    test('omitting render size leaves caps off (back-compat)', () {
+      final pool = WebviewSessionPool(sessionFactory: WebviewSession.testing);
+      final s = pool.getOrCreate('https://a.example');
+      expect(s.useSizeCaps, isFalse);
+    });
+
+    test('same render size returns the same session', () {
+      final pool = WebviewSessionPool(sessionFactory: WebviewSession.testing);
+      final a = pool.getOrCreate('https://a.example',
+          renderSize: const Size(1920, 1200));
+      final b = pool.getOrCreate('https://a.example',
+          renderSize: const Size(1921, 1199)); // within 2px
+      expect(identical(a, b), isTrue);
+    });
+
+    test('a meaningful render-size change rebuilds the session', () {
+      final pool = WebviewSessionPool(sessionFactory: WebviewSession.testing);
+      final a = pool.getOrCreate('https://a.example',
+          renderSize: const Size(1920, 1200));
+      final b = pool.getOrCreate('https://a.example',
+          renderSize: const Size(1280, 800));
+      expect(identical(a, b), isFalse);
+      expect(b.renderWidth, 1280);
     });
   });
 }

@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'webview_session.dart';
 
@@ -6,17 +8,26 @@ typedef WebviewSessionFactory = WebviewSession Function({
   required String url,
   String? initScript,
   String? initScriptAllowOrigin,
+  int renderWidth,
+  int renderHeight,
+  bool useSizeCaps,
 });
 
 WebviewSession _defaultFactory({
   required String url,
   String? initScript,
   String? initScriptAllowOrigin,
+  int renderWidth = 1920,
+  int renderHeight = 1080,
+  bool useSizeCaps = false,
 }) =>
     WebviewSession(
       url: url,
       initScript: initScript,
       initScriptAllowOrigin: initScriptAllowOrigin,
+      renderWidth: renderWidth,
+      renderHeight: renderHeight,
+      useSizeCaps: useSizeCaps,
     );
 
 /// URL-keyed cache of running [WebviewSession]s.
@@ -45,20 +56,34 @@ class WebviewSessionPool {
     String url, {
     String? initScript,
     String? initScriptAllowOrigin,
+    Size? renderSize,
   }) {
+    final useCaps = renderSize != null;
+    final reqW = renderSize?.width.round() ?? 1920;
+    final reqH = renderSize?.height.round() ?? 1080;
+
     final existing = _sessions[url];
     if (existing != null) {
+      final sizeMatches = !useCaps ||
+          (existing.useSizeCaps &&
+              (existing.renderWidth - reqW).abs() <= 2 &&
+              (existing.renderHeight - reqH).abs() <= 2);
       if (existing.initScript == initScript &&
-          existing.initScriptAllowOrigin == initScriptAllowOrigin) {
+          existing.initScriptAllowOrigin == initScriptAllowOrigin &&
+          sizeMatches) {
         return existing;
       }
       existing.dispose();
       _sessions.remove(url);
     }
+
     final session = _factory(
       url: url,
       initScript: initScript,
       initScriptAllowOrigin: initScriptAllowOrigin,
+      renderWidth: reqW,
+      renderHeight: reqH,
+      useSizeCaps: useCaps,
     );
     _sessions[url] = session;
     return session;
