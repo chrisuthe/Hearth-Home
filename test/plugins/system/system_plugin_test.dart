@@ -49,5 +49,40 @@ void main() {
       expect(html, contains('/api/update/check'));
       expect(html, contains('/api/update/apply'));
     });
+
+    test('buildSettingsHtml has an updateSource selector', () {
+      final p = SystemPlugin();
+      final html = p.buildSettingsHtml(const WebContext(
+        config: HubConfig(),
+        apiBearerToken: 'auth',
+        pluginActionPrefix: '/api/plugin/hearth.system',
+      ));
+      expect(html, contains('data-config-path="updateSource"'));
+      expect(html, contains('<select'));
+      // Both update sources are offered.
+      expect(html, contains('value="github"'));
+      expect(html, contains('value="gitea"'));
+    });
+
+    test('updateSource selector reflects the configured value', () {
+      final p = SystemPlugin();
+      final html = p.buildSettingsHtml(const WebContext(
+        config: HubConfig(updateSource: 'gitea'),
+        apiBearerToken: 'auth',
+        pluginActionPrefix: '/api/plugin/hearth.system',
+      ));
+      expect(html, contains('value="gitea" selected'));
+    });
+
+    test('buildSettingsHtml has a force-update button hitting the apply route', () {
+      final p = SystemPlugin();
+      final html = p.buildSettingsHtml(const WebContext(
+        config: HubConfig(),
+        apiBearerToken: 'auth',
+        pluginActionPrefix: '/api/plugin/hearth.system',
+      ));
+      expect(html, contains('force-update-btn'));
+      expect(html, contains('/api/update/apply'));
+    });
   });
 }

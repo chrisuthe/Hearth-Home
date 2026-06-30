@@ -117,8 +117,8 @@ void main() {
     'displayHeight': 'device-only: part of the display-profile override',
 
     // --- Deferred: parity gaps to close in a later phase ---
-    'updateSource':
-        'deferred: System update-source toggle + force-update',
+    // (none currently — webviews, screens & order, and update-source have all
+    // landed on the web portal)
   };
 
   /// Fields that ARE web-editable but with a degraded affordance — a plain text
@@ -128,13 +128,8 @@ void main() {
   /// to a real web picker. Distinct from [webExempt], which is for fields not on
   /// the web portal at all.
   const webDegraded = <String, String>{
-    'voiceAssistantEntityId':
-        'web: plain text input to paste the entity id; on-device is a live '
-            'assist_satellite dropdown. Upgrade tracked by '
-            'web-parity-ha-entity-pickers.',
-    'timezone':
-        'web: free-text IANA zone; on-device is a searchable '
-            'TimezonePickerDialog. Upgrade tracked by web-parity-timezone.',
+    // (none currently — voiceAssistantEntityId and timezone have been upgraded
+    // to full web pickers; their `// Web degradation:` markers are gone)
   };
 
   test('every HubConfig field is web-editable or documented as exempt', () {
