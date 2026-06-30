@@ -55,6 +55,25 @@ void main() {
       expect(html, contains('data-config-path="bottomSwipeAction"'));
     });
 
+    test('buildSettingsHtml renders timezone as a searchable datalist picker',
+        () {
+      final p = DisplayPlugin();
+      final html = p.buildSettingsHtml(const WebContext(
+        config: HubConfig(),
+        apiBearerToken: 'auth',
+        pluginActionPrefix: '/api/plugin/hearth.display',
+      ));
+      // The field is a text input bound to the datalist (searchable), not a
+      // bare text input — this is the soft parity gap the drift-guard can't see.
+      expect(html, contains('data-config-path="timezone"'));
+      expect(html, contains('list="timezone-zones"'));
+      expect(html, contains('<datalist id="timezone-zones">'));
+      // The datalist is populated with IANA zone options sourced from
+      // TimezoneService (same list the on-device picker uses).
+      expect(html, contains('<option value="America/New_York">'));
+      expect(html, contains('<option value="UTC">'));
+    });
+
     test('buildSettingsHtml omits display profile editor (on-device only)', () {
       final p = DisplayPlugin();
       final html = p.buildSettingsHtml(const WebContext(
