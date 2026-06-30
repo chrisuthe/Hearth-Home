@@ -25,7 +25,7 @@ class AmbientScreen extends ConsumerStatefulWidget {
 }
 
 class AmbientScreenState extends ConsumerState<AmbientScreen> {
-  final _photoPathController = StreamController<String?>.broadcast();
+  final _photoController = StreamController<PhotoFrame?>.broadcast();
   Timer? _photoTimer;
   Timer? _refreshTimer;
   PhotoMemory? _currentMemory;
@@ -90,12 +90,9 @@ class AmbientScreenState extends ConsumerState<AmbientScreen> {
       widget.onMemoryChanged?.call(memory);
 
       final cachedPath = immich.getCachedPath(memory.assetId);
-      if (cachedPath != null) {
-        _photoPathController.add(cachedPath);
-      } else {
-        final path = await immich.cachePhoto(memory);
-        _photoPathController.add(path);
-      }
+      final path = cachedPath ?? await immich.cachePhoto(memory);
+      final focal = immich.getFocalPoint(memory.assetId);
+      _photoController.add((path: path, focal: focal));
     } catch (e) {
       Log.w('Immich', 'Photo load failed: $e');
     }
@@ -105,7 +102,7 @@ class AmbientScreenState extends ConsumerState<AmbientScreen> {
   void dispose() {
     _photoTimer?.cancel();
     _refreshTimer?.cancel();
-    _photoPathController.close();
+    _photoController.close();
     super.dispose();
   }
 
@@ -114,7 +111,7 @@ class AmbientScreenState extends ConsumerState<AmbientScreen> {
     return Container(
       color: Colors.black,
       child: PhotoCarousel(
-        photoPathStream: _photoPathController.stream,
+        photoStream: _photoController.stream,
       ),
     );
   }

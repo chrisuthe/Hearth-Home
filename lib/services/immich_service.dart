@@ -13,6 +13,16 @@ import 'dart:io' if (dart.library.html) 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import '../config/hub_config.dart';
 
+/// A normalized focal point in `[0,1]` image coordinates — the center of the
+/// crop window we want to keep visible. `(0.5, 0.5)` is the geometric center
+/// (today's default crop). Kept framework-free (a plain record, not a Flutter
+/// `Alignment`) so the carousel widget builds the `Alignment` from it.
+typedef FocalPoint = ({double x, double y});
+
+/// The geometric-center focal point — the safe fallback whenever a photo has
+/// no detected faces or its face fetch fails / hasn't completed.
+const FocalPoint kCenterFocalPoint = (x: 0.5, y: 0.5);
+
 /// Fetches and caches photos from Immich's memories API.
 ///
 /// The ambient display cycles through "on this day" photos, so we load
@@ -24,6 +34,7 @@ class ImmichService {
   final String _baseUrl;
   final List<PhotoMemory> _cachedMemories = [];
   final List<String> _cachedFilePaths = [];
+  final Map<String, FocalPoint> _cachedFocalPoints = {};
   int _currentIndex = 0;
 
   ImmichService({
@@ -144,6 +155,73 @@ class ImmichService {
     return photos;
   }
 
+  /// Reduces a list of Immich face records (`AssetFaceResponseDto`, as
+  /// returned by `GET /api/faces?id={assetId}`) to a normalized focal point.
+  ///
+  /// Each face's bounding box is normalized by *its own* `imageWidth` /
+  /// `imageHeight` (the reference frame Immich detected it against), so the
+  /// result is rendition-independent. The focal point is the center of the
+  /// union box across every valid face, clamped to `[0,1]`. Degenerate
+  /// records — missing/zero dimensions, missing corners, or zero-area boxes —
+  /// are skipped; with no valid faces this returns [kCenterFocalPoint].
+  ///
+  /// Static and Flutter-free for testability without a live Immich server,
+  /// mirroring [parseMemories].
+  static FocalPoint computeFocalPoint(List<dynamic> facesJson) {
+    double? minX, minY, maxX, maxY;
+    for (final raw in facesJson) {
+      if (raw is! Map<String, dynamic>) continue;
+      final w = (raw['imageWidth'] as num?)?.toDouble() ?? 0;
+      final h = (raw['imageHeight'] as num?)?.toDouble() ?? 0;
+      if (w <= 0 || h <= 0) continue;
+      final x1 = (raw['boundingBoxX1'] as num?)?.toDouble();
+      final y1 = (raw['boundingBoxY1'] as num?)?.toDouble();
+      final x2 = (raw['boundingBoxX2'] as num?)?.toDouble();
+      final y2 = (raw['boundingBoxY2'] as num?)?.toDouble();
+      if (x1 == null || y1 == null || x2 == null || y2 == null) continue;
+      // Normalize and order corners so a swapped box still yields a valid range.
+      final nx1 = (x1 < x2 ? x1 : x2) / w;
+      final nx2 = (x1 < x2 ? x2 : x1) / w;
+      final ny1 = (y1 < y2 ? y1 : y2) / h;
+      final ny2 = (y1 < y2 ? y2 : y1) / h;
+      if (nx2 - nx1 <= 0 || ny2 - ny1 <= 0) continue; // zero-area
+      minX = minX == null || nx1 < minX ? nx1 : minX;
+      minY = minY == null || ny1 < minY ? ny1 : minY;
+      maxX = maxX == null || nx2 > maxX ? nx2 : maxX;
+      maxY = maxY == null || ny2 > maxY ? ny2 : maxY;
+    }
+    if (minX == null || minY == null || maxX == null || maxY == null) {
+      return kCenterFocalPoint;
+    }
+    return (
+      x: ((minX + maxX) / 2).clamp(0.0, 1.0),
+      y: ((minY + maxY) / 2).clamp(0.0, 1.0),
+    );
+  }
+
+  /// Fetches face bounding boxes for [assetId] from Immich's
+  /// `GET /api/faces?id={assetId}` and reduces them to a focal point via
+  /// [computeFocalPoint]. Any failure returns [kCenterFocalPoint] so a face
+  /// fetch never disrupts the carousel.
+  Future<FocalPoint> fetchFocalPoint(String assetId) async {
+    try {
+      final res = await _dio.get<List<dynamic>>(
+        '/api/faces',
+        queryParameters: {'id': assetId},
+      );
+      return computeFocalPoint(res.data ?? const []);
+    } catch (e) {
+      Log.w('Immich', 'faces fetch for $assetId failed: $e');
+      return kCenterFocalPoint;
+    }
+  }
+
+  /// Looks up a previously warmed focal point by asset ID, defaulting to
+  /// [kCenterFocalPoint] on a miss so a not-yet-fetched photo renders centered
+  /// (today's behavior) without blocking the crossfade.
+  FocalPoint getFocalPoint(String assetId) =>
+      _cachedFocalPoints[assetId] ?? kCenterFocalPoint;
+
   /// Returns the next photo in rotation, wrapping around when exhausted.
   PhotoMemory? get nextPhoto {
     if (_cachedMemories.isEmpty) return null;
@@ -252,8 +330,11 @@ class ImmichService {
     _cachedFilePaths.clear();
     for (var i = 0; i < count && i < _cachedMemories.length; i++) {
       final idx = (_currentIndex + i) % _cachedMemories.length;
-      final path = await cachePhoto(_cachedMemories[idx]);
+      final memory = _cachedMemories[idx];
+      final path = await cachePhoto(memory);
       _cachedFilePaths.add(path);
+      _cachedFocalPoints[memory.assetId] =
+          await fetchFocalPoint(memory.assetId);
     }
   }
 
