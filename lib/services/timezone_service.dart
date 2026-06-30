@@ -113,7 +113,7 @@ class TimezoneService {
 
   /// List all available IANA timezones from the system.
   Future<List<String>> listTimezones() async {
-    if (kIsWeb || !Platform.isLinux) return _fallbackTimezones;
+    if (kIsWeb || !Platform.isLinux) return fallbackTimezones;
 
     try {
       final result = await Process.run('timedatectl', ['list-timezones']);
@@ -146,11 +146,15 @@ class TimezoneService {
       }
     } catch (_) {}
 
-    return _fallbackTimezones;
+    return fallbackTimezones;
   }
 
   /// Hardcoded timezone list for Windows dev and when system lists fail.
-  static const _fallbackTimezones = [
+  ///
+  /// Also the source for the web portal's timezone picker: the web settings
+  /// HTML renders synchronously and can't run the async system enumeration, so
+  /// it inlines this curated IANA list (plus [commonTimezones]) as a datalist.
+  static const fallbackTimezones = [
     'Africa/Cairo',
     'Africa/Johannesburg',
     'Africa/Lagos',

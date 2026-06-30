@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hearth/config/hub_config.dart';
 import 'package:hearth/config/webview_config.dart';
@@ -36,7 +37,7 @@ void main() {
       expect(p.statusFor(config), PluginConfigStatus.configured);
     });
 
-    test('buildSettingsHtml shows empty hint when no webviews are configured',
+    test('buildSettingsHtml emits the parity marker and interactive scaffold',
         () {
       final p = WebviewPlugin();
       final html = p.buildSettingsHtml(const WebContext(
@@ -44,42 +45,25 @@ void main() {
         apiBearerToken: 'auth',
         pluginActionPrefix: '/api/plugin/hearth.webview',
       ));
-      expect(html, contains('Configured Webviews'));
-      expect(html, contains('No items yet.'));
+      // Parity-ledger marker (see web_parity_guard_test) on the container.
+      // The list is loaded/persisted client-side via the plugin route, so the
+      // marker lives on the non-input container the auto-save binder ignores.
+      expect(html, contains('data-config-path="webviews"'));
+      // Interactive picker scaffold + the two sections that mirror on-device.
+      expect(html, contains('id="webview-panel"'));
+      expect(html, contains('Home Assistant dashboards'));
+      expect(html, contains('Custom URLs'));
+      // Route wiring: loads + persists through the `webviews` plugin route.
+      expect(html, contains("hearth.action('webviews'"));
     });
 
-    test('buildSettingsHtml lists each configured webview with source label',
-        () {
-      final p = WebviewPlugin();
-      const config = HubConfig(webviews: [
-        WebviewConfig(
-          id: 'webview:ha:overview',
-          url: 'http://ha.local:8123/lovelace/overview',
-          name: 'Overview',
-          iconCodePoint: 0xe157,
-          source: WebviewSource.haDashboard,
-          order: 0,
-        ),
-        WebviewConfig(
-          id: 'webview:custom:abc',
-          url: 'https://example.com',
-          name: 'Example',
-          iconCodePoint: 0xe157,
-          source: WebviewSource.customUrl,
-          order: 1,
-        ),
-      ]);
-      final html = p.buildSettingsHtml(const WebContext(
-        config: config,
-        apiBearerToken: 'auth',
-        pluginActionPrefix: '/api/plugin/hearth.webview',
-      ));
-      expect(html, contains('Overview (HA dashboard)'));
-      expect(html, contains('http://ha.local:8123/lovelace/overview'));
-      expect(html, contains('Example (Custom URL)'));
-      expect(html, contains('https://example.com'));
-      // The standard "edit on device" hint from ListSection.buildHtml.
-      expect(html, contains('Edit items from the on-device'));
+    test('customEditorIcons mirrors the on-device editor icon set', () {
+      final icons = WebviewPlugin.customEditorIcons;
+      final names = icons.map((i) => i['name']).toList();
+      // A representative subset of the on-device custom_url_editor icons.
+      expect(names, containsAll(<String>['Dashboard', 'Web', 'Security']));
+      // Codepoints come from the live Icons table, not hardcoded hex.
+      expect(icons.first['codePoint'], Icons.dashboard.codePoint);
     });
 
     test('pageScreen is null (legacy WebviewModule instances own the screens)',

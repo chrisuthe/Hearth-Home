@@ -55,6 +55,25 @@ void main() {
       expect(html, contains('data-config-path="bottomSwipeAction"'));
     });
 
+    test('buildSettingsHtml renders timezone as a searchable datalist picker',
+        () {
+      final p = DisplayPlugin();
+      final html = p.buildSettingsHtml(const WebContext(
+        config: HubConfig(),
+        apiBearerToken: 'auth',
+        pluginActionPrefix: '/api/plugin/hearth.display',
+      ));
+      // The field is a text input bound to the datalist (searchable), not a
+      // bare text input — this is the soft parity gap the drift-guard can't see.
+      expect(html, contains('data-config-path="timezone"'));
+      expect(html, contains('list="timezone-zones"'));
+      expect(html, contains('<datalist id="timezone-zones">'));
+      // The datalist is populated with IANA zone options sourced from
+      // TimezoneService (same list the on-device picker uses).
+      expect(html, contains('<option value="America/New_York">'));
+      expect(html, contains('<option value="UTC">'));
+    });
+
     test('buildSettingsHtml omits display profile editor (on-device only)', () {
       final p = DisplayPlugin();
       final html = p.buildSettingsHtml(const WebContext(
@@ -77,6 +96,28 @@ void main() {
       expect(html, contains('value="clock"'));
       expect(html, contains('value="ha_entity"'));
       expect(html, contains('value="api"'));
+    });
+
+    test('buildSettingsHtml night mode entity renders as an HA entity picker',
+        () {
+      final p = DisplayPlugin();
+      final html = p.buildSettingsHtml(const WebContext(
+        config: HubConfig(nightModeHaEntity: 'binary_sensor.dusk'),
+        apiBearerToken: 'auth',
+        pluginActionPrefix: '/api/plugin/hearth.display',
+      ));
+      // Bound free-text input keeps the parity-ledger marker + current value.
+      expect(html, contains('data-config-path="nightModeHaEntity"'));
+      expect(html, contains('value="binary_sensor.dusk"'));
+      // Picker scaffold (search box + option list) is present.
+      expect(html, contains('id="haep-nightModeHaEntity-input"'));
+      expect(html, contains('id="haep-nightModeHaEntity-search"'));
+      expect(html, contains('id="haep-nightModeHaEntity-list"'));
+      // Reaches the HA plugin's shared route by absolute path, unfiltered
+      // (night mode accepts any entity), since the Display panel's own prefix
+      // can't see that route.
+      expect(html, contains("fetch('/api/plugin/hearth.ha/entities'"));
+      expect(html, isNot(contains('hearth.ha/entities?domains')));
     });
 
     test('buildSettingsHtml swipe selects have all five actions', () {

@@ -8,6 +8,7 @@ import '../../services/osk_integration.dart';
 import '../../services/timezone_service.dart';
 import '../../widgets/timezone_picker_dialog.dart';
 import '../framework/fields/bool_setting_field.dart';
+import '../framework/fields/ha_entity_picker_field.dart';
 import '../framework/fields/select_setting_field.dart';
 import '../framework/fields/slider_setting_field.dart';
 import '../framework/fields/text_setting_field.dart';
@@ -35,9 +36,10 @@ import '../hearth_plugin.dart';
 ///   * Web portal: timezone degrades to text input. UI scale is a slider
 ///     bound directly to the `uiScale` double (the `/api/config` POST handler
 ///     coerces it to the right type). Display profile is omitted with a
-///     hand-off hint. Night-mode sub-fields all render at once (HTML can't
-///     reactively show/hide without scripting we don't have for plugin panels
-///     yet).
+///     hand-off hint. The night-mode HA entity is a searchable
+///     [HaEntityPickerField] fed by the HA plugin's shared `entities` route.
+///     Night-mode sub-fields all render at once (HTML can't reactively
+///     show/hide without scripting we don't have for plugin panels yet).
 ///
 /// Status: always [PluginConfigStatus.configured] — every field has a sane
 /// default; there's nothing the user must fill in.
@@ -77,14 +79,12 @@ class DisplayPlugin extends HearthPlugin {
       configPath: 'use24HourClock',
     ).buildHtml(ctx);
 
-    // Web degradation: free-text IANA zone (the legacy panel used the same
-    // approach with a datalist of common zones). A future enhancement could
-    // expose a plugin route returning the full list.
-    final timezoneHtml = const TextSettingField(
-      configPath: 'timezone',
-      label: 'Timezone',
-      hint: 'America/New_York (blank = system default)',
-    ).buildHtml(ctx);
+    // Web parity with the on-device TimezonePickerDialog: a searchable picker
+    // over IANA zones. A `<datalist>`-backed text input filters as the user
+    // types (the searchable part) while still accepting free-text entry (the
+    // fallback). The zone list is inlined from TimezoneService — the web HTML
+    // renders synchronously and can't run the async system enumeration.
+    final timezoneHtml = _timezoneHtml(ctx);
 
     final idleHtml = SliderSettingField(
       configPath: 'idleTimeoutSeconds',
@@ -138,7 +138,13 @@ class DisplayPlugin extends HearthPlugin {
     // Conditional fields render unconditionally on web — HTML can't react
     // to the source dropdown without bespoke JS, so the user just ignores
     // the ones not relevant to their chosen mode.
-    final nightEntityHtml = const TextSettingField(
+    //
+    // The HA entity is a searchable picker over the live entity list (any
+    // domain, mirroring the on-device free-text dialog), served by the Home
+    // Assistant plugin's shared `entities` route. It reaches that route by
+    // absolute path because this Display panel's own plugin prefix can't see
+    // it. Free-text fallback persists when HA is unreachable.
+    final nightEntityHtml = const HaEntityPickerField(
       configPath: 'nightModeHaEntity',
       label: 'Night Mode HA Entity',
       hint: 'binary_sensor.night_mode (only used when source = HA Entity)',
@@ -193,6 +199,43 @@ class DisplayPlugin extends HearthPlugin {
         topSwipeHtml +
         bottomSwipeHtml;
   }
+
+  /// Searchable timezone picker for the web portal — the parity counterpart of
+  /// the on-device [TimezonePickerDialog]. Common zones lead (mirroring the
+  /// dialog's "Common" group), then the rest of the curated IANA list, deduped.
+  String _timezoneHtml(WebContext ctx) {
+    final seen = <String>{};
+    final zones = <String>[
+      ...TimezoneService.commonTimezones,
+      ...TimezoneService.fallbackTimezones,
+    ].where(seen.add);
+    final options =
+        zones.map((z) => '<option value="${_escapeHtml(z)}"></option>').join();
+    final current = _escapeHtml(ctx.config.timezone);
+    return '''
+<div class="field">
+  <label>Timezone</label>
+  <input type="text"
+         class="hearth-field"
+         data-config-path="timezone"
+         list="timezone-zones"
+         value="$current"
+         placeholder="Search or type an IANA zone (blank = system default)">
+  <datalist id="timezone-zones">
+    $options
+  </datalist>
+</div>
+''';
+  }
+}
+
+String _escapeHtml(String value) {
+  return value
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#39;');
 }
 
 class _DisplayPanel extends ConsumerWidget {
