@@ -5,6 +5,27 @@
 /// CSS served alongside plugin panels in the web portal.
 const hearthCss = r'''
 * { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* Self-hosted Material Icons font, served by LocalApiServer from the bundled
+   Flutter asset so glyphs render with no internet access and match the
+   on-device sidebar (including outlined variants). */
+@font-face {
+  font-family: 'MaterialIcons';
+  font-style: normal;
+  font-weight: 400;
+  src: url('/assets/material-icons.otf') format('opentype');
+}
+.row-icon, .panel-icon {
+  font-family: 'MaterialIcons';
+  font-weight: normal;
+  font-style: normal;
+  line-height: 1;
+  flex-shrink: 0;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+.row-icon { font-size: 16px; }
+.panel-icon { font-size: 22px; }
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   background: #111; color: #e0e0e0;

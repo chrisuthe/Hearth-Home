@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hearth/config/hub_config.dart';
 import 'package:hearth/plugins/capture/capture_plugin.dart';
+import 'package:hearth/plugins/plugin_registry.dart';
 import 'package:hearth/services/local_api_server.dart';
 import 'package:hearth/services/display_mode_service.dart';
 import 'package:hearth/services/capture_service.dart';
@@ -152,6 +153,66 @@ void main() {
     test('GET /api/session/key returns 401 without session', () async {
       final response = await get('/api/session/key');
       expect(response.statusCode, 401);
+    });
+
+    // --- Plugin icons (web sidebar + panel header) ---
+
+    Future<String> unlockSession() async {
+      final pin = server.webPin;
+      final authResp =
+          await post('/auth/pin', body: jsonEncode({'pin': pin}));
+      final setCookie = authResp.headers['set-cookie']!.first;
+      final match = RegExp(r'hearth_session=(\w+)').firstMatch(setCookie);
+      return 'hearth_session=${match!.group(1)}';
+    }
+
+    test('web settings HTML emits plugin icon codepoints for sidebar + header',
+        () async {
+      final cookie = await unlockSession();
+      final response = await get('/', headers: {'Cookie': cookie});
+      expect(response.statusCode, 200);
+      final body = await readBody(response);
+
+      // Every plugin row carries an icon span, and the panel header too.
+      expect(body, contains('class="row-icon"'));
+      expect(body, contains('class="panel-icon"'));
+
+      // The selected (first visible) plugin's icon codepoint is emitted as an
+      // HTML entity, before its name. Compute the expected codepoint from the
+      // real registry rather than hardcoding a glyph.
+      final visible = firstPartyPlugins
+          .where((p) => p.isVisible(const HubConfig(apiKey: testApiKey)))
+          .toList();
+      expect(visible, isNotEmpty);
+      final first = visible.first;
+      final entity = '&#x${first.icon.codePoint.toRadixString(16)};';
+      // The icon span (glyph entity) precedes the plugin name in the row.
+      expect(body, contains('<span class="row-icon">$entity</span>'));
+      expect(body, contains('</span>${first.name}'));
+    });
+
+    test('GET /assets/material-icons.otf returns font bytes with font type',
+        () async {
+      await server.stop();
+      final fontServer = LocalApiServer(
+        displayModeService: displayService,
+        configNotifier: configNotifier,
+        loadIconFont: () async => <int>[0x4F, 0x54, 0x54, 0x4F, 0x00, 0x01],
+      );
+      final fontPort = await fontServer.start(port: 0);
+      try {
+        final client = HttpClient();
+        final request =
+            await client.get('localhost', fontPort, '/assets/material-icons.otf');
+        final response = await request.close();
+        expect(response.statusCode, 200);
+        expect(response.headers.contentType?.primaryType, 'font');
+        final bytes =
+            await response.fold<List<int>>([], (acc, c) => acc..addAll(c));
+        expect(bytes, isNotEmpty);
+      } finally {
+        await fontServer.stop();
+      }
     });
 
     // --- Secret redaction ---

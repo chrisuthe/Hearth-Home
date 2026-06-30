@@ -54,6 +54,7 @@ class WebRenderer {
       );
       panelHtml = '''
 <div class="panel-header">
+  ${_iconSpan('panel-icon', selected.icon.codePoint)}
   <h1>${_escape(selected.name)}</h1>
 </div>
 ${selected.buildSettingsHtml(ctx)}
@@ -111,9 +112,18 @@ window.__HEARTH_PLUGIN_PREFIX__ = '${_escapeJs(pluginPrefix)}';
     final selected = p.id == selectedId ? 'row selected' : 'row';
     final tag =
         p.isCommunity ? '<span class="community-tag">community</span>' : '';
-    return '<a class="$selected" href="?panel=${p.id}">${_escape(p.name)}$tag</a>';
+    final icon = _iconSpan('row-icon', p.icon.codePoint);
+    return '<a class="$selected" href="?panel=${p.id}">$icon${_escape(p.name)}$tag</a>';
   }
 }
+
+/// Renders a Material Icons glyph as an HTML entity inside a styled span.
+///
+/// A Flutter `IconData` is just a font codepoint; emitting it as `&#xNNNN;`
+/// under the self-hosted MaterialIcons `@font-face` (see [hearthCss]) renders
+/// the same glyph the on-device sidebar shows.
+String _iconSpan(String cssClass, int codePoint) =>
+    '<span class="$cssClass">&#x${codePoint.toRadixString(16)};</span>';
 
 String _escape(String s) => s
     .replaceAll('&', '&amp;')
