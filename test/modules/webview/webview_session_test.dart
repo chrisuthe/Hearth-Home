@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hearth/modules/webview/webview_session.dart';
 
@@ -110,6 +112,44 @@ void main() {
       final session = WebviewSession.testing(url: 'https://ha.example');
       expect(session.pipelineString, isNot(contains('video/x-raw')));
       expect(session.pipelineString, contains('wpevideosrc'));
+    });
+
+    test('shouldFallbackToNoCaps fires on size==zero, once only', () {
+      expect(
+        shouldFallbackToNoCaps(
+            useSizeCaps: true,
+            alreadyTried: false,
+            initErrored: false,
+            size: Size.zero),
+        isTrue,
+      );
+      // Already tried → never again.
+      expect(
+        shouldFallbackToNoCaps(
+            useSizeCaps: true,
+            alreadyTried: true,
+            initErrored: true,
+            size: Size.zero),
+        isFalse,
+      );
+      // Caps off → nothing to fall back from.
+      expect(
+        shouldFallbackToNoCaps(
+            useSizeCaps: false,
+            alreadyTried: false,
+            initErrored: true,
+            size: Size.zero),
+        isFalse,
+      );
+      // Healthy sized frame → no fallback.
+      expect(
+        shouldFallbackToNoCaps(
+            useSizeCaps: true,
+            alreadyTried: false,
+            initErrored: false,
+            size: const Size(1920, 1200)),
+        isFalse,
+      );
     });
   });
 }

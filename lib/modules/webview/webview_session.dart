@@ -6,6 +6,18 @@ import 'package:video_player/video_player.dart';
 
 import '../../utils/logger.dart';
 
+/// Whether a sized (caps-pinned) webview pipeline should be rebuilt once
+/// without the size caps. True only when caps were requested, we haven't
+/// already retried, and the sized attempt produced no usable frame (it
+/// errored or negotiated a zero size). Pure so it can be unit-tested.
+bool shouldFallbackToNoCaps({
+  required bool useSizeCaps,
+  required bool alreadyTried,
+  required bool initErrored,
+  required Size size,
+}) =>
+    useSizeCaps && !alreadyTried && (initErrored || size == Size.zero);
+
 /// Lifecycle state of a [WebviewSession].
 enum WebviewSessionState {
   loading,
@@ -115,7 +127,9 @@ class WebviewSession extends ChangeNotifier {
   }
 
   Future<void> _initController() async {
-    Log.i('Webview', 'init starting for $url');
+    Log.i('Webview', 'init starting for $url (caps=$_capsActive '
+        '${_capsActive ? "$renderWidth x $renderHeight" : "default"})');
+    var initErrored = false;
     try {
       final c = FlutterpiVideoPlayerController.withGstreamerPipeline(
         pipelineString,
@@ -128,6 +142,19 @@ class WebviewSession extends ChangeNotifier {
       });
       Log.i('Webview', 'awaiting controller.initialize for $url');
       await c.initialize();
+
+      if (shouldFallbackToNoCaps(
+        useSizeCaps: useSizeCaps,
+        alreadyTried: _sizeCapsFallbackTried,
+        initErrored: false,
+        size: c.value.size,
+      )) {
+        Log.w('Webview', 'size caps gave Size.zero for $url; '
+            'rebuilding without caps');
+        await _teardownForFallback();
+        return _initController();
+      }
+
       Log.i('Webview', 'controller initialized for $url '
           '(isInitialized=${c.value.isInitialized} size=${c.value.size})');
       await c.play();
@@ -135,9 +162,32 @@ class WebviewSession extends ChangeNotifier {
       notifyFirstFrame();
       Log.i('Webview', 'state -> PLAYING for $url');
     } catch (e, st) {
+      initErrored = true;
+      if (shouldFallbackToNoCaps(
+        useSizeCaps: useSizeCaps,
+        alreadyTried: _sizeCapsFallbackTried,
+        initErrored: initErrored,
+        size: _controller?.value.size ?? Size.zero,
+      )) {
+        Log.w('Webview', 'sized pipeline failed for $url ($e); '
+            'rebuilding without caps');
+        await _teardownForFallback();
+        return _initController();
+      }
       Log.e('Webview', 'init failed for $url: $e\n$st');
       notifyError(e.toString());
     }
+  }
+
+  /// Tears down the current controller so [_initController] can retry without
+  /// the size caps. Marks the one-shot so we never loop.
+  Future<void> _teardownForFallback() async {
+    _sizeCapsFallbackTried = true;
+    _capsActive = false;
+    await _controller?.dispose();
+    await _errorSub?.cancel();
+    _controller = null;
+    _errorSub = null;
   }
 
   void notifyFirstFrame() {
