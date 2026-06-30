@@ -26,14 +26,18 @@ class ImmichService {
   final List<String> _cachedFilePaths = [];
   int _currentIndex = 0;
 
-  ImmichService({required String baseUrl, required String apiKey})
-      : _baseUrl = baseUrl,
-        _dio = Dio(BaseOptions(
-          baseUrl: baseUrl,
-          headers: buildAuthHeaders(apiKey),
-          connectTimeout: const Duration(seconds: 10),
-          receiveTimeout: const Duration(seconds: 30),
-        ));
+  ImmichService({
+    required String baseUrl,
+    required String apiKey,
+    @visibleForTesting Dio? dio,
+  })  : _baseUrl = baseUrl,
+        _dio = dio ??
+            Dio(BaseOptions(
+              baseUrl: baseUrl,
+              headers: buildAuthHeaders(apiKey),
+              connectTimeout: const Duration(seconds: 10),
+              receiveTimeout: const Duration(seconds: 30),
+            ));
 
   List<PhotoMemory> get memories => List.unmodifiable(_cachedMemories);
   int get currentIndex => _currentIndex;
@@ -202,6 +206,12 @@ class ImmichService {
   /// detected face) and sorts by `numberOfAssets` descending so the most-
   /// photographed people appear first. `withHidden=false` excludes people
   /// the user has explicitly hidden in Immich.
+  ///
+  /// Immich's `/api/people` response (`PersonResponseDto`) carries **no**
+  /// asset count, so each person's count must be fetched separately from
+  /// `/api/people/:id/statistics` — otherwise every chip would read "(0)".
+  /// The per-person counts are fetched in parallel and merged in before
+  /// sorting.
   Future<List<ImmichPerson>> listNamedPeople() async {
     final response = await _dio.get<Map<String, dynamic>>(
       '/api/people',
@@ -214,8 +224,25 @@ class ImmichService {
         .map(ImmichPerson.fromJson)
         .where((p) => p.name.isNotEmpty)
         .toList();
-    named.sort((a, b) => b.numberOfAssets.compareTo(a.numberOfAssets));
-    return named;
+    final counted = await Future.wait(named.map(_withAssetCount));
+    counted.sort((a, b) => b.numberOfAssets.compareTo(a.numberOfAssets));
+    return counted;
+  }
+
+  /// Enriches [person] with its asset count from `/api/people/:id/statistics`.
+  /// A failing lookup is logged and the person kept (with a 0 count) rather
+  /// than dropping them from the picker.
+  Future<ImmichPerson> _withAssetCount(ImmichPerson person) async {
+    try {
+      final res = await _dio.get<Map<String, dynamic>>(
+        '/api/people/${person.id}/statistics',
+      );
+      final assets = (res.data?['assets'] as num?)?.toInt() ?? 0;
+      return person.copyWith(numberOfAssets: assets);
+    } catch (e) {
+      Log.w('Immich', 'person ${person.id} statistics failed: $e');
+      return person;
+    }
   }
 
   /// Pre-downloads the next N photos to disk so transitions are instant.
