@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:video_player/video_player.dart';
 
+import '../../app/scale/hearth_scale.dart';
 import '../../config/hub_config.dart';
 import '../../config/webview_config.dart';
 import 'ha_token_injector.dart';
+import 'webview_geometry.dart';
 import 'webview_session.dart';
 import 'webview_session_pool.dart';
 
@@ -49,11 +51,11 @@ class WebviewScreen extends ConsumerStatefulWidget {
 
 class _WebviewScreenState extends ConsumerState<WebviewScreen> {
   WebviewSession? _session;
+  Size? _lastRenderPx;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _ensureSession());
   }
 
   /// Resolves (or re-resolves) the session for this webview, applying the
@@ -61,7 +63,7 @@ class _WebviewScreenState extends ConsumerState<WebviewScreen> {
   /// the session when the pool hands back a different instance (e.g. the HA
   /// token changed, so [WebviewSessionPool.getOrCreate] rebuilt the session
   /// with the new document-start script).
-  void _ensureSession() {
+  void _ensureSession(Size? renderPx) {
     final config = ref.read(hubConfigProvider);
     final injector = injectorForWebview(
       widget.config,
@@ -73,6 +75,7 @@ class _WebviewScreenState extends ConsumerState<WebviewScreen> {
       widget.config.url,
       initScript: injector?.script,
       initScriptAllowOrigin: injector?.allowOrigin,
+      renderSize: renderPx,
     );
     if (identical(session, _session)) return;
     _session?.removeListener(_onSessionChange);
@@ -97,36 +100,51 @@ class _WebviewScreenState extends ConsumerState<WebviewScreen> {
     // dashboards; custom URLs derive a null injector either way).
     ref.listen<(String, String)>(
       hubConfigProvider.select((c) => (c.haUrl, c.haToken)),
-      (_, _) => _ensureSession(),
+      (_, _) => _ensureSession(_lastRenderPx),
     );
 
-    final session = _session;
-    if (session == null) {
-      return _Placeholder.loading(config: widget.config);
-    }
-    switch (session.state) {
-      case WebviewSessionState.loading:
+    return LayoutBuilder(builder: (context, constraints) {
+      final renderPx = webviewRenderPx(
+        Size(constraints.maxWidth, constraints.maxHeight),
+        MediaQuery.devicePixelRatioOf(context),
+        ref.read(uiScaleProvider),
+      );
+      final last = _lastRenderPx;
+      if (last == null ||
+          (renderPx.width - last.width).abs() > 2 ||
+          (renderPx.height - last.height).abs() > 2) {
+        _lastRenderPx = renderPx;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _ensureSession(renderPx);
+        });
+      }
+
+      final session = _session;
+      if (session == null) {
         return _Placeholder.loading(config: widget.config);
-      case WebviewSessionState.error:
-        return _Placeholder.error(
-          config: widget.config,
-          message: session.lastError ?? 'Unknown error',
-          onRetry: () => session.reload(),
-        );
-      case WebviewSessionState.playing:
-      case WebviewSessionState.paused:
-        final controller = session.controller;
-        if (controller == null || !controller.value.isInitialized) {
+      }
+      switch (session.state) {
+        case WebviewSessionState.loading:
           return _Placeholder.loading(config: widget.config);
-        }
-        return LayoutBuilder(builder: (context, constraints) {
+        case WebviewSessionState.error:
+          return _Placeholder.error(
+            config: widget.config,
+            message: session.lastError ?? 'Unknown error',
+            onRetry: () => session.reload(),
+          );
+        case WebviewSessionState.playing:
+        case WebviewSessionState.paused:
+          final controller = session.controller;
+          if (controller == null || !controller.value.isInitialized) {
+            return _Placeholder.loading(config: widget.config);
+          }
           return _TouchableWebviewView(
             session: session,
             controller: controller,
             size: Size(constraints.maxWidth, constraints.maxHeight),
           );
-        });
-    }
+      }
+    });
   }
 }
 
