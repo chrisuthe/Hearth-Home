@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:video_player/video_player.dart';
 
+import '../../config/hub_config.dart';
 import '../../config/webview_config.dart';
+import 'ha_token_injector.dart';
 import 'webview_session.dart';
 import 'webview_session_pool.dart';
 
@@ -32,9 +34,26 @@ class _WebviewScreenState extends ConsumerState<WebviewScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _ensureSession());
   }
 
+  /// Resolves (or re-resolves) the session for this webview, applying the
+  /// HA-token injector when applicable. Safe to call repeatedly: it only swaps
+  /// the session when the pool hands back a different instance (e.g. the HA
+  /// token changed, so [WebviewSessionPool.getOrCreate] rebuilt the session
+  /// with the new document-start script).
   void _ensureSession() {
+    final config = ref.read(hubConfigProvider);
+    final injector = injectorForWebview(
+      widget.config,
+      haUrl: config.haUrl,
+      haToken: config.haToken,
+    );
     final pool = ref.read(webviewSessionPoolProvider);
-    final session = pool.getOrCreate(widget.config.url);
+    final session = pool.getOrCreate(
+      widget.config.url,
+      initScript: injector?.script,
+      initScriptAllowOrigin: injector?.allowOrigin,
+    );
+    if (identical(session, _session)) return;
+    _session?.removeListener(_onSessionChange);
     setState(() => _session = session);
     session.addListener(_onSessionChange);
   }
@@ -51,6 +70,14 @@ class _WebviewScreenState extends ConsumerState<WebviewScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Rebuild the session when the HA URL/token changes in Settings so the
+    // new document-start injector takes effect (only matters for HA
+    // dashboards; custom URLs derive a null injector either way).
+    ref.listen<(String, String)>(
+      hubConfigProvider.select((c) => (c.haUrl, c.haToken)),
+      (_, _) => _ensureSession(),
+    );
+
     final session = _session;
     if (session == null) {
       return _Placeholder.loading(config: widget.config);

@@ -29,6 +29,7 @@ sudo apt-get install -y -qq \
     gstreamer1.0-plugins-bad gstreamer1.0-alsa \
     gstreamer1.0-libav gstreamer1.0-tools \
     gstreamer1.0-wpe libwpewebkit-2.0-1 libwpebackend-fdo-1.0-1 \
+    libwpewebkit-2.0-dev \
     ffmpeg \
     network-manager avahi-daemon \
     git wget

@@ -28,6 +28,16 @@ class WebviewSession extends ChangeNotifier {
   final int textureWidth;
   final int textureHeight;
 
+  /// Optional document-start JavaScript registered on the WPE WebView's
+  /// user-content manager, run before the page bootstraps. Used to seed the
+  /// HA auth token into `localStorage` so HA-dashboard webviews load already
+  /// authenticated. Null for webviews that need no injection (custom URLs).
+  final String? initScript;
+
+  /// URL-match pattern scoping [initScript] to a single origin (e.g.
+  /// `https://ha.example.com/*`). Null when [initScript] is null.
+  final String? initScriptAllowOrigin;
+
   /// When true, methods that would normally talk to the plugin are no-ops
   /// so the state machine can be exercised in unit tests.
   final bool _isTesting;
@@ -42,6 +52,8 @@ class WebviewSession extends ChangeNotifier {
     required this.url,
     this.textureWidth = 1184,
     this.textureHeight = 864,
+    this.initScript,
+    this.initScriptAllowOrigin,
   }) : _isTesting = false {
     _initController();
   }
@@ -51,6 +63,8 @@ class WebviewSession extends ChangeNotifier {
     required this.url,
     this.textureWidth = 1184,
     this.textureHeight = 864,
+    this.initScript,
+    this.initScriptAllowOrigin,
   }) : _isTesting = true;
 
   WebviewSessionState get state => _state;
@@ -65,8 +79,14 @@ class WebviewSession extends ChangeNotifier {
   /// upstream caps filter can prevent the plugin from negotiating the
   /// format/size correctly, which then leaves `controller.value.size` at
   /// `Size.zero` and the texture never gets a real frame to display.
+  /// The `wpesrc` is given a stable element name so the native side can find
+  /// it (`gst_bin_get_by_name`) and connect its `configure-web-view` signal to
+  /// register the document-start [initScript]. This name is a contract with
+  /// the flutter-pi `gstreamer_video_player` plugin.
+  static const String wpeSrcName = 'websrc';
+
   String get pipelineString =>
-      'wpesrc location=$url draw-background=false '
+      'wpesrc name=$wpeSrcName location=$url draw-background=false '
       '! gldownload '
       '! videoconvert '
       '! appsink name=sink';
@@ -74,7 +94,11 @@ class WebviewSession extends ChangeNotifier {
   Future<void> _initController() async {
     Log.i('Webview', 'init starting for $url');
     try {
-      final c = FlutterpiVideoPlayerController.withGstreamerPipeline(pipelineString);
+      final c = FlutterpiVideoPlayerController.withGstreamerPipeline(
+        pipelineString,
+        webviewInitScript: initScript,
+        webviewInitScriptAllowOrigin: initScriptAllowOrigin,
+      );
       _controller = c;
       _errorSub = c.errors.listen((e) {
         notifyError(e.message);
