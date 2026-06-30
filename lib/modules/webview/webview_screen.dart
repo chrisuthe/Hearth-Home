@@ -8,6 +8,28 @@ import 'ha_token_injector.dart';
 import 'webview_session.dart';
 import 'webview_session_pool.dart';
 
+/// Maps a tap at [local] (in display-box pixels) back to webview viewport
+/// pixels, inverting the `BoxFit.contain` transform the [FittedBox] applies
+/// when a [render]-sized frame is painted inside a [box]-sized area.
+///
+/// `contain` scales the frame by the smaller of the two axis ratios and
+/// **centres** it, so a frame whose aspect differs from the box gets letterbox
+/// bars. The mapping must remove that centring offset before un-scaling — e.g.
+/// a 1920x1080 webview in a 1184x864 box fits to 1184x666 with 99px bars top
+/// and bottom; without subtracting the 99px a tap lands ~160px too low.
+Offset webviewViewportOffset(Offset local, Size box, Size render) {
+  if (render.width == 0 || render.height == 0) return local;
+  final fitScale = (box.width / render.width) < (box.height / render.height)
+      ? box.width / render.width
+      : box.height / render.height;
+  final offsetX = (box.width - render.width * fitScale) / 2;
+  final offsetY = (box.height - render.height * fitScale) / 2;
+  return Offset(
+    (local.dx - offsetX) / fitScale,
+    (local.dy - offsetY) / fitScale,
+  );
+}
+
 /// Renders a single configured webview into HubShell's PageView.
 ///
 /// Resolves a [WebviewSession] from the pool (warm-cache), renders the
@@ -195,17 +217,10 @@ class _TouchableWebviewViewState extends State<_TouchableWebviewView> {
   // get swallowed by the webview.
   static const double _edgeBand = 80;
 
-  // Maps local Flutter pixel to wpesrc viewport coordinates.
-  // VideoPlayer renders via BoxFit.contain inside [size]; map back to native.
-  Offset _toViewport(Offset local) {
-    final renderSize = widget.controller.value.size;
-    if (renderSize.width == 0 || renderSize.height == 0) return local;
-    final scaleX = renderSize.width / widget.size.width;
-    final scaleY = renderSize.height / widget.size.height;
-    // BoxFit.contain uses the LARGER scale factor so source fits inside box.
-    final scale = scaleX > scaleY ? scaleX : scaleY;
-    return Offset(local.dx * scale, local.dy * scale);
-  }
+  // Maps local Flutter pixel to wpe viewport coordinates. VideoPlayer renders
+  // via BoxFit.contain inside [size]; map back to the native webview frame.
+  Offset _toViewport(Offset local) =>
+      webviewViewportOffset(local, widget.size, widget.controller.value.size);
 
   void _resumeIfNeeded() {
     if (widget.session.state == WebviewSessionState.paused) {
