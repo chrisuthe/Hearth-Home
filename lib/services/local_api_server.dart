@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../modules/alarm_clock/alarm_models.dart';
 import '../modules/alarm_clock/alarm_service.dart';
@@ -55,6 +56,15 @@ class LocalApiServer {
 
   HttpServer? _server;
 
+  /// Loads the bundled MaterialIcons font bytes for the web portal. Defaults
+  /// to reading Flutter's bundled asset via [rootBundle]; injectable so tests
+  /// can supply bytes without a Flutter binding.
+  final Future<List<int>> Function() _loadIconFont;
+
+  /// Cached font bytes — the asset never changes for a given build, so load
+  /// once and reuse for every `/assets/material-icons.otf` request.
+  List<int>? _iconFontBytes;
+
   static const int _maxBodySize = 64 * 1024; // 64 KB
 
   /// 4-digit PIN displayed on the kiosk Settings screen.
@@ -79,6 +89,7 @@ class LocalApiServer {
     ProviderReader? readProvider,
     List<HearthPlugin>? plugins,
     String? webPin,
+    Future<List<int>> Function()? loadIconFont,
   })  : _displayModeService = displayModeService,
         _configNotifier = configNotifier,
         _timezoneService = timezoneService ?? TimezoneService(),
@@ -87,6 +98,7 @@ class LocalApiServer {
         _alarmService = alarmService,
         _readProvider = readProvider,
         _plugins = plugins ?? firstPartyPlugins,
+        _loadIconFont = loadIconFont ?? _loadBundledIconFont,
         _webPin = webPin ?? (Random.secure().nextInt(9000) + 1000).toString();
 
   Future<int> start({int port = 8090}) async {
@@ -136,6 +148,14 @@ class LocalApiServer {
       // --- PIN auth endpoint (unauthenticated) ---
       if (path == '/auth/pin' && request.method == 'POST') {
         await _handlePinAuth(request);
+        return;
+      }
+
+      // --- Self-hosted Material Icons font (unauthenticated, non-sensitive) ---
+      // The @font-face request the settings page issues carries no auth, and
+      // the font is just a public glyph file, so serve it without a session.
+      if (path == '/assets/material-icons.otf' && request.method == 'GET') {
+        await _serveIconFont(request);
         return;
       }
 
@@ -776,6 +796,28 @@ class LocalApiServer {
     await request.response.close();
   }
 
+  // --- Material Icons font ---
+
+  /// Serves the bundled MaterialIcons font so the web portal can render plugin
+  /// glyphs offline. Bytes are loaded once and cached.
+  Future<void> _serveIconFont(HttpRequest request) async {
+    try {
+      final bytes = _iconFontBytes ??= await _loadIconFont();
+      request.response.statusCode = 200;
+      request.response.headers.contentType = ContentType('font', 'otf');
+      request.response.headers
+          .add('Cache-Control', 'public, max-age=31536000, immutable');
+      request.response.add(bytes);
+      await request.response.close();
+    } catch (e) {
+      Log.e('API', 'Failed to serve icon font: $e');
+      request.response.statusCode = 500;
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(jsonEncode({'error': 'font unavailable'}));
+      await request.response.close();
+    }
+  }
+
   // --- Config web page ---
 
   Future<void> _serveConfigPage(HttpRequest request) async {
@@ -835,6 +877,37 @@ class LocalApiServer {
   Future<void> stop() async {
     await _server?.close();
   }
+}
+
+/// Loads the bundled MaterialIcons font from the Flutter asset bundle.
+///
+/// `uses-material-design: true` (pubspec) bundles the font, but there is no
+/// fixed asset path to rely on — release/flutter-pi builds tree-shake the font
+/// to a subset under a generated key. Discover the real key from
+/// `FontManifest.json` rather than hardcoding, falling back to the canonical
+/// path if the family isn't listed.
+Future<List<int>> _loadBundledIconFont() async {
+  String assetKey = 'fonts/MaterialIcons-Regular.otf';
+  try {
+    final manifest =
+        jsonDecode(await rootBundle.loadString('FontManifest.json'))
+            as List<dynamic>;
+    for (final family in manifest) {
+      final m = family as Map<String, dynamic>;
+      if (m['family'] == 'MaterialIcons') {
+        final fonts = m['fonts'] as List<dynamic>;
+        if (fonts.isNotEmpty) {
+          final asset = (fonts.first as Map<String, dynamic>)['asset'];
+          if (asset is String && asset.isNotEmpty) assetKey = asset;
+        }
+        break;
+      }
+    }
+  } catch (_) {
+    // Manifest missing/unreadable — fall back to the canonical asset key.
+  }
+  final data = await rootBundle.load(assetKey);
+  return data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
 }
 
 final localApiServerProvider = Provider<LocalApiServer>((ref) {
