@@ -5,6 +5,7 @@ import '../../config/hub_config.dart';
 import '../../models/ha_entity.dart';
 import '../../services/home_assistant_service.dart';
 import '../../widgets/entity_picker_dialog.dart';
+import '../framework/fields/ha_entity_picker_field.dart';
 import '../framework/fields/password_setting_field.dart';
 import '../framework/fields/select_setting_field.dart';
 import '../framework/fields/text_setting_field.dart';
@@ -25,11 +26,12 @@ import '../hearth_plugin.dart';
 ///   * On-device: voice satellite is a [SelectSettingField] whose options
 ///     are populated dynamically from the live HA entity list (any
 ///     `assist_satellite.*`). Pinned devices opens [EntityPickerDialog].
-///   * Web portal: voice satellite degrades to a plain text input (paste
-///     the entity ID). Pinned devices renders a searchable multi-select that
-///     loads the live HA entity list through this plugin's `entities` HTTP
-///     route (the browser has no HA connection) and persists picks through
-///     the `pinned` route.
+///   * Web portal: voice satellite renders a searchable [HaEntityPickerField]
+///     populated from this plugin's `entities` HTTP route (filtered to
+///     `assist_satellite`), with a free-text fallback when HA is unreachable.
+///     Pinned devices renders a searchable multi-select that loads the live
+///     HA entity list through the same `entities` route (the browser has no
+///     HA connection) and persists picks through the `pinned` route.
 ///
 /// Out of scope (stays in the legacy panel for now):
 ///   * Mic mute toggle (`micMuted`) — lives in the Voice plugin (drives the
@@ -86,30 +88,41 @@ class HomeAssistantPlugin extends HearthPlugin {
       hint: 'Paste your HA token',
     ).buildHtml(ctx);
 
-    // Web degradation: the browser has no live HA entity list, so we
-    // render a plain text input where the user pastes the entity ID
-    // (or leaves blank for MAC auto-detect). A future enhancement can
-    // wire a `voice-satellites` plugin HTTP route + dynamic <select>
-    // once the framework gives plugins access to live services.
-    final satelliteHtml = const TextSettingField(
+    // Searchable picker over the live `assist_satellite.*` entities, served by
+    // the shared `entities` route. The free-text input underneath still lets
+    // the user paste an id (or leave it blank for MAC auto-detect) when HA is
+    // unreachable, matching the on-device dropdown's capability.
+    final satelliteHtml = const HaEntityPickerField(
       configPath: 'voiceAssistantEntityId',
       label: 'Voice Assistant Satellite Entity',
       hint: 'assist_satellite.hearth_kiosk (blank = auto-detect by MAC)',
+      domains: 'assist_satellite',
     ).buildHtml(ctx);
 
-    return urlHtml + tokenHtml + satelliteHtml + _pinnedDevicesHtml;
+    return urlHtml +
+        tokenHtml +
+        satelliteHtml +
+        _pinnedDevicesHtml(_pinnableDomains.join(','));
   }
 
   @override
   void registerHttpRoutes(PluginRouter router) {
-    // GET entities — the live HA entity list (id + friendly name) for the web
-    // pinned-device picker, plus the currently-pinned ids so the front-end can
-    // pre-check them. Only the backend can reach the live HA service, so the
-    // browser fetches it from here rather than holding an HA connection.
+    // GET entities — the live HA entity list (id + friendly name) shared by the
+    // three web pickers: pinned devices, the voice satellite, and night mode.
+    // An optional `?domains=a,b,c` query filters to those domains (pinned →
+    // pinnable set, voice → `assist_satellite`); no param returns every entity
+    // (night mode accepts any). `pinned` carries the currently-pinned ids so
+    // the pinned picker can pre-check them. Only the backend can reach the live
+    // HA service, so the browser fetches it from here rather than holding an HA
+    // connection.
     router.get('entities', (req) async {
       final ha = req.readProvider(homeAssistantServiceProvider);
+      final raw = req.raw.uri.queryParameters['domains'];
+      final domains = (raw == null || raw.trim().isEmpty)
+          ? null
+          : raw.split(',').map((d) => d.trim()).where((d) => d.isNotEmpty).toSet();
       await req.respondJson({
-        'entities': pinnablePickerEntities(ha.entities.values),
+        'entities': pickerEntities(ha.entities.values, domains: domains),
         'pinned': req.config.pinnedEntityIds,
       });
     });
@@ -125,7 +138,8 @@ class HomeAssistantPlugin extends HearthPlugin {
   }
 
   /// Entity domains offered in the pinned-device picker. Mirrors the on-device
-  /// [EntityPickerDialog] so the two surfaces show the same set.
+  /// [EntityPickerDialog] so the two surfaces show the same set. Passed to the
+  /// shared `entities` route as the pinned picker's `domains` filter.
   static const _pinnableDomains = {
     'light',
     'switch',
@@ -136,14 +150,17 @@ class HomeAssistantPlugin extends HearthPlugin {
     'input_boolean',
   };
 
-  /// Shapes the live HA entities into the `{id, name}` list the web picker
-  /// renders: filtered to [_pinnableDomains] and sorted by friendly name,
-  /// matching [EntityPickerDialog]'s on-device ordering.
+  /// Shapes the live HA entities into the `{id, name}` list the web pickers
+  /// render: sorted by friendly name (matching [EntityPickerDialog]'s on-device
+  /// ordering). When [domains] is given, only those entity domains are kept;
+  /// when null, every entity is returned (night mode accepts any).
   @visibleForTesting
-  static List<Map<String, String>> pinnablePickerEntities(
-      Iterable<HaEntity> entities) {
+  static List<Map<String, String>> pickerEntities(
+    Iterable<HaEntity> entities, {
+    Set<String>? domains,
+  }) {
     final list = entities
-        .where((e) => _pinnableDomains.contains(e.domain))
+        .where((e) => domains == null || domains.contains(e.domain))
         .toList()
       ..sort((a, b) => a.name.compareTo(b.name));
     return [
@@ -157,8 +174,10 @@ class HomeAssistantPlugin extends HearthPlugin {
 /// as the web-parity ledger marker (see `web_parity_guard_test`); persistence
 /// runs through the plugin's `pinned` route, not the generic config auto-save,
 /// so the marker lives on the (non-input) `<div>` the auto-binder ignores.
-const _pinnedDevicesHtml = '''
-<div class="field" data-config-path="pinnedEntityIds">
+/// [domains] is the comma-separated pinnable-domain filter passed to the shared
+/// `entities` route (read from `data-domains` by the script below).
+String _pinnedDevicesHtml(String domains) => '''
+<div class="field" data-config-path="pinnedEntityIds" data-domains="$domains">
   <label>Pinned Devices</label>
   <input type="text" id="ha-pinned-search" placeholder="Search entities…" autocomplete="off">
   <div id="ha-pinned-list" style="margin-top:8px"></div>
@@ -229,7 +248,9 @@ const _pinnedDevicesScript = r'''
 
     search.addEventListener('input', render);
     status.textContent = 'Loading…';
-    hearth.action('entities').then(function (data) {
+    var field = document.querySelector('[data-config-path="pinnedEntityIds"]');
+    var domains = (field && field.dataset.domains) || '';
+    hearth.action('entities?domains=' + domains).then(function (data) {
       all = data.entities || [];
       selected = new Set(data.pinned || []);
       status.textContent = selected.size + ' selected';

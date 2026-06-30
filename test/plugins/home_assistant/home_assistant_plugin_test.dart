@@ -77,10 +77,19 @@ void main() {
       expect(html, contains('Long-Lived Access Token'));
       expect(html, contains('type="password"'));
       expect(html, contains('data-config-path="haToken"'));
-      // Voice satellite (degrades to text input on web)
+      // Voice satellite — searchable HA entity picker (fed by the shared
+      // `entities` route filtered to assist_satellite), with the bound
+      // free-text input carrying the current value + parity-ledger marker.
       expect(html, contains('Voice Assistant Satellite Entity'));
       expect(html, contains('data-config-path="voiceAssistantEntityId"'));
       expect(html, contains('value="assist_satellite.hearth"'));
+      expect(html, contains('id="haep-voiceAssistantEntityId-input"'));
+      expect(html, contains('id="haep-voiceAssistantEntityId-search"'));
+      expect(html, contains('id="haep-voiceAssistantEntityId-list"'));
+      expect(
+        html,
+        contains('/api/plugin/hearth.ha/entities?domains=assist_satellite'),
+      );
       // Pinned entities — interactive picker fed by the plugin's HTTP routes.
       // The list is loaded client-side via hearth.action, so the entity ids
       // are not server-rendered; assert the picker scaffold + route wiring.
@@ -89,30 +98,49 @@ void main() {
       expect(html, contains('data-config-path="pinnedEntityIds"'));
       expect(html, contains('id="ha-pinned-list"'));
       expect(html, contains('id="ha-pinned-search"'));
-      expect(html, contains("hearth.action('entities')"));
+      // Pinned picker filters the shared route to the pinnable domains via the
+      // container's data-domains attribute.
+      expect(html, contains('data-domains="light,switch'));
+      expect(html, contains("hearth.action('entities?domains='"));
       expect(html, contains("hearth.action('pinned'"));
     });
 
-    test('pinnablePickerEntities filters to pinnable domains, sorted by name',
-        () {
-      final lastChanged = DateTime(2026);
-      HaEntity entity(String id, String name) => HaEntity(
-            entityId: id,
-            state: 'on',
-            attributes: {'friendly_name': name},
-            lastChanged: lastChanged,
-          );
-      final result = HomeAssistantPlugin.pinnablePickerEntities([
-        entity('light.kitchen', 'Kitchen Light'),
-        entity('sensor.cpu_temp', 'CPU Temp'), // excluded: sensor domain
-        entity('switch.lamp', 'Desk Lamp'),
-        entity('climate.bedroom', 'Bedroom AC'),
-        entity('media_player.tv', 'Living Room TV'), // excluded
-      ]);
-      // Only pinnable domains survive, ordered by friendly name.
+    HaEntity entity(String id, String name) => HaEntity(
+          entityId: id,
+          state: 'on',
+          attributes: {'friendly_name': name},
+          lastChanged: DateTime(2026),
+        );
+
+    test('pickerEntities filters to the given domains, sorted by name', () {
+      final result = HomeAssistantPlugin.pickerEntities(
+        [
+          entity('light.kitchen', 'Kitchen Light'),
+          entity('sensor.cpu_temp', 'CPU Temp'), // excluded: not requested
+          entity('switch.lamp', 'Desk Lamp'),
+          entity('climate.bedroom', 'Bedroom AC'),
+          entity('media_player.tv', 'Living Room TV'), // excluded
+        ],
+        domains: {'light', 'switch', 'climate'},
+      );
+      // Only requested domains survive, ordered by friendly name.
       expect(result.map((e) => e['name']).toList(),
           ['Bedroom AC', 'Desk Lamp', 'Kitchen Light']);
       expect(result.first, {'id': 'climate.bedroom', 'name': 'Bedroom AC'});
+    });
+
+    test('pickerEntities returns every entity when domains is null', () {
+      final result = HomeAssistantPlugin.pickerEntities([
+        entity('assist_satellite.hearth', 'Hearth Kiosk'),
+        entity('binary_sensor.night', 'Night Mode'),
+        entity('light.kitchen', 'Kitchen Light'),
+      ]);
+      // No domain filter: all three, sorted by friendly name.
+      expect(result.map((e) => e['id']).toList(), [
+        'assist_satellite.hearth',
+        'light.kitchen',
+        'binary_sensor.night',
+      ]);
     });
 
     test('pageScreen is null (Controls module still owns the screen)', () {
