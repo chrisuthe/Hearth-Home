@@ -48,6 +48,9 @@ jobs:
             echo "ERROR: Could not find flutter-pi bundle"
             exit 1
           fi
+          # Ship the OTA updater inside the bundle so devices self-refresh
+          # /usr/bin/hearth-updater on the next run (see scripts/hearth-updater.sh).
+          cp scripts/hearth-updater.sh "$SRC_DIR/hearth-updater.sh"
           tar czf "hearth-bundle-${VERSION}.tar.gz" -C "$SRC_DIR" .
 
       - name: Generate checksum
