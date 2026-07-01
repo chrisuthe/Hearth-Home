@@ -97,6 +97,10 @@ class PlexService {
   String? _transcodeBase;
   String _transcodeSession = '';
   String _transcodeToken = '';
+  // Current server-side stream selection for the active transcode, so a
+  // setStreams that changes only one stream keeps the other. '' when unset.
+  String _audioStreamID = '';
+  String _subtitleStreamID = '';
 
   // --- Source-server playback reporting ---
   // Ticks elapsed since the last server timeline heartbeat. The controller tick
@@ -412,7 +416,7 @@ class PlexService {
         // Single-item sink — accept and no-op.
         return const PlexCommandResult.ok();
       case 'setStreams':
-        _setStreams(params);
+        await _setStreams(params);
         return const PlexCommandResult.ok();
       default:
         // Never 500 on a command we don't implement: Plex reads a 500 from a
@@ -424,18 +428,68 @@ class PlexService {
   }
 
   /// Handle the `setStreams` command the controller issues when the user opens
-  /// the video Settings (quality / audio / subtitle). [HearthVideoPlayer]
-  /// exposes no track-selection API, so audio/subtitle switching can't be
-  /// applied — we accept and log the requested IDs. Acking (rather than
-  /// faulting) is what keeps the stream alive when Settings is opened.
-  void _setStreams(Map<String, String> params) {
+  /// the video Settings / audio / subtitle panel. Advertising `audioStream` and
+  /// `subtitleStream` in the timeline `controllable` list is what makes the
+  /// controller send this in-place change instead of a `stop` — so the cast
+  /// survives opening Settings (see [_videoControllable] in plex_wire.dart).
+  ///
+  /// A transcode can honor the change: re-issue the universal transcode with the
+  /// new server-side stream IDs and resume at the current position. Direct play
+  /// has no track-selection API on [HearthVideoPlayer], so there we ack without
+  /// changing anything — still enough to keep the cast alive.
+  Future<void> _setStreams(Map<String, String> params) async {
     final audio = params['audioStreamID'];
     final subtitle = params['subtitleStreamID'];
-    final video = params['videoStreamID'];
+    final base = _transcodeBase;
+    if (base == null || _player == null || !_state.hasMedia) {
+      Log.i(
+          'Plex',
+          'setStreams (audio:$audio subtitle:$subtitle) on direct-play/idle — '
+              'no track API, acked as no-op');
+      return;
+    }
+
+    // Merge the requested selection over the current one — the panel may send
+    // only the stream that changed. '0' is a real value (subtitles off).
+    if (audio != null && audio.isNotEmpty) _audioStreamID = audio;
+    if (subtitle != null && subtitle.isNotEmpty) _subtitleStreamID = subtitle;
+
+    // Re-transcode from the current position with the new stream selection.
+    final offsetMs = _state.position.inMilliseconds;
+    await _stopTranscodeSession();
+    final session = HubConfig.generateUuid();
+    _transcodeBase = base;
+    _transcodeSession = session;
+    final url = buildTranscodeUrl(
+      base: base,
+      key: _state.key,
+      token: _transcodeToken,
+      clientId: _clientId,
+      session: session,
+      sessionIdentifier: HubConfig.generateUuid(),
+      offsetMs: offsetMs,
+      audioStreamID: _audioStreamID,
+      subtitleStreamID: _subtitleStreamID,
+      deviceName: _playerName,
+    );
     Log.i(
         'Plex',
-        'setStreams (audio:$audio subtitle:$subtitle video:$video) — '
-            'track switching unsupported by the player, acked as no-op');
+        'setStreams: re-transcode ${_state.key} '
+        '(audio:$_audioStreamID subtitle:$_subtitleStreamID) @${offsetMs}ms');
+    _updateState(
+      _state.copyWith(
+        currentUri: url,
+        transportState: PlexTransportState.buffering,
+      ),
+      pushTimeline: true,
+    );
+    await _player!.play(url);
+    await _player!.setVolume(_state.volume / 100.0);
+    _updateState(
+      _state.copyWith(transportState: PlexTransportState.playing),
+      pushTimeline: true,
+    );
+    _startTranscodePing();
   }
 
   Future<bool> _playMedia(Map<String, String> params) async {
@@ -505,6 +559,8 @@ class PlexService {
 
     _player ??= _createPlayer();
     _scrobbled = false;
+    _audioStreamID = '';
+    _subtitleStreamID = '';
     _updateState(
       _state.copyWith(
         currentUri: url,

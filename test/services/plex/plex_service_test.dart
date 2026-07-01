@@ -198,9 +198,10 @@ void main() {
       expect((await service.dispatchCommand('frobnicate', const {})).ok, isTrue);
     });
 
-    test('setStreams is accepted so opening video Settings keeps the cast alive',
-        () async {
+    test('setStreams on a direct-play cast is an accepted no-op (keeps the cast '
+        'alive without restarting the player)', () async {
       await service.dispatchCommand('playMedia', _playMediaParams());
+      final urlBefore = fake.lastUrl;
 
       final result = await service.dispatchCommand('setStreams', const {
         'audioStreamID': '2',
@@ -208,7 +209,9 @@ void main() {
         'type': 'video',
       });
       expect(result.ok, isTrue);
-      // Playback is untouched — the same item is still casting.
+      // Direct play has no track API, so the player must NOT be restarted —
+      // the same URL is still loaded and the same item is still casting.
+      expect(fake.lastUrl, urlBefore);
       expect(service.state.hasMedia, isTrue);
       expect(service.state.ratingKey, '12345');
     });

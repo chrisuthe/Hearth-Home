@@ -67,6 +67,36 @@ void main() {
       expect(q['offset'], '5'); // 5000ms -> 5s
       expect(q['X-Plex-Token'], 'srvtok');
     });
+
+    test('buildTranscodeUrl carries the audio/subtitle stream selection', () {
+      // Honoring setStreams on a transcode re-issues the universal transcode
+      // with the chosen server-side stream IDs.
+      final q = Uri.parse(buildTranscodeUrl(
+        base: 'https://h:32400',
+        key: '/library/metadata/862',
+        token: 'srvtok',
+        clientId: 'cid',
+        session: 'sess',
+        sessionIdentifier: 'sid-1',
+        audioStreamID: '2',
+        subtitleStreamID: '3',
+      )).queryParameters;
+      expect(q['audioStreamID'], '2');
+      expect(q['subtitleStreamID'], '3');
+    });
+
+    test('buildTranscodeUrl omits stream selection when unset', () {
+      final q = Uri.parse(buildTranscodeUrl(
+        base: 'https://h:32400',
+        key: '/library/metadata/862',
+        token: 'srvtok',
+        clientId: 'cid',
+        session: 'sess',
+        sessionIdentifier: 'sid-1',
+      )).queryParameters;
+      expect(q.containsKey('audioStreamID'), isFalse);
+      expect(q.containsKey('subtitleStreamID'), isFalse);
+    });
   });
 
   group('direct play', () {
@@ -212,6 +242,29 @@ void main() {
       expect(xml, contains('time="500"'));
       expect(xml, contains('duration="1000"'));
       expect(xml, contains('key="/library/metadata/1"'));
+    });
+
+    test('video timeline advertises in-place audio/subtitle stream switching',
+        () {
+      // Without audioStream/subtitleStream in `controllable`, the Plex
+      // controller has no in-place stream-change lever and falls back to
+      // stop-and-restart (killing the cast) when the Settings panel opens.
+      final xml = timelineXml(
+        commandID: 1,
+        state: 'playing',
+        media: const PlexTimelineMedia(
+          key: '/library/metadata/1',
+          ratingKey: '1',
+          address: 'a',
+          port: '32400',
+          timeMs: 0,
+          durationMs: 1000,
+        ),
+      );
+      final videoLine =
+          xml.split('\n').firstWhere((l) => l.contains('type="video"'));
+      expect(videoLine, contains('audioStream'));
+      expect(videoLine, contains('subtitleStream'));
     });
 
     test('idle timeline is stopped on all three types', () {
