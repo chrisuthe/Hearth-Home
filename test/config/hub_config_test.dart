@@ -130,6 +130,19 @@ void main() {
       expect(config.sendspinServerUrl, '');
     });
 
+    test('haDashboardDarkMode defaults to true', () {
+      const config = HubConfig();
+      expect(config.haDashboardDarkMode, true);
+      // Legacy configs without the key also default to true.
+      expect(HubConfig.fromJson({}).haDashboardDarkMode, true);
+    });
+
+    test('haDashboardDarkMode round-trips through JSON', () {
+      const config = HubConfig(haDashboardDarkMode: false);
+      final restored = HubConfig.fromJson(config.toJson());
+      expect(restored.haDashboardDarkMode, false);
+    });
+
     test('sendspin copyWith preserves unchanged fields', () {
       final config = HubConfig(sendspinPlayerName: 'Test');
       final updated = config.copyWith(sendspinEnabled: true);

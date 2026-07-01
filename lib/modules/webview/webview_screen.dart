@@ -64,6 +64,7 @@ class _WebviewScreenState extends ConsumerState<WebviewScreen> {
       widget.config,
       haUrl: config.haUrl,
       haToken: config.haToken,
+      darkMode: config.haDashboardDarkMode,
     );
     final pool = ref.read(webviewSessionPoolProvider);
     final session = pool.getOrCreate(
@@ -93,8 +94,9 @@ class _WebviewScreenState extends ConsumerState<WebviewScreen> {
     // Rebuild the session when the HA URL/token changes in Settings so the
     // new document-start injector takes effect (only matters for HA
     // dashboards; custom URLs derive a null injector either way).
-    ref.listen<(String, String)>(
-      hubConfigProvider.select((c) => (c.haUrl, c.haToken)),
+    ref.listen<(String, String, bool)>(
+      hubConfigProvider
+          .select((c) => (c.haUrl, c.haToken, c.haDashboardDarkMode)),
       (_, _) => _ensureSession(_lastRenderPx),
     );
 

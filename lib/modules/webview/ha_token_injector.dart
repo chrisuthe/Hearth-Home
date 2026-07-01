@@ -40,13 +40,24 @@ class HaTokenInjector {
   /// The long-lived access token (`config.haToken`).
   final String token;
 
-  const HaTokenInjector({required this.haUrl, required this.token});
+  /// When true, the script also installs a `matchMedia` shim that reports
+  /// `prefers-color-scheme: dark`, so an HA frontend on the default/"Auto"
+  /// theme renders dark. Verified against the frontend's `themes-mixin.ts`:
+  /// `darkMode = themeSettings?.dark === undefined ? darkPreferred : themeSettings.dark`,
+  /// where `darkPreferred = matchMedia('(prefers-color-scheme: dark)').matches`.
+  final bool darkMode;
+
+  const HaTokenInjector({
+    required this.haUrl,
+    required this.token,
+    this.darkMode = false,
+  });
 
   /// The document-start JS to run on the HA origin.
   String get script {
     final jsUrl = jsonEncode(haUrl);
     final jsToken = jsonEncode(token);
-    return '(function(){try{'
+    final seed = '(function(){try{'
         'var hassUrl=$jsUrl;'
         // Defense-in-depth: only seed on the HA origin even if the
         // user-script allow-list is ever widened.
@@ -60,7 +71,29 @@ class HaTokenInjector {
         'expires_in:1e11'
         '}));'
         '}catch(e){}})();';
+    return darkMode ? '$seed${_darkModeShim(jsUrl)}' : seed;
   }
+
+  /// Overrides `window.matchMedia` so `(prefers-color-scheme: dark)` reports a
+  /// match (and `light` reports none), delegating every other query to the
+  /// real implementation so HA's responsive breakpoints are unaffected. Runs
+  /// at document-start, before the HA frontend reads the preference.
+  static String _darkModeShim(String jsUrl) => '(function(){try{'
+      'var hassUrl=$jsUrl;'
+      'if(location.origin!==new URL(hassUrl).origin)return;'
+      'var m=window.matchMedia?window.matchMedia.bind(window):null;'
+      'function q(query,val){return{matches:val,media:query,onchange:null,'
+      'addListener:function(){},removeListener:function(){},'
+      'addEventListener:function(){},removeEventListener:function(){},'
+      'dispatchEvent:function(){return false;}};}'
+      'window.matchMedia=function(query){'
+      'if(typeof query==="string"){'
+      'if(/prefers-color-scheme\\s*:\\s*dark/i.test(query))return q(query,true);'
+      'if(/prefers-color-scheme\\s*:\\s*light/i.test(query))return q(query,false);'
+      '}'
+      'return m?m(query):q(query,false);'
+      '};'
+      '}catch(e){}})();';
 
   /// URL-match pattern scoping the user script to the HA origin only, e.g.
   /// `https://ha.example.com/*`. Passed to the native side as the
@@ -77,6 +110,7 @@ HaTokenInjector? injectorForWebview(
   WebviewConfig config, {
   required String haUrl,
   required String haToken,
+  bool darkMode = false,
 }) {
   if (config.source != WebviewSource.haDashboard) return null;
   if (haUrl.isEmpty || haToken.isEmpty) return null;
@@ -90,5 +124,5 @@ HaTokenInjector? injectorForWebview(
       uri.host.isEmpty) {
     return null;
   }
-  return HaTokenInjector(haUrl: haUrl, token: haToken);
+  return HaTokenInjector(haUrl: haUrl, token: haToken, darkMode: darkMode);
 }

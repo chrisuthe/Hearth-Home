@@ -182,6 +182,11 @@ class HubConfig {
   final String immichApiKey;
   final String haUrl;
   final String haToken;
+
+  /// Force HA-dashboard webviews to render in dark mode by signalling
+  /// `prefers-color-scheme: dark` (only takes effect when the HA user's theme
+  /// is Auto/default). Applies to HA dashboards only, not custom URLs.
+  final bool haDashboardDarkMode;
   final String musicAssistantUrl;
   final String musicAssistantToken;
   final String frigateUrl;
@@ -267,6 +272,7 @@ class HubConfig {
     this.immichApiKey = '',
     this.haUrl = '',
     this.haToken = '',
+    this.haDashboardDarkMode = true,
     this.musicAssistantUrl = '',
     this.musicAssistantToken = '',
     this.frigateUrl = '',
@@ -347,6 +353,7 @@ class HubConfig {
     String? immichApiKey,
     String? haUrl,
     String? haToken,
+    bool? haDashboardDarkMode,
     String? musicAssistantUrl,
     String? musicAssistantToken,
     String? frigateUrl,
@@ -406,6 +413,7 @@ class HubConfig {
       immichApiKey: immichApiKey ?? this.immichApiKey,
       haUrl: haUrl ?? this.haUrl,
       haToken: haToken ?? this.haToken,
+      haDashboardDarkMode: haDashboardDarkMode ?? this.haDashboardDarkMode,
       musicAssistantUrl: musicAssistantUrl ?? this.musicAssistantUrl,
       musicAssistantToken: musicAssistantToken ?? this.musicAssistantToken,
       frigateUrl: frigateUrl ?? this.frigateUrl,
@@ -469,6 +477,7 @@ class HubConfig {
         'immichApiKey': immichApiKey,
         'haUrl': haUrl,
         'haToken': haToken,
+        'haDashboardDarkMode': haDashboardDarkMode,
         'musicAssistantUrl': musicAssistantUrl,
         'musicAssistantToken': musicAssistantToken,
         'frigateUrl': frigateUrl,
@@ -529,6 +538,7 @@ class HubConfig {
         immichApiKey: json['immichApiKey'] as String? ?? '',
         haUrl: json['haUrl'] as String? ?? '',
         haToken: json['haToken'] as String? ?? '',
+        haDashboardDarkMode: json['haDashboardDarkMode'] as bool? ?? true,
         musicAssistantUrl: json['musicAssistantUrl'] as String? ?? '',
         musicAssistantToken: json['musicAssistantToken'] as String? ?? '',
         frigateUrl: json['frigateUrl'] as String? ?? '',

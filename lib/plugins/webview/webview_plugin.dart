@@ -5,6 +5,7 @@ import '../../config/hub_config.dart';
 import '../../config/webview_config.dart';
 import '../../modules/webview/webview_settings_section.dart';
 import '../../services/ha_lovelace_service.dart';
+import '../framework/fields/bool_setting_field.dart';
 import '../framework/plugin_router.dart';
 import '../framework/web_context.dart';
 import '../hearth_plugin.dart';
@@ -60,7 +61,15 @@ class WebviewPlugin extends HearthPlugin {
   // data at runtime via `hearth.action` and persists the chosen webviews
   // through the POST route.
   @override
-  String buildSettingsHtml(WebContext ctx) => _webviewsHtml;
+  String buildSettingsHtml(WebContext ctx) {
+    // Web parity for the on-device "Dark mode for HA dashboards" toggle.
+    final darkModeHtml = const BoolSettingField(
+      label: 'Dark mode for HA dashboards',
+      subtitle: 'Signal prefers-color-scheme: dark to Home Assistant',
+      configPath: 'haDashboardDarkMode',
+    ).buildHtml(ctx);
+    return '$darkModeHtml$_webviewsHtml';
+  }
 
   /// Routes backing the web Webviews panel:
   ///   * GET  webviews — discovered HA dashboards (via readProvider), the

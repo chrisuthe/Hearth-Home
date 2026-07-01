@@ -23,9 +23,21 @@ class WebviewSettingsSection extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (haConfigured)
-            const HaDashboardPicker()
-          else
+          if (haConfigured) ...[
+            const HaDashboardPicker(),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Dark mode for HA dashboards'),
+              subtitle: const Text(
+                'Signal prefers-color-scheme: dark to Home Assistant',
+                style: TextStyle(color: Colors.white54, fontSize: 12),
+              ),
+              value: config.haDashboardDarkMode,
+              onChanged: (v) => ref
+                  .read(hubConfigProvider.notifier)
+                  .update((c) => c.copyWith(haDashboardDarkMode: v)),
+            ),
+          ] else
             const _HaConfigPrompt(),
           const SizedBox(height: 24),
           const CustomUrlList(),

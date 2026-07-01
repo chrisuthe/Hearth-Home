@@ -146,5 +146,62 @@ void main() {
       );
       expect(inj, isNull);
     });
+
+    test('threads darkMode into the injector script', () {
+      final inj = injectorForWebview(
+        cfg(WebviewSource.haDashboard),
+        haUrl: 'https://ha.home.example.com',
+        haToken: 'llat-abc123',
+        darkMode: true,
+      );
+      expect(inj, isNotNull);
+      expect(inj!.script, contains('matchMedia'));
+    });
+
+    test('darkMode defaults off when not passed', () {
+      final inj = injectorForWebview(
+        cfg(WebviewSource.haDashboard),
+        haUrl: 'https://ha.home.example.com',
+        haToken: 'llat-abc123',
+      );
+      expect(inj, isNotNull);
+      expect(inj!.script, isNot(contains('matchMedia')));
+    });
+  });
+
+  group('HaTokenInjector dark mode shim', () {
+    const haUrl = 'https://ha.home.example.com';
+    const token = 'llat-abc123';
+
+    test('installs a prefers-color-scheme:dark matchMedia shim when darkMode', () {
+      final s = const HaTokenInjector(
+        haUrl: haUrl,
+        token: token,
+        darkMode: true,
+      ).script;
+      final c = compact(s);
+      expect(c, contains('window.matchMedia=function'));
+      expect(c, contains('prefers-color-scheme'));
+      // Still seeds the token.
+      expect(c, contains('localStorage.setItem("hassTokens"'));
+    });
+
+    test('omits the shim when darkMode is false (default)', () {
+      final s = const HaTokenInjector(haUrl: haUrl, token: token).script;
+      expect(s, isNot(contains('matchMedia')));
+    });
+
+    test('shim is origin-guarded, like the token seed', () {
+      final s = const HaTokenInjector(
+        haUrl: haUrl,
+        token: token,
+        darkMode: true,
+      ).script;
+      // Token seed guard + shim guard = at least two origin checks.
+      expect(
+        RegExp('location.origin').allMatches(s).length,
+        greaterThanOrEqualTo(2),
+      );
+    });
   });
 }
