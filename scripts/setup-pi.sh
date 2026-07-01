@@ -194,6 +194,11 @@ Environment=PIPEWIRE_RUNTIME_DIR=/run/user/999
 ExecStart=/usr/local/bin/flutter-pi --release --mirror-connector HDMI-A-2 /opt/hearth/bundle
 Environment=LD_LIBRARY_PATH=/opt/hearth/bundle
 Environment=HEARTH_NO_MEDIAKIT=1
+# Never autoplug GStreamer's AV1 parser/decoder: gstav1parse has an assertion
+# that abort()s (core-dumps flutter-pi) during decodebin autoplug on some
+# streams, which then trips the rollback loop. The Pi can't play AV1 anyway,
+# and Plex transcodes to H.264, so disabling AV1 elements only removes a crash.
+Environment=GST_PLUGIN_FEATURE_RANK=av1parse:NONE,av1dec:NONE
 Restart=on-failure
 RestartSec=5
 StartLimitIntervalSec=60
