@@ -31,6 +31,7 @@ Each page covers **how to connect it** (which URL/token/key, and where to enter 
 | [[Home Assistant Controls]] | Lights & climate cards over the HA WebSocket; pinned entities |
 | [[Music Assistant]] | Now-playing, transport, volume, multi-zone playback |
 | [[Cameras (Frigate)]] | Snapshot grid and full-screen live camera streams |
+| [[Cameras (UniFi Protect)]] | UniFi Protect cameras via the local API key: snapshot grid and full-screen live streams |
 | [[Recipes (Mealie)]] | Browse and view recipes with category filtering |
 | [[Web Dashboards]] | Home Assistant Lovelace or any URL as swipe screens |
 | [[Alarms & Timers]] | Scheduled alarms (sunrise, snooze) and countdown timers |
