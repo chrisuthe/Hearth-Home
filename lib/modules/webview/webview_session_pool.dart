@@ -164,14 +164,14 @@ class WebviewSessionPool {
   /// Pause every session in the pool. Used when Hearth's IdleController
   /// reports idle.
   Future<void> pauseAll() async {
-    for (final session in _sessions.values) {
+    for (final session in _sessions.values.toList()) {
       await session.setPaused(true);
     }
   }
 
   /// Resume every session.
   Future<void> resumeAll() async {
-    for (final session in _sessions.values) {
+    for (final session in _sessions.values.toList()) {
       await session.setPaused(false);
     }
   }

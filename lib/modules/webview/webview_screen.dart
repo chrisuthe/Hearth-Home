@@ -41,15 +41,19 @@ Offset webviewViewportOffset(Offset local, Size box, Size render) {
 /// Offscreen pages resolve and stay warm too: the pool now holds a cap-N LRU
 /// of live sessions, so a pre-built webview page can resolve in the background
 /// without evicting the visible one (within capacity). [isActive] (driven from
-/// HubShell's `_currentPage`) no longer gates resolution — it now governs only
-/// input routing: touch/navigation events are dispatched solely to the
-/// visible page.
+/// HubShell's `_currentPage`) no longer gates resolution. Input isolation to
+/// the visible page is a structural property of HubShell's `PageView` —
+/// offscreen pages aren't mounted/hit-tested — so [isActive] is retained
+/// only to signal which page is visible (e.g. for the become-active resolve
+/// reclaim in [didUpdateWidget]).
 class WebviewScreen extends ConsumerStatefulWidget {
   final WebviewConfig config;
 
-  /// True when this webview is the currently visible page. Governs input
-  /// routing only — touch/navigation events are sent solely to the visible
-  /// page. Offscreen pages still resolve and render a live session.
+  /// True when this webview is the currently visible page. Offscreen pages
+  /// still resolve and render a live session; input isolation to the visible
+  /// page comes from HubShell's `PageView` structurally (offscreen pages
+  /// aren't hit-tested), not from this flag. Used to signal the become-active
+  /// transition (see [didUpdateWidget]).
   final bool isActive;
 
   const WebviewScreen({
@@ -74,9 +78,9 @@ class _WebviewScreenState extends ConsumerState<WebviewScreen> {
 
   /// Resolves (or re-resolves) the session for this webview, applying the
   /// HA-token injector when applicable. No longer no-ops when inactive:
-  /// offscreen pages resolve and stay warm in the cap-N pool too. [isActive]
-  /// now governs only input routing — touch/navigation events go to the
-  /// visible page.
+  /// offscreen pages resolve and stay warm in the cap-N pool too. Input
+  /// isolation to the visible page is structural (HubShell's `PageView`
+  /// doesn't hit-test offscreen pages), not gated by [isActive] here.
   ///
   /// Safe to call repeatedly: it only swaps the session when the pool hands back
   /// a different instance (e.g. the HA token changed, so the pool rebuilt the
