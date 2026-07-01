@@ -12,6 +12,7 @@
 - [[Home Assistant Controls]]
 - [[Music Assistant]]
 - [[Cameras (Frigate)]]
+- [[Cameras (UniFi Protect)]]
 - [[Recipes (Mealie)]]
 - [[Web Dashboards]]
 - [[Alarms & Timers]]

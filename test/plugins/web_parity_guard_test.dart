@@ -104,6 +104,11 @@ void main() {
     'currentVersion': 'internal: managed by the updater',
     'sendspinClientId': 'internal: app-seeded Sendspin device identity',
     'dlnaUuid': 'internal: app-seeded UPnP device identity (UDN), web read-only',
+    'plexClientId':
+        'internal: app-seeded Plex device identity (X-Plex-Client-Identifier), '
+            'web read-only',
+    'plexAuthToken':
+        'internal: plex.tv token from on-device PIN pairing, web read-only secret',
     'sendspinStaticDelayMs':
         'internal: advanced sync tuning, not surfaced in any settings panel',
     'setupComplete': 'internal: first-run flow state',

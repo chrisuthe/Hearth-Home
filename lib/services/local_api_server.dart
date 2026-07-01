@@ -399,7 +399,7 @@ class LocalApiServer {
   Future<void> _handleGetConfig(HttpRequest request) async {
     final json = _configNotifier.current.toJson();
     // Redact secrets — tokens are write-only from the API's perspective.
-    const secretFields = ['apiKey', 'haToken', 'immichApiKey', 'musicAssistantToken', 'frigatePassword', 'mealieToken', 'giteaApiToken', 'mqttPassword'];
+    const secretFields = ['apiKey', 'haToken', 'immichApiKey', 'musicAssistantToken', 'frigatePassword', 'mealieToken', 'giteaApiToken', 'mqttPassword', 'plexAuthToken'];
     for (final field in secretFields) {
       final value = json[field] as String? ?? '';
       json[field] = value.isEmpty ? '' : '••••••••';
@@ -420,12 +420,17 @@ class LocalApiServer {
   ///     Sendspin player is first enabled.
   ///   * [dlnaUuid] \u2014 internal UPnP device identity, app-seeded when the
   ///     DLNA renderer is first enabled.
+  ///   * [plexClientId] \u2014 internal Plex device identity, app-seeded when the
+  ///     Plex player is first enabled.
+  ///   * [plexAuthToken] \u2014 plex.tv token from on-device PIN pairing.
   ///   * [currentVersion] \u2014 managed by the updater, not user-editable.
   ///   * [setupComplete] \u2014 first-run flow state.
   static const _webReadOnlyConfigKeys = {
     'apiKey',
     'sendspinClientId',
     'dlnaUuid',
+    'plexClientId',
+    'plexAuthToken',
     'currentVersion',
     'setupComplete',
   };
@@ -469,7 +474,7 @@ class LocalApiServer {
 
     // Filter out redacted markers so clients cannot overwrite real secrets
     // with the placeholder value returned by GET /api/config.
-    const secretFields = ['haToken', 'immichApiKey', 'musicAssistantToken', 'frigatePassword', 'mealieToken', 'giteaApiToken', 'mqttPassword'];
+    const secretFields = ['haToken', 'immichApiKey', 'musicAssistantToken', 'frigatePassword', 'mealieToken', 'giteaApiToken', 'mqttPassword', 'plexAuthToken'];
     for (final field in secretFields) {
       if (json[field] == _redactedMarker) {
         json.remove(field);

@@ -192,6 +192,8 @@ class HubConfig {
   final String frigateUrl;
   final String frigateUsername;
   final String frigatePassword;
+  final String unifiProtectUrl;
+  final String unifiProtectApiKey;
   final int idleTimeoutSeconds;
   final String nightModeSource; // "ha_entity" | "api" | "clock" | "none"
   final String? nightModeHaEntity;
@@ -222,6 +224,17 @@ class HubConfig {
   /// Stable per-device UPnP UDN. App-seeded on first enable (like
   /// [sendspinClientId]); web read-only so it can't be overwritten.
   final String dlnaUuid;
+  /// Plex Companion: advertise Hearth as a Plex player so Plex apps can cast
+  /// video to the kiosk. Off by default (no GDM traffic, no port bound).
+  final bool plexEnabled;
+  /// Player name shown in the Plex "Cast" menu (GDM `Name`).
+  final String plexPlayerName;
+  /// Stable per-device Plex client identifier (X-Plex-Client-Identifier).
+  /// App-seeded on first enable (like [dlnaUuid]); web read-only. Must stay
+  /// constant across plex.tv pairing and every Companion call.
+  final String plexClientId;
+  /// plex.tv auth token from the PIN-link pairing flow. Secret; web read-only.
+  final String plexAuthToken;
   /// Wire value for [OnScreenKeyboardMode]: 'auto', 'always', or 'never'.
   final String onScreenKeyboardMode;
   final String displayProfile; // "auto" | "amoled-11" | "rpi-7" | "hdmi"
@@ -278,6 +291,8 @@ class HubConfig {
     this.frigateUrl = '',
     this.frigateUsername = '',
     this.frigatePassword = '',
+    this.unifiProtectUrl = '',
+    this.unifiProtectApiKey = '',
     this.idleTimeoutSeconds = 120,
     this.nightModeSource = 'none',
     this.nightModeHaEntity,
@@ -297,6 +312,10 @@ class HubConfig {
     this.dlnaEnabled = false,
     this.dlnaRendererName = '',
     this.dlnaUuid = '',
+    this.plexEnabled = false,
+    this.plexPlayerName = '',
+    this.plexClientId = '',
+    this.plexAuthToken = '',
     this.onScreenKeyboardMode = 'auto',
     this.displayProfile = 'auto',
     this.displayWidth = 0,
@@ -359,6 +378,8 @@ class HubConfig {
     String? frigateUrl,
     String? frigateUsername,
     String? frigatePassword,
+    String? unifiProtectUrl,
+    String? unifiProtectApiKey,
     int? idleTimeoutSeconds,
     String? nightModeSource,
     Object? nightModeHaEntity = _undefined,
@@ -378,6 +399,10 @@ class HubConfig {
     bool? dlnaEnabled,
     String? dlnaRendererName,
     String? dlnaUuid,
+    bool? plexEnabled,
+    String? plexPlayerName,
+    String? plexClientId,
+    String? plexAuthToken,
     String? onScreenKeyboardMode,
     String? displayProfile,
     int? displayWidth,
@@ -419,6 +444,8 @@ class HubConfig {
       frigateUrl: frigateUrl ?? this.frigateUrl,
       frigateUsername: frigateUsername ?? this.frigateUsername,
       frigatePassword: frigatePassword ?? this.frigatePassword,
+      unifiProtectUrl: unifiProtectUrl ?? this.unifiProtectUrl,
+      unifiProtectApiKey: unifiProtectApiKey ?? this.unifiProtectApiKey,
       idleTimeoutSeconds: idleTimeoutSeconds ?? this.idleTimeoutSeconds,
       nightModeSource: nightModeSource ?? this.nightModeSource,
       nightModeHaEntity: nightModeHaEntity == _undefined ? this.nightModeHaEntity : nightModeHaEntity as String?,
@@ -439,6 +466,10 @@ class HubConfig {
       dlnaEnabled: dlnaEnabled ?? this.dlnaEnabled,
       dlnaRendererName: dlnaRendererName ?? this.dlnaRendererName,
       dlnaUuid: dlnaUuid ?? this.dlnaUuid,
+      plexEnabled: plexEnabled ?? this.plexEnabled,
+      plexPlayerName: plexPlayerName ?? this.plexPlayerName,
+      plexClientId: plexClientId ?? this.plexClientId,
+      plexAuthToken: plexAuthToken ?? this.plexAuthToken,
       onScreenKeyboardMode:
           onScreenKeyboardMode ?? this.onScreenKeyboardMode,
       displayProfile: displayProfile ?? this.displayProfile,
@@ -483,6 +514,8 @@ class HubConfig {
         'frigateUrl': frigateUrl,
         'frigateUsername': frigateUsername,
         'frigatePassword': frigatePassword,
+        'unifiProtectUrl': unifiProtectUrl,
+        'unifiProtectApiKey': unifiProtectApiKey,
         'idleTimeoutSeconds': idleTimeoutSeconds,
         'nightModeSource': nightModeSource,
         'nightModeHaEntity': nightModeHaEntity,
@@ -502,6 +535,10 @@ class HubConfig {
         'dlnaEnabled': dlnaEnabled,
         'dlnaRendererName': dlnaRendererName,
         'dlnaUuid': dlnaUuid,
+        'plexEnabled': plexEnabled,
+        'plexPlayerName': plexPlayerName,
+        'plexClientId': plexClientId,
+        'plexAuthToken': plexAuthToken,
         'onScreenKeyboardMode': onScreenKeyboardMode,
         'displayProfile': displayProfile,
         'displayWidth': displayWidth,
@@ -544,6 +581,8 @@ class HubConfig {
         frigateUrl: json['frigateUrl'] as String? ?? '',
         frigateUsername: json['frigateUsername'] as String? ?? '',
         frigatePassword: json['frigatePassword'] as String? ?? '',
+        unifiProtectUrl: json['unifiProtectUrl'] as String? ?? '',
+        unifiProtectApiKey: json['unifiProtectApiKey'] as String? ?? '',
         idleTimeoutSeconds: json['idleTimeoutSeconds'] as int? ?? 120,
         nightModeSource: json['nightModeSource'] as String? ?? 'none',
         nightModeHaEntity: json['nightModeHaEntity'] as String?,
@@ -564,6 +603,10 @@ class HubConfig {
         dlnaEnabled: json['dlnaEnabled'] as bool? ?? false,
         dlnaRendererName: json['dlnaRendererName'] as String? ?? '',
         dlnaUuid: json['dlnaUuid'] as String? ?? '',
+        plexEnabled: json['plexEnabled'] as bool? ?? false,
+        plexPlayerName: json['plexPlayerName'] as String? ?? '',
+        plexClientId: json['plexClientId'] as String? ?? '',
+        plexAuthToken: json['plexAuthToken'] as String? ?? '',
         onScreenKeyboardMode:
             json['onScreenKeyboardMode'] as String? ?? 'auto',
         displayProfile: json['displayProfile'] as String? ?? 'auto',

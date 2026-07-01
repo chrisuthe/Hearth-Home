@@ -13,6 +13,7 @@ import 'services/timezone_service.dart';
 import 'modules/alarm_clock/alarm_service.dart';
 import 'services/mqtt_service.dart';
 import 'services/dlna/dlna_service.dart';
+import 'services/plex/plex_service.dart';
 import 'services/sendspin/sendspin_service.dart';
 import 'services/voice_ducker.dart';
 import 'services/video/media_kit_player.dart';
@@ -110,6 +111,9 @@ Future<void> main() async {
     // DLNA renderer is also self-initializing but needs an eager read to
     // start SSDP advertisement when config says enabled.
     container.read(dlnaServiceProvider);
+    // Plex Companion player: eager read so GDM advertisement starts at boot
+    // when config says enabled.
+    container.read(plexServiceProvider);
   }
 
   // Eager-load AlarmService so persisted alarms are loaded and the
