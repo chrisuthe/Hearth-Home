@@ -49,6 +49,9 @@ doc) can send commands to Hearth over MQTT:
 
 This is what powers voice commands like "set a 10-minute timer" through Home Assistant Assist.
 
+> Home Assistant can also **push a notification card** to the kiosk over this same MQTT
+> connection (or over HTTP). See **[[Notifications]]** for the topic and payload.
+
 ## Troubleshooting
 
 - **No Hearth device in HA** — confirm the broker URL is reachable from the Pi, the MQTT

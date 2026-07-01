@@ -18,6 +18,7 @@
 - [[Alarms & Timers]]
 - [[Voice Satellite]]
 - [[Home Assistant Device (MQTT)]]
+- [[Notifications]]
 - [[Multi-Room Audio (Sendspin)]]
 - [[Cast to Hearth (DLNA)]]
 
