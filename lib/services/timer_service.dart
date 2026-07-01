@@ -2,7 +2,9 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../models/hearth_notification.dart';
 import '../utils/logger.dart';
+import 'notification_service.dart';
 
 /// A single countdown timer managed by [TimerService].
 ///
@@ -58,6 +60,21 @@ class TimerService extends ChangeNotifier {
   Timer? _ticker;
   int _nextId = 0;
 
+  /// When set, a fired timer is surfaced as an alert-priority sticky card in
+  /// the notification deck (source=timer). Optional so direct-constructed
+  /// instances in tests behave as before (looping beep, no cards).
+  NotificationService? _notificationService;
+
+  /// Wire the notification store so fired timers become deck cards. Called by
+  /// [timerServiceProvider]; the fired-timer looping beep stays here.
+  void attachNotificationService(NotificationService service) {
+    _notificationService = service;
+  }
+
+  /// Stable deck-card id for a timer, so re-ingest can't stack duplicates and
+  /// dismissal maps back to the timer.
+  static String _cardId(int timerId) => 'timer-$timerId';
+
   /// All active (non-dismissed) timers.
   List<HubTimer> get timers => _timers.where((t) => !t.isDismissed).toList();
 
@@ -84,18 +101,27 @@ class TimerService extends ChangeNotifier {
   }
 
   void dismissTimer(int id) {
-    final timer = _timers.firstWhere((t) => t.id == id);
-    timer._dismissed = true;
+    final match = _timers.where((t) => t.id == id);
+    if (match.isEmpty) {
+      // Timer already gone (e.g. re-entered from the card's onDismiss) — just
+      // make sure its card is cleared. dismiss() is idempotent, so this ends
+      // the loop rather than recursing.
+      _notificationService?.dismiss(_cardId(id));
+      return;
+    }
+    match.first._dismissed = true;
     _alreadyFired.remove(id);
     _timers.removeWhere((t) => t.isDismissed);
     if (firedTimers.isEmpty) _stopAlarmSound();
     if (_timers.isEmpty) _stopTicking();
     notifyListeners();
+    _notificationService?.dismiss(_cardId(id));
   }
 
-  /// Dismiss all fired timers at once (e.g., tapping the alert overlay).
+  /// Dismiss all fired timers at once (e.g., an HA `timer/cancel` with no id).
   void dismissAllFired() {
-    for (final t in firedTimers) {
+    final fired = firedTimers;
+    for (final t in fired) {
       t._dismissed = true;
       _alreadyFired.remove(t.id);
     }
@@ -103,6 +129,9 @@ class TimerService extends ChangeNotifier {
     _stopAlarmSound();
     if (_timers.isEmpty) _stopTicking();
     notifyListeners();
+    for (final t in fired) {
+      _notificationService?.dismiss(_cardId(t.id));
+    }
   }
 
   /// Start a periodic tick that drives UI updates.
@@ -120,14 +149,43 @@ class TimerService extends ChangeNotifier {
   final Set<int> _alreadyFired = {};
 
   void _onTick() {
-    // Check for newly fired timers and play an alarm sound
+    // Check for newly fired timers: play the alarm sound and surface a card.
     for (final timer in _timers) {
       if (timer.isDone && !timer.isDismissed && !_alreadyFired.contains(timer.id)) {
         _alreadyFired.add(timer.id);
         _playAlarmSound();
+        _ingestTimerCard(timer);
       }
     }
     notifyListeners();
+  }
+
+  /// Surface a fired timer as an alert-priority sticky card. The card's
+  /// `onDismiss` maps back to [dismissTimer] so swiping/closing the card also
+  /// dismisses the timer (and stops the looping beep once the last one clears).
+  void _ingestTimerCard(HubTimer timer) {
+    _notificationService?.ingest(HearthNotification(
+      id: _cardId(timer.id),
+      source: NotificationSource.timer,
+      sourceLabel: defaultSourceLabel(NotificationSource.timer),
+      priority: NotificationPriority.alert,
+      title: "Time's up",
+      body: '${_formatDuration(timer.totalDuration)} timer',
+      sticky: true,
+      timestamp: DateTime.now(),
+      onDismiss: () => dismissTimer(timer.id),
+    ));
+  }
+
+  /// Format a whole-timer duration as "H:MM:SS" or "M:SS" for the card body.
+  static String _formatDuration(Duration d) {
+    final h = d.inHours;
+    final m = d.inMinutes.remainder(60);
+    final s = d.inSeconds.remainder(60);
+    if (h > 0) {
+      return '$h:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
+    }
+    return '$m:${s.toString().padLeft(2, '0')}';
   }
 
   Process? _alarmProcess;
@@ -191,5 +249,8 @@ class TimerService extends ChangeNotifier {
 }
 
 final timerServiceProvider = ChangeNotifierProvider<TimerService>((ref) {
-  return TimerService();
+  final service = TimerService();
+  // Route fired timers into the notification deck as alert-priority cards.
+  service.attachNotificationService(ref.read(notificationServiceProvider));
+  return service;
 });

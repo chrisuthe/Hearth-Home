@@ -9,6 +9,8 @@ import 'package:hearth/plugins/plugin_registry.dart';
 import 'package:hearth/services/local_api_server.dart';
 import 'package:hearth/services/display_mode_service.dart';
 import 'package:hearth/services/capture_service.dart';
+import 'package:hearth/services/notification_service.dart';
+import 'package:hearth/models/hearth_notification.dart';
 
 void main() {
   group('LocalApiServer', () {
@@ -423,6 +425,71 @@ void main() {
       final data = jsonDecode(body) as Map<String, dynamic>;
       expect(data.containsKey('currentVersion'), true);
       expect(data.containsKey('autoUpdate'), true);
+    });
+
+    // --- Notify endpoint ---
+
+    group('notify endpoint', () {
+      late NotificationService notifications;
+
+      setUp(() async {
+        await server.stop();
+        notifications = NotificationService(playChime: (_) async {});
+        server = LocalApiServer(
+          displayModeService: displayService,
+          configNotifier: configNotifier,
+          notificationService: notifications,
+        );
+        port = await server.start(port: 0);
+      });
+
+      tearDown(() => notifications.dispose());
+
+      test('POST /api/notify ingests a normalized card', () async {
+        final r = await post('/api/notify',
+            body: jsonEncode({
+              'title': 'Laundry',
+              'message': 'Cycle finished',
+              'priority': 'info',
+            }),
+            headers: authHeaders);
+        expect(r.statusCode, 200);
+        final json = jsonDecode(await readBody(r)) as Map<String, dynamic>;
+        expect(json['status'], 'ok');
+        expect(notifications.notifications, hasLength(1));
+        final n = notifications.notifications.single;
+        expect(n.title, 'Laundry');
+        expect(n.body, 'Cycle finished');
+        expect(n.priority, NotificationPriority.info);
+        expect(n.source, NotificationSource.ha);
+      });
+
+      test('POST /api/notify requires auth', () async {
+        final r = await post('/api/notify',
+            body: jsonEncode({'title': 'x'}));
+        expect(r.statusCode, 401);
+        expect(notifications.notifications, isEmpty);
+      });
+
+      test('POST /api/notify rejects a payload with no title/message', () async {
+        final r = await post('/api/notify',
+            body: jsonEncode({'priority': 'alert'}), headers: authHeaders);
+        expect(r.statusCode, 400);
+        expect(notifications.notifications, isEmpty);
+      });
+
+      test('POST /api/notify returns 503 when no service is wired', () async {
+        // Swap back to a server built without a NotificationService.
+        await server.stop();
+        server = LocalApiServer(
+          displayModeService: displayService,
+          configNotifier: configNotifier,
+        );
+        port = await server.start(port: 0);
+        final r = await post('/api/notify',
+            body: jsonEncode({'title': 'x'}), headers: authHeaders);
+        expect(r.statusCode, 503);
+      });
     });
 
     // --- Capture endpoints ---

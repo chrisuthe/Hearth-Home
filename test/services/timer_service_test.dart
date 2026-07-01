@@ -1,4 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hearth/models/hearth_notification.dart';
+import 'package:hearth/services/notification_service.dart';
 import 'package:hearth/services/timer_service.dart';
 
 void main() {
@@ -87,6 +89,59 @@ void main() {
       final id = service.timers.first.id;
       service.dismissTimer(id);
       expect(service.hasActiveTimers, false);
+    });
+  });
+
+  group('TimerService → NotificationService wiring', () {
+    late NotificationService notifications;
+    late TimerService service;
+
+    setUp(() {
+      notifications = NotificationService(playChime: (_) async {});
+      service = TimerService();
+      service.attachNotificationService(notifications);
+    });
+
+    tearDown(() {
+      service.dispose();
+      notifications.dispose();
+    });
+
+    test('a fired timer surfaces an alert sticky TIMER card', () async {
+      service.startTimer(Duration.zero); // fires immediately
+      // The 200ms ticker ingests the card on the next tick.
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      expect(notifications.notifications, hasLength(1));
+      final n = notifications.notifications.single;
+      expect(n.source, NotificationSource.timer);
+      expect(n.sourceLabel, 'TIMER');
+      expect(n.priority, NotificationPriority.alert);
+      expect(n.sticky, true);
+    });
+
+    test('N fired timers produce N cards', () async {
+      service.startTimer(Duration.zero);
+      service.startTimer(Duration.zero);
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      expect(notifications.notifications, hasLength(2));
+    });
+
+    test('dismissing the card dismisses the timer (no recursion)', () async {
+      service.startTimer(Duration.zero);
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      final id = notifications.notifications.single.id;
+      notifications.dismiss(id);
+      expect(notifications.notifications, isEmpty);
+      expect(service.firedTimers, isEmpty);
+    });
+
+    test('dismissing the timer removes its card (no recursion)', () async {
+      service.startTimer(Duration.zero);
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      final timerId = service.firedTimers.single.id;
+      service.dismissTimer(timerId);
+      expect(notifications.notifications, isEmpty);
+      expect(service.firedTimers, isEmpty);
     });
   });
 

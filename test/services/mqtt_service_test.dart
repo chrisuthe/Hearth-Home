@@ -1,8 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hearth/models/hearth_notification.dart';
 import 'package:hearth/modules/alarm_clock/alarm_models.dart';
 import 'package:hearth/modules/alarm_clock/alarm_service.dart';
 import 'package:hearth/services/mqtt_service.dart';
+import 'package:hearth/services/notification_service.dart';
 import 'package:hearth/services/timer_service.dart';
 
 void main() {
@@ -119,14 +121,21 @@ void main() {
     late MqttService service;
     late TimerService timers;
     late AlarmService alarms;
+    late NotificationService notifications;
     final cid = MqttService.computeClientId();
     String topic(String suffix) => 'hearth/$cid/$suffix';
 
     setUp(() {
-      container = ProviderContainer();
+      container = ProviderContainer(overrides: [
+        // Use a silent chime so no audio subprocess is spawned in tests.
+        notificationServiceProvider.overrideWith(
+          (ref) => NotificationService(playChime: (_) async {}),
+        ),
+      ]);
       service = container.read(mqttServiceProvider);
       timers = container.read(timerServiceProvider);
       alarms = container.read(alarmServiceProvider);
+      notifications = container.read(notificationServiceProvider);
     });
 
     tearDown(() => container.dispose());
@@ -205,6 +214,51 @@ void main() {
       service.handleCommand(topic('bogus/thing'), 'payload');
       expect(timers.timers, isEmpty);
       expect(alarms.alarms, isEmpty);
+    });
+
+    test('notify ingests a normalized card', () async {
+      await service.handleCommand(
+        topic('notify'),
+        '{"title": "Doorbell", "message": "Someone is at the door", '
+            '"priority": "alert", "sticky": true}',
+      );
+      expect(notifications.notifications, hasLength(1));
+      final n = notifications.notifications.first;
+      expect(n.title, 'Doorbell');
+      expect(n.body, 'Someone is at the door');
+      expect(n.priority, NotificationPriority.alert);
+      expect(n.sticky, true);
+      // Defaults to the HA source when the payload doesn't specify one.
+      expect(n.source, NotificationSource.ha);
+      expect(n.sourceLabel, 'HOME ASST');
+    });
+
+    test('notify defaults priority to info and infers stickiness', () async {
+      await service.handleCommand(
+        topic('notify'),
+        '{"message": "Package delivered"}',
+      );
+      final n = notifications.notifications.single;
+      expect(n.priority, NotificationPriority.info);
+      // Info without an explicit sticky flag is transient.
+      expect(n.sticky, false);
+      expect(n.title, 'Package delivered');
+    });
+
+    test('notify honours an explicit source and label', () async {
+      await service.handleCommand(
+        topic('notify'),
+        '{"title": "Motion", "source": "frigate"}',
+      );
+      final n = notifications.notifications.single;
+      expect(n.source, NotificationSource.frigate);
+      expect(n.sourceLabel, 'FRIGATE');
+    });
+
+    test('notify ignores a payload with no title or message', () async {
+      await service.handleCommand(topic('notify'), '{"priority": "alert"}');
+      await service.handleCommand(topic('notify'), 'not json');
+      expect(notifications.notifications, isEmpty);
     });
   });
 }
