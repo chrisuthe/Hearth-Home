@@ -8,6 +8,29 @@ import '../video/hearth_video_player.dart';
 import 'plex_player_state.dart';
 import 'plex_wire.dart';
 
+/// Fetches item metadata XML for a Plex URL, or null on error / non-2xx.
+typedef PlexMetadataFetcher = Future<String?> Function(String url);
+
+/// Default [PlexMetadataFetcher]: a plain HTTP GET returning the body. Top-level
+/// so it can seed the service default and be swapped out in tests.
+Future<String?> plexHttpGetBody(String url) async {
+  try {
+    final client = HttpClient()..connectionTimeout = const Duration(seconds: 8);
+    final req = await client.getUrl(Uri.parse(url));
+    final resp = await req.close();
+    if (resp.statusCode >= 400) {
+      await resp.drain();
+      client.close();
+      return null;
+    }
+    final body = await resp.transform(utf8.decoder).join();
+    client.close();
+    return body;
+  } catch (_) {
+    return null;
+  }
+}
+
 /// Plex Companion player runtime.
 ///
 /// Advertises Hearth on the LAN via GDM, serves the Plex Companion control
@@ -21,8 +44,15 @@ class PlexService {
   /// can be exercised without a real media backend.
   final HearthVideoPlayer Function() _createPlayer;
 
-  PlexService({HearthVideoPlayer Function()? playerFactory})
-      : _createPlayer = playerFactory ?? HearthVideoPlayer.create;
+  /// Fetches item metadata XML (to resolve the direct-play Part). Overridable in
+  /// tests so playback can be exercised without a real Plex server.
+  final PlexMetadataFetcher _fetchMetadata;
+
+  PlexService({
+    HearthVideoPlayer Function()? playerFactory,
+    PlexMetadataFetcher? metadataFetcher,
+  })  : _createPlayer = playerFactory ?? HearthVideoPlayer.create,
+        _fetchMetadata = metadataFetcher ?? plexHttpGetBody;
 
   // --- Identity / config (set by [configure]) ---
   String _clientId = '';
@@ -34,16 +64,10 @@ class PlexService {
   RawDatagramSocket? _gdmSocket;
   Timer? _helloTimer;
   Timer? _tickTimer;
-  Timer? _pingTimer;
 
   // --- Playback ---
   HearthVideoPlayer? _player;
   HearthVideoPlayer? get player => _player;
-
-  // Active transcode session (kept alive with pings, stopped on teardown).
-  String? _transcodeBase;
-  String _transcodeSession = '';
-  String _transcodeToken = '';
 
   // --- Timeline subscribers, keyed by controller X-Plex-Client-Identifier ---
   final Map<String, _Subscriber> _subscribers = {};
@@ -103,7 +127,6 @@ class PlexService {
 
     _subscribers.clear();
 
-    await _stopTranscodeSession();
     await _player?.stop();
     _player?.dispose();
     _player = null;
@@ -364,25 +387,22 @@ class PlexService {
     final token = reqToken.isNotEmpty ? reqToken : _authToken;
     final offsetMs = int.tryParse(params['offset'] ?? '') ?? 0;
 
-    // Tear down any prior cast's transcode session before starting a new one.
-    if (_transcodeBase != null) await _stopTranscodeSession();
-
     final base = plexServerBase(address: address, port: port, protocol: protocol);
-    final session = _clientId.isEmpty ? 'hearth-plex' : _clientId;
-    _transcodeBase = base;
-    _transcodeSession = session;
-    _transcodeToken = token;
 
-    final url = buildTranscodeUrl(
-      base: base,
-      key: key,
-      token: token,
-      clientId: _clientId,
-      session: session,
-      offsetMs: offsetMs,
-    );
+    // Direct play: resolve the item's media Part and stream the original file.
+    // The universal transcoder is bypassed — a server rejects it for shared
+    // libraries / transient tokens (bare HTTP 400) — and GStreamer decodes most
+    // containers/codecs natively. The player seeks to the resume offset locally.
+    final metaXml =
+        await _fetchMetadata(metadataUrl(base: base, key: key, token: token));
+    final partKey = metaXml == null ? '' : firstPartKey(metaXml);
+    if (partKey.isEmpty) {
+      Log.e('Plex', 'playMedia: no playable media part for $key');
+      return false;
+    }
+    final url = buildDirectPlayUrl(base: base, partKey: partKey, token: token);
 
-    Log.i('Plex', 'Cast: playMedia $key (offset ${offsetMs}ms)');
+    Log.i('Plex', 'Cast: playMedia $key -> $partKey (offset ${offsetMs}ms)');
     _player ??= _createPlayer();
     _updateState(
       _state.copyWith(
@@ -402,15 +422,16 @@ class PlexService {
       pushTimeline: true,
     );
     await _player!.play(url);
+    if (offsetMs > 0) await _player!.seek(Duration(milliseconds: offsetMs));
     await _player!.setVolume(_state.volume / 100.0);
     _updateState(
       _state.copyWith(transportState: PlexTransportState.playing),
       pushTimeline: true,
     );
     _startTick();
-    _startTranscodePing();
     return true;
   }
+
 
   Future<void> _play() async {
     if (_player == null) return;
@@ -434,7 +455,6 @@ class PlexService {
   Future<void> _stopPlayback() async {
     _tickTimer?.cancel();
     _tickTimer = null;
-    await _stopTranscodeSession();
     await _player?.stop();
     _player?.dispose();
     _player = null;
@@ -535,49 +555,6 @@ class PlexService {
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // Transcode session keep-alive
-  // ---------------------------------------------------------------------------
-
-  void _startTranscodePing() {
-    _pingTimer?.cancel();
-    if (!_running) return;
-    _pingTimer = Timer.periodic(const Duration(seconds: 20), (_) {
-      final base = _transcodeBase;
-      if (base == null) return;
-      _fireGet(transcodeControlUrl(
-        base: base,
-        command: 'ping',
-        session: _transcodeSession,
-        token: _transcodeToken,
-      ));
-    });
-  }
-
-  Future<void> _stopTranscodeSession() async {
-    _pingTimer?.cancel();
-    _pingTimer = null;
-    final base = _transcodeBase;
-    _transcodeBase = null;
-    if (base == null || !_running) return;
-    await _fireGet(transcodeControlUrl(
-      base: base,
-      command: 'stop',
-      session: _transcodeSession,
-      token: _transcodeToken,
-    ));
-  }
-
-  Future<void> _fireGet(String url) async {
-    try {
-      final client = HttpClient()
-        ..connectionTimeout = const Duration(seconds: 5);
-      final req = await client.getUrl(Uri.parse(url));
-      final resp = await req.close();
-      await resp.drain();
-      client.close();
-    } catch (_) {}
-  }
 
   // ---------------------------------------------------------------------------
   // State

@@ -240,6 +240,34 @@ String buildTranscodeUrl({
   ).toString();
 }
 
+String _trimSlash(String s) =>
+    s.endsWith('/') ? s.substring(0, s.length - 1) : s;
+
+/// Item metadata URL — GET this to discover the media `<Part>` for direct play.
+String metadataUrl({
+  required String base,
+  required String key,
+  required String token,
+}) =>
+    '${_trimSlash(base)}$key?X-Plex-Token=${Uri.encodeQueryComponent(token)}';
+
+/// The first media `<Part … key="…">` in an item's metadata XML (empty when the
+/// item exposes no streamable part).
+final RegExp _partKeyRe = RegExp(r'<Part\b[^>]*\bkey="([^"]*)"');
+String firstPartKey(String metadataXml) =>
+    _partKeyRe.firstMatch(metadataXml)?.group(1) ?? '';
+
+/// Direct-play URL for a media [partKey] (the original file). GStreamer plays
+/// most containers/codecs natively, so this avoids the universal transcoder,
+/// which a server rejects for shared libraries / transient tokens (bare HTTP
+/// 400). The player seeks to the resume offset locally.
+String buildDirectPlayUrl({
+  required String base,
+  required String partKey,
+  required String token,
+}) =>
+    '${_trimSlash(base)}$partKey?X-Plex-Token=${Uri.encodeQueryComponent(token)}';
+
 /// Build a transcode session control URL (`command` = `ping` to keep alive, or
 /// `stop` to tear down) sharing the [session] of [buildTranscodeUrl].
 String transcodeControlUrl({

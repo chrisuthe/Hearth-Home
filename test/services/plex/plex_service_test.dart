@@ -76,23 +76,31 @@ void main() {
   late FakeVideoPlayer fake;
   late PlexService service;
 
+  // Canned item metadata: one streamable Part, as PMS returns for direct play.
+  const metadataXml = '<MediaContainer><Video><Media>'
+      '<Part id="55" key="/library/parts/55/1/file.mkv" container="mkv"/>'
+      '</Media></Video></MediaContainer>';
+
   setUp(() {
     fake = FakeVideoPlayer();
-    service = PlexService(playerFactory: () => fake);
+    service = PlexService(
+      playerFactory: () => fake,
+      metadataFetcher: (url) async => metadataXml,
+    );
   });
 
   tearDown(() => service.dispose());
 
   group('playMedia', () {
-    test('resolves an HLS transcode URL and transitions to playing', () async {
+    test('direct-plays the media part and transitions to playing', () async {
       final result =
           await service.dispatchCommand('playMedia', _playMediaParams());
 
       expect(result.ok, isTrue);
       expect(fake.lastUrl, isNotNull);
       expect(fake.lastUrl, contains('192.168.1.50:32400'));
-      expect(fake.lastUrl, contains('/video/:/transcode/universal/start.m3u8'));
-      expect(fake.lastUrl, contains('offset=60')); // 60000ms -> 60s
+      expect(fake.lastUrl, contains('/library/parts/55/1/file.mkv'));
+      expect(fake.seekedTo, const Duration(milliseconds: 60000)); // resume offset
       expect(fake.lastUrl, contains('X-Plex-Token=srvtoken'));
       expect(service.state.transportState, PlexTransportState.playing);
       expect(service.state.hasMedia, isTrue);

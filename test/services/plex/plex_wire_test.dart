@@ -46,6 +46,38 @@ void main() {
     });
   });
 
+  group('direct play', () {
+    test('metadataUrl builds the item metadata URL with token', () {
+      expect(
+        metadataUrl(
+            base: 'https://h:32400', key: '/library/metadata/99', token: 't'),
+        'https://h:32400/library/metadata/99?X-Plex-Token=t',
+      );
+    });
+
+    test('firstPartKey extracts the first Part key from metadata XML', () {
+      const xml = '<MediaContainer><Video><Media><Part id="40404" '
+          'key="/library/parts/40404/123/file.mkv" container="mkv"/>'
+          '</Media></Video></MediaContainer>';
+      expect(firstPartKey(xml), '/library/parts/40404/123/file.mkv');
+    });
+
+    test('firstPartKey is empty when there is no Part', () {
+      expect(firstPartKey('<MediaContainer size="0"/>'), '');
+    });
+
+    test('buildDirectPlayUrl appends the token to the part key', () {
+      expect(
+        buildDirectPlayUrl(
+          base: 'https://h:32400',
+          partKey: '/library/parts/1/2/file.mkv',
+          token: 'tok',
+        ),
+        'https://h:32400/library/parts/1/2/file.mkv?X-Plex-Token=tok',
+      );
+    });
+  });
+
   group('transcodeControlUrl', () {
     test('builds ping/stop URLs sharing the session', () {
       final ping = Uri.parse(transcodeControlUrl(
