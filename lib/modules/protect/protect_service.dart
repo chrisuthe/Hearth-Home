@@ -85,15 +85,18 @@ class ProtectService {
 
   /// Requests a live RTSPS stream for [cameraId] and returns its URL, or null.
   ///
-  /// `POST /cameras/{id}/rtsps-stream?qualities=high,medium,low` returns an
-  /// object mapping each requested quality to a `rtsps://…` URL (a quality is
-  /// omitted if not enabled on the camera). We pick the highest available.
-  /// RTSP(S) must be enabled per camera in Protect (Share Livestream).
+  /// `POST /cameras/{id}/rtsps-stream` with a JSON body `{"qualities": [...]}`
+  /// returns an object mapping each requested quality to a `rtsps://…` URL (a
+  /// quality is omitted if not enabled on the camera). We pick the highest
+  /// available. RTSP(S) must be enabled per camera in Protect (Share
+  /// Livestream).
   Future<String?> getStreamUrl(String cameraId) async {
     try {
       final response = await _dio.post(
         '/cameras/$cameraId/rtsps-stream',
-        queryParameters: {'qualities': 'high,medium,low'},
+        data: {
+          'qualities': ['high', 'medium', 'low'],
+        },
       );
       return _pickStreamUrl(response.data);
     } catch (e) {
