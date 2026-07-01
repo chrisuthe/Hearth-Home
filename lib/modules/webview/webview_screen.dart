@@ -293,7 +293,7 @@ class _TouchableWebviewViewState extends State<_TouchableWebviewView> {
         widget.session.sendScroll(
           _toViewport(d.localPosition),
           0,
-          -d.delta.dy, // negate: drag down means scroll up the page
+          d.delta.dy, // drag down scrolls the page down (matches expectation)
         );
       },
       onVerticalDragEnd: (_) {
