@@ -209,6 +209,14 @@ class HubConfig {
   final String sendspinClientId;
   final String sendspinServerUrl;
   final int sendspinStaticDelayMs;
+  /// DLNA/UPnP MediaRenderer: advertise Hearth on the LAN so phones/apps can
+  /// cast video to the kiosk. Off by default (no SSDP traffic, no port bound).
+  final bool dlnaEnabled;
+  /// friendlyName shown to control points (e.g. "Hearth").
+  final String dlnaRendererName;
+  /// Stable per-device UPnP UDN. App-seeded on first enable (like
+  /// [sendspinClientId]); web read-only so it can't be overwritten.
+  final String dlnaUuid;
   /// Wire value for [OnScreenKeyboardMode]: 'auto', 'always', or 'never'.
   final String onScreenKeyboardMode;
   final String displayProfile; // "auto" | "amoled-11" | "rpi-7" | "hdmi"
@@ -280,6 +288,9 @@ class HubConfig {
     this.sendspinClientId = '',
     this.sendspinServerUrl = '',
     this.sendspinStaticDelayMs = 0,
+    this.dlnaEnabled = false,
+    this.dlnaRendererName = '',
+    this.dlnaUuid = '',
     this.onScreenKeyboardMode = 'auto',
     this.displayProfile = 'auto',
     this.displayWidth = 0,
@@ -316,6 +327,20 @@ class HubConfig {
     return List.generate(32, (_) => chars[rng.nextInt(chars.length)]).join();
   }
 
+  /// RFC-4122 version-4 UUID (e.g. for the UPnP device UDN). Hyphenated,
+  /// lowercase, no `uuid:` prefix — callers add the scheme where required.
+  static String generateUuid() {
+    final rng = Random.secure();
+    final bytes = List<int>.generate(16, (_) => rng.nextInt(256));
+    bytes[6] = (bytes[6] & 0x0f) | 0x40; // version 4
+    bytes[8] = (bytes[8] & 0x3f) | 0x80; // variant 1 (RFC 4122)
+    String hex(int start, int end) => bytes
+        .sublist(start, end)
+        .map((b) => b.toRadixString(16).padLeft(2, '0'))
+        .join();
+    return '${hex(0, 4)}-${hex(4, 6)}-${hex(6, 8)}-${hex(8, 10)}-${hex(10, 16)}';
+  }
+
   HubConfig copyWith({
     String? apiKey,
     String? immichUrl,
@@ -343,6 +368,9 @@ class HubConfig {
     String? sendspinClientId,
     String? sendspinServerUrl,
     int? sendspinStaticDelayMs,
+    bool? dlnaEnabled,
+    String? dlnaRendererName,
+    String? dlnaUuid,
     String? onScreenKeyboardMode,
     String? displayProfile,
     int? displayWidth,
@@ -400,6 +428,9 @@ class HubConfig {
       sendspinClientId: sendspinClientId ?? this.sendspinClientId,
       sendspinServerUrl: sendspinServerUrl ?? this.sendspinServerUrl,
       sendspinStaticDelayMs: sendspinStaticDelayMs ?? this.sendspinStaticDelayMs,
+      dlnaEnabled: dlnaEnabled ?? this.dlnaEnabled,
+      dlnaRendererName: dlnaRendererName ?? this.dlnaRendererName,
+      dlnaUuid: dlnaUuid ?? this.dlnaUuid,
       onScreenKeyboardMode:
           onScreenKeyboardMode ?? this.onScreenKeyboardMode,
       displayProfile: displayProfile ?? this.displayProfile,
@@ -459,6 +490,9 @@ class HubConfig {
         'sendspinClientId': sendspinClientId,
         'sendspinServerUrl': sendspinServerUrl,
         'sendspinStaticDelayMs': sendspinStaticDelayMs,
+        'dlnaEnabled': dlnaEnabled,
+        'dlnaRendererName': dlnaRendererName,
+        'dlnaUuid': dlnaUuid,
         'onScreenKeyboardMode': onScreenKeyboardMode,
         'displayProfile': displayProfile,
         'displayWidth': displayWidth,
@@ -517,6 +551,9 @@ class HubConfig {
         sendspinClientId: json['sendspinClientId'] as String? ?? '',
         sendspinServerUrl: json['sendspinServerUrl'] as String? ?? '',
         sendspinStaticDelayMs: json['sendspinStaticDelayMs'] as int? ?? 0,
+        dlnaEnabled: json['dlnaEnabled'] as bool? ?? false,
+        dlnaRendererName: json['dlnaRendererName'] as String? ?? '',
+        dlnaUuid: json['dlnaUuid'] as String? ?? '',
         onScreenKeyboardMode:
             json['onScreenKeyboardMode'] as String? ?? 'auto',
         displayProfile: json['displayProfile'] as String? ?? 'auto',

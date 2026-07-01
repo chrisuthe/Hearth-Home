@@ -665,9 +665,11 @@ void main() {
       final authMsgId = channel.sentMessages[0]['message_id'] as String;
       channel.simulateServerMessage({'message_id': authMsgId, 'result': true});
 
-      // Call getQueueItems but never send a response — should time out
-      expect(
-        () => service.getQueueItems('player_kitchen'),
+      // Call getQueueItems but never send a response — should time out.
+      // Await the assertion (expectLater) so the 10s timeout resolves inside
+      // this test rather than leaking into a later one's lifecycle.
+      await expectLater(
+        service.getQueueItems('player_kitchen'),
         throwsA(isA<TimeoutException>()),
       );
     });

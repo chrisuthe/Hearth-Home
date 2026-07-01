@@ -12,6 +12,7 @@ import 'services/osk_integration.dart';
 import 'services/timezone_service.dart';
 import 'modules/alarm_clock/alarm_service.dart';
 import 'services/mqtt_service.dart';
+import 'services/dlna/dlna_service.dart';
 import 'services/sendspin/sendspin_service.dart';
 import 'services/voice_ducker.dart';
 import 'services/video/media_kit_player.dart';
@@ -106,6 +107,9 @@ Future<void> main() async {
     // while voice is active. Eager-read so it starts listening before
     // the first voice exchange.
     container.read(voiceDuckerProvider);
+    // DLNA renderer is also self-initializing but needs an eager read to
+    // start SSDP advertisement when config says enabled.
+    container.read(dlnaServiceProvider);
   }
 
   // Eager-load AlarmService so persisted alarms are loaded and the
