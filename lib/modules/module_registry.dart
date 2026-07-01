@@ -5,6 +5,7 @@ import 'alarm_clock/alarm_clock_module.dart';
 import 'media/media_module.dart';
 import 'controls/controls_module.dart';
 import 'cameras/cameras_module.dart';
+import 'protect/protect_module.dart';
 import 'mealie/mealie_module.dart';
 import 'webview/webview_module.dart';
 
@@ -14,6 +15,7 @@ final List<HearthModule> _staticModules = <HearthModule>[
   MediaModule(),
   ControlsModule(),
   CamerasModule(),
+  ProtectModule(),
   MealieModule(),
 ];
 

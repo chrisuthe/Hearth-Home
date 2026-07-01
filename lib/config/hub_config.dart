@@ -192,6 +192,8 @@ class HubConfig {
   final String frigateUrl;
   final String frigateUsername;
   final String frigatePassword;
+  final String unifiProtectUrl;
+  final String unifiProtectApiKey;
   final int idleTimeoutSeconds;
   final String nightModeSource; // "ha_entity" | "api" | "clock" | "none"
   final String? nightModeHaEntity;
@@ -278,6 +280,8 @@ class HubConfig {
     this.frigateUrl = '',
     this.frigateUsername = '',
     this.frigatePassword = '',
+    this.unifiProtectUrl = '',
+    this.unifiProtectApiKey = '',
     this.idleTimeoutSeconds = 120,
     this.nightModeSource = 'none',
     this.nightModeHaEntity,
@@ -359,6 +363,8 @@ class HubConfig {
     String? frigateUrl,
     String? frigateUsername,
     String? frigatePassword,
+    String? unifiProtectUrl,
+    String? unifiProtectApiKey,
     int? idleTimeoutSeconds,
     String? nightModeSource,
     Object? nightModeHaEntity = _undefined,
@@ -419,6 +425,8 @@ class HubConfig {
       frigateUrl: frigateUrl ?? this.frigateUrl,
       frigateUsername: frigateUsername ?? this.frigateUsername,
       frigatePassword: frigatePassword ?? this.frigatePassword,
+      unifiProtectUrl: unifiProtectUrl ?? this.unifiProtectUrl,
+      unifiProtectApiKey: unifiProtectApiKey ?? this.unifiProtectApiKey,
       idleTimeoutSeconds: idleTimeoutSeconds ?? this.idleTimeoutSeconds,
       nightModeSource: nightModeSource ?? this.nightModeSource,
       nightModeHaEntity: nightModeHaEntity == _undefined ? this.nightModeHaEntity : nightModeHaEntity as String?,
@@ -483,6 +491,8 @@ class HubConfig {
         'frigateUrl': frigateUrl,
         'frigateUsername': frigateUsername,
         'frigatePassword': frigatePassword,
+        'unifiProtectUrl': unifiProtectUrl,
+        'unifiProtectApiKey': unifiProtectApiKey,
         'idleTimeoutSeconds': idleTimeoutSeconds,
         'nightModeSource': nightModeSource,
         'nightModeHaEntity': nightModeHaEntity,
@@ -544,6 +554,8 @@ class HubConfig {
         frigateUrl: json['frigateUrl'] as String? ?? '',
         frigateUsername: json['frigateUsername'] as String? ?? '',
         frigatePassword: json['frigatePassword'] as String? ?? '',
+        unifiProtectUrl: json['unifiProtectUrl'] as String? ?? '',
+        unifiProtectApiKey: json['unifiProtectApiKey'] as String? ?? '',
         idleTimeoutSeconds: json['idleTimeoutSeconds'] as int? ?? 120,
         nightModeSource: json['nightModeSource'] as String? ?? 'none',
         nightModeHaEntity: json['nightModeHaEntity'] as String?,
