@@ -36,11 +36,28 @@ Open **DLNA Cast** in the [[web portal|The Web Portal]]:
 
 ## Using it
 
-With DLNA enabled, open a UPnP-capable app on your phone, pick **Hearth** (or whatever you
-named it) as the playback device, and start a video — it plays on the kiosk.
+With DLNA enabled, cast to **Hearth** (or whatever you named it) from a control point. Two
+worked examples:
+
+**BubbleUPnP (Android)**
+
+1. Install BubbleUPnP and open it on the same network as the kiosk.
+2. Tap the **renderer/cast** selector and choose **Hearth**.
+3. Pick a video from any source (local, a UPnP server, Google Drive, …) and play — it starts
+   full-screen on the kiosk.
+
+**Windows "Cast to Device"**
+
+1. In **File Explorer**, right-click a video (or use the ⋯ menu in *Movies & TV*).
+2. Choose **Cast to Device → Hearth**.
+3. Playback controls appear on the PC; the video plays on the kiosk.
+
+The video scales to fill the screen automatically, so SD and HD clips both look right. Use the
+kiosk's on-screen transport bar (tap the video) or your casting app to pause/stop.
 
 ## Troubleshooting
 
 - **Hearth isn't in the cast list** — make sure you enabled it **on the device** at least
-  once, and that your phone is on the same network/subnet as the Pi (UPnP discovery is
-  LAN-local). See [[Troubleshooting & FAQ]].
+  once, that you're using an actual control point (BubbleUPnP / Windows "Cast to Device", **not**
+  Plex or VLC — see [Which apps work](#which-apps-work)), and that the casting device is on the
+  same network/subnet as the Pi (UPnP discovery is LAN-local). See [[Troubleshooting & FAQ]].
