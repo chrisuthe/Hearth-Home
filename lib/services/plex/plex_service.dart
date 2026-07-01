@@ -378,9 +378,31 @@ class PlexService {
       case 'skipPrevious':
         // Single-item sink — accept and no-op.
         return const PlexCommandResult.ok();
+      case 'setStreams':
+        _setStreams(params);
+        return const PlexCommandResult.ok();
       default:
-        return const PlexCommandResult.fault();
+        // Never 500 on a command we don't implement: Plex reads a 500 from a
+        // player as "it crashed" and tears down the session. Ack it (200) and
+        // log instead, so opening an unsupported control keeps the cast alive.
+        Log.i('Plex', 'Unhandled Companion command "$command" — acked as no-op');
+        return const PlexCommandResult.ok();
     }
+  }
+
+  /// Handle the `setStreams` command the controller issues when the user opens
+  /// the video Settings (quality / audio / subtitle). [HearthVideoPlayer]
+  /// exposes no track-selection API, so audio/subtitle switching can't be
+  /// applied — we accept and log the requested IDs. Acking (rather than
+  /// faulting) is what keeps the stream alive when Settings is opened.
+  void _setStreams(Map<String, String> params) {
+    final audio = params['audioStreamID'];
+    final subtitle = params['subtitleStreamID'];
+    final video = params['videoStreamID'];
+    Log.i(
+        'Plex',
+        'setStreams (audio:$audio subtitle:$subtitle video:$video) — '
+            'track switching unsupported by the player, acked as no-op');
   }
 
   Future<bool> _playMedia(Map<String, String> params) async {
@@ -678,8 +700,10 @@ class PlexService {
   }
 }
 
-/// Outcome of [PlexService.dispatchCommand]: [ok] true on success, false on a
-/// rejected/unknown command (HTTP 500).
+/// Outcome of [PlexService.dispatchCommand]: [ok] true on success (HTTP 200),
+/// false only on a command that genuinely failed (HTTP 500). Unknown or
+/// unsupported commands ack as a no-op ([ok] true) — a 500 tells Plex the
+/// player crashed and tears down the session.
 class PlexCommandResult {
   final bool ok;
   const PlexCommandResult.ok() : ok = true;
