@@ -76,12 +76,13 @@ class _DlnaCastOverlayState extends ConsumerState<DlnaCastOverlay> {
             children: [
               // The renderer's video surface, scaled to fill the screen.
               // No Center wrapper: StackFit.expand hands a non-positioned child
-              // tight full-screen constraints, so buildView's FittedBox(contain)
-              // scales the video up until one axis fills (letterboxing the
-              // other, no cropping). A Center here would instead give loose
-              // constraints, leaving SD clips at native size — a small square.
+              // tight full-screen constraints, so buildView's FittedBox(cover)
+              // scales the video up until it fills both axes (cropping the
+              // overflow, aspect preserved). A Center here would instead give
+              // loose constraints, leaving SD clips at native size — a small
+              // square.
               if (player != null)
-                player.buildView(fit: BoxFit.contain)
+                player.buildView(fit: BoxFit.cover)
               else
                 const Center(
                   child: CircularProgressIndicator(color: Color(0xFF646CFF)),

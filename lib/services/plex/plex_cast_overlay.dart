@@ -73,9 +73,15 @@ class _PlexCastOverlayState extends ConsumerState<PlexCastOverlay> {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              // The player's video surface, letterboxed full-screen.
+              // The player's video surface, scaled to fill the screen.
+              // No Center wrapper: StackFit.expand hands a non-positioned child
+              // tight full-screen constraints, so buildView's FittedBox(cover)
+              // scales the video up until it fills both axes (cropping the
+              // overflow, aspect preserved). A Center here would give loose
+              // constraints, so the FittedBox would take the video's own aspect
+              // ratio and letterbox instead — cover would have no effect.
               if (player != null)
-                Center(child: player.buildView())
+                player.buildView(fit: BoxFit.cover)
               else
                 const Center(
                   child: CircularProgressIndicator(color: Color(0xFF646CFF)),
