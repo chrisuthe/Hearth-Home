@@ -101,6 +101,69 @@ void main() {
     });
   });
 
+  group('serverTimelineUrl', () {
+    test('playing report carries the grounded param set', () {
+      final uri = Uri.parse(serverTimelineUrl(
+        base: 'http://192.168.1.50:32400',
+        ratingKey: '12345',
+        key: '/library/metadata/12345',
+        state: 'playing',
+        timeMs: 60000,
+        durationMs: 300000,
+        token: 'srvtok',
+        clientId: 'cid',
+        playQueueItemID: '987',
+        deviceName: 'Kitchen',
+      ));
+      final q = uri.queryParameters;
+      expect(uri.path, '/:/timeline');
+      expect(q['ratingKey'], '12345');
+      expect(q['key'], '/library/metadata/12345');
+      expect(q['identifier'], 'com.plexapp.plugins.library');
+      expect(q['state'], 'playing');
+      expect(q['time'], '60000');
+      expect(q['duration'], '300000');
+      expect(q['playQueueItemID'], '987');
+      expect(q['X-Plex-Token'], 'srvtok');
+      expect(q['X-Plex-Client-Identifier'], 'cid');
+      expect(q['X-Plex-Device-Name'], 'Kitchen');
+    });
+
+    test('stopped report omits playQueueItemID when absent', () {
+      final uri = Uri.parse(serverTimelineUrl(
+        base: 'http://h:32400',
+        ratingKey: '7',
+        key: '/library/metadata/7',
+        state: 'stopped',
+        timeMs: 0,
+        durationMs: 0,
+        token: 't',
+        clientId: 'cid',
+      ));
+      final q = uri.queryParameters;
+      expect(q['state'], 'stopped');
+      expect(q.containsKey('playQueueItemID'), isFalse);
+      // Device name defaults to the product when not supplied.
+      expect(q['X-Plex-Device-Name'], 'Hearth');
+    });
+  });
+
+  group('scrobbleUrl', () {
+    test('marks watched using the bare ratingKey as key', () {
+      final uri = Uri.parse(scrobbleUrl(
+        base: 'http://h:32400',
+        ratingKey: '12345',
+        token: 't',
+        clientId: 'cid',
+      ));
+      expect(uri.path, '/:/scrobble');
+      final q = uri.queryParameters;
+      expect(q['identifier'], 'com.plexapp.plugins.library');
+      expect(q['key'], '12345');
+      expect(q['X-Plex-Token'], 't');
+    });
+  });
+
   group('transcodeControlUrl', () {
     test('builds ping/stop URLs sharing the session', () {
       final ping = Uri.parse(transcodeControlUrl(

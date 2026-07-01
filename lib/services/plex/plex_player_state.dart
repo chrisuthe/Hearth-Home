@@ -38,6 +38,11 @@ class PlexPlayerState {
   final String protocol;
   final String token;
 
+  /// The `playQueueItemID` from the `playMedia` request, threaded into every
+  /// server-timeline report so PMS ties progress to the right play-queue entry.
+  /// Empty when the controller didn't supply one (then it's omitted).
+  final String playQueueItemID;
+
   const PlexPlayerState({
     this.transportState = PlexTransportState.stopped,
     this.currentUri = '',
@@ -53,6 +58,7 @@ class PlexPlayerState {
     this.port = '',
     this.protocol = 'http',
     this.token = '',
+    this.playQueueItemID = '',
   });
 
   /// True when a video is cast — drives whether the kiosk overlay is shown.
@@ -87,6 +93,7 @@ class PlexPlayerState {
     String? port,
     String? protocol,
     String? token,
+    String? playQueueItemID,
   }) {
     return PlexPlayerState(
       transportState: transportState ?? this.transportState,
@@ -103,6 +110,7 @@ class PlexPlayerState {
       port: port ?? this.port,
       protocol: protocol ?? this.protocol,
       token: token ?? this.token,
+      playQueueItemID: playQueueItemID ?? this.playQueueItemID,
     );
   }
 }
