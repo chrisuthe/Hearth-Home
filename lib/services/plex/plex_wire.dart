@@ -274,21 +274,52 @@ String buildTranscodeUrl({
 }
 
 /// Whether the Pi should ask Plex to transcode rather than direct-play. The Pi 5
-/// software-decodes H.264 up to 1080p reliably, but its HEVC hardware decoder
-/// can't negotiate 10-bit to the GL texture and 4K H.264 in software stutters.
-/// So direct-play only H.264 at/under [maxHeight]; transcode everything else.
-bool plexNeedsTranscode(String videoCodec, int height, {int maxHeight = 1088}) =>
-    videoCodec.toLowerCase() != 'h264' || height > maxHeight;
+/// software-decodes progressive H.264 up to 1080p reliably, but its HEVC hardware
+/// decoder can't negotiate 10-bit to the GL texture and 4K H.264 in software
+/// stutters. Interlaced content (1080i broadcast/DVR recordings) also has to be
+/// deinterlaced on the CPU on top of the software H.264 decode, which exceeds
+/// real-time on the Pi 5 (freeze-then-skip, "buffers dropped" spam) — so route it
+/// to the server transcode, which deinterlaces to progressive. Direct-play only
+/// **progressive** H.264 at/under [maxHeight]; transcode everything else.
+bool plexNeedsTranscode(
+  String videoCodec,
+  int height, {
+  String scanType = '',
+  int maxHeight = 1088,
+}) =>
+    videoCodec.toLowerCase() != 'h264' ||
+    height > maxHeight ||
+    scanType.toLowerCase() == 'interlaced';
 
 final RegExp _videoCodecRe = RegExp(r'<Media\b[^>]*\bvideoCodec="([^"]*)"');
 final RegExp _mediaHeightRe = RegExp(r'<Media\b[^>]*\bheight="([0-9]+)"');
+final RegExp _streamTagRe = RegExp(r'<Stream\b[^>]*>');
+final RegExp _scanTypeRe = RegExp(r'\bscanType="([^"]*)"');
 
-/// `(videoCodec, height)` of the first `<Media>` in item metadata XML — drives
-/// the direct-play-vs-transcode decision. Empty/0 when absent.
-(String, int) firstMediaInfo(String metadataXml) => (
+/// `(videoCodec, height, scanType)` for the direct-play-vs-transcode decision.
+/// `videoCodec`/`height` come from the first `<Media>`; `scanType`
+/// (`interlaced`/`progressive`) is read from the video `<Stream streamType="1">`,
+/// where Plex actually exposes it — never on `<Media>`/`<Part>` (confirmed
+/// against real PMS metadata + python-plexapi `VideoStream.scanType`). Empty/0
+/// when absent.
+(String, int, String) firstMediaInfo(String metadataXml) => (
       _videoCodecRe.firstMatch(metadataXml)?.group(1) ?? '',
       int.tryParse(_mediaHeightRe.firstMatch(metadataXml)?.group(1) ?? '') ?? 0,
+      _videoStreamScanType(metadataXml),
     );
+
+/// The `scanType` of the video `<Stream streamType="1">` (the H.264 stream).
+/// Attribute order isn't guaranteed, so scan each `<Stream>` tag and pull
+/// `scanType` from the first whose `streamType` is `1`. Empty when absent.
+String _videoStreamScanType(String metadataXml) {
+  for (final m in _streamTagRe.allMatches(metadataXml)) {
+    final tag = m.group(0)!;
+    if (tag.contains('streamType="1"')) {
+      return _scanTypeRe.firstMatch(tag)?.group(1) ?? '';
+    }
+  }
+  return '';
+}
 
 final RegExp _resourceTagRe = RegExp(r'<resource\b[^>]*>');
 final RegExp _accessTokenRe = RegExp(r'accessToken="([^"]*)"');

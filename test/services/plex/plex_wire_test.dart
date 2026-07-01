@@ -17,19 +17,85 @@ void main() {
     test('plexNeedsTranscode: unknown codec transcodes (safe default)', () {
       expect(plexNeedsTranscode('', 480), isTrue);
     });
+    test('plexNeedsTranscode: interlaced 1080i h264 transcodes', () {
+      // 1080i broadcast/DVR: h264 at 1080p but interlaced -> CPU deinterlace on
+      // top of software decode exceeds real-time on the Pi 5.
+      expect(
+        plexNeedsTranscode('h264', 1080, scanType: 'interlaced'),
+        isTrue,
+      );
+    });
+    test('plexNeedsTranscode: progressive h264 1080p still direct-plays', () {
+      expect(
+        plexNeedsTranscode('h264', 1080, scanType: 'progressive'),
+        isFalse,
+      );
+    });
+
+    // Fixture copied from real PMS metadata for an interlaced DVR recording
+    // (ratingKey 28527, .ts/mpegts, h264 High@L4.1). scanType lives ONLY on the
+    // video <Stream streamType="1"> — never on <Media>/<Part>.
+    const interlacedXml =
+        '<MediaContainer size="1" identifier="com.plexapp.plugins.library">'
+        '<Video ratingKey="28527" type="episode">'
+        '<Media id="29970" bitrate="10185" width="1920" height="1080" '
+        'audioCodec="ac3" videoCodec="h264" videoResolution="1080" '
+        'container="mpegts" videoFrameRate="NTSC" videoProfile="high">'
+        '<Part id="29970" key="/library/parts/29970/1557544803/file.ts" '
+        'container="mpegts" videoProfile="high">'
+        '<Stream id="8659" streamType="1" codec="h264" index="0" '
+        'height="1080" level="41" profile="high" scanType="interlaced" '
+        'width="1920" displayTitle="1080i" extendedDisplayTitle="1080i (H.264)"/>'
+        '<Stream id="8661" streamType="2" selected="1" codec="ac3" index="1" '
+        'channels="6" displayTitle="English (AC3 5.1)"/>'
+        '<Stream id="8660" streamType="3" codec="eia_608" '
+        'displayTitle="Unknown"/>'
+        '</Part></Media></Video></MediaContainer>';
+
+    // Progressive comparison (ratingKey 162, h264, scanType="progressive").
+    const progressiveXml = '<MediaContainer><Video>'
+        '<Media videoCodec="h264" width="1920" height="800" '
+        'videoResolution="1080" container="mp4">'
+        '<Part key="/library/parts/351/file.m4v" container="mp4">'
+        '<Stream id="723" streamType="1" codec="h264" height="800" '
+        'scanType="progressive" width="1920" displayTitle="1080p"/>'
+        '<Stream id="724" streamType="2" selected="1" codec="aac"/>'
+        '</Part></Media></Video></MediaContainer>';
 
     test('firstMediaInfo parses videoCodec + height', () {
       const xml = '<MediaContainer><Video>'
           '<Media videoCodec="hevc" width="3840" height="2160">'
           '<Part key="/x.mkv"/></Media></Video></MediaContainer>';
-      final (codec, height) = firstMediaInfo(xml);
+      final (codec, height, scanType) = firstMediaInfo(xml);
       expect(codec, 'hevc');
       expect(height, 2160);
+      expect(scanType, '');
+    });
+    test('firstMediaInfo reads scanType from the video Stream (interlaced)', () {
+      final (codec, height, scanType) = firstMediaInfo(interlacedXml);
+      expect(codec, 'h264');
+      expect(height, 1080);
+      expect(scanType, 'interlaced');
+      // The whole point: this real 1080i recording routes to transcode.
+      expect(
+        plexNeedsTranscode(codec, height, scanType: scanType),
+        isTrue,
+      );
+    });
+    test('firstMediaInfo reads scanType from the video Stream (progressive)', () {
+      final (codec, height, scanType) = firstMediaInfo(progressiveXml);
+      expect(codec, 'h264');
+      expect(scanType, 'progressive');
+      expect(
+        plexNeedsTranscode(codec, height, scanType: scanType),
+        isFalse,
+      );
     });
     test('firstMediaInfo defaults when absent', () {
-      final (codec, height) = firstMediaInfo('<MediaContainer/>');
+      final (codec, height, scanType) = firstMediaInfo('<MediaContainer/>');
       expect(codec, '');
       expect(height, 0);
+      expect(scanType, '');
     });
 
     test('serverTokenFromResources finds accessToken by clientIdentifier (XML)', () {
