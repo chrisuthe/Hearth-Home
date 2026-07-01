@@ -48,6 +48,11 @@ class _PlexCastOverlayState extends ConsumerState<PlexCastOverlay> {
     return h > 0 ? '$h:$m:$s' : '$m:$s';
   }
 
+  Duration _remaining(PlexPlayerState state) {
+    final r = state.duration - state.position;
+    return r.isNegative ? Duration.zero : r;
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(plexPlayerStateProvider).valueOrNull;
@@ -90,14 +95,18 @@ class _PlexCastOverlayState extends ConsumerState<PlexCastOverlay> {
                   child: _TransportBar(
                     state: state,
                     isPlaying: isPlaying,
-                    position: _fmt(state.position),
-                    duration: _fmt(state.duration),
+                    elapsed: _fmt(state.position),
+                    remaining: _fmt(_remaining(state)),
                     onPlayPause: () {
                       if (isPlaying) {
                         service.pauseFromUi();
                       } else {
                         service.resumeFromUi();
                       }
+                      _revealControls();
+                    },
+                    onVolumeChanged: (v) {
+                      service.setVolumeFromUi(v);
                       _revealControls();
                     },
                     onDismiss: () => service.stopFromUi(),
@@ -126,23 +135,31 @@ class _PlexCastOverlayState extends ConsumerState<PlexCastOverlay> {
   }
 }
 
-/// Bottom transport bar: play/pause, elapsed/total time, and a dismiss button.
+/// Bottom transport bar: play/pause, a volume slider, elapsed + remaining time
+/// flanking the progress bar, and a dismiss button.
 class _TransportBar extends StatelessWidget {
   final PlexPlayerState state;
   final bool isPlaying;
-  final String position;
-  final String duration;
+  final String elapsed;
+  final String remaining;
   final VoidCallback onPlayPause;
+  final ValueChanged<int> onVolumeChanged;
   final VoidCallback onDismiss;
 
   const _TransportBar({
     required this.state,
     required this.isPlaying,
-    required this.position,
-    required this.duration,
+    required this.elapsed,
+    required this.remaining,
     required this.onPlayPause,
+    required this.onVolumeChanged,
     required this.onDismiss,
   });
+
+  static const _timeStyle = TextStyle(
+    color: Colors.white70,
+    fontSize: HearthFont.label,
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -170,10 +187,21 @@ class _TransportBar extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          LinearProgressIndicator(
-            value: progress,
-            backgroundColor: Colors.white24,
-            valueColor: const AlwaysStoppedAnimation(Color(0xFF646CFF)),
+          // Elapsed — progress — remaining.
+          Row(
+            children: [
+              Text(elapsed, style: _timeStyle),
+              const SizedBox(width: HearthSpacing.x3),
+              Expanded(
+                child: LinearProgressIndicator(
+                  value: progress,
+                  backgroundColor: Colors.white24,
+                  valueColor: const AlwaysStoppedAnimation(Color(0xFF646CFF)),
+                ),
+              ),
+              const SizedBox(width: HearthSpacing.x3),
+              Text('-$remaining', style: _timeStyle),
+            ],
           ),
           const SizedBox(height: HearthSpacing.x2),
           Row(
@@ -184,14 +212,16 @@ class _TransportBar extends StatelessWidget {
                 iconSize: HearthIcon.lg,
                 onPressed: onPlayPause,
               ),
-              Text(
-                '$position / $duration',
-                style: const TextStyle(
-                  color: Colors.white70,
-                  fontSize: HearthFont.label,
+              const Icon(Icons.volume_up, color: Colors.white70),
+              Expanded(
+                child: Slider(
+                  value: state.volume.clamp(0, 100).toDouble(),
+                  max: 100,
+                  activeColor: const Color(0xFF646CFF),
+                  inactiveColor: Colors.white24,
+                  onChanged: (v) => onVolumeChanged(v.round()),
                 ),
               ),
-              const Spacer(),
               TextButton.icon(
                 onPressed: onDismiss,
                 icon: const Icon(Icons.stop, color: Colors.white),
