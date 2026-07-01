@@ -31,7 +31,13 @@ String xmlUnescape(String s) => s
 // (`s:Envelope`, `s:Body`, `u:ActionName …`) carry a namespace prefix and/or
 // attributes, so `<(\w+)>…</\1>` never matches them — leaving exactly the
 // action's in-args. Non-greedy body handles escaped DIDL inside metadata args.
-final RegExp _argRe = RegExp(r'<(\w+)>([\s\S]*?)</\1>');
+// Match an in-arg element and its text content. The opening tag may carry
+// attributes — Windows "Cast to Device" tags every arg with typed attributes
+// (`<CurrentURI xmlns:dt="..." dt:dt="string">...`), so a bare `<(\w+)>` would
+// silently drop those args and a cast would play nothing. `(?:\s[^>]*)?` allows
+// the optional attribute list; prefixed wrappers (`<m:SetAVTransportURI ...>`)
+// still don't match because `:` is neither whitespace nor `>`.
+final RegExp _argRe = RegExp(r'<(\w+)(?:\s[^>]*)?>([\s\S]*?)</\1>');
 final RegExp _actionElemRe = RegExp(r'<(?:\w+:)?(\w+)\s+xmlns:u=');
 
 /// Parse a SOAP control request from the `SOAPACTION` header and request body.

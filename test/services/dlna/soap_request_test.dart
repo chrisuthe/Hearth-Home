@@ -73,6 +73,37 @@ void main() {
     });
   });
 
+  group('parseSoapAction with attributed args (Windows "Cast to Device")', () {
+    // Windows "Cast to Device" (Play To) writes every argument element with
+    // Microsoft typed attributes (xmlns:dt / dt:dt) and uses a SOAP-ENV /
+    // prefixed-action envelope. A parser that only accepts bare <Tag> args
+    // silently drops CurrentURI and the cast plays nothing.
+    const windowsSetUriBody =
+        '<SOAP-ENV:Envelope xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/" '
+        'SOAP-ENV:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/"><SOAP-ENV:Body>'
+        '<m:SetAVTransportURI xmlns:m="urn:schemas-upnp-org:service:AVTransport:1">'
+        '<InstanceID xmlns:dt="urn:schemas-microsoft-com:datatypes" dt:dt="ui4">0</InstanceID>'
+        '<CurrentURI xmlns:dt="urn:schemas-microsoft-com:datatypes" dt:dt="string">'
+        'http://10.0.1.73:10246/MDEServer/abc/1000.mp4</CurrentURI>'
+        '<CurrentURIMetaData xmlns:dt="urn:schemas-microsoft-com:datatypes" dt:dt="string">'
+        '&lt;DIDL-Lite&gt;&lt;item&gt;&lt;dc:title&gt;Disc1&lt;/dc:title&gt;&lt;/item&gt;&lt;/DIDL-Lite&gt;'
+        '</CurrentURIMetaData></m:SetAVTransportURI></SOAP-ENV:Body></SOAP-ENV:Envelope>';
+
+    test('extracts args even when the tags carry attributes', () {
+      final result = parseSoapAction(
+        '"urn:schemas-upnp-org:service:AVTransport:1#SetAVTransportURI"',
+        windowsSetUriBody,
+      )!;
+      expect(result.args['CurrentURI'],
+          'http://10.0.1.73:10246/MDEServer/abc/1000.mp4');
+      expect(result.args['InstanceID'], '0');
+      expect(result.args['CurrentURIMetaData'],
+          '<DIDL-Lite><item><dc:title>Disc1</dc:title></item></DIDL-Lite>');
+      // The prefixed action wrapper must not leak in as an arg.
+      expect(result.args.containsKey('SetAVTransportURI'), isFalse);
+    });
+  });
+
   group('xmlUnescape', () {
     test('decodes all five entities, ampersand last', () {
       expect(xmlUnescape('&lt;a&gt;&amp;&quot;&apos;'), '<a>&"\'');

@@ -541,6 +541,7 @@ class DlnaService {
   // ---------------------------------------------------------------------------
 
   Future<void> _setUri(String uri, String metadata) async {
+    Log.i('DLNA', 'Cast: SetAVTransportURI $uri');
     _player ??= _createPlayer();
     _updateState(
       _state.copyWith(
