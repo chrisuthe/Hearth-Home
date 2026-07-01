@@ -9,12 +9,14 @@ import 'package:mqtt_client/mqtt_server_client.dart';
 
 import '../app/current_screen_provider.dart';
 import '../config/hub_config.dart';
+import '../models/hearth_notification.dart';
 import '../models/music_state.dart';
 import '../modules/alarm_clock/alarm_models.dart';
 import '../modules/alarm_clock/alarm_service.dart';
 import '../utils/alsa_utils.dart';
 import '../utils/logger.dart';
 import 'music_assistant_service.dart';
+import 'notification_service.dart';
 import 'timer_service.dart';
 
 /// Connection lifecycle of [MqttService], surfaced to the settings panel.
@@ -257,6 +259,7 @@ class MqttService extends ChangeNotifier {
   String get _alarmDeleteTopic => '$_baseTopic/alarm/delete';
   String get _alarmSnoozeTopic => '$_baseTopic/alarm/snooze';
   String get _alarmDismissTopic => '$_baseTopic/alarm/dismiss';
+  String get _notifyTopic => '$_baseTopic/notify';
 
   String get _configurationUrl {
     var host = 'hearth';
@@ -438,6 +441,7 @@ class MqttService extends ChangeNotifier {
       _alarmDeleteTopic,
       _alarmSnoozeTopic,
       _alarmDismissTopic,
+      _notifyTopic,
     ]) {
       c.subscribe(topic, MqttQos.atLeastOnce);
     }
@@ -473,6 +477,8 @@ class MqttService extends ChangeNotifier {
         _ref.read(alarmServiceProvider).snooze();
       } else if (topic == _alarmDismissTopic) {
         _ref.read(alarmServiceProvider).dismiss();
+      } else if (topic == _notifyTopic) {
+        _handleNotify(payload);
       } else {
         Log.w('MQTT', 'Unhandled command topic: $topic');
       }
@@ -547,6 +553,50 @@ class MqttService extends ChangeNotifier {
         'sunriseDuration': (data['sunrise_duration'] as num).toInt(),
     });
     _ref.read(alarmServiceProvider).addAlarm(alarm);
+  }
+
+  /// Normalize an inbound notification payload and surface it as a deck card.
+  /// HA publishes JSON to `hearth/<clientId>/notify`. Shares the normalize path
+  /// (`HearthNotification.fromIngest`) with `POST /api/notify`.
+  ///
+  /// Payload schema (all optional except one of title/message):
+  /// ```json
+  /// {"title": "...", "message": "...", "priority": "alert"|"info",
+  ///  "sticky": true|false, "source": "...", "source_label": "...",
+  ///  "muted": true|false}
+  /// ```
+  ///
+  /// Two HA delivery paths (both land here):
+  ///
+  /// 1. `notify.mqtt` (HA 2024.5+) — the built-in MQTT notify entity. Its
+  ///    `command_template` only has the message text (rendered as `value`);
+  ///    title/priority/sticky are NOT template variables, so this path gives a
+  ///    simple message-only card (title falls back to the message):
+  /// ```yaml
+  /// mqtt:
+  ///   - notify:
+  ///       name: Hearth
+  ///       command_topic: "hearth/<clientId>/notify"
+  ///       command_template: '{"message": {{ value | to_json }}}'
+  /// ```
+  ///
+  /// 2. `mqtt.publish` — publish the full JSON yourself for title/priority/
+  ///    sticky control (e.g. from an automation):
+  /// ```yaml
+  /// action: mqtt.publish
+  /// data:
+  ///   topic: "hearth/<clientId>/notify"
+  ///   payload: >-
+  ///     {"title": "Laundry", "message": "Cycle finished",
+  ///      "priority": "info", "sticky": false}
+  /// ```
+  void _handleNotify(String payload) {
+    final notification = HearthNotification.fromIngest(_decodeJson(payload));
+    if (notification == null) {
+      Log.w('MQTT', 'Notify payload has no title/message: $payload');
+      return;
+    }
+    _ref.read(notificationServiceProvider).ingest(notification);
   }
 
   void _handleAlarmDelete(String payload) {

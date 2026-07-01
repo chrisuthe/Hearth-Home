@@ -12,6 +12,8 @@ import '../modules/module_registry.dart';
 import '../screens/ambient/ambient_screen.dart';
 import '../screens/timer/timer_screen.dart';
 import '../services/timer_service.dart';
+import '../services/notification_service.dart';
+import '../widgets/notification_deck_overlay.dart';
 import '../screens/home/home_screen.dart';
 import '../screens/settings/settings_screen.dart';
 import '../modules/alarm_clock/alarm_alert_overlay.dart';
@@ -324,11 +326,12 @@ class _HubShellState extends ConsumerState<HubShell> {
       idleController.onTimeout = () {
         // Pause warm webviews — they keep memory but stop producing frames.
         ref.read(webviewSessionPoolProvider).pauseAll();
-        // Pop any pushed routes (e.g. TimerScreen) unless a timer or alarm is
-        // actively fired — the alert overlay should stay visible.
-        final timerService = ref.read(timerServiceProvider);
+        // Pop any pushed routes (e.g. TimerScreen) unless a notification (a
+        // fired-timer card or any deck card) or an alarm is active — those
+        // overlays should stay visible.
+        final notificationService = ref.read(notificationServiceProvider);
         final alarmService = ref.read(alarmServiceProvider);
-        if (timerService.firedTimers.isEmpty && alarmService.firedAlarm == null) {
+        if (!notificationService.hasActive && alarmService.firedAlarm == null) {
           Navigator.of(context).popUntil((route) => route.isFirst);
         }
         _pageController?.animateToPage(
@@ -473,10 +476,11 @@ class _HubShellState extends ConsumerState<HubShell> {
             if (_menu1Open) _buildMenu1(fromTop: _edgeFor('menu1') == 'top'),
             if (_menu2Open) _buildMenu2(fromTop: _edgeFor('menu2') == 'top'),
 
-            // Timer alert — full-screen overlay when a timer fires.
-            // Isolated in its own ConsumerWidget so 200ms timer ticks
-            // only rebuild this overlay, not the entire HubShell.
-            _TimerAlertOverlay(onWake: _onUserActivity),
+            // Notification deck — bottom-deck cards for every notification
+            // source, including fired timers. Isolated in its own
+            // ConsumerWidget so 200ms timer ticks only rebuild this overlay,
+            // not the entire HubShell. Renders nothing when the deck is empty.
+            NotificationDeckOverlay(onWake: _onUserActivity),
 
             // Alarm alert — full-screen overlay when an alarm fires.
             AlarmAlertOverlay(onWake: _onUserActivity),
@@ -488,73 +492,7 @@ class _HubShellState extends ConsumerState<HubShell> {
             // Plex cast — full-screen video overlay when a Plex app casts a
             // video to the kiosk. Renders nothing when idle.
             PlexCastOverlay(onWake: _onUserActivity),
-
-            // Event overlay layer (doorbell, alerts)
           ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Full-screen alert overlay when one or more timers have fired.
-///
-/// Isolated in its own ConsumerWidget so the 200ms timer tick rebuilds
-/// are scoped to this overlay instead of triggering a full HubShell rebuild.
-class _TimerAlertOverlay extends ConsumerWidget {
-  final VoidCallback onWake;
-
-  const _TimerAlertOverlay({required this.onWake});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final timerService = ref.watch(timerServiceProvider);
-    final fired = timerService.firedTimers;
-    if (fired.isEmpty) return const SizedBox.shrink();
-
-    // Wake from idle when a timer fires — deferred to avoid
-    // notifyListeners() during build.
-    WidgetsBinding.instance.addPostFrameCallback((_) => onWake());
-
-    return GestureDetector(
-      onTap: () => timerService.dismissAllFired(),
-      child: Container(
-        color: Colors.black.withValues(alpha: 0.92),
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.timer, size: HearthIcon.xl, color: Color(0xFFFF9800)),
-              const SizedBox(height: HearthSpacing.x4),
-              Text(
-                fired.length == 1 ? "Time's up!" : "${fired.length} timers done!",
-                style: const TextStyle(
-                  fontSize: HearthFont.display,
-                  fontWeight: FontWeight.w200,
-                  color: Color(0xFFFF9800),
-                ),
-              ),
-              const SizedBox(height: HearthSpacing.x8),
-              // Show the fired timer rings
-              Wrap(
-                spacing: 24,
-                runSpacing: 24,
-                alignment: WrapAlignment.center,
-                children: fired.map((t) => TimerDisplay(
-                  timer: t,
-                  size: fired.length == 1 ? 220 : 160,
-                )).toList(),
-              ),
-              const SizedBox(height: HearthSpacing.x8),
-              Text(
-                'Tap anywhere to dismiss',
-                style: TextStyle(
-                  fontSize: HearthFont.label,
-                  color: Colors.white.withValues(alpha: 0.5),
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );

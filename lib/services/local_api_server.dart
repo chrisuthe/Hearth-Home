@@ -4,10 +4,12 @@ import 'dart:io';
 import 'dart:math';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../models/hearth_notification.dart';
 import '../modules/alarm_clock/alarm_models.dart';
 import '../modules/alarm_clock/alarm_service.dart';
 import '../utils/logger.dart';
 import '../config/hub_config.dart';
+import 'notification_service.dart';
 import '../plugins/plugin_registry.dart';
 import '../plugins/hearth_plugin.dart';
 import '../plugins/framework/plugin_router.dart';
@@ -30,6 +32,7 @@ import 'update_service.dart';
 ///   POST /api/config       — update config fields
 ///   POST /api/display-mode — set night/day mode
 ///   GET  /api/display-mode — query current mode
+///   POST /api/notify       — surface a notification card (HA rest_command)
 ///   GET  /api/wifi/scan    — scan for WiFi networks
 ///   POST /api/wifi/connect — connect to a WiFi network
 ///   GET  /api/update/status — current version and auto-update setting
@@ -43,6 +46,7 @@ class LocalApiServer {
   final WifiService _wifiService;
   final UpdateService _updateService;
   final AlarmService? _alarmService;
+  final NotificationService? _notificationService;
 
   /// Reads service providers for plugin routes. Production wires `ref.read`
   /// (see [localApiServerProvider]); null in constructions made without a
@@ -86,6 +90,7 @@ class LocalApiServer {
     WifiService? wifiService,
     UpdateService? updateService,
     AlarmService? alarmService,
+    NotificationService? notificationService,
     ProviderReader? readProvider,
     List<HearthPlugin>? plugins,
     String? webPin,
@@ -96,6 +101,7 @@ class LocalApiServer {
         _wifiService = wifiService ?? WifiService(),
         _updateService = updateService ?? UpdateService(),
         _alarmService = alarmService,
+        _notificationService = notificationService,
         _readProvider = readProvider,
         _plugins = plugins ?? firstPartyPlugins,
         _loadIconFont = loadIconFont ?? _loadBundledIconFont,
@@ -240,6 +246,8 @@ class LocalApiServer {
             request.response.statusCode = 405;
             await request.response.close();
           }
+        } else if (path == '/api/notify' && request.method == 'POST') {
+          await _handleNotify(request);
         } else if (path == '/api/wifi/scan' && request.method == 'GET') {
           await _handleWifiScan(request);
         } else if (path == '/api/wifi/connect' && request.method == 'POST') {
@@ -522,6 +530,42 @@ class LocalApiServer {
     request.response.statusCode = 200;
     request.response.headers.contentType = ContentType.json;
     request.response.write(jsonEncode({'mode': mode.name}));
+    await request.response.close();
+  }
+
+  // --- Notification ingest ---
+
+  /// `POST /api/notify` — the HTTP fallback for non-MQTT setups (driven from
+  /// HA via `rest_command`). Same JSON schema and normalize path
+  /// (`HearthNotification.fromIngest`) as the MQTT `.../notify` topic.
+  ///
+  /// Body: {"title": "...", "message": "...", "priority": "alert"|"info",
+  ///        "sticky": true|false, "source": "...", "source_label": "...",
+  ///        "muted": true|false} — one of title/message required.
+  Future<void> _handleNotify(HttpRequest request) async {
+    final service = _notificationService;
+    if (service == null) {
+      request.response.statusCode = 503;
+      request.response.headers.contentType = ContentType.json;
+      request.response
+          .write(jsonEncode({'error': 'notification service unavailable'}));
+      await request.response.close();
+      return;
+    }
+    final json = await _readJsonBody(request);
+    final notification = HearthNotification.fromIngest(json);
+    if (notification == null) {
+      request.response.statusCode = 400;
+      request.response.headers.contentType = ContentType.json;
+      request.response
+          .write(jsonEncode({'error': 'title or message required'}));
+      await request.response.close();
+      return;
+    }
+    service.ingest(notification);
+    request.response.statusCode = 200;
+    request.response.headers.contentType = ContentType.json;
+    request.response.write(jsonEncode({'status': 'ok', 'id': notification.id}));
     await request.response.close();
   }
 
@@ -927,6 +971,7 @@ final localApiServerProvider = Provider<LocalApiServer>((ref) {
   final wifiService = ref.read(wifiServiceProvider);
   final updateService = ref.read(updateServiceProvider);
   final alarmService = ref.read(alarmServiceProvider);
+  final notificationService = ref.read(notificationServiceProvider);
   final server = LocalApiServer(
     displayModeService: displayService,
     configNotifier: configNotifier,
@@ -934,6 +979,7 @@ final localApiServerProvider = Provider<LocalApiServer>((ref) {
     wifiService: wifiService,
     updateService: updateService,
     alarmService: alarmService,
+    notificationService: notificationService,
     // Generic tearoff: lets plugin routes reach any service provider
     // (HA, Immich, AlarmService, CaptureService, WifiService, ...) via
     // readProvider<T> — the Capture plugin reads captureServiceProvider this way.
