@@ -10,12 +10,14 @@ Screens are laid out left-to-right in a single row. Swipe **left** to move towar
 **right** to move back toward Home and the media screen. A row of dots at the bottom shows
 where you are.
 
-The default order is:
+Home is the center, and **Settings** is always the last screen on the right. When every
+screen is enabled, they fall left-to-right in this default order:
 
 **Music ← Alarms ← Home → Controls → Cameras → Recipes → *(Web Dashboards)* → Settings**
 
-Home is the center. Any **[[Web Dashboards]]** you add slot in at their configured position.
-Settings is always the last screen on the right.
+Out of the box, the enabled screens are **Music, Controls, and Cameras** — you turn on the
+others (Alarms, Recipes) as you set them up, and they take their position in that order. Any
+**[[Web Dashboards]]** you add slot in at their configured position.
 
 > On a desktop dev build you can also use the arrow keys: **←/→** move between screens, **↑**
 > jumps to Home, **↓** jumps to Settings.
