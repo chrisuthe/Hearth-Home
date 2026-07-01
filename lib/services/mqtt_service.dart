@@ -556,9 +556,8 @@ class MqttService extends ChangeNotifier {
   }
 
   /// Normalize an inbound notification payload and surface it as a deck card.
-  /// HA publishes to `hearth/<clientId>/notify` via the built-in `notify.mqtt`
-  /// integration; a `command_template` shapes the JSON (see below). Shares the
-  /// normalize path (`HearthNotification.fromIngest`) with `POST /api/notify`.
+  /// HA publishes JSON to `hearth/<clientId>/notify`. Shares the normalize path
+  /// (`HearthNotification.fromIngest`) with `POST /api/notify`.
   ///
   /// Payload schema (all optional except one of title/message):
   /// ```json
@@ -567,16 +566,29 @@ class MqttService extends ChangeNotifier {
   ///  "muted": true|false}
   /// ```
   ///
-  /// Example HA `notify.mqtt` config:
+  /// Two HA delivery paths (both land here):
+  ///
+  /// 1. `notify.mqtt` (HA 2024.5+) — the built-in MQTT notify entity. Its
+  ///    `command_template` only has the message text (rendered as `value`);
+  ///    title/priority/sticky are NOT template variables, so this path gives a
+  ///    simple message-only card (title falls back to the message):
   /// ```yaml
-  /// notify:
-  ///   - platform: mqtt
-  ///     name: hearth
-  ///     command_topic: "hearth/<clientId>/notify"
-  ///     command_template: >-
-  ///       {"title": {{ title | to_json }}, "message": {{ message | to_json }},
-  ///        "priority": "{{ data.priority | default('info') }}",
-  ///        "sticky": {{ data.sticky | default(false) | to_json }}}
+  /// mqtt:
+  ///   - notify:
+  ///       name: Hearth
+  ///       command_topic: "hearth/<clientId>/notify"
+  ///       command_template: '{"message": {{ value | to_json }}}'
+  /// ```
+  ///
+  /// 2. `mqtt.publish` — publish the full JSON yourself for title/priority/
+  ///    sticky control (e.g. from an automation):
+  /// ```yaml
+  /// action: mqtt.publish
+  /// data:
+  ///   topic: "hearth/<clientId>/notify"
+  ///   payload: >-
+  ///     {"title": "Laundry", "message": "Cycle finished",
+  ///      "priority": "info", "sticky": false}
   /// ```
   void _handleNotify(String payload) {
     final notification = HearthNotification.fromIngest(_decodeJson(payload));

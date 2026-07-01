@@ -45,6 +45,12 @@ class NotificationDeckOverlay extends ConsumerWidget {
               child: _RiseUp(
                 child: Dismissible(
                   key: ValueKey('dismiss-${n.id}'),
+                  // Dismiss upward only — a horizontal direction would compete
+                  // with the HubShell PageView's paging gesture in the card's
+                  // (full-width) region. Swiping the card up matches its
+                  // bottom-anchored riseUp entrance; the ✕ is the primary
+                  // affordance regardless.
+                  direction: DismissDirection.up,
                   onDismissed: (_) => service.dismiss(n.id),
                   child: NotificationCard(
                     notification: n,
