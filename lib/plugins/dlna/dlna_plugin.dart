@@ -9,9 +9,14 @@ import '../hearth_plugin.dart';
 
 /// DLNA / UPnP MediaRenderer integration.
 ///
-/// Advertises Hearth on the LAN as a standard MediaRenderer so phones and apps
-/// (BubbleUPnP, VLC "Play To", Plex, …) can cast a video URL and have it play
-/// full-screen on the kiosk.
+/// Advertises Hearth on the LAN as a standard MediaRenderer so a UPnP/DLNA
+/// *control point* can push a video URL and have it play full-screen on the
+/// kiosk. Working control points: BubbleUPnP (Android), Windows "Cast to
+/// Device" (Play To), Hi-Fi Cast, mconnect, Home Assistant's DLNA DMR.
+///
+/// NOT control points (they will never list Hearth): Plex — a DLNA *server*,
+/// it exposes a library to players but can't cast to a renderer; and VLC —
+/// its "Renderer" menu discovers Chromecast only, not UPnP renderers.
 ///
 /// Owns:
 ///   * `dlnaEnabled`  (with side-effect: seed `dlnaUuid` on first enable)

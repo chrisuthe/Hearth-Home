@@ -1,7 +1,25 @@
 # Cast to Hearth (DLNA)
 
-Hearth can advertise itself as a **UPnP/DLNA MediaRenderer**, so you can **cast video from a
-phone or app** (BubbleUPnP, VLC, Plex, and other UPnP control points) straight to the kiosk.
+Hearth can advertise itself as a **UPnP/DLNA MediaRenderer**, so a **UPnP control point** can
+push a video to the kiosk and have it play full-screen.
+
+## Which apps work
+
+Hearth is a *renderer* (a playback target). You cast to it from a **control point** — an app
+that discovers renderers and sends them a video:
+
+- **BubbleUPnP** (Android) — the most reliable; pick Hearth as the renderer.
+- **Windows "Cast to Device"** — right-click a video in File Explorer / Movies & TV → *Cast to
+  Device* → **Hearth**.
+- **Home Assistant** — the DLNA DMR integration + `media_player.play_media` targeting Hearth.
+- Hi-Fi Cast, mconnect Player, Linn Kazoo, Upplay, and similar.
+
+**These do NOT work — they aren't control points:**
+
+- **Plex** — Plex Media Server is a DLNA *server* (it exposes your library to players); neither
+  it nor the Plex apps can cast to a third-party renderer. Hearth will never appear in Plex.
+- **VLC** — VLC's *Renderer* menu discovers **Chromecast only**, not UPnP/DLNA renderers. (VLC
+  can *browse* UPnP media servers as a source — a different feature.)
 
 ## Enable DLNA
 
