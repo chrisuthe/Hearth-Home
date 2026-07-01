@@ -44,7 +44,11 @@ const String kPlexPlaybackPrefix = '/player/playback/';
 
 /// `controllable` attribute per timeline type (the actions Hearth honors).
 const String _videoControllable =
-    'playPause,stop,volume,seekTo,skipPrevious,skipNext,stepBack,stepForward';
+    'playPause,stop,volume,seekTo,skipPrevious,skipNext,stepBack,stepForward,'
+    // audioStream/subtitleStream tell the Plex controller it can switch streams
+    // in place (via setStreams) rather than stop-and-restart the cast when the
+    // video Settings panel is opened — see PlexService._setStreams.
+    'audioStream,subtitleStream';
 const String _musicControllable =
     'playPause,stop,volume,seekTo,skipPrevious,skipNext,stepBack,stepForward';
 const String _photoControllable = 'playPause,stop,skipPrevious,skipNext';
@@ -219,44 +223,53 @@ String buildTranscodeUrl({
   int maxBitrateKbps = 6000,
   String videoResolution = '1920x1080',
   String deviceName = '',
+  String audioStreamID = '',
+  String subtitleStreamID = '',
 }) {
   final baseUri = Uri.parse(base);
+  final params = <String, String>{
+    'path': key,
+    'protocol': 'hls',
+    'mediaIndex': '0',
+    'partIndex': '0',
+    // directPlay=0 AND directStream=0 force a real video re-encode to H.264.
+    // With directStream=1 Plex "copies" (remuxes) the source video — so a HEVC
+    // source stays HEVC, which the Pi 5 can't decode. We only reach this path
+    // for content that needs transcoding, so full transcode is what we want.
+    'directPlay': '0',
+    'directStream': '0',
+    'fastSeek': '1',
+    'copyts': '1',
+    'subtitles': 'burn',
+    'audioBoost': '100',
+    'location': 'wan',
+    'hasMDE': '1',
+    'mediaBufferSize': '102400',
+    'maxVideoBitrate': '$maxBitrateKbps',
+    'videoResolution': videoResolution,
+    'offset': (offsetMs ~/ 1000).toString(),
+    'session': session,
+    'X-Plex-Session-Identifier': sessionIdentifier,
+    'X-Plex-Client-Identifier': clientId,
+    'X-Plex-Token': token,
+    'X-Plex-Product': kPlexProduct,
+    'X-Plex-Version': kPlexVersion,
+    'X-Plex-Platform': 'Plex Home Theater',
+    'X-Plex-Client-Profile-Name': 'Plex Home Theater',
+    'X-Plex-Provides': 'player',
+    'X-Plex-Device': 'RaspberryPI',
+    'X-Plex-Model': 'RaspberryPI',
+    'X-Plex-Device-Name': deviceName.isEmpty ? kPlexProduct : deviceName,
+  };
+  // Server-side stream selection, when a setStreams chose it. '0' is a real
+  // value for subtitles (off), so include any non-empty selection.
+  if (audioStreamID.isNotEmpty) params['audioStreamID'] = audioStreamID;
+  if (subtitleStreamID.isNotEmpty) {
+    params['subtitleStreamID'] = subtitleStreamID;
+  }
   return baseUri.replace(
     path: '/video/:/transcode/universal/start.m3u8',
-    queryParameters: {
-      'path': key,
-      'protocol': 'hls',
-      'mediaIndex': '0',
-      'partIndex': '0',
-      // directPlay=0 AND directStream=0 force a real video re-encode to H.264.
-      // With directStream=1 Plex "copies" (remuxes) the source video — so a HEVC
-      // source stays HEVC, which the Pi 5 can't decode. We only reach this path
-      // for content that needs transcoding, so full transcode is what we want.
-      'directPlay': '0',
-      'directStream': '0',
-      'fastSeek': '1',
-      'copyts': '1',
-      'subtitles': 'burn',
-      'audioBoost': '100',
-      'location': 'wan',
-      'hasMDE': '1',
-      'mediaBufferSize': '102400',
-      'maxVideoBitrate': '$maxBitrateKbps',
-      'videoResolution': videoResolution,
-      'offset': (offsetMs ~/ 1000).toString(),
-      'session': session,
-      'X-Plex-Session-Identifier': sessionIdentifier,
-      'X-Plex-Client-Identifier': clientId,
-      'X-Plex-Token': token,
-      'X-Plex-Product': kPlexProduct,
-      'X-Plex-Version': kPlexVersion,
-      'X-Plex-Platform': 'Plex Home Theater',
-      'X-Plex-Client-Profile-Name': 'Plex Home Theater',
-      'X-Plex-Provides': 'player',
-      'X-Plex-Device': 'RaspberryPI',
-      'X-Plex-Model': 'RaspberryPI',
-      'X-Plex-Device-Name': deviceName.isEmpty ? kPlexProduct : deviceName,
-    },
+    queryParameters: params,
   ).toString();
 }
 
