@@ -303,6 +303,17 @@ void main() {
       expect(configNotifier.state.haUrl, 'http://x');
     });
 
+    test('POST /api/config ignores read-only dlnaUuid', () async {
+      configNotifier.state =
+          const HubConfig(apiKey: testApiKey, dlnaUuid: 'seeded-uuid');
+      final r = await post('/api/config',
+          body: jsonEncode({'dlnaUuid': 'attacker-uuid', 'haUrl': 'http://z'}),
+          headers: authHeaders);
+      expect(r.statusCode, 200);
+      expect(configNotifier.state.dlnaUuid, 'seeded-uuid');
+      expect(configNotifier.state.haUrl, 'http://z');
+    });
+
     test('POST /api/config ignores unknown keys without error', () async {
       final r = await post('/api/config',
           body: jsonEncode({'notARealField': 'whatever', 'haUrl': 'http://y'}),

@@ -18,6 +18,7 @@ import '../modules/alarm_clock/alarm_alert_overlay.dart';
 import '../modules/alarm_clock/alarm_service.dart';
 import '../modules/alarm_clock/sunrise_controller.dart';
 import '../modules/webview/webview_session_pool.dart';
+import '../services/dlna/dlna_cast_overlay.dart';
 import '../services/sendspin/sendspin_service.dart';
 import '../services/toast_service.dart';
 import '../widgets/toast_overlay.dart';
@@ -478,6 +479,10 @@ class _HubShellState extends ConsumerState<HubShell> {
 
             // Alarm alert — full-screen overlay when an alarm fires.
             AlarmAlertOverlay(onWake: _onUserActivity),
+
+            // DLNA cast — full-screen video overlay when a control point
+            // casts a video to the kiosk. Renders nothing when idle.
+            DlnaCastOverlay(onWake: _onUserActivity),
 
             // Event overlay layer (doorbell, alerts)
           ],

@@ -410,11 +410,14 @@ class LocalApiServer {
   ///     and API access (and it's redacted on GET).
   ///   * [sendspinClientId] \u2014 internal device identity, app-seeded when the
   ///     Sendspin player is first enabled.
+  ///   * [dlnaUuid] \u2014 internal UPnP device identity, app-seeded when the
+  ///     DLNA renderer is first enabled.
   ///   * [currentVersion] \u2014 managed by the updater, not user-editable.
   ///   * [setupComplete] \u2014 first-run flow state.
   static const _webReadOnlyConfigKeys = {
     'apiKey',
     'sendspinClientId',
+    'dlnaUuid',
     'currentVersion',
     'setupComplete',
   };

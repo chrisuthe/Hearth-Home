@@ -64,10 +64,40 @@ class GstreamerVideoPlayer implements HearthVideoPlayer {
   }
 
   @override
+  Future<void> pause() async {
+    await _controller?.pause();
+    _playing = false;
+  }
+
+  @override
+  Future<void> resume() async {
+    if (_controller == null) return;
+    await _controller!.play();
+    _playing = true;
+  }
+
+  @override
+  Future<void> seek(Duration position) async {
+    await _controller?.seekTo(position);
+  }
+
+  @override
+  Future<void> setVolume(double volume) async {
+    // video_player volume is 0.0–1.0.
+    await _controller?.setVolume(volume.clamp(0.0, 1.0));
+  }
+
+  @override
   void dispose() => stop();
 
   @override
   bool get isPlaying => _playing;
+
+  @override
+  Duration get position => _controller?.value.position ?? Duration.zero;
+
+  @override
+  Duration get duration => _controller?.value.duration ?? Duration.zero;
 
   @override
   Widget buildView({BoxFit fit = BoxFit.contain}) {

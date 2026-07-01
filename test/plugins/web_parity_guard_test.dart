@@ -103,6 +103,7 @@ void main() {
     'apiKey': 'internal: API bearer token, redacted on read, never web-writable',
     'currentVersion': 'internal: managed by the updater',
     'sendspinClientId': 'internal: app-seeded Sendspin device identity',
+    'dlnaUuid': 'internal: app-seeded UPnP device identity (UDN), web read-only',
     'sendspinStaticDelayMs':
         'internal: advanced sync tuning, not surfaced in any settings panel',
     'setupComplete': 'internal: first-run flow state',
