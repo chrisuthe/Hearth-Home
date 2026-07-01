@@ -55,3 +55,11 @@ hub_config.json
 
 # Planning docs (kept locally, not in repo)
 docs/superpowers/
+
+# Claude Code workspace: everything under .claude/ is local/workspace-managed
+# (the symlinked .claude/CLAUDE.md, the codrasil-* skills) EXCEPT this repo's own
+# hearth-* skills, which are committed so they ship in a plain contributor checkout.
+.claude/*
+!.claude/skills/
+.claude/skills/*
+!.claude/skills/hearth-*/

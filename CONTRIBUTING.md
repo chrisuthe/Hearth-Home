@@ -119,6 +119,10 @@ Hearth has a single `pubspec.yaml`. If two community modules depend on incompati
 - Match existing commit message style (look at `git log` for tone).
 - If your change affects architecture, update `CLAUDE.md`.
 
+Maintainers cutting a release should follow [docs/RELEASING.md](docs/RELEASING.md),
+which covers syncing both remotes, the version bump, tagging, the wiki, and CI
+verification.
+
 ## Questions
 
 Open an issue with the `question` label, or start a discussion. Module ideas welcome before you write code — we'll tell you up front if a module is in or out of scope for Hearth.
