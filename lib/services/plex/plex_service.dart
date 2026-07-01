@@ -11,6 +11,10 @@ import 'plex_wire.dart';
 /// Fetches item metadata XML for a Plex URL, or null on error / non-2xx.
 typedef PlexMetadataFetcher = Future<String?> Function(String url);
 
+/// Fire-and-forget GET (result ignored) — used to report playback to the source
+/// PMS. Injectable so tests can capture the reported URLs without a real server.
+typedef PlexUrlFire = Future<void> Function(String url);
+
 /// Default [PlexMetadataFetcher]: a plain HTTP GET returning the body. Top-level
 /// so it can seed the service default and be swapped out in tests.
 Future<String?> plexHttpGetBody(String url) async {
@@ -31,6 +35,18 @@ Future<String?> plexHttpGetBody(String url) async {
   }
 }
 
+/// Default [PlexUrlFire]: fire a GET and drain/ignore the response. Top-level so
+/// it can seed the service default and be swapped out in tests.
+Future<void> plexHttpFireGet(String url) async {
+  try {
+    final client = HttpClient()..connectionTimeout = const Duration(seconds: 5);
+    final req = await client.getUrl(Uri.parse(url));
+    final resp = await req.close();
+    await resp.drain();
+    client.close();
+  } catch (_) {}
+}
+
 /// Plex Companion player runtime.
 ///
 /// Advertises Hearth on the LAN via GDM, serves the Plex Companion control
@@ -48,11 +64,17 @@ class PlexService {
   /// tests so playback can be exercised without a real Plex server.
   final PlexMetadataFetcher _fetchMetadata;
 
+  /// Fires the source-server timeline/scrobble reports. Overridable in tests so
+  /// the reported URLs/states can be captured without a real Plex server.
+  final PlexUrlFire _reportGet;
+
   PlexService({
     HearthVideoPlayer Function()? playerFactory,
     PlexMetadataFetcher? metadataFetcher,
+    PlexUrlFire? serverReporter,
   })  : _createPlayer = playerFactory ?? HearthVideoPlayer.create,
-        _fetchMetadata = metadataFetcher ?? plexHttpGetBody;
+        _fetchMetadata = metadataFetcher ?? plexHttpGetBody,
+        _reportGet = serverReporter ?? plexHttpFireGet;
 
   // --- Identity / config (set by [configure]) ---
   String _clientId = '';
@@ -75,6 +97,14 @@ class PlexService {
   String? _transcodeBase;
   String _transcodeSession = '';
   String _transcodeToken = '';
+
+  // --- Source-server playback reporting ---
+  // Ticks elapsed since the last server timeline heartbeat. The controller tick
+  // runs every 1s; we heartbeat the PMS every ~10s so we don't hammer it.
+  int _serverReportTick = 0;
+  // Whether this cast has already been scrobbled (marked watched) — the scrobble
+  // fires at most once per cast at the watched threshold.
+  bool _scrobbled = false;
 
   // --- Timeline subscribers, keyed by controller X-Plex-Client-Identifier ---
   final Map<String, _Subscriber> _subscribers = {};
@@ -122,6 +152,9 @@ class PlexService {
   Future<void> _stop() async {
     _tickTimer?.cancel();
     _tickTimer = null;
+    // Clear the item from the PMS Now Playing on teardown (config change /
+    // dispose) — only when a cast was actually active.
+    if (_state.hasMedia) _reportServerTimeline('stopped');
     _helloTimer?.cancel();
     _helloTimer = null;
 
@@ -471,6 +504,7 @@ class PlexService {
     }
 
     _player ??= _createPlayer();
+    _scrobbled = false;
     _updateState(
       _state.copyWith(
         currentUri: url,
@@ -485,6 +519,7 @@ class PlexService {
         port: port,
         protocol: protocol,
         token: token,
+        playQueueItemID: params['playQueueItemID'] ?? '',
       ),
       pushTimeline: true,
     );
@@ -498,6 +533,7 @@ class PlexService {
       _state.copyWith(transportState: PlexTransportState.playing),
       pushTimeline: true,
     );
+    _reportServerTimeline('playing');
     _startTick();
     if (transcoding) _startTranscodePing();
     return true;
@@ -570,6 +606,7 @@ class PlexService {
       _state.copyWith(transportState: PlexTransportState.playing),
       pushTimeline: true,
     );
+    _reportServerTimeline('playing');
     _startTick();
   }
 
@@ -580,6 +617,7 @@ class PlexService {
       _state.copyWith(transportState: PlexTransportState.paused),
       pushTimeline: true,
     );
+    _reportServerTimeline('paused');
   }
 
   Future<void> _stopPlayback() async {
@@ -589,6 +627,9 @@ class PlexService {
     await _player?.stop();
     _player?.dispose();
     _player = null;
+    // Report stopped to the PMS *before* clearing state so Now Playing clears —
+    // the reset below wipes the source-server coordinates the report needs.
+    _reportServerTimeline('stopped');
     _updateState(
       const PlexPlayerState(transportState: PlexTransportState.stopped),
       pushTimeline: true,
@@ -601,6 +642,7 @@ class PlexService {
     final pos = Duration(milliseconds: offsetMs);
     await _player!.seek(pos);
     _updateState(_state.copyWith(position: pos), pushTimeline: true);
+    _reportServerTimeline(_state.transportState.wire);
   }
 
   Future<void> _stepBy(Duration delta) async {
@@ -639,6 +681,7 @@ class PlexService {
 
   void _startTick() {
     _tickTimer?.cancel();
+    _serverReportTick = 0;
     _tickTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       final p = _player;
       if (p == null) return;
@@ -646,7 +689,62 @@ class PlexService {
         _state.copyWith(position: p.position, duration: p.duration),
         pushTimeline: true,
       );
+      // Heartbeat the source PMS every ~10s (not every 1s tick) so the item
+      // stays in Now Playing without hammering the server.
+      if (_state.transportState == PlexTransportState.playing &&
+          ++_serverReportTick >= 10) {
+        _serverReportTick = 0;
+        _reportServerTimeline('playing');
+      }
+      _maybeScrobble();
     });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Source-server playback reporting (timeline + scrobble)
+  // ---------------------------------------------------------------------------
+
+  /// Report [state] (`playing|paused|stopped|buffering`) with the current
+  /// position/duration to the source PMS so it shows live progress, updates the
+  /// resume point, and can mark the item watched. Fire-and-forget; a no-op when
+  /// the source-server coordinates aren't known.
+  void _reportServerTimeline(String state) {
+    final s = _state;
+    if (s.ratingKey.isEmpty || s.address.isEmpty || s.port.isEmpty) return;
+    final base =
+        plexServerBase(address: s.address, port: s.port, protocol: s.protocol);
+    _reportGet(serverTimelineUrl(
+      base: base,
+      ratingKey: s.ratingKey,
+      key: s.key,
+      state: state,
+      timeMs: s.position.inMilliseconds,
+      durationMs: s.duration.inMilliseconds,
+      token: s.token,
+      clientId: _clientId,
+      playQueueItemID: s.playQueueItemID,
+      deviceName: _playerName,
+    ));
+  }
+
+  /// Scrobble (mark watched) once the item passes the watched threshold (~90%),
+  /// at most once per cast.
+  void _maybeScrobble() {
+    if (_scrobbled) return;
+    final s = _state;
+    final durMs = s.duration.inMilliseconds;
+    if (durMs <= 0 || s.ratingKey.isEmpty) return;
+    if (s.position.inMilliseconds < durMs * 0.90) return;
+    _scrobbled = true;
+    if (s.address.isEmpty || s.port.isEmpty) return;
+    final base =
+        plexServerBase(address: s.address, port: s.port, protocol: s.protocol);
+    _reportGet(scrobbleUrl(
+      base: base,
+      ratingKey: s.ratingKey,
+      token: s.token,
+      clientId: _clientId,
+    ));
   }
 
   String _currentTimelineXml(int commandID) {

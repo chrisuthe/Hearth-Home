@@ -1,3 +1,4 @@
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hearth/services/plex/plex_player_state.dart';
@@ -52,11 +53,15 @@ class FakeVideoPlayer implements HearthVideoPlayer {
   @override
   bool get isPlaying => _playing;
 
-  @override
-  Duration get position => const Duration(seconds: 12);
+  // Mutable so tests can drive the tick (heartbeat / scrobble threshold).
+  Duration positionValue = const Duration(seconds: 12);
+  Duration durationValue = const Duration(minutes: 5);
 
   @override
-  Duration get duration => const Duration(minutes: 5);
+  Duration get position => positionValue;
+
+  @override
+  Duration get duration => durationValue;
 
   @override
   Widget buildView({BoxFit fit = BoxFit.contain}) => const SizedBox.shrink();
@@ -206,6 +211,130 @@ void main() {
       // Playback is untouched — the same item is still casting.
       expect(service.state.hasMedia, isTrue);
       expect(service.state.ratingKey, '12345');
+    });
+  });
+
+  group('source-server reporting', () {
+    late List<Uri> reports;
+    late PlexService svc;
+
+    setUp(() {
+      reports = [];
+      svc = PlexService(
+        playerFactory: () => fake,
+        metadataFetcher: (_) async => metadataXml,
+        serverReporter: (url) async => reports.add(Uri.parse(url)),
+      );
+    });
+    tearDown(() => svc.dispose());
+
+    List<Uri> timelines() => reports.where((u) => u.path == '/:/timeline').toList();
+    Uri lastTimeline() => timelines().last;
+
+    test('playMedia reports state=playing to the source PMS with the item key '
+        'and playQueueItemID', () async {
+      await svc.dispatchCommand(
+          'playMedia', {..._playMediaParams(), 'playQueueItemID': '987'});
+
+      final t = lastTimeline();
+      expect(t.host, '192.168.1.50');
+      expect(t.port, 32400);
+      expect(t.queryParameters['state'], 'playing');
+      expect(t.queryParameters['ratingKey'], '12345');
+      expect(t.queryParameters['key'], '/library/metadata/12345');
+      expect(t.queryParameters['identifier'], 'com.plexapp.plugins.library');
+      expect(t.queryParameters['playQueueItemID'], '987');
+      expect(t.queryParameters['X-Plex-Token'], 'srvtoken');
+    });
+
+    test('playQueueItemID is captured into state and omitted when absent',
+        () async {
+      await svc.dispatchCommand('playMedia', _playMediaParams());
+      expect(svc.state.playQueueItemID, '');
+      expect(lastTimeline().queryParameters.containsKey('playQueueItemID'),
+          isFalse);
+    });
+
+    test('pause reports paused; seekTo reports the new time with the current '
+        'state', () async {
+      await svc.dispatchCommand('playMedia', _playMediaParams());
+
+      await svc.dispatchCommand('pause', const {});
+      expect(lastTimeline().queryParameters['state'], 'paused');
+
+      await svc.dispatchCommand('play', const {});
+      await svc.dispatchCommand('seekTo', {'offset': '90000'});
+      final t = lastTimeline();
+      expect(t.queryParameters['state'], 'playing');
+      expect(t.queryParameters['time'], '90000');
+    });
+
+    test('stop reports state=stopped for the item before clearing it', () async {
+      await svc.dispatchCommand('playMedia', _playMediaParams());
+      await svc.dispatchCommand('stop', const {});
+      final t = lastTimeline();
+      expect(t.queryParameters['state'], 'stopped');
+      expect(t.queryParameters['ratingKey'], '12345');
+    });
+
+    test('heartbeats ~every 10s while playing, not on every 1s tick', () {
+      fakeAsync((async) {
+        final rep = <Uri>[];
+        final s = PlexService(
+          playerFactory: () => fake,
+          metadataFetcher: (_) async => metadataXml,
+          serverReporter: (url) async => rep.add(Uri.parse(url)),
+        );
+        int tl() => rep.where((u) => u.path == '/:/timeline').length;
+
+        s.dispatchCommand('playMedia', _playMediaParams());
+        async.flushMicrotasks();
+        final afterCast = tl(); // just the initial playing report
+        expect(afterCast, 1);
+
+        async.elapse(const Duration(seconds: 9));
+        expect(tl(), afterCast, reason: 'no heartbeat within the first 10s');
+
+        async.elapse(const Duration(seconds: 1)); // 10s
+        expect(tl(), afterCast + 1, reason: 'one heartbeat at ~10s');
+
+        async.elapse(const Duration(seconds: 10)); // 20s
+        expect(tl(), afterCast + 2);
+
+        s.dispose();
+        async.flushMicrotasks();
+      });
+    });
+
+    test('scrobbles once at ~90% watched and never again', () {
+      fakeAsync((async) {
+        final rep = <Uri>[];
+        final s = PlexService(
+          playerFactory: () => fake,
+          metadataFetcher: (_) async => metadataXml,
+          serverReporter: (url) async => rep.add(Uri.parse(url)),
+        );
+        List<Uri> scrobbles() =>
+            rep.where((u) => u.path == '/:/scrobble').toList();
+
+        s.dispatchCommand('playMedia', _playMediaParams());
+        async.flushMicrotasks();
+        expect(scrobbles(), isEmpty);
+
+        // Drive the player past the ~90% watched threshold (280s of 300s).
+        fake.positionValue = const Duration(seconds: 280);
+        async.elapse(const Duration(seconds: 1)); // one tick reads the position
+        expect(scrobbles().length, 1);
+        expect(scrobbles().single.queryParameters['key'], '12345');
+
+        // Playing on to the end must not fire a second scrobble.
+        fake.positionValue = const Duration(seconds: 299);
+        async.elapse(const Duration(seconds: 20));
+        expect(scrobbles().length, 1);
+
+        s.dispose();
+        async.flushMicrotasks();
+      });
     });
   });
 }

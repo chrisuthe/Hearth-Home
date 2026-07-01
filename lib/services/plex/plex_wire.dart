@@ -322,6 +322,79 @@ String buildDirectPlayUrl({
 }) =>
     '${_trimSlash(base)}$partKey?X-Plex-Token=${Uri.encodeQueryComponent(token)}';
 
+// ---------------------------------------------------------------------------
+// Source-server playback reporting (timeline + scrobble)
+// ---------------------------------------------------------------------------
+
+/// Plex's `identifier` for library items — the value every server-timeline and
+/// scrobble report carries so PMS attributes the report to the library agent.
+const String kPlexLibraryIdentifier = 'com.plexapp.plugins.library';
+
+/// Report playback state to the **source PMS** so the item shows in Now Playing,
+/// its progress bar and resume point ("Continue Watching") update, and it can be
+/// marked watched. Grounded in python-plexapi `updateTimeline`:
+/// `GET {base}/:/timeline?ratingKey=..&key=..&identifier=com.plexapp.plugins.library`
+/// `&time=..&state=..&duration=..`. [state] is one of
+/// `playing|paused|stopped|buffering` (same set as [PlexTimelineMedia]'s
+/// timeline `state`). [key] is the full item key (`/library/metadata/<n>`),
+/// distinct from [ratingKey] (the bare number). [playQueueItemID] is omitted
+/// when empty. The identity params mirror the other builders so PMS ties the
+/// report to this player.
+String serverTimelineUrl({
+  required String base,
+  required String ratingKey,
+  required String key,
+  required String state,
+  required int timeMs,
+  required int durationMs,
+  required String token,
+  required String clientId,
+  String playQueueItemID = '',
+  String deviceName = '',
+}) {
+  final baseUri = Uri.parse(base);
+  return baseUri.replace(
+    path: '/:/timeline',
+    queryParameters: {
+      'ratingKey': ratingKey,
+      'key': key,
+      'identifier': kPlexLibraryIdentifier,
+      'state': state,
+      'time': '$timeMs',
+      'duration': '$durationMs',
+      if (playQueueItemID.isNotEmpty) 'playQueueItemID': playQueueItemID,
+      'X-Plex-Token': token,
+      'X-Plex-Client-Identifier': clientId,
+      'X-Plex-Product': kPlexProduct,
+      'X-Plex-Version': kPlexVersion,
+      'X-Plex-Device-Name': deviceName.isEmpty ? kPlexProduct : deviceName,
+    },
+  ).toString();
+}
+
+/// Mark an item watched on the source PMS. Grounded in python-plexapi
+/// `markPlayed`: `GET {base}/:/scrobble?key=<ratingKey>&`
+/// `identifier=com.plexapp.plugins.library`. Note the scrobble `key` is the bare
+/// numeric [ratingKey] (not the `/library/metadata/..` path used by the
+/// timeline). The identity params mirror the other builders.
+String scrobbleUrl({
+  required String base,
+  required String ratingKey,
+  required String token,
+  required String clientId,
+}) {
+  final baseUri = Uri.parse(base);
+  return baseUri.replace(
+    path: '/:/scrobble',
+    queryParameters: {
+      'identifier': kPlexLibraryIdentifier,
+      'key': ratingKey,
+      'X-Plex-Token': token,
+      'X-Plex-Client-Identifier': clientId,
+    },
+  ).toString();
+}
+
 /// Build a transcode session control URL (`command` = `ping` to keep alive, or
 /// `stop` to tear down) sharing the [session] of [buildTranscodeUrl].
 String transcodeControlUrl({
