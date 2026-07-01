@@ -68,6 +68,7 @@ class WebviewSession extends ChangeNotifier {
   String? _lastError;
   StreamSubscription<WebviewError>? _errorSub;
   Timer? _restartTimer;
+  bool _disposed = false;
 
   WebviewSession({
     required this.url,
@@ -95,6 +96,11 @@ class WebviewSession extends ChangeNotifier {
   WebviewSessionState get state => _state;
   String? get lastError => _lastError;
   VideoPlayerController? get controller => _controller;
+
+  /// True once this session has been torn down (via [dispose] or [shutdown]).
+  /// The pool uses this to guarantee it never holds more than one live WPE
+  /// session at a time.
+  bool get isDisposed => _disposed;
 
   /// The actual GStreamer pipeline string. Exposed for tests and logging.
   ///
@@ -314,8 +320,29 @@ class WebviewSession extends ChangeNotifier {
     }
   }
 
+  /// Awaitable teardown. Disposes the underlying [VideoPlayerController] and
+  /// **awaits** its async GStreamer/GL teardown before returning, then runs the
+  /// synchronous [dispose].
+  ///
+  /// The pool calls this before constructing a replacement session so two WPE
+  /// pipelines never hold an EGL display at the same instant: flutter-pi
+  /// supports exactly one EGL display, and a transient two-EGL overlap during
+  /// async GL teardown SIGSEGVs the embedder ("Multiple EGL displays are not
+  /// supported."). Awaiting the controller disposal closes that window.
+  Future<void> shutdown() async {
+    if (_disposed) return;
+    _restartTimer?.cancel();
+    await _errorSub?.cancel();
+    await _controller?.dispose();
+    _controller = null;
+    _errorSub = null;
+    dispose();
+  }
+
   @override
   void dispose() {
+    if (_disposed) return;
+    _disposed = true;
     _restartTimer?.cancel();
     _errorSub?.cancel();
     _controller?.dispose();

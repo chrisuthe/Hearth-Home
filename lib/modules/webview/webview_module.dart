@@ -33,7 +33,7 @@ class WebviewModule implements HearthModule {
 
   @override
   Widget buildScreen({required bool isActive}) =>
-      WebviewScreen(config: config);
+      WebviewScreen(config: config, isActive: isActive);
 
   @override
   Widget? buildSettingsSection() => null;

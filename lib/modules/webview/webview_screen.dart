@@ -34,16 +34,29 @@ Offset webviewViewportOffset(Offset local, Size box, Size render) {
 
 /// Renders a single configured webview into HubShell's PageView.
 ///
-/// Resolves a [WebviewSession] from the pool (warm-cache), renders the
-/// underlying video texture, and shows Hearth-styled LOADING / ERROR
-/// placeholders during transitions.
+/// Resolves a [WebviewSession] from the pool, renders the underlying video
+/// texture, and shows Hearth-styled LOADING / ERROR placeholders during
+/// transitions.
 ///
-/// Touch input and idle-suspend wiring are added in later tasks
-/// (Task 14: Touch input mapping, Task 16: Idle-suspend wiring).
+/// **Only the currently visible webview resolves a live session.** The pool
+/// caps live WPE sessions at one (a second EGL display SIGSEGVs flutter-pi), so
+/// an offscreen, pre-built webview page must not resolve — otherwise two built
+/// webview screens would fight over the single slot on every layout. [isActive]
+/// (driven from HubShell's `_currentPage`) gates that: resolution happens only
+/// while active, and the session is detached when the page scrolls away.
 class WebviewScreen extends ConsumerStatefulWidget {
   final WebviewConfig config;
 
-  const WebviewScreen({super.key, required this.config});
+  /// True when this webview is the currently visible page. When false the
+  /// screen shows a placeholder and does not hold the pool's single live
+  /// session.
+  final bool isActive;
+
+  const WebviewScreen({
+    super.key,
+    required this.config,
+    this.isActive = true,
+  });
 
   @override
   ConsumerState<WebviewScreen> createState() => _WebviewScreenState();
@@ -53,12 +66,22 @@ class _WebviewScreenState extends ConsumerState<WebviewScreen> {
   WebviewSession? _session;
   Size? _lastRenderPx;
 
+  /// Bumped on every resolve request (and on detach). A resolve that awaits the
+  /// pool checks this against the value it captured and bails if a newer request
+  /// superseded it — so a stale resolve can't attach a session the pool has
+  /// since disposed.
+  int _resolveGen = 0;
+
   /// Resolves (or re-resolves) the session for this webview, applying the
-  /// HA-token injector when applicable. Safe to call repeatedly: it only swaps
-  /// the session when the pool hands back a different instance (e.g. the HA
-  /// token changed, so [WebviewSessionPool.getOrCreate] rebuilt the session
-  /// with the new document-start script).
-  void _ensureSession(Size? renderPx) {
+  /// HA-token injector when applicable. No-op unless this page is active — the
+  /// pool holds only one live session and it belongs to the visible webview.
+  ///
+  /// Safe to call repeatedly: it only swaps the session when the pool hands back
+  /// a different instance (e.g. the HA token changed, so the pool rebuilt the
+  /// session with the new document-start script).
+  Future<void> _ensureSession(Size? renderPx) async {
+    if (!widget.isActive) return;
+    final gen = ++_resolveGen;
     final config = ref.read(hubConfigProvider);
     final injector = injectorForWebview(
       widget.config,
@@ -67,20 +90,46 @@ class _WebviewScreenState extends ConsumerState<WebviewScreen> {
       darkMode: config.haDashboardDarkMode,
     );
     final pool = ref.read(webviewSessionPoolProvider);
-    final session = pool.getOrCreate(
+    final session = await pool.getOrCreate(
       widget.config.url,
       initScript: injector?.script,
       initScriptAllowOrigin: injector?.allowOrigin,
       renderSize: renderPx,
     );
+    // A newer resolve (or a detach) superseded this one, or we're no longer
+    // active/mounted — don't attach a session that may already be disposed.
+    if (!mounted || gen != _resolveGen || !widget.isActive) return;
     if (identical(session, _session)) return;
     _session?.removeListener(_onSessionChange);
     setState(() => _session = session);
     session.addListener(_onSessionChange);
   }
 
+  /// Releases our reference to the live session when this page scrolls away.
+  /// The session itself stays warm in the pool (still ≤ 1 live) until another
+  /// webview evicts it — so returning to this page doesn't re-initialize WPE
+  /// unless something else claimed the slot in the meantime.
+  void _detachSession() {
+    _resolveGen++; // invalidate any in-flight resolve
+    if (_session == null) return;
+    _session?.removeListener(_onSessionChange);
+    setState(() => _session = null);
+  }
+
   void _onSessionChange() {
     if (mounted) setState(() {});
+  }
+
+  @override
+  void didUpdateWidget(WebviewScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isActive && !oldWidget.isActive) {
+      // Became visible — reclaim (or rebuild) the single live session. If we
+      // never laid out we have no size yet; the LayoutBuilder resolve will run.
+      if (_lastRenderPx != null) _ensureSession(_lastRenderPx);
+    } else if (!widget.isActive && oldWidget.isActive) {
+      _detachSession();
+    }
   }
 
   @override
