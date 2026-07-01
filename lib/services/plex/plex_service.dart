@@ -507,9 +507,10 @@ class PlexService {
     final base = plexServerBase(address: address, port: port, protocol: protocol);
     final machineId = params['machineIdentifier'] ?? '';
 
-    // Fetch metadata: the media Part (for direct play) and the video codec +
-    // height (to route). The Pi 5 direct-plays H.264 up to 1080p; HEVC and 4K
-    // must be transcoded — see [plexNeedsTranscode].
+    // Fetch metadata: the media Part (for direct play) and the video codec,
+    // height + scan type (to route). The Pi 5 direct-plays progressive H.264 up
+    // to 1080p; HEVC, 4K, and interlaced 1080i must be transcoded — see
+    // [plexNeedsTranscode].
     final metaXml =
         await _fetchMetadata(metadataUrl(base: base, key: key, token: token));
     if (metaXml == null) {
@@ -517,13 +518,13 @@ class PlexService {
       return false;
     }
     final partKey = firstPartKey(metaXml);
-    final (codec, height) = firstMediaInfo(metaXml);
+    final (codec, height, scanType) = firstMediaInfo(metaXml);
 
     if (_transcodeBase != null) await _stopTranscodeSession();
 
     final String url;
     var transcoding = false;
-    if (plexNeedsTranscode(codec, height)) {
+    if (plexNeedsTranscode(codec, height, scanType: scanType)) {
       // Transcoding needs the SERVER access token — the transient cast token
       // can't transcode (401/403). Resolve it from plex.tv resources.
       final srvToken = await _serverToken(machineId);
@@ -547,7 +548,9 @@ class PlexService {
         deviceName: _playerName,
       );
       transcoding = true;
-      Log.i('Plex', 'Cast: transcode $key ($codec ${height}p -> H.264 1080p@6M)');
+      final why = scanType.toLowerCase() == 'interlaced' ? '$scanType ' : '';
+      Log.i('Plex',
+          'Cast: transcode $key ($why$codec ${height}p -> H.264 1080p@6M)');
     } else {
       if (partKey.isEmpty) {
         Log.e('Plex', 'playMedia: no playable media part for $key');
