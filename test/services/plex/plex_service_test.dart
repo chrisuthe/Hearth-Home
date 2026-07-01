@@ -80,6 +80,10 @@ Map<String, String> _playMediaParams({String offset = '60000'}) => {
 void main() {
   late FakeVideoPlayer fake;
   late PlexService service;
+  // Captures the system (ALSA) volume writes the service makes, and the value
+  // the service reads back when seeding the slider — no real `amixer`.
+  late List<int> volumeWrites;
+  int? systemVolume;
 
   // Canned item metadata: a direct-playable H.264 1080p item with one Part.
   const metadataXml = '<MediaContainer><Video>'
@@ -89,9 +93,13 @@ void main() {
 
   setUp(() {
     fake = FakeVideoPlayer();
+    volumeWrites = [];
+    systemVolume = null;
     service = PlexService(
       playerFactory: () => fake,
       metadataFetcher: (url) async => metadataXml,
+      volumeSetter: (v) async => volumeWrites.add(v),
+      volumeReader: () async => systemVolume,
     );
   });
 
@@ -172,27 +180,52 @@ void main() {
       expect(fake.seekedTo, const Duration(seconds: 75));
     });
 
-    test('setParameters volume updates state and player output (0..1)',
+    test('setParameters volume updates state and the Pi system volume',
         () async {
       await service.dispatchCommand('playMedia', _playMediaParams());
 
       await service.dispatchCommand('setParameters', {'volume': '30'});
       expect(service.state.volume, 30);
-      expect(fake.lastVolume, closeTo(0.30, 0.001));
+      expect(volumeWrites, contains(30));
+      // The player itself stays at full — ALSA is the sole output control.
+      expect(fake.lastVolume, 1.0);
     });
 
-    test('setVolumeFromUi updates state and player output, clamped 0..100',
+    test('setVolumeFromUi drives system volume and state, clamped 0..100',
         () async {
       await service.dispatchCommand('playMedia', _playMediaParams());
 
       await service.setVolumeFromUi(25);
       expect(service.state.volume, 25);
-      expect(fake.lastVolume, closeTo(0.25, 0.001));
+      expect(volumeWrites, contains(25));
 
-      // Out-of-range input is clamped before it reaches state / the player.
+      // Out-of-range input is clamped before it reaches state / the mixer.
       await service.setVolumeFromUi(150);
       expect(service.state.volume, 100);
-      expect(fake.lastVolume, closeTo(1.0, 0.001));
+      expect(volumeWrites, contains(100));
+      // Never touches the player's own volume.
+      expect(fake.lastVolume, 1.0);
+    });
+
+    test('playMedia seeds the volume slider from the live system volume',
+        () async {
+      systemVolume = 42;
+      await service.dispatchCommand('playMedia', _playMediaParams());
+      expect(service.state.volume, 42);
+    });
+
+    test('seekFromUi seeks the player, updates position, and clamps negatives',
+        () async {
+      await service.dispatchCommand('playMedia', _playMediaParams());
+
+      await service.seekFromUi(const Duration(seconds: 100));
+      expect(fake.seekedTo, const Duration(seconds: 100));
+      expect(service.state.position, const Duration(seconds: 100));
+
+      // A negative target floors at zero.
+      await service.seekFromUi(const Duration(seconds: -30));
+      expect(fake.seekedTo, Duration.zero);
+      expect(service.state.position, Duration.zero);
     });
 
     test('skipNext/skipPrevious are accepted no-ops on a single-item sink',
