@@ -64,10 +64,17 @@ class PlexService {
   RawDatagramSocket? _gdmSocket;
   Timer? _helloTimer;
   Timer? _tickTimer;
+  Timer? _pingTimer;
 
   // --- Playback ---
   HearthVideoPlayer? _player;
   HearthVideoPlayer? get player => _player;
+
+  // Active transcode session (HLS): kept alive with pings, stopped on teardown.
+  // Null / empty for direct play.
+  String? _transcodeBase;
+  String _transcodeSession = '';
+  String _transcodeToken = '';
 
   // --- Timeline subscribers, keyed by controller X-Plex-Client-Identifier ---
   final Map<String, _Subscriber> _subscribers = {};
@@ -127,6 +134,7 @@ class PlexService {
 
     _subscribers.clear();
 
+    await _stopTranscodeSession();
     await _player?.stop();
     _player?.dispose();
     _player = null;
@@ -388,21 +396,58 @@ class PlexService {
     final offsetMs = int.tryParse(params['offset'] ?? '') ?? 0;
 
     final base = plexServerBase(address: address, port: port, protocol: protocol);
+    final machineId = params['machineIdentifier'] ?? '';
 
-    // Direct play: resolve the item's media Part and stream the original file.
-    // The universal transcoder is bypassed — a server rejects it for shared
-    // libraries / transient tokens (bare HTTP 400) — and GStreamer decodes most
-    // containers/codecs natively. The player seeks to the resume offset locally.
+    // Fetch metadata: the media Part (for direct play) and the video codec +
+    // height (to route). The Pi 5 direct-plays H.264 up to 1080p; HEVC and 4K
+    // must be transcoded — see [plexNeedsTranscode].
     final metaXml =
         await _fetchMetadata(metadataUrl(base: base, key: key, token: token));
-    final partKey = metaXml == null ? '' : firstPartKey(metaXml);
-    if (partKey.isEmpty) {
-      Log.e('Plex', 'playMedia: no playable media part for $key');
+    if (metaXml == null) {
+      Log.e('Plex', 'playMedia: metadata fetch failed for $key');
       return false;
     }
-    final url = buildDirectPlayUrl(base: base, partKey: partKey, token: token);
+    final partKey = firstPartKey(metaXml);
+    final (codec, height) = firstMediaInfo(metaXml);
 
-    Log.i('Plex', 'Cast: playMedia $key -> $partKey (offset ${offsetMs}ms)');
+    if (_transcodeBase != null) await _stopTranscodeSession();
+
+    final String url;
+    var transcoding = false;
+    if (plexNeedsTranscode(codec, height)) {
+      // Transcoding needs the SERVER access token — the transient cast token
+      // can't transcode (401/403). Resolve it from plex.tv resources.
+      final srvToken = await _serverToken(machineId);
+      if (srvToken.isEmpty) {
+        Log.e('Plex', 'playMedia: $codec ${height}p needs transcode but no '
+            'server token (pair Plex with the owning account) — cannot play');
+        return false;
+      }
+      final session = HubConfig.generateUuid();
+      _transcodeBase = base;
+      _transcodeSession = session;
+      _transcodeToken = srvToken;
+      url = buildTranscodeUrl(
+        base: base,
+        key: key,
+        token: srvToken,
+        clientId: _clientId,
+        session: session,
+        sessionIdentifier: HubConfig.generateUuid(),
+        offsetMs: offsetMs,
+        deviceName: _playerName,
+      );
+      transcoding = true;
+      Log.i('Plex', 'Cast: transcode $key ($codec ${height}p -> H.264 1080p@6M)');
+    } else {
+      if (partKey.isEmpty) {
+        Log.e('Plex', 'playMedia: no playable media part for $key');
+        return false;
+      }
+      url = buildDirectPlayUrl(base: base, partKey: partKey, token: token);
+      Log.i('Plex', 'Cast: direct-play $key ($codec ${height}p) -> $partKey');
+    }
+
     _player ??= _createPlayer();
     _updateState(
       _state.copyWith(
@@ -413,7 +458,7 @@ class PlexService {
         key: key,
         ratingKey: _ratingKeyFromKey(key),
         containerKey: params['containerKey'] ?? '',
-        machineIdentifier: params['machineIdentifier'] ?? '',
+        machineIdentifier: machineId,
         address: address,
         port: port,
         protocol: protocol,
@@ -422,14 +467,77 @@ class PlexService {
       pushTimeline: true,
     );
     await _player!.play(url);
-    if (offsetMs > 0) await _player!.seek(Duration(milliseconds: offsetMs));
+    // Direct play seeks locally; the transcode URL already starts at the offset.
+    if (!transcoding && offsetMs > 0) {
+      await _player!.seek(Duration(milliseconds: offsetMs));
+    }
     await _player!.setVolume(_state.volume / 100.0);
     _updateState(
       _state.copyWith(transportState: PlexTransportState.playing),
       pushTimeline: true,
     );
     _startTick();
+    if (transcoding) _startTranscodePing();
     return true;
+  }
+
+  /// Server access token for [machineId], resolved from plex.tv `/api/v2/
+  /// resources` using the stored account token and cached. Empty when we have
+  /// no account token or the server isn't in the account's resources.
+  final Map<String, String> _serverTokens = {};
+  Future<String> _serverToken(String machineId) async {
+    if (machineId.isEmpty || _authToken.isEmpty) return '';
+    final cached = _serverTokens[machineId];
+    if (cached != null) return cached;
+    final url = 'https://plex.tv/api/v2/resources?includeHttps=1'
+        '&X-Plex-Token=${Uri.encodeQueryComponent(_authToken)}'
+        '&X-Plex-Client-Identifier=${Uri.encodeQueryComponent(_clientId)}';
+    final body = await _fetchMetadata(url);
+    final tok = body == null ? '' : serverTokenFromResources(body, machineId);
+    if (tok.isNotEmpty) _serverTokens[machineId] = tok;
+    return tok;
+  }
+
+  // --- Transcode session keep-alive (HLS only) ---
+
+  void _startTranscodePing() {
+    _pingTimer?.cancel();
+    if (!_running) return;
+    _pingTimer = Timer.periodic(const Duration(seconds: 20), (_) {
+      final base = _transcodeBase;
+      if (base == null) return;
+      _fireGet(transcodeControlUrl(
+        base: base,
+        command: 'ping',
+        session: _transcodeSession,
+        token: _transcodeToken,
+      ));
+    });
+  }
+
+  Future<void> _stopTranscodeSession() async {
+    _pingTimer?.cancel();
+    _pingTimer = null;
+    final base = _transcodeBase;
+    _transcodeBase = null;
+    if (base == null || !_running) return;
+    await _fireGet(transcodeControlUrl(
+      base: base,
+      command: 'stop',
+      session: _transcodeSession,
+      token: _transcodeToken,
+    ));
+  }
+
+  Future<void> _fireGet(String url) async {
+    try {
+      final client = HttpClient()
+        ..connectionTimeout = const Duration(seconds: 5);
+      final req = await client.getUrl(Uri.parse(url));
+      final resp = await req.close();
+      await resp.drain();
+      client.close();
+    } catch (_) {}
   }
 
 
@@ -455,6 +563,7 @@ class PlexService {
   Future<void> _stopPlayback() async {
     _tickTimer?.cancel();
     _tickTimer = null;
+    await _stopTranscodeSession();
     await _player?.stop();
     _player?.dispose();
     _player = null;

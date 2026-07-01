@@ -76,8 +76,9 @@ void main() {
   late FakeVideoPlayer fake;
   late PlexService service;
 
-  // Canned item metadata: one streamable Part, as PMS returns for direct play.
-  const metadataXml = '<MediaContainer><Video><Media>'
+  // Canned item metadata: a direct-playable H.264 1080p item with one Part.
+  const metadataXml = '<MediaContainer><Video>'
+      '<Media videoCodec="h264" width="1920" height="1080">'
       '<Part id="55" key="/library/parts/55/1/file.mkv" container="mkv"/>'
       '</Media></Video></MediaContainer>';
 

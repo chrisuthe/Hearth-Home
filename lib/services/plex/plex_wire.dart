@@ -198,17 +198,26 @@ String plexServerBase({
   return '$scheme://$address:$port';
 }
 
-/// Build the universal HLS transcode URL fed to [HearthVideoPlayer]. Pure — no
-/// PMS metadata pre-fetch is needed for HLS; the item [key] and access [token]
-/// come straight from the `playMedia` request. [offsetMs] is the resume point
-/// in milliseconds (emitted as whole seconds).
+/// Build the universal HLS transcode URL fed to [HearthVideoPlayer]. Confirmed
+/// against a live PMS: the transcoder needs the full identity + a named
+/// capability profile ("Plex Home Theater", a built-in H.264 profile) plus an
+/// `X-Plex-Session-Identifier` — without them PMS returns a bare 400. The
+/// [token] MUST be the server access token (from [serverTokenFromResources]),
+/// not the transient cast token (which can't transcode → 401/403).
+///
+/// [maxBitrateKbps]/[videoResolution] cap the output at Pi-5-friendly H.264
+/// (software-decoded; 1080p @ 6 Mbps by default). [offsetMs] is the resume
+/// point (whole seconds; the transcoder starts the HLS stream there).
 String buildTranscodeUrl({
   required String base,
   required String key,
   required String token,
   required String clientId,
   required String session,
+  required String sessionIdentifier,
   int offsetMs = 0,
+  int maxBitrateKbps = 6000,
+  String videoResolution = '1920x1080',
   String deviceName = '',
 }) {
   final baseUri = Uri.parse(base);
@@ -223,21 +232,62 @@ String buildTranscodeUrl({
       'directStream': '1',
       'fastSeek': '1',
       'copyts': '1',
+      'subtitles': 'burn',
+      'audioBoost': '100',
+      'location': 'wan',
+      'hasMDE': '1',
+      'mediaBufferSize': '102400',
+      'maxVideoBitrate': '$maxBitrateKbps',
+      'videoResolution': videoResolution,
       'offset': (offsetMs ~/ 1000).toString(),
       'session': session,
+      'X-Plex-Session-Identifier': sessionIdentifier,
       'X-Plex-Client-Identifier': clientId,
       'X-Plex-Token': token,
-      // Client identity + platform: the universal transcoder needs these to
-      // build a transcode decision. souphttpsrc sends no X-Plex-* headers, so
-      // they must ride in the URL. Missing them => PMS 400 Bad Request. Values
-      // mirror the pairing identity in plex_tv_auth.dart / device advertisement.
       'X-Plex-Product': kPlexProduct,
       'X-Plex-Version': kPlexVersion,
-      'X-Plex-Platform': 'Flutter',
-      'X-Plex-Device': kPlexProduct,
+      'X-Plex-Platform': 'Plex Home Theater',
+      'X-Plex-Client-Profile-Name': 'Plex Home Theater',
+      'X-Plex-Provides': 'player',
+      'X-Plex-Device': 'RaspberryPI',
+      'X-Plex-Model': 'RaspberryPI',
       'X-Plex-Device-Name': deviceName.isEmpty ? kPlexProduct : deviceName,
     },
   ).toString();
+}
+
+/// Whether the Pi should ask Plex to transcode rather than direct-play. The Pi 5
+/// software-decodes H.264 up to 1080p reliably, but its HEVC hardware decoder
+/// can't negotiate 10-bit to the GL texture and 4K H.264 in software stutters.
+/// So direct-play only H.264 at/under [maxHeight]; transcode everything else.
+bool plexNeedsTranscode(String videoCodec, int height, {int maxHeight = 1088}) =>
+    videoCodec.toLowerCase() != 'h264' || height > maxHeight;
+
+final RegExp _videoCodecRe = RegExp(r'<Media\b[^>]*\bvideoCodec="([^"]*)"');
+final RegExp _mediaHeightRe = RegExp(r'<Media\b[^>]*\bheight="([0-9]+)"');
+
+/// `(videoCodec, height)` of the first `<Media>` in item metadata XML — drives
+/// the direct-play-vs-transcode decision. Empty/0 when absent.
+(String, int) firstMediaInfo(String metadataXml) => (
+      _videoCodecRe.firstMatch(metadataXml)?.group(1) ?? '',
+      int.tryParse(_mediaHeightRe.firstMatch(metadataXml)?.group(1) ?? '') ?? 0,
+    );
+
+final RegExp _resourceTagRe = RegExp(r'<resource\b[^>]*>');
+final RegExp _accessTokenRe = RegExp(r'accessToken="([^"]*)"');
+
+/// The server access token for [machineId] from a plex.tv `/api/v2/resources`
+/// XML response (`<resource clientIdentifier="…" accessToken="…" …>`). This is
+/// the token the universal transcoder authorizes; the transient cast token
+/// cannot transcode. Empty when the server isn't in the account's resources.
+String serverTokenFromResources(String resourcesXml, String machineId) {
+  for (final m in _resourceTagRe.allMatches(resourcesXml)) {
+    final tag = m.group(0)!;
+    if (tag.contains('clientIdentifier="$machineId"')) {
+      return _accessTokenRe.firstMatch(tag)?.group(1) ?? '';
+    }
+  }
+  return '';
 }
 
 String _trimSlash(String s) =>

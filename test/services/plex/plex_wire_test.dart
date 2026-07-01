@@ -3,46 +3,67 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hearth/services/plex/plex_wire.dart';
 
 void main() {
-  group('buildTranscodeUrl', () {
-    test('emits the grounded universal HLS param set', () {
-      final url = buildTranscodeUrl(
-        base: 'http://10.0.0.5:32400',
-        key: '/library/metadata/99',
-        token: 'tok',
-        clientId: 'cid',
-        session: 'sess',
-        offsetMs: 5000,
-      );
-      final uri = Uri.parse(url);
-      expect(uri.host, '10.0.0.5');
-      expect(uri.port, 32400);
-      expect(uri.path, '/video/:/transcode/universal/start.m3u8');
-      expect(uri.queryParameters['path'], '/library/metadata/99');
-      expect(uri.queryParameters['protocol'], 'hls');
-      expect(uri.queryParameters['directPlay'], '0');
-      expect(uri.queryParameters['directStream'], '1');
-      expect(uri.queryParameters['offset'], '5'); // 5000ms -> 5s
-      expect(uri.queryParameters['session'], 'sess');
-      expect(uri.queryParameters['X-Plex-Client-Identifier'], 'cid');
-      expect(uri.queryParameters['X-Plex-Token'], 'tok');
+  group('transcode routing + server token', () {
+    test('plexNeedsTranscode: h264 within 1080p direct-plays', () {
+      expect(plexNeedsTranscode('h264', 1080), isFalse);
+      expect(plexNeedsTranscode('H264', 720), isFalse);
+    });
+    test('plexNeedsTranscode: hevc always transcodes', () {
+      expect(plexNeedsTranscode('hevc', 720), isTrue);
+    });
+    test('plexNeedsTranscode: h264 above 1080p transcodes', () {
+      expect(plexNeedsTranscode('h264', 2160), isTrue);
+    });
+    test('plexNeedsTranscode: unknown codec transcodes (safe default)', () {
+      expect(plexNeedsTranscode('', 480), isTrue);
     });
 
-    test('carries the X-Plex client identity so the transcoder can decide', () {
-      // Without identity params in the URL query, PMS returns 400 Bad Request
-      // on the universal transcoder (souphttpsrc sends no X-Plex-* headers, so
-      // they must live in the URL). Match what pairing advertises.
+    test('firstMediaInfo parses videoCodec + height', () {
+      const xml = '<MediaContainer><Video>'
+          '<Media videoCodec="hevc" width="3840" height="2160">'
+          '<Part key="/x.mkv"/></Media></Video></MediaContainer>';
+      final (codec, height) = firstMediaInfo(xml);
+      expect(codec, 'hevc');
+      expect(height, 2160);
+    });
+    test('firstMediaInfo defaults when absent', () {
+      final (codec, height) = firstMediaInfo('<MediaContainer/>');
+      expect(codec, '');
+      expect(height, 0);
+    });
+
+    test('serverTokenFromResources finds accessToken by clientIdentifier (XML)', () {
+      const xml = '<resources>'
+          '<resource name="A" clientIdentifier="AAA" accessToken="tokA" provides="server"/>'
+          '<resource name="B" clientIdentifier="BBB" accessToken="tokB" provides="server player"/>'
+          '</resources>';
+      expect(serverTokenFromResources(xml, 'BBB'), 'tokB');
+      expect(serverTokenFromResources(xml, 'AAA'), 'tokA');
+      expect(serverTokenFromResources(xml, 'ZZZ'), '');
+    });
+
+    test('buildTranscodeUrl carries the confirmed transcoder param set', () {
       final uri = Uri.parse(buildTranscodeUrl(
-        base: 'http://10.0.0.5:32400',
-        key: '/library/metadata/99',
-        token: 'tok',
+        base: 'https://h:32400',
+        key: '/library/metadata/862',
+        token: 'srvtok',
         clientId: 'cid',
         session: 'sess',
+        sessionIdentifier: 'sid-1',
+        maxBitrateKbps: 6000,
+        videoResolution: '1920x1080',
+        offsetMs: 5000,
       ));
-      expect(uri.queryParameters['X-Plex-Product'], kPlexProduct);
-      expect(uri.queryParameters['X-Plex-Version'], kPlexVersion);
-      expect(uri.queryParameters['X-Plex-Platform'], 'Flutter');
-      expect(uri.queryParameters['X-Plex-Device'], kPlexProduct);
-      expect(uri.queryParameters['X-Plex-Device-Name'], isNotEmpty);
+      final q = uri.queryParameters;
+      expect(uri.path, '/video/:/transcode/universal/start.m3u8');
+      expect(q['protocol'], 'hls');
+      expect(q['maxVideoBitrate'], '6000');
+      expect(q['videoResolution'], '1920x1080');
+      expect(q['hasMDE'], '1');
+      expect(q['X-Plex-Session-Identifier'], 'sid-1');
+      expect(q['X-Plex-Client-Profile-Name'], 'Plex Home Theater');
+      expect(q['offset'], '5'); // 5000ms -> 5s
+      expect(q['X-Plex-Token'], 'srvtok');
     });
   });
 
