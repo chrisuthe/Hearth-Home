@@ -57,6 +57,8 @@ void main() {
       final q = uri.queryParameters;
       expect(uri.path, '/video/:/transcode/universal/start.m3u8');
       expect(q['protocol'], 'hls');
+      // Force a real re-encode (not a HEVC "copy"/remux).
+      expect(q['directStream'], '0');
       expect(q['maxVideoBitrate'], '6000');
       expect(q['videoResolution'], '1920x1080');
       expect(q['hasMDE'], '1');

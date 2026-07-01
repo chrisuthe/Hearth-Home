@@ -228,8 +228,12 @@ String buildTranscodeUrl({
       'protocol': 'hls',
       'mediaIndex': '0',
       'partIndex': '0',
+      // directPlay=0 AND directStream=0 force a real video re-encode to H.264.
+      // With directStream=1 Plex "copies" (remuxes) the source video — so a HEVC
+      // source stays HEVC, which the Pi 5 can't decode. We only reach this path
+      // for content that needs transcoding, so full transcode is what we want.
       'directPlay': '0',
-      'directStream': '1',
+      'directStream': '0',
       'fastSeek': '1',
       'copyts': '1',
       'subtitles': 'burn',
