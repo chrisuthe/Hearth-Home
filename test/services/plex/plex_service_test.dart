@@ -187,8 +187,25 @@ void main() {
       expect(service.state.ratingKey, '12345');
     });
 
-    test('unknown command faults', () async {
-      expect((await service.dispatchCommand('frobnicate', const {})).ok, isFalse);
+    test('unknown command is an accepted no-op (never a 500)', () async {
+      // A 500 tells Plex the player crashed and tears down the session, so an
+      // unimplemented Companion command must ack (ok) rather than fault.
+      expect((await service.dispatchCommand('frobnicate', const {})).ok, isTrue);
+    });
+
+    test('setStreams is accepted so opening video Settings keeps the cast alive',
+        () async {
+      await service.dispatchCommand('playMedia', _playMediaParams());
+
+      final result = await service.dispatchCommand('setStreams', const {
+        'audioStreamID': '2',
+        'subtitleStreamID': '3',
+        'type': 'video',
+      });
+      expect(result.ok, isTrue);
+      // Playback is untouched — the same item is still casting.
+      expect(service.state.hasMedia, isTrue);
+      expect(service.state.ratingKey, '12345');
     });
   });
 }
