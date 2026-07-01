@@ -209,6 +209,7 @@ String buildTranscodeUrl({
   required String clientId,
   required String session,
   int offsetMs = 0,
+  String deviceName = '',
 }) {
   final baseUri = Uri.parse(base);
   return baseUri.replace(
@@ -226,6 +227,15 @@ String buildTranscodeUrl({
       'session': session,
       'X-Plex-Client-Identifier': clientId,
       'X-Plex-Token': token,
+      // Client identity + platform: the universal transcoder needs these to
+      // build a transcode decision. souphttpsrc sends no X-Plex-* headers, so
+      // they must ride in the URL. Missing them => PMS 400 Bad Request. Values
+      // mirror the pairing identity in plex_tv_auth.dart / device advertisement.
+      'X-Plex-Product': kPlexProduct,
+      'X-Plex-Version': kPlexVersion,
+      'X-Plex-Platform': 'Flutter',
+      'X-Plex-Device': kPlexProduct,
+      'X-Plex-Device-Name': deviceName.isEmpty ? kPlexProduct : deviceName,
     },
   ).toString();
 }

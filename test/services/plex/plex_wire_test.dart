@@ -26,6 +26,24 @@ void main() {
       expect(uri.queryParameters['X-Plex-Client-Identifier'], 'cid');
       expect(uri.queryParameters['X-Plex-Token'], 'tok');
     });
+
+    test('carries the X-Plex client identity so the transcoder can decide', () {
+      // Without identity params in the URL query, PMS returns 400 Bad Request
+      // on the universal transcoder (souphttpsrc sends no X-Plex-* headers, so
+      // they must live in the URL). Match what pairing advertises.
+      final uri = Uri.parse(buildTranscodeUrl(
+        base: 'http://10.0.0.5:32400',
+        key: '/library/metadata/99',
+        token: 'tok',
+        clientId: 'cid',
+        session: 'sess',
+      ));
+      expect(uri.queryParameters['X-Plex-Product'], kPlexProduct);
+      expect(uri.queryParameters['X-Plex-Version'], kPlexVersion);
+      expect(uri.queryParameters['X-Plex-Platform'], 'Flutter');
+      expect(uri.queryParameters['X-Plex-Device'], kPlexProduct);
+      expect(uri.queryParameters['X-Plex-Device-Name'], isNotEmpty);
+    });
   });
 
   group('transcodeControlUrl', () {
