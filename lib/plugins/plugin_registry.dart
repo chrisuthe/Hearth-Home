@@ -12,6 +12,7 @@ import 'immich/immich_plugin.dart';
 import 'mealie/mealie_plugin.dart';
 import 'mqtt/mqtt_plugin.dart';
 import 'music_assistant/music_assistant_plugin.dart';
+import 'plex/plex_plugin.dart';
 import 'network/network_plugin.dart';
 import 'screens_order/screens_order_plugin.dart';
 import 'sendspin/sendspin_plugin.dart';
@@ -32,6 +33,7 @@ List<HearthPlugin> _firstPartyPlugins = [
   AlarmClockPlugin(),
   SendspinPlugin(),
   DlnaPlugin(),
+  PlexPlugin(),
   MqttPlugin(),
   WebviewPlugin(),
   ScreensOrderPlugin(),

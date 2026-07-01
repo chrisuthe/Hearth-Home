@@ -222,6 +222,17 @@ class HubConfig {
   /// Stable per-device UPnP UDN. App-seeded on first enable (like
   /// [sendspinClientId]); web read-only so it can't be overwritten.
   final String dlnaUuid;
+  /// Plex Companion: advertise Hearth as a Plex player so Plex apps can cast
+  /// video to the kiosk. Off by default (no GDM traffic, no port bound).
+  final bool plexEnabled;
+  /// Player name shown in the Plex "Cast" menu (GDM `Name`).
+  final String plexPlayerName;
+  /// Stable per-device Plex client identifier (X-Plex-Client-Identifier).
+  /// App-seeded on first enable (like [dlnaUuid]); web read-only. Must stay
+  /// constant across plex.tv pairing and every Companion call.
+  final String plexClientId;
+  /// plex.tv auth token from the PIN-link pairing flow. Secret; web read-only.
+  final String plexAuthToken;
   /// Wire value for [OnScreenKeyboardMode]: 'auto', 'always', or 'never'.
   final String onScreenKeyboardMode;
   final String displayProfile; // "auto" | "amoled-11" | "rpi-7" | "hdmi"
@@ -297,6 +308,10 @@ class HubConfig {
     this.dlnaEnabled = false,
     this.dlnaRendererName = '',
     this.dlnaUuid = '',
+    this.plexEnabled = false,
+    this.plexPlayerName = '',
+    this.plexClientId = '',
+    this.plexAuthToken = '',
     this.onScreenKeyboardMode = 'auto',
     this.displayProfile = 'auto',
     this.displayWidth = 0,
@@ -378,6 +393,10 @@ class HubConfig {
     bool? dlnaEnabled,
     String? dlnaRendererName,
     String? dlnaUuid,
+    bool? plexEnabled,
+    String? plexPlayerName,
+    String? plexClientId,
+    String? plexAuthToken,
     String? onScreenKeyboardMode,
     String? displayProfile,
     int? displayWidth,
@@ -439,6 +458,10 @@ class HubConfig {
       dlnaEnabled: dlnaEnabled ?? this.dlnaEnabled,
       dlnaRendererName: dlnaRendererName ?? this.dlnaRendererName,
       dlnaUuid: dlnaUuid ?? this.dlnaUuid,
+      plexEnabled: plexEnabled ?? this.plexEnabled,
+      plexPlayerName: plexPlayerName ?? this.plexPlayerName,
+      plexClientId: plexClientId ?? this.plexClientId,
+      plexAuthToken: plexAuthToken ?? this.plexAuthToken,
       onScreenKeyboardMode:
           onScreenKeyboardMode ?? this.onScreenKeyboardMode,
       displayProfile: displayProfile ?? this.displayProfile,
@@ -502,6 +525,10 @@ class HubConfig {
         'dlnaEnabled': dlnaEnabled,
         'dlnaRendererName': dlnaRendererName,
         'dlnaUuid': dlnaUuid,
+        'plexEnabled': plexEnabled,
+        'plexPlayerName': plexPlayerName,
+        'plexClientId': plexClientId,
+        'plexAuthToken': plexAuthToken,
         'onScreenKeyboardMode': onScreenKeyboardMode,
         'displayProfile': displayProfile,
         'displayWidth': displayWidth,
@@ -564,6 +591,10 @@ class HubConfig {
         dlnaEnabled: json['dlnaEnabled'] as bool? ?? false,
         dlnaRendererName: json['dlnaRendererName'] as String? ?? '',
         dlnaUuid: json['dlnaUuid'] as String? ?? '',
+        plexEnabled: json['plexEnabled'] as bool? ?? false,
+        plexPlayerName: json['plexPlayerName'] as String? ?? '',
+        plexClientId: json['plexClientId'] as String? ?? '',
+        plexAuthToken: json['plexAuthToken'] as String? ?? '',
         onScreenKeyboardMode:
             json['onScreenKeyboardMode'] as String? ?? 'auto',
         displayProfile: json['displayProfile'] as String? ?? 'auto',
