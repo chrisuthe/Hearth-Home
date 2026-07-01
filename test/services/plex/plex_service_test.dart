@@ -181,6 +181,20 @@ void main() {
       expect(fake.lastVolume, closeTo(0.30, 0.001));
     });
 
+    test('setVolumeFromUi updates state and player output, clamped 0..100',
+        () async {
+      await service.dispatchCommand('playMedia', _playMediaParams());
+
+      await service.setVolumeFromUi(25);
+      expect(service.state.volume, 25);
+      expect(fake.lastVolume, closeTo(0.25, 0.001));
+
+      // Out-of-range input is clamped before it reaches state / the player.
+      await service.setVolumeFromUi(150);
+      expect(service.state.volume, 100);
+      expect(fake.lastVolume, closeTo(1.0, 0.001));
+    });
+
     test('skipNext/skipPrevious are accepted no-ops on a single-item sink',
         () async {
       await service.dispatchCommand('playMedia', _playMediaParams());

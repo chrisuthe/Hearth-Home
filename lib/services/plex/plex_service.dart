@@ -731,6 +731,16 @@ class PlexService {
   void resumeFromUi() => _play();
   void stopFromUi() => _stopPlayback();
 
+  /// Set the Pi's output volume (0–100) from the cast overlay. Mirrors the
+  /// Companion `setParameters` volume path: clamp, update state, drive the
+  /// player. State updates synchronously (before the player await) so the
+  /// overlay slider tracks the drag without lag.
+  Future<void> setVolumeFromUi(int volume) async {
+    final v = volume.clamp(0, 100);
+    _updateState(_state.copyWith(volume: v), pushTimeline: true);
+    await _player?.setVolume(v / 100.0);
+  }
+
   // ---------------------------------------------------------------------------
   // Position / timeline ticking
   // ---------------------------------------------------------------------------
