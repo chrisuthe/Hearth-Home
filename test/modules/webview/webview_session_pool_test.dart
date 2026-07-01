@@ -54,42 +54,82 @@ void main() {
       expect(identical(a, b), isFalse);
     });
 
-    // ---- single-live-session cap ----
+    // ---- warm pool (cap-N LRU) ----
 
-    test('requesting a different URL disposes the previous live session first',
-        () async {
-      final pool = WebviewSessionPool(sessionFactory: WebviewSession.testing);
+    test('keeps N distinct sessions warm without tearing any down', () async {
+      final pool = WebviewSessionPool(
+          sessionFactory: WebviewSession.testing, capacity: 4);
       final a = await pool.getOrCreate('https://a.example');
       final b = await pool.getOrCreate('https://b.example');
-      expect(a.isDisposed, isTrue);
+      final c = await pool.getOrCreate('https://c.example');
+      final d = await pool.getOrCreate('https://d.example');
+      expect([a, b, c, d].every((s) => !s.isDisposed), isTrue);
+      expect(pool.activeUrls.length, 4);
+    });
+
+    test('the (N+1)th resolve evicts exactly the LRU', () async {
+      final pool = WebviewSessionPool(
+          sessionFactory: WebviewSession.testing, capacity: 2);
+      final a = await pool.getOrCreate('https://a.example');
+      final b = await pool.getOrCreate('https://b.example');
+      final c = await pool.getOrCreate('https://c.example');
+      expect(a.isDisposed, isTrue); // A was LRU
       expect(b.isDisposed, isFalse);
-      expect(pool.activeUrls.toSet(), {'https://b.example'});
+      expect(c.isDisposed, isFalse);
+      expect(pool.activeUrls.toSet(), {'https://b.example', 'https://c.example'});
     });
 
-    test('re-requesting the same URL/injector/size returns the same instance '
-        'without disposing', () async {
-      final pool = WebviewSessionPool(sessionFactory: WebviewSession.testing);
-      final a = await pool.getOrCreate('https://a.example',
-          initScript: 'X;', renderSize: const Size(1920, 1080));
-      final b = await pool.getOrCreate('https://a.example',
-          initScript: 'X;', renderSize: const Size(1920, 1080));
-      expect(identical(a, b), isTrue);
-      expect(a.isDisposed, isFalse);
-    });
-
-    test('never holds more than one live session', () async {
-      final pool = WebviewSessionPool(sessionFactory: WebviewSession.testing);
-      await pool.getOrCreate('https://a.example');
+    test('re-resolving a warm URL marks it MRU so it survives the next eviction',
+        () async {
+      final pool = WebviewSessionPool(
+          sessionFactory: WebviewSession.testing, capacity: 2);
+      final a = await pool.getOrCreate('https://a.example');
       await pool.getOrCreate('https://b.example');
-      await pool.getOrCreate('https://c.example');
-      expect(pool.activeUrls.length, 1);
-      expect(pool.activeUrls.single, 'https://c.example');
+      await pool.getOrCreate('https://a.example'); // touch A -> MRU; B now LRU
+      final c = await pool.getOrCreate('https://c.example'); // evicts B
+      expect(a.isDisposed, isFalse);
+      expect(c.isDisposed, isFalse);
+      expect(pool.activeUrls.toSet(), {'https://a.example', 'https://c.example'});
     });
 
-    test('awaits the previous session teardown before constructing the '
-        'replacement', () async {
+    test('create-then-evict never disposes the just-created session', () async {
+      final pool = WebviewSessionPool(
+          sessionFactory: WebviewSession.testing, capacity: 1);
+      final a = await pool.getOrCreate('https://a.example');
+      final b = await pool.getOrCreate('https://b.example');
+      expect(b.isDisposed, isFalse); // the new one survives
+      expect(a.isDisposed, isTrue); // the old LRU is evicted
+      expect(pool.activeUrls.single, 'https://b.example');
+    });
+
+    test('never holds more than capacity live sessions', () async {
+      final pool = WebviewSessionPool(
+          sessionFactory: WebviewSession.testing, capacity: 3);
+      for (final u in ['a', 'b', 'c', 'd', 'e']) {
+        await pool.getOrCreate('https://$u.example');
+      }
+      expect(pool.activeUrls.length, 3);
+      expect(pool.activeUrls.toSet(),
+          {'https://c.example', 'https://d.example', 'https://e.example'});
+    });
+
+    test('concurrent resolves serialize and respect capacity', () async {
+      final pool = WebviewSessionPool(
+          sessionFactory: WebviewSession.testing, capacity: 2);
+      await Future.wait([
+        pool.getOrCreate('https://a.example'),
+        pool.getOrCreate('https://b.example'),
+        pool.getOrCreate('https://c.example'),
+      ]);
+      expect(pool.activeUrls.length, 2);
+      expect(pool.activeUrls.toSet(),
+          {'https://b.example', 'https://c.example'});
+    });
+
+    test('builds the replacement before tearing down the evicted LRU', () async {
       final created = <_ProbeSession>[];
       final pool = WebviewSessionPool(
+        capacity: 1,
         sessionFactory: ({
           required String url,
           String? initScript,
@@ -111,35 +151,15 @@ void main() {
         },
       );
 
-      final a = await pool.getOrCreate('https://a.example');
-      expect(created.length, 1);
-
-      // Start resolving B; it must block on A's teardown.
+      final a = await pool.getOrCreate('https://a.example') as _ProbeSession;
+      // Resolve B: with create-then-evict, B is constructed, THEN A is evicted.
       final bFuture = pool.getOrCreate('https://b.example');
-      await (a as _ProbeSession).shutdownStarted.future;
-      // A's shutdown has begun but not completed — B must not exist yet.
-      expect(created.length, 1);
-      expect(a.isDisposed, isFalse);
-
-      // Let A finish tearing down; only now may B be constructed.
+      await a.shutdownStarted.future; // A's eviction teardown has begun...
+      expect(created.length, 2); // ...and B already exists (created first)
       a.allowShutdown.complete();
       final b = await bFuture;
-      expect(created.length, 2);
       expect(a.isDisposed, isTrue);
       expect(identical(a, b), isFalse);
-    });
-
-    test('serializes concurrent resolves so the cap holds', () async {
-      final pool = WebviewSessionPool(sessionFactory: WebviewSession.testing);
-      // Fire three resolves without awaiting between them.
-      final futures = [
-        pool.getOrCreate('https://a.example'),
-        pool.getOrCreate('https://b.example'),
-        pool.getOrCreate('https://c.example'),
-      ];
-      await Future.wait(futures);
-      expect(pool.activeUrls.length, 1);
-      expect(pool.activeUrls.single, 'https://c.example');
     });
 
     // ---- lifecycle ----

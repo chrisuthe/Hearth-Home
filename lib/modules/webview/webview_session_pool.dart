@@ -30,47 +30,46 @@ WebviewSession _defaultFactory({
       useSizeCaps: useSizeCaps,
     );
 
-/// URL-keyed cache of running [WebviewSession]s, capped at **one live session**.
+/// URL-keyed cache of running [WebviewSession]s, capped at **[capacity] warm
+/// sessions**, evicted least-recently-used.
 ///
-/// flutter-pi supports exactly one EGL display; a second live `wpevideosrc`/WPE
-/// pipeline tries to create its own and SIGSEGVs the embedder ("Multiple EGL
-/// displays are not supported."). So the pool behaves as an LRU of capacity 1:
-/// resolving a session for a different URL/injector/size first tears down the
-/// currently-live session (awaiting its GL teardown) before constructing the
-/// new one. Re-resolving the *same* webview returns the same instance and does
-/// not churn.
+/// Resolving a new URL beyond the cap builds the replacement session first,
+/// then evicts and tears down the least-recently-used session (awaiting its
+/// GL teardown) — create-then-evict, so the just-resolved session is never
+/// the one disposed. Re-resolving an already-warm URL marks it
+/// most-recently-used without disposing anything.
 ///
 /// Sessions are disposed when:
-///   * a different webview is resolved via [getOrCreate] (the cap evicts the old)
+///   * resolving via [getOrCreate] pushes the pool over [capacity] (the LRU is evicted)
 ///   * [release] is called for their URL (e.g., user removed the webview from settings)
 ///   * [releaseAll] is called (app shutdown)
 ///   * [reconcile] determines they're no longer in the configured set
 class WebviewSessionPool {
   final WebviewSessionFactory _factory;
+  final int capacity;
   final Map<String, WebviewSession> _sessions = {};
 
-  /// Serializes [getOrCreate] so the outgoing session's teardown always fully
-  /// completes before the replacement is constructed. Without this, two
-  /// concurrent resolves could overlap disposal and creation — the exact
-  /// two-EGL race that SIGSEGVs — or double-create a session.
+  /// Serializes [getOrCreate] so eviction teardown always fully completes
+  /// before the next resolve runs. Without this, two concurrent resolves
+  /// could overlap disposal and creation, or double-create a session.
   Future<void> _pending = Future<void>.value();
 
-  WebviewSessionPool({WebviewSessionFactory? sessionFactory})
+  WebviewSessionPool({WebviewSessionFactory? sessionFactory, this.capacity = 4})
       : _factory = sessionFactory ?? _defaultFactory;
 
-  /// Returns the live session for [url] if it matches the requested injector and
-  /// size, otherwise tears down whatever session is live and creates a new one.
+  /// Returns the warm session for [url] if it matches the requested injector
+  /// and size (marking it most-recently-used), otherwise creates a new one.
   ///
   /// [initScript]/[initScriptAllowOrigin] carry the optional document-start
-  /// injector (see [WebviewSession.initScript]). If the live session is for a
-  /// different [url], or the same URL with a different injector — e.g. the HA
-  /// token changed in Settings — or a meaningfully different [renderSize], the
-  /// live session is disposed and replaced. The previous session's teardown is
-  /// **awaited** before the new one is constructed (see [WebviewSession.shutdown]),
-  /// so two WPE pipelines never coexist.
+  /// injector (see [WebviewSession.initScript]). If no session for [url] is
+  /// warm, or it's warm with a different injector — e.g. the HA token changed
+  /// in Settings — or a meaningfully different [renderSize], a new session is
+  /// constructed and inserted before the pool is trimmed back to [capacity]
+  /// by evicting the least-recently-used session(s) (awaiting each teardown;
+  /// see [WebviewSession.shutdown]).
   ///
   /// Calls are serialized: a resolve started while another is in flight waits
-  /// for it, so the single-live-session cap holds even under rapid page swipes.
+  /// for it, so the cap holds even under rapid page swipes.
   Future<WebviewSession> getOrCreate(
     String url, {
     String? initScript,
@@ -108,13 +107,13 @@ class WebviewSessionPool {
       if (existing.initScript == initScript &&
           existing.initScriptAllowOrigin == initScriptAllowOrigin &&
           sizeMatches) {
+        _touch(url);
         return existing;
       }
+      // Same URL, different injector/size — rebuild this one session.
+      _sessions.remove(url);
+      await existing.shutdown();
     }
-
-    // Enforce the single-live cap: tear down every existing session (there is
-    // at most one) and AWAIT its teardown before constructing the replacement.
-    await _disposeLive();
 
     final session = _factory(
       url: url,
@@ -124,17 +123,26 @@ class WebviewSessionPool {
       renderHeight: reqH,
       useSizeCaps: useCaps,
     );
-    _sessions[url] = session;
+    _sessions[url] = session; // inserted last => most-recently-used
+    await _evictToCapacity();
     return session;
   }
 
-  /// Disposes every currently-tracked session (at most one) and awaits each
-  /// teardown before returning.
-  Future<void> _disposeLive() async {
-    final live = _sessions.values.toList();
-    _sessions.clear();
-    for (final session in live) {
-      await session.shutdown();
+  /// Moves [url] to the most-recently-used position (Dart Maps preserve
+  /// insertion order, so remove+reinsert = touch).
+  void _touch(String url) {
+    final s = _sessions.remove(url);
+    if (s != null) _sessions[url] = s;
+  }
+
+  /// Disposes least-recently-used sessions until at most [capacity] remain,
+  /// awaiting each teardown (serialized via [_pending]). Runs after the new
+  /// session is inserted+MRU, so it never evicts the just-resolved session.
+  Future<void> _evictToCapacity() async {
+    while (_sessions.length > capacity) {
+      final lruUrl = _sessions.keys.first; // oldest = LRU
+      final lru = _sessions.remove(lruUrl);
+      await lru?.shutdown();
     }
   }
 
@@ -156,14 +164,14 @@ class WebviewSessionPool {
   /// Pause every session in the pool. Used when Hearth's IdleController
   /// reports idle.
   Future<void> pauseAll() async {
-    for (final session in _sessions.values) {
+    for (final session in _sessions.values.toList()) {
       await session.setPaused(true);
     }
   }
 
   /// Resume every session.
   Future<void> resumeAll() async {
-    for (final session in _sessions.values) {
+    for (final session in _sessions.values.toList()) {
       await session.setPaused(false);
     }
   }
