@@ -123,6 +123,16 @@ void main() {
       expect(service.player, same(fake));
     });
 
+    test('resume-offset playMedia leaves the player itself playing', () async {
+      // The reported bug: a resume seek could leave the pipeline paused while
+      // the service reported "playing". Pin that the player ends actually
+      // playing after a resume-offset direct play, not merely seeked.
+      await service.dispatchCommand('playMedia', _playMediaParams());
+
+      expect(fake.seekedTo, const Duration(milliseconds: 60000));
+      expect(fake.isPlaying, isTrue);
+    });
+
     test('missing key/address/port faults', () async {
       expect(
         (await service.dispatchCommand('playMedia', {'address': 'x', 'port': '1'}))
