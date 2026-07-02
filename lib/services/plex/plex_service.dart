@@ -606,6 +606,7 @@ class PlexService {
     final partKey = firstPartKey(metaXml);
     final (codec, height, scanType) = firstMediaInfo(metaXml);
     final intro = introMarker(metaXml);
+    final credits = creditsMarker(metaXml);
 
     if (_transcodeBase != null) await _stopTranscodeSession();
 
@@ -676,6 +677,8 @@ class PlexService {
         playQueueItemID: playQueueItemID,
         introStartMs: intro?.startMs ?? 0,
         introEndMs: intro?.endMs ?? 0,
+        creditsStartMs: credits?.startMs ?? 0,
+        creditsEndMs: credits?.endMs ?? 0,
         hasNext: _queueIndex < _queue.length - 1,
         hasPrev: _queueIndex > 0,
       ),
