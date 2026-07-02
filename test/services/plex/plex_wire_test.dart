@@ -514,4 +514,30 @@ void main() {
       expect(u.queryParameters['includeMarkers'], '1');
     });
   });
+
+  group('creditsMarker', () {
+    test('parses a type="credits" marker', () {
+      const xml = '<MediaContainer><Video>'
+          '<Marker type="intro" startTimeOffset="0" endTimeOffset="30000"/>'
+          '<Marker type="credits" startTimeOffset="3300000" endTimeOffset="3540000"/>'
+          '</Video></MediaContainer>';
+      final m = creditsMarker(xml)!;
+      expect(m.startMs, 3300000);
+      expect(m.endMs, 3540000);
+    });
+
+    test('also parses the singular type="credit"', () {
+      const xml =
+          '<Marker type="credit" startTimeOffset="100" endTimeOffset="200"/>';
+      final m = creditsMarker(xml)!;
+      expect(m.startMs, 100);
+      expect(m.endMs, 200);
+    });
+
+    test('null when only an intro marker is present', () {
+      const xml =
+          '<Marker type="intro" startTimeOffset="0" endTimeOffset="30000"/>';
+      expect(creditsMarker(xml), isNull);
+    });
+  });
 }

@@ -495,16 +495,14 @@ final RegExp _markerTagRe = RegExp(r'<Marker\b[^>]*>');
 final RegExp _markerStartRe = RegExp(r'\bstartTimeOffset="([0-9]+)"');
 final RegExp _markerEndRe = RegExp(r'\bendTimeOffset="([0-9]+)"');
 
-/// The first `<Marker type="intro" …>` in an item's metadata (fetched with
+/// The first `<Marker>` of any of [types] in an item's metadata (fetched with
 /// `includeMarkers=1`), as `(startTimeOffset, endTimeOffset)` in ms — or null
-/// when there's no intro marker or an offset is missing. Attribute order isn't
-/// guaranteed, so scan each `<Marker>` tag and match `type="intro"`, mirroring
-/// the `<Stream>` scan in [firstMediaInfo]. Grounded in real Plex metadata:
-/// `<Marker type="intro" startTimeOffset="990" endTimeOffset="28316">`.
-IntroMarker? introMarker(String metadataXml) {
+/// when none matches or an offset is missing. Attribute order isn't guaranteed,
+/// so scan each `<Marker>` tag, mirroring the `<Stream>` scan in [firstMediaInfo].
+IntroMarker? _markerOfType(String metadataXml, List<String> types) {
   for (final m in _markerTagRe.allMatches(metadataXml)) {
     final tag = m.group(0)!;
-    if (!tag.contains('type="intro"')) continue;
+    if (!types.any((t) => tag.contains('type="$t"'))) continue;
     final start = int.tryParse(_markerStartRe.firstMatch(tag)?.group(1) ?? '');
     final end = int.tryParse(_markerEndRe.firstMatch(tag)?.group(1) ?? '');
     if (start == null || end == null) return null;
@@ -512,6 +510,17 @@ IntroMarker? introMarker(String metadataXml) {
   }
   return null;
 }
+
+/// The intro marker. Grounded in real Plex metadata:
+/// `<Marker type="intro" startTimeOffset="990" endTimeOffset="28316">`.
+IntroMarker? introMarker(String metadataXml) =>
+    _markerOfType(metadataXml, const ['intro']);
+
+/// The credits marker — matches both `type="credits"` and the singular
+/// `type="credit"` (Plex's naming varies by server/version). Bounds drive the
+/// "Next Episode" affordance.
+IntroMarker? creditsMarker(String metadataXml) =>
+    _markerOfType(metadataXml, const ['credits', 'credit']);
 
 /// The `scanType` of the video `<Stream streamType="1">` (the H.264 stream).
 /// Attribute order isn't guaranteed, so scan each `<Stream>` tag and pull
