@@ -99,6 +99,14 @@ void main() {
       '<Marker type="intro" startTimeOffset="990" endTimeOffset="28316"/>'
       '</Video></MediaContainer>';
 
+  // Same item, with a credits marker (55min..59min of a 60min episode).
+  const metadataWithCredits = '<MediaContainer><Video>'
+      '<Media videoCodec="h264" width="1920" height="1080">'
+      '<Part id="55" key="/library/parts/55/1/file.mkv" container="mkv"/>'
+      '</Media>'
+      '<Marker type="credits" startTimeOffset="3300000" endTimeOffset="3540000"/>'
+      '</Video></MediaContainer>';
+
   setUp(() {
     fake = FakeVideoPlayer();
     volumeWrites = [];
@@ -122,6 +130,17 @@ void main() {
       await s.dispatchCommand('playMedia', _playMediaParams());
       expect(s.state.introStartMs, 990);
       expect(s.state.introEndMs, 28316);
+      s.dispose();
+    });
+
+    test('playMedia stamps the credits marker into state', () async {
+      final s = PlexService(
+        playerFactory: () => fake,
+        metadataFetcher: (_) async => metadataWithCredits,
+      );
+      await s.dispatchCommand('playMedia', _playMediaParams());
+      expect(s.state.creditsStartMs, 3300000);
+      expect(s.state.creditsEndMs, 3540000);
       s.dispose();
     });
 

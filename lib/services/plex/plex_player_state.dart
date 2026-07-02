@@ -48,6 +48,11 @@ class PlexPlayerState {
   final int introStartMs;
   final int introEndMs;
 
+  /// Credits marker bounds (ms of content time), 0 when absent. Drives
+  /// [showNextEpisode].
+  final int creditsStartMs;
+  final int creditsEndMs;
+
   /// Whether the play queue has a next / previous item (drives the overlay's
   /// Prev/Next buttons). False for a single-item cast.
   final bool hasNext;
@@ -71,6 +76,8 @@ class PlexPlayerState {
     this.playQueueItemID = '',
     this.introStartMs = 0,
     this.introEndMs = 0,
+    this.creditsStartMs = 0,
+    this.creditsEndMs = 0,
     this.hasNext = false,
     this.hasPrev = false,
   });
@@ -85,6 +92,16 @@ class PlexPlayerState {
       introEndMs > 0 &&
       position.inMilliseconds >= introStartMs &&
       position.inMilliseconds < introEndMs;
+
+  /// Whether the "Next Episode" affordance should show: a cast is active, there
+  /// is a next queue item, the item has a credits marker, and the live position
+  /// is inside `[start, end)`. No button on the last item (no [hasNext]).
+  bool get showNextEpisode =>
+      hasMedia &&
+      hasNext &&
+      creditsEndMs > 0 &&
+      position.inMilliseconds >= creditsStartMs &&
+      position.inMilliseconds < creditsEndMs;
 
   /// The [PlexTimelineMedia] view of this state (for the video timeline entry).
   PlexTimelineMedia get timelineMedia => PlexTimelineMedia(
@@ -118,6 +135,8 @@ class PlexPlayerState {
     String? playQueueItemID,
     int? introStartMs,
     int? introEndMs,
+    int? creditsStartMs,
+    int? creditsEndMs,
     bool? hasNext,
     bool? hasPrev,
   }) {
@@ -139,6 +158,8 @@ class PlexPlayerState {
       playQueueItemID: playQueueItemID ?? this.playQueueItemID,
       introStartMs: introStartMs ?? this.introStartMs,
       introEndMs: introEndMs ?? this.introEndMs,
+      creditsStartMs: creditsStartMs ?? this.creditsStartMs,
+      creditsEndMs: creditsEndMs ?? this.creditsEndMs,
       hasNext: hasNext ?? this.hasNext,
       hasPrev: hasPrev ?? this.hasPrev,
     );
