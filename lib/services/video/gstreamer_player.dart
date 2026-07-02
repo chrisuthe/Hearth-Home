@@ -14,6 +14,12 @@ class GstreamerVideoPlayer implements HearthVideoPlayer {
   VideoPlayerController? _controller;
   bool _playing = false;
 
+  /// Injects a controller so [seek]/[resume]/[pause] can be exercised in tests
+  /// without a real GStreamer backend. Not used in production.
+  @visibleForTesting
+  set debugController(VideoPlayerController controller) =>
+      _controller = controller;
+
   @override
   Future<void> play(String url) async {
     await stop();
@@ -79,6 +85,10 @@ class GstreamerVideoPlayer implements HearthVideoPlayer {
   @override
   Future<void> seek(Duration position) async {
     await _controller?.seekTo(position);
+    // GStreamer's seek leaves the pipeline PAUSED. Re-assert play when the
+    // intent is to be playing (resume-offset start, mid-stream scrub/step) so
+    // the pipeline actually moves; a seek issued while paused stays paused.
+    if (_playing) await _controller?.play();
   }
 
   @override
