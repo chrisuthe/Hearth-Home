@@ -31,8 +31,9 @@ const int kPlexGdmRegistrationPort = 32413;
 const String kPlexProduct = 'Hearth';
 const String kPlexVersion = '1.0';
 
-/// We are a single-item video sink — advertise only the honest capabilities.
-const String kPlexProtocolCapabilities = 'timeline,playback';
+/// Advertised capabilities: timeline reporting, playback control, and play-queue
+/// traversal (auto-advance + skipNext/skipPrevious).
+const String kPlexProtocolCapabilities = 'timeline,playback,playqueues';
 const String kPlexDeviceClass = 'pc';
 
 /// Companion HTTP path prefixes (matched in the service router).
@@ -314,6 +315,81 @@ String buildDecisionUrl({
       'X-Plex-Device': 'RaspberryPI',
       'X-Plex-Model': 'RaspberryPI',
       if (profileExtra.isNotEmpty) 'X-Plex-Client-Profile-Extra': profileExtra,
+    },
+  ).toString();
+}
+
+/// One entry in a Plex play queue. [playQueueItemID] is the queue-scoped id
+/// (distinct from the media [ratingKey]); [key] is the `/library/metadata/…`
+/// path used to start it.
+class PlayQueueItem {
+  final String playQueueItemID;
+  final String ratingKey;
+  final String key;
+  const PlayQueueItem({
+    required this.playQueueItemID,
+    required this.ratingKey,
+    required this.key,
+  });
+}
+
+/// A parsed Plex play queue: ordered [items] plus the [selectedItemID]
+/// (`playQueueSelectedItemID`).
+class PlayQueue {
+  final List<PlayQueueItem> items;
+  final String selectedItemID;
+  const PlayQueue(this.items, this.selectedItemID);
+}
+
+final RegExp _pqItemTagRe = RegExp(r'<(?:Video|Track)\b[^>]*>');
+final RegExp _pqItemIdRe = RegExp(r'\bplayQueueItemID="([^"]*)"');
+final RegExp _pqRatingKeyRe = RegExp(r'\bratingKey="([^"]*)"');
+final RegExp _pqKeyRe = RegExp(r'\bkey="([^"]*)"');
+final RegExp _pqSelectedRe = RegExp(r'\bplayQueueSelectedItemID="([^"]*)"');
+
+/// Parse a `/playQueues/{id}` response into an ordered [PlayQueue]. Scans each
+/// `<Video>`/`<Track>` tag for its `playQueueItemID`/`ratingKey`/`key` (only
+/// entries carrying a `playQueueItemID` are queue items). Grounded in
+/// python-plexapi `playqueue.py`.
+PlayQueue parsePlayQueue(String xml) {
+  final items = <PlayQueueItem>[];
+  for (final m in _pqItemTagRe.allMatches(xml)) {
+    final tag = m.group(0)!;
+    final id = _pqItemIdRe.firstMatch(tag)?.group(1) ?? '';
+    if (id.isEmpty) continue;
+    items.add(PlayQueueItem(
+      playQueueItemID: id,
+      ratingKey: _pqRatingKeyRe.firstMatch(tag)?.group(1) ?? '',
+      key: _pqKeyRe.firstMatch(tag)?.group(1) ?? '',
+    ));
+  }
+  return PlayQueue(items, _pqSelectedRe.firstMatch(xml)?.group(1) ?? '');
+}
+
+final RegExp _playQueueIdRe = RegExp(r'/playQueues/([0-9]+)');
+
+/// The numeric play-queue id from a `containerKey` like `/playQueues/42?own=1`,
+/// or empty when the container isn't a play queue.
+String playQueueIdFromContainerKey(String containerKey) =>
+    _playQueueIdRe.firstMatch(containerKey)?.group(1) ?? '';
+
+/// GET URL for an existing play queue. `own=0` (don't take ownership), window
+/// both sides so we receive the full order. Grounded in python-plexapi.
+String playQueueUrl({
+  required String base,
+  required String playQueueId,
+  required String token,
+  required String clientId,
+}) {
+  final baseUri = Uri.parse(base);
+  return baseUri.replace(
+    path: '/playQueues/$playQueueId',
+    queryParameters: {
+      'own': '0',
+      'includeBefore': '1',
+      'includeAfter': '1',
+      'X-Plex-Token': token,
+      'X-Plex-Client-Identifier': clientId,
     },
   ).toString();
 }

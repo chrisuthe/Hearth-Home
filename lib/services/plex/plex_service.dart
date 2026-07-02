@@ -140,6 +140,13 @@ class PlexService {
   // fires at most once per cast at the watched threshold.
   bool _scrobbled = false;
 
+  // The active play queue and the index of the current item within it. A cast
+  // with no play-queue container is modeled as a queue of one (index 0).
+  List<PlayQueueItem> _queue = const [];
+  int _queueIndex = 0;
+  // One-shot guard so end-of-item auto-advance fires exactly once per item.
+  bool _endHandled = false;
+
   // --- Timeline subscribers, keyed by controller X-Plex-Client-Identifier ---
   final Map<String, _Subscriber> _subscribers = {};
 
@@ -450,8 +457,10 @@ class PlexService {
         await _setParameters(params);
         return const PlexCommandResult.ok();
       case 'skipNext':
+        await _advanceTo(_queueIndex + 1);
+        return const PlexCommandResult.ok();
       case 'skipPrevious':
-        // Single-item sink — accept and no-op.
+        await _advanceTo(_queueIndex - 1);
         return const PlexCommandResult.ok();
       case 'setStreams':
         await _setStreams(params);
@@ -547,6 +556,43 @@ class PlexService {
     final base = plexServerBase(address: address, port: port, protocol: protocol);
     final machineId = params['machineIdentifier'] ?? '';
 
+    await _loadQueue(
+      base: base,
+      token: token,
+      containerKey: params['containerKey'] ?? '',
+      playQueueItemID: params['playQueueItemID'] ?? '',
+      requestedKey: key,
+    );
+    return _startItem(
+      base: base,
+      key: key,
+      address: address,
+      port: port,
+      protocol: protocol,
+      token: token,
+      machineId: machineId,
+      offsetMs: offsetMs,
+      containerKey: params['containerKey'] ?? '',
+      playQueueItemID: params['playQueueItemID'] ?? '',
+    );
+  }
+
+  /// Play a single item — the shared path for the initial cast, auto-advance,
+  /// and manual skip. Fetches metadata, decides direct-play vs transcode, builds
+  /// the URL, drives the player, and stamps state/timeline. Server coordinates
+  /// are passed in so queue navigation can reuse them.
+  Future<bool> _startItem({
+    required String base,
+    required String key,
+    required String address,
+    required String port,
+    required String protocol,
+    required String token,
+    required String machineId,
+    required int offsetMs,
+    String containerKey = '',
+    String playQueueItemID = '',
+  }) async {
     // Fetch metadata: the media Part (for direct play) and the video codec,
     // height + scan type (to route). The Pi 5 direct-plays progressive H.264 up
     // to 1080p; HEVC, 4K, and interlaced 1080i must be transcoded — see
@@ -554,7 +600,7 @@ class PlexService {
     final metaXml =
         await _fetchMetadata(metadataUrl(base: base, key: key, token: token));
     if (metaXml == null) {
-      Log.e('Plex', 'playMedia: metadata fetch failed for $key');
+      Log.e('Plex', 'startItem: metadata fetch failed for $key');
       return false;
     }
     final partKey = firstPartKey(metaXml);
@@ -576,7 +622,7 @@ class PlexService {
       // can't transcode (401/403). Resolve it from plex.tv resources.
       final srvToken = await _serverToken(machineId);
       if (srvToken.isEmpty) {
-        Log.e('Plex', 'playMedia: $codec ${height}p needs transcode but no '
+        Log.e('Plex', 'startItem: $codec ${height}p needs transcode but no '
             'server token (pair Plex with the owning account) — cannot play');
         return false;
       }
@@ -600,7 +646,7 @@ class PlexService {
           'Cast: transcode $key ($why$codec ${height}p -> H.264 1080p@6M)');
     } else {
       if (partKey.isEmpty) {
-        Log.e('Plex', 'playMedia: no playable media part for $key');
+        Log.e('Plex', 'startItem: no playable media part for $key');
         return false;
       }
       url = buildDirectPlayUrl(base: base, partKey: partKey, token: token);
@@ -609,6 +655,7 @@ class PlexService {
 
     _player ??= _createPlayer();
     _scrobbled = false;
+    _endHandled = false;
     _audioStreamID = '';
     _subtitleStreamID = '';
     _updateState(
@@ -619,13 +666,15 @@ class PlexService {
         duration: Duration.zero,
         key: key,
         ratingKey: _ratingKeyFromKey(key),
-        containerKey: params['containerKey'] ?? '',
+        containerKey: containerKey,
         machineIdentifier: machineId,
         address: address,
         port: port,
         protocol: protocol,
         token: token,
-        playQueueItemID: params['playQueueItemID'] ?? '',
+        playQueueItemID: playQueueItemID,
+        hasNext: _queueIndex < _queue.length - 1,
+        hasPrev: _queueIndex > 0,
       ),
       pushTimeline: true,
     );
@@ -668,6 +717,76 @@ class PlexService {
     if (tok.isNotEmpty) _serverTokens[machineId] = tok;
     return tok;
   }
+
+  // ---------------------------------------------------------------------------
+  // Play queue
+  // ---------------------------------------------------------------------------
+
+  void _setSingletonQueue(String key, String playQueueItemID) {
+    _queue = [
+      PlayQueueItem(
+        playQueueItemID: playQueueItemID,
+        ratingKey: _ratingKeyFromKey(key),
+        key: key,
+      ),
+    ];
+    _queueIndex = 0;
+  }
+
+  /// Fetch and cache the play queue named by [containerKey]. Falls back to a
+  /// single-item queue (today's behavior) when there's no queue container or the
+  /// fetch/parse fails — so playback never depends on the queue succeeding.
+  Future<void> _loadQueue({
+    required String base,
+    required String token,
+    required String containerKey,
+    required String playQueueItemID,
+    required String requestedKey,
+  }) async {
+    final id = playQueueIdFromContainerKey(containerKey);
+    if (id.isEmpty) {
+      _setSingletonQueue(requestedKey, playQueueItemID);
+      return;
+    }
+    final xml = await _fetchMetadata(playQueueUrl(
+        base: base, playQueueId: id, token: token, clientId: _clientId));
+    final pq = xml == null ? null : parsePlayQueue(xml);
+    if (pq == null || pq.items.isEmpty) {
+      _setSingletonQueue(requestedKey, playQueueItemID);
+      return;
+    }
+    _queue = pq.items;
+    var idx = _queue.indexWhere((i) => i.playQueueItemID == playQueueItemID);
+    if (idx < 0) idx = _queue.indexWhere((i) => i.key == requestedKey);
+    _queueIndex = idx < 0 ? 0 : idx;
+  }
+
+  /// Play the queue item at [index], reusing the current cast's server
+  /// coordinates. Out of range → no-op (manual skip clamps at the ends);
+  /// auto-advance handles end-of-queue by stopping explicitly. Returns whether
+  /// it advanced.
+  Future<bool> _advanceTo(int index) async {
+    if (index < 0 || index >= _queue.length) return false;
+    _queueIndex = index;
+    final item = _queue[index];
+    await _startItem(
+      base: plexServerBase(
+          address: _state.address, port: _state.port, protocol: _state.protocol),
+      key: item.key,
+      address: _state.address,
+      port: _state.port,
+      protocol: _state.protocol,
+      token: _state.token,
+      machineId: _state.machineIdentifier,
+      offsetMs: 0,
+      containerKey: _state.containerKey,
+      playQueueItemID: item.playQueueItemID,
+    );
+    return true;
+  }
+
+  void skipNextFromUi() => _advanceTo(_queueIndex + 1);
+  void skipPreviousFromUi() => _advanceTo(_queueIndex - 1);
 
   Set<String>? _directPlayCodecsCache;
 
@@ -926,7 +1045,26 @@ class PlexService {
         _reportServerTimeline('playing');
       }
       _maybeScrobble();
+      _maybeAutoAdvance(p);
     });
+  }
+
+  static const Duration _kEndThreshold = Duration(milliseconds: 1500);
+
+  /// At the end of an item (within [_kEndThreshold] of its duration), advance to
+  /// the next queue item — or stop if this was the last. One-shot per item via
+  /// [_endHandled]; suppressed while paused or when the duration is unknown.
+  Future<void> _maybeAutoAdvance(HearthVideoPlayer p) async {
+    if (_endHandled ||
+        _state.transportState != PlexTransportState.playing ||
+        p.duration <= Duration.zero ||
+        p.position < p.duration - _kEndThreshold) {
+      return;
+    }
+    _endHandled = true;
+    if (!await _advanceTo(_queueIndex + 1)) {
+      await _stopPlayback(); // end of queue → back to ambient
+    }
   }
 
   // ---------------------------------------------------------------------------

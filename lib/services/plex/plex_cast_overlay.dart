@@ -101,6 +101,16 @@ class _PlexCastOverlayState extends ConsumerState<PlexCastOverlay> {
                     onSeek: service.seekFromUi,
                     onInteract: _revealControls,
                     onDismiss: () => service.stopFromUi(),
+                    hasPrev: state.hasPrev,
+                    hasNext: state.hasNext,
+                    onPrev: () {
+                      service.skipPreviousFromUi();
+                      _revealControls();
+                    },
+                    onNext: () {
+                      service.skipNextFromUi();
+                      _revealControls();
+                    },
                   ),
                 ),
 
@@ -143,6 +153,10 @@ class _TransportBar extends StatefulWidget {
   final ValueChanged<Duration> onSeek;
   final VoidCallback onInteract;
   final VoidCallback onDismiss;
+  final bool hasPrev;
+  final bool hasNext;
+  final VoidCallback onPrev;
+  final VoidCallback onNext;
 
   const _TransportBar({
     required this.state,
@@ -152,6 +166,10 @@ class _TransportBar extends StatefulWidget {
     required this.onSeek,
     required this.onInteract,
     required this.onDismiss,
+    required this.hasPrev,
+    required this.hasNext,
+    required this.onPrev,
+    required this.onNext,
   });
 
   @override
@@ -212,10 +230,22 @@ class _TransportBarState extends State<_TransportBar> {
           Row(
             children: [
               IconButton(
+                icon: const Icon(Icons.skip_previous),
+                color: Colors.white,
+                iconSize: HearthIcon.lg,
+                onPressed: widget.hasPrev ? widget.onPrev : null,
+              ),
+              IconButton(
                 icon: Icon(widget.isPlaying ? Icons.pause : Icons.play_arrow),
                 color: Colors.white,
                 iconSize: HearthIcon.lg,
                 onPressed: widget.onPlayPause,
+              ),
+              IconButton(
+                icon: const Icon(Icons.skip_next),
+                color: Colors.white,
+                iconSize: HearthIcon.lg,
+                onPressed: widget.hasNext ? widget.onNext : null,
               ),
               const Icon(Icons.volume_up, color: Colors.white70),
               Expanded(

@@ -345,7 +345,7 @@ void main() {
       final xml = resourcesXml(clientId: 'cid', name: 'Kitchen');
       expect(xml, contains('machineIdentifier="cid"'));
       expect(xml, contains('title="Kitchen"'));
-      expect(xml, contains('protocolCapabilities="timeline,playback"'));
+      expect(xml, contains('protocolCapabilities="timeline,playback,playqueues"'));
       expect(xml, contains('deviceClass="pc"'));
     });
   });
@@ -366,7 +366,7 @@ void main() {
       expect(s, contains('Resource-Identifier: cid'));
       expect(s, contains('Name: Kitchen'));
       expect(s, contains('Port: 8296'));
-      expect(s, contains('Protocol-Capabilities: timeline,playback'));
+      expect(s, contains('Protocol-Capabilities: timeline,playback,playqueues'));
     });
   });
 
@@ -439,6 +439,44 @@ void main() {
       // Must NOT reuse the over-permissive HTPC profile name.
       expect(u.queryParameters.containsKey('X-Plex-Client-Profile-Name'),
           isFalse);
+    });
+  });
+
+  group('play queue', () {
+    const queueXml = '<MediaContainer playQueueID="42" '
+        'playQueueSelectedItemID="101" playQueueSelectedItemOffset="1">'
+        '<Video key="/library/metadata/1" ratingKey="1" playQueueItemID="100"/>'
+        '<Video key="/library/metadata/2" ratingKey="2" playQueueItemID="101"/>'
+        '</MediaContainer>';
+
+    test('parsePlayQueue reads ordered items and the selected id', () {
+      final pq = parsePlayQueue(queueXml);
+      expect(pq.items.length, 2);
+      expect(pq.items[0].playQueueItemID, '100');
+      expect(pq.items[0].key, '/library/metadata/1');
+      expect(pq.items[1].ratingKey, '2');
+      expect(pq.selectedItemID, '101');
+    });
+
+    test('parsePlayQueue on non-queue XML yields no items', () {
+      expect(parsePlayQueue('<MediaContainer/>').items, isEmpty);
+    });
+
+    test('playQueueIdFromContainerKey extracts the id', () {
+      expect(playQueueIdFromContainerKey('/playQueues/42?own=1'), '42');
+      expect(playQueueIdFromContainerKey('/library/metadata/5'), isEmpty);
+      expect(playQueueIdFromContainerKey(''), isEmpty);
+    });
+
+    test('playQueueUrl targets the queue with window params', () {
+      final u = Uri.parse(playQueueUrl(
+          base: 'http://h:32400', playQueueId: '42', token: 't',
+          clientId: 'cid'));
+      expect(u.path, '/playQueues/42');
+      expect(u.queryParameters['own'], '0');
+      expect(u.queryParameters['includeBefore'], '1');
+      expect(u.queryParameters['includeAfter'], '1');
+      expect(u.queryParameters['X-Plex-Token'], 't');
     });
   });
 }
