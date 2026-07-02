@@ -183,6 +183,14 @@ class PlexService {
     }
   }
 
+  /// Set the identity the decision/transcode paths need, without binding the
+  /// live server. Test-only; production identity comes from [configure].
+  @visibleForTesting
+  void debugSetIdentity({String clientId = '', String authToken = ''}) {
+    _clientId = clientId;
+    _authToken = authToken;
+  }
+
   Future<void> _stop() async {
     _tickTimer?.cancel();
     _tickTimer = null;
@@ -556,7 +564,14 @@ class PlexService {
 
     final String url;
     var transcoding = false;
-    if (plexNeedsTranscode(codec, height, scanType: scanType)) {
+    if (await _needsTranscode(
+      base: base,
+      key: key,
+      machineId: machineId,
+      codec: codec,
+      height: height,
+      scanType: scanType,
+    )) {
       // Transcoding needs the SERVER access token — the transient cast token
       // can't transcode (401/403). Resolve it from plex.tv resources.
       final srvToken = await _serverToken(machineId);
@@ -682,6 +697,49 @@ class PlexService {
       return r.exitCode == 0;
     } catch (_) {
       return true;
+    }
+  }
+
+  /// Decide direct-play vs transcode. Authoritative when the PMS decision engine
+  /// answers; falls back to [plexNeedsTranscode] when we can't reach it (no
+  /// server token, fetch error/timeout, or an unparseable/unknown verdict) so
+  /// behavior degrades to today's heuristic — never a new stutter.
+  Future<bool> _needsTranscode({
+    required String base,
+    required String key,
+    required String machineId,
+    required String codec,
+    required int height,
+    required String scanType,
+  }) async {
+    final heuristic = plexNeedsTranscode(codec, height, scanType: scanType);
+    final srvToken = await _serverToken(machineId);
+    if (srvToken.isEmpty) return heuristic;
+    final profile =
+        buildClientProfileExtra(directPlayCodecs: await detectDirectPlayCodecs());
+    final url = buildDecisionUrl(
+      base: base,
+      key: key,
+      token: srvToken,
+      clientId: _clientId,
+      session: HubConfig.generateUuid(),
+      sessionIdentifier: HubConfig.generateUuid(),
+      profileExtra: profile,
+    );
+    String? xml;
+    try {
+      xml = await _fetchMetadata(url).timeout(const Duration(seconds: 3));
+    } catch (_) {
+      // Timeout or fetch error → unknown → heuristic fallback below.
+      xml = null;
+    }
+    switch (parseDecision(xml ?? '')) {
+      case PlexRouteDecision.directPlay:
+        return false;
+      case PlexRouteDecision.transcode:
+        return true;
+      case PlexRouteDecision.unknown:
+        return heuristic;
     }
   }
 

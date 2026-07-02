@@ -296,6 +296,71 @@ void main() {
     });
   });
 
+  group('decision-driven routing', () {
+    // A metadataFetcher that answers each URL the decision path hits.
+    PlexService svcWithDecision(String decisionXml) {
+      final s = PlexService(
+        playerFactory: () => fake,
+        metadataFetcher: (url) async {
+          if (url.contains('plex.tv/api/v2/resources')) {
+            return '<MediaContainer><resource clientIdentifier="M" '
+                'accessToken="srvacct"/></MediaContainer>';
+          }
+          if (url.contains('/transcode/universal/decision')) return decisionXml;
+          return metadataXml; // item metadata (H.264 1080p, direct-playable)
+        },
+      );
+      s.debugSetIdentity(clientId: 'hearth', authToken: 'acct');
+      return s;
+    }
+
+    Map<String, String> params() =>
+        {..._playMediaParams(), 'machineIdentifier': 'M'};
+
+    test('decision directPlay -> direct-plays the part', () async {
+      final s = svcWithDecision('<MediaContainer mdeDecisionCode="1000"/>');
+      await s.dispatchCommand('playMedia', params());
+      expect(fake.lastUrl, contains('/library/parts/55/1/file.mkv'));
+      expect(fake.lastUrl, isNot(contains('/transcode/universal/start')));
+      s.dispose();
+    });
+
+    test('decision transcode overrides a heuristic direct-play (Hi10P fix)',
+        () async {
+      // metadataXml is H.264 1080p — plexNeedsTranscode() would say direct-play.
+      // The server (seeing our 8-bit cap vs a 10-bit file) says transcode; obey.
+      final s = svcWithDecision('<MediaContainer mdeDecisionCode="1001"/>');
+      await s.dispatchCommand('playMedia', params());
+      expect(fake.lastUrl, contains('/video/:/transcode/universal/start.m3u8'));
+      s.dispose();
+    });
+
+    test('unparseable decision falls back to the heuristic (direct-play)',
+        () async {
+      final s = svcWithDecision('<MediaContainer/>'); // no codes -> unknown
+      await s.dispatchCommand('playMedia', params());
+      expect(fake.lastUrl, contains('/library/parts/55/1/file.mkv'));
+      s.dispose();
+    });
+
+    test('no server token (unpaired) never calls decision, uses heuristic',
+        () async {
+      // No debugSetIdentity + no machineIdentifier -> _serverToken empty.
+      var decisionHit = false;
+      final s = PlexService(
+        playerFactory: () => fake,
+        metadataFetcher: (url) async {
+          if (url.contains('/decision')) decisionHit = true;
+          return metadataXml;
+        },
+      );
+      await s.dispatchCommand('playMedia', _playMediaParams());
+      expect(decisionHit, isFalse);
+      expect(fake.lastUrl, contains('/library/parts/55/1/file.mkv'));
+      s.dispose();
+    });
+  });
+
   group('source-server reporting', () {
     late List<Uri> reports;
     late PlexService svc;
