@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<MediaContainer size="1">
+<MediaSubscription key="389" type="4" title="This Episode" airingsType="New Airings Only" channelIdentifier="5fc76e1017b7aa002d062e7a-5fc70601088e7d002d4c7366">
+<MediaGrabOperation rolling="1" mediaSubscriptionID="389" mediaIndex="0" id="5fc76e1017b7aa002d062e7a-5fc70601088e7d002d4c7366-hearth-client-abc123" key="/media/grabbers/operations/5fc76e1017b7aa002d062e7a-5fc70601088e7d002d4c7366-hearth-client-abc123" grabberIdentifier="tv.plex.grabbers.hdhomerun" grabberProtocol="livetv" percent="0" currentSize="0" deviceID="4" status="inprogress" provider="tv.plex.providers.epg.cloud:5">
+<Video addedAt="1783018168" duration="3600000" grandparentTitle="KELOLAND Living" key="/livetv/sessions/7a56ac8f-a7e5-44a8-87f3-28ad7a7ea154" live="1" onAir="1" parentIndex="2026" ratingKey="50350" title="KELOLAND Living" type="episode">
+<Media uuid="7a56ac8f-a7e5-44a8-87f3-28ad7a7ea154" audioChannels="6" audioCodec="ac3" channelCallSign="KELODT" channelIdentifier="5fc76e1017b7aa002d062e7a-5fc70601088e7d002d4c7366" channelThumb="https://provider-static.plex.tv/a/epg/channels/logos/gracenote/a7314047e36c18ed054a0792510ef057.png" container="mpegts" height="1080" id="50170" origin="livetv" protocol="hls" videoCodec="mpeg2video" videoResolution="1080">
+<Part container="mpegts" id="50170" key="/livetv/sessions/7a56ac8f-a7e5-44a8-87f3-28ad7a7ea154/hearth-client-abc123/index.m3u8?offset=-1.000000" protocol="hls" size="0">
+<Stream codec="mpeg2video" displayTitle="1080i (MPEG2VIDEO)" height="1080" scanType="interlaced" streamType="1" width="1920"/>
+</Part>
+</Media>
+</Video>
+</MediaGrabOperation>
+</MediaSubscription>
+</MediaContainer>

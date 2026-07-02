@@ -52,10 +52,17 @@ This is the one empirically-gated piece; do it first so Task 3 builds on real da
   save the raw XML to `test/services/plex/livetv/fixtures/tune_response.xml` (this
   drives the `parseGrab` test). Then **DELETE the grab op** to free the tuner.
 
-- [ ] **Step 4: Record findings** in this plan (edit the two bullets below) and in
-  the spec's "Open questions":
-  - Live `path=` form: `__________`
-  - Keepalive required? reap-on-stop timeout: `__________`
+- [x] **Step 4: Findings (captured 2026-07-02 on the live PMS):**
+  - **Live `path=` form: `/livetv/sessions/{uuid}`** — the tune response's
+    `<Video key="/livetv/sessions/{uuid}">` (and the matching `<Media uuid>`). Fed
+    to `start.m3u8?path=…&protocol=hls` it returned a real `#EXTM3U` (1080p H.264).
+    So `parseGrab.playRef` = the `<Video>`'s `key` (fallback: `/livetv/sessions/{Media@uuid}`).
+  - **Live-edge offset = `-1`** (the `<Part key>` uses `index.m3u8?offset=-1`), NOT
+    a huge positive number. The verified `start.m3u8` call also worked with no
+    offset. `buildLivePlayUrl` uses `offset=-1`.
+  - **Teardown** `DELETE /media/grabbers/operations/{opId}` freed the tuner. ✓
+  - Source is **1080i MPEG-2** → always server-transcoded to H.264 (expected).
+  - Fixture saved: `test/services/plex/livetv/fixtures/tune_response.xml`.
 
 ---
 
