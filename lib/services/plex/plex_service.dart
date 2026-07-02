@@ -605,6 +605,7 @@ class PlexService {
     }
     final partKey = firstPartKey(metaXml);
     final (codec, height, scanType) = firstMediaInfo(metaXml);
+    final intro = introMarker(metaXml);
 
     if (_transcodeBase != null) await _stopTranscodeSession();
 
@@ -673,6 +674,8 @@ class PlexService {
         protocol: protocol,
         token: token,
         playQueueItemID: playQueueItemID,
+        introStartMs: intro?.startMs ?? 0,
+        introEndMs: intro?.endMs ?? 0,
         hasNext: _queueIndex < _queue.length - 1,
         hasPrev: _queueIndex > 0,
       ),
@@ -982,6 +985,14 @@ class PlexService {
   void pauseFromUi() => _pause();
   void resumeFromUi() => _play();
   void stopFromUi() => _stopPlayback();
+
+  /// Seek past the intro from the overlay's Skip Intro button. No-op when the
+  /// current item has no intro marker.
+  void skipIntroFromUi() {
+    final end = _state.introEndMs;
+    if (end <= 0) return;
+    seekFromUi(Duration(milliseconds: end));
+  }
 
   int? _pendingVolume;
   bool _applyingVolume = false;

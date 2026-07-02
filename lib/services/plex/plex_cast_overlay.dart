@@ -114,6 +114,39 @@ class _PlexCastOverlayState extends ConsumerState<PlexCastOverlay> {
                   ),
                 ),
 
+              // Skip Intro — persistent while inside the intro marker window,
+              // independent of the tap-to-reveal transport bar.
+              if (state.showSkipIntro)
+                Positioned(
+                  right: HearthSpacing.x6,
+                  bottom: HearthSpacing.x12,
+                  child: Material(
+                    color: Colors.black.withValues(alpha: 0.6),
+                    borderRadius: const BorderRadius.all(Radius.circular(8)),
+                    child: InkWell(
+                      borderRadius: const BorderRadius.all(Radius.circular(8)),
+                      onTap: service.skipIntroFromUi,
+                      child: const Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: HearthSpacing.x5,
+                          vertical: HearthSpacing.x3,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.skip_next, color: Colors.white),
+                            SizedBox(width: HearthSpacing.x2),
+                            Text('Skip Intro',
+                                style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: HearthFont.label)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+
               // Always-available dismiss affordance, top-right.
               Positioned(
                 top: HearthSpacing.x4,

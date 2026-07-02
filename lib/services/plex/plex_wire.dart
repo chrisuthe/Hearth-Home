@@ -484,6 +484,35 @@ final RegExp _scanTypeRe = RegExp(r'\bscanType="([^"]*)"');
       _videoStreamScanType(metadataXml),
     );
 
+/// An intro marker's content-time bounds, in milliseconds.
+class IntroMarker {
+  final int startMs;
+  final int endMs;
+  const IntroMarker(this.startMs, this.endMs);
+}
+
+final RegExp _markerTagRe = RegExp(r'<Marker\b[^>]*>');
+final RegExp _markerStartRe = RegExp(r'\bstartTimeOffset="([0-9]+)"');
+final RegExp _markerEndRe = RegExp(r'\bendTimeOffset="([0-9]+)"');
+
+/// The first `<Marker type="intro" …>` in an item's metadata (fetched with
+/// `includeMarkers=1`), as `(startTimeOffset, endTimeOffset)` in ms — or null
+/// when there's no intro marker or an offset is missing. Attribute order isn't
+/// guaranteed, so scan each `<Marker>` tag and match `type="intro"`, mirroring
+/// the `<Stream>` scan in [firstMediaInfo]. Grounded in real Plex metadata:
+/// `<Marker type="intro" startTimeOffset="990" endTimeOffset="28316">`.
+IntroMarker? introMarker(String metadataXml) {
+  for (final m in _markerTagRe.allMatches(metadataXml)) {
+    final tag = m.group(0)!;
+    if (!tag.contains('type="intro"')) continue;
+    final start = int.tryParse(_markerStartRe.firstMatch(tag)?.group(1) ?? '');
+    final end = int.tryParse(_markerEndRe.firstMatch(tag)?.group(1) ?? '');
+    if (start == null || end == null) return null;
+    return IntroMarker(start, end);
+  }
+  return null;
+}
+
 /// The `scanType` of the video `<Stream streamType="1">` (the H.264 stream).
 /// Attribute order isn't guaranteed, so scan each `<Stream>` tag and pull
 /// `scanType` from the first whose `streamType` is `1`. Empty when absent.
@@ -523,7 +552,8 @@ String metadataUrl({
   required String key,
   required String token,
 }) =>
-    '${_trimSlash(base)}$key?X-Plex-Token=${Uri.encodeQueryComponent(token)}';
+    '${_trimSlash(base)}$key'
+    '?X-Plex-Token=${Uri.encodeQueryComponent(token)}&includeMarkers=1';
 
 /// The first media `<Part … key="…">` in an item's metadata XML (empty when the
 /// item exposes no streamable part).

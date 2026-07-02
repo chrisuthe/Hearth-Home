@@ -91,6 +91,14 @@ void main() {
       '<Part id="55" key="/library/parts/55/1/file.mkv" container="mkv"/>'
       '</Media></Video></MediaContainer>';
 
+  // Same item, but carrying a server-generated intro marker (1s..28.316s).
+  const metadataWithIntro = '<MediaContainer><Video>'
+      '<Media videoCodec="h264" width="1920" height="1080">'
+      '<Part id="55" key="/library/parts/55/1/file.mkv" container="mkv"/>'
+      '</Media>'
+      '<Marker type="intro" startTimeOffset="990" endTimeOffset="28316"/>'
+      '</Video></MediaContainer>';
+
   setUp(() {
     fake = FakeVideoPlayer();
     volumeWrites = [];
@@ -104,6 +112,36 @@ void main() {
   });
 
   tearDown(() => service.dispose());
+
+  group('skip intro', () {
+    test('playMedia stamps the intro marker into state', () async {
+      final s = PlexService(
+        playerFactory: () => fake,
+        metadataFetcher: (_) async => metadataWithIntro,
+      );
+      await s.dispatchCommand('playMedia', _playMediaParams());
+      expect(s.state.introStartMs, 990);
+      expect(s.state.introEndMs, 28316);
+      s.dispose();
+    });
+
+    test('playMedia leaves marker at 0 when the item has none', () async {
+      await service.dispatchCommand('playMedia', _playMediaParams());
+      expect(service.state.introEndMs, 0);
+    });
+
+    test('skipIntroFromUi seeks the player to the intro end', () async {
+      final s = PlexService(
+        playerFactory: () => fake,
+        metadataFetcher: (_) async => metadataWithIntro,
+      );
+      await s.dispatchCommand('playMedia', _playMediaParams());
+      s.skipIntroFromUi();
+      await Future<void>.delayed(Duration.zero); // let the async seek run
+      expect(fake.seekedTo, const Duration(milliseconds: 28316));
+      s.dispose();
+    });
+  });
 
   group('playMedia', () {
     test('direct-plays the media part and transitions to playing', () async {

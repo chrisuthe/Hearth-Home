@@ -43,6 +43,11 @@ class PlexPlayerState {
   /// Empty when the controller didn't supply one (then it's omitted).
   final String playQueueItemID;
 
+  /// Intro marker bounds (ms of content time), 0 when the item has no intro
+  /// marker. Drives [showSkipIntro].
+  final int introStartMs;
+  final int introEndMs;
+
   /// Whether the play queue has a next / previous item (drives the overlay's
   /// Prev/Next buttons). False for a single-item cast.
   final bool hasNext;
@@ -64,12 +69,22 @@ class PlexPlayerState {
     this.protocol = 'http',
     this.token = '',
     this.playQueueItemID = '',
+    this.introStartMs = 0,
+    this.introEndMs = 0,
     this.hasNext = false,
     this.hasPrev = false,
   });
 
   /// True when a video is cast — drives whether the kiosk overlay is shown.
   bool get hasMedia => currentUri.isNotEmpty;
+
+  /// Whether the "Skip Intro" affordance should show: a cast is active, the item
+  /// has an intro marker, and the live position is inside `[start, end)`.
+  bool get showSkipIntro =>
+      hasMedia &&
+      introEndMs > 0 &&
+      position.inMilliseconds >= introStartMs &&
+      position.inMilliseconds < introEndMs;
 
   /// The [PlexTimelineMedia] view of this state (for the video timeline entry).
   PlexTimelineMedia get timelineMedia => PlexTimelineMedia(
@@ -101,6 +116,8 @@ class PlexPlayerState {
     String? protocol,
     String? token,
     String? playQueueItemID,
+    int? introStartMs,
+    int? introEndMs,
     bool? hasNext,
     bool? hasPrev,
   }) {
@@ -120,6 +137,8 @@ class PlexPlayerState {
       protocol: protocol ?? this.protocol,
       token: token ?? this.token,
       playQueueItemID: playQueueItemID ?? this.playQueueItemID,
+      introStartMs: introStartMs ?? this.introStartMs,
+      introEndMs: introEndMs ?? this.introEndMs,
       hasNext: hasNext ?? this.hasNext,
       hasPrev: hasPrev ?? this.hasPrev,
     );
