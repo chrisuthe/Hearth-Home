@@ -84,5 +84,26 @@ void main() {
       expect(html, contains('force-update-btn'));
       expect(html, contains('/api/update/apply'));
     });
+
+    test('buildSettingsHtml exposes the dev bundle URL input and toggle', () {
+      final p = SystemPlugin();
+      final html = p.buildSettingsHtml(const WebContext(
+        config: HubConfig(),
+        apiBearerToken: 'auth',
+        pluginActionPrefix: '/api/plugin/hearth.system',
+      ));
+      expect(html, contains('data-config-path="devBundleUrl"'));
+      expect(html, contains('data-config-path="devBundleEnabled"'));
+    });
+
+    test('dev bundle URL input reflects the configured value', () {
+      final p = SystemPlugin();
+      final html = p.buildSettingsHtml(const WebContext(
+        config: HubConfig(devBundleUrl: 'https://ci.example/b.tar.gz'),
+        apiBearerToken: 'auth',
+        pluginActionPrefix: '/api/plugin/hearth.system',
+      ));
+      expect(html, contains('value="https://ci.example/b.tar.gz"'));
+    });
   });
 }

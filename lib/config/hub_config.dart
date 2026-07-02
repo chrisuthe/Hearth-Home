@@ -267,6 +267,13 @@ class HubConfig {
   /// sidebar on both surfaces and its `/api/plugin/hearth.capture/*` routes
   /// return 404. The toggle itself lives in the System plugin.
   final bool captureToolsEnabled;
+  /// Developer override: when [devBundleEnabled] is true and [devBundleUrl] is
+  /// set, the OTA updater installs the bundle at that URL directly instead of
+  /// checking the release API. Lets us test unreleased builds on-device. The
+  /// URL is web-portal only (typing it via OSK is painful); the toggle is on
+  /// both surfaces. See scripts/hearth-updater.sh.
+  final bool devBundleEnabled;
+  final String devBundleUrl;
 
   final PhotoSourcesConfig photoSources;
 
@@ -341,6 +348,8 @@ class HubConfig {
     this.micMuted = false,
     this.touchIndicator = const TouchIndicatorConfig(),
     this.captureToolsEnabled = false,
+    this.devBundleEnabled = false,
+    this.devBundleUrl = '',
     this.photoSources = const PhotoSourcesConfig(),
     this.uiScale = 1.0,
     this.webviews = const [],
@@ -428,6 +437,8 @@ class HubConfig {
     bool? micMuted,
     TouchIndicatorConfig? touchIndicator,
     bool? captureToolsEnabled,
+    bool? devBundleEnabled,
+    String? devBundleUrl,
     PhotoSourcesConfig? photoSources,
     double? uiScale,
     List<WebviewConfig>? webviews,
@@ -496,6 +507,8 @@ class HubConfig {
       micMuted: micMuted ?? this.micMuted,
       touchIndicator: touchIndicator ?? this.touchIndicator,
       captureToolsEnabled: captureToolsEnabled ?? this.captureToolsEnabled,
+      devBundleEnabled: devBundleEnabled ?? this.devBundleEnabled,
+      devBundleUrl: devBundleUrl ?? this.devBundleUrl,
       photoSources: photoSources ?? this.photoSources,
       uiScale: uiScale ?? this.uiScale,
       webviews: webviews ?? this.webviews,
@@ -564,6 +577,8 @@ class HubConfig {
         'micMuted': micMuted,
         'touchIndicator': touchIndicator.toJson(),
         'captureToolsEnabled': captureToolsEnabled,
+        'devBundleEnabled': devBundleEnabled,
+        'devBundleUrl': devBundleUrl,
         'photoSources': photoSources.toJson(),
         'uiScale': uiScale,
         'webviews': webviews.map((w) => w.toJson()).toList(),
@@ -640,6 +655,8 @@ class HubConfig {
                 (json['touchIndicator'] as Map).cast<String, dynamic>())
             : const TouchIndicatorConfig(),
         captureToolsEnabled: json['captureToolsEnabled'] as bool? ?? false,
+        devBundleEnabled: json['devBundleEnabled'] as bool? ?? false,
+        devBundleUrl: json['devBundleUrl'] as String? ?? '',
         photoSources: json['photoSources'] is Map
             ? PhotoSourcesConfig.fromJson(
                 (json['photoSources'] as Map).cast<String, dynamic>())

@@ -523,6 +523,36 @@ void main() {
       expect(updated.immichUrl, 'http://test');
     });
 
+    test('dev bundle fields default to disabled with empty URL', () {
+      const config = HubConfig();
+      expect(config.devBundleEnabled, false);
+      expect(config.devBundleUrl, '');
+    });
+
+    test('dev bundle fields round-trip through JSON', () {
+      const config = HubConfig(
+        devBundleEnabled: true,
+        devBundleUrl: 'https://ci.example/hearth-bundle-dev.tar.gz',
+      );
+      final restored = HubConfig.fromJson(config.toJson());
+      expect(restored.devBundleEnabled, true);
+      expect(restored.devBundleUrl,
+          'https://ci.example/hearth-bundle-dev.tar.gz');
+    });
+
+    test('dev bundle fields fall back to defaults when missing from JSON', () {
+      final config = HubConfig.fromJson({});
+      expect(config.devBundleEnabled, false);
+      expect(config.devBundleUrl, '');
+    });
+
+    test('dev bundle copyWith preserves unchanged fields', () {
+      const config = HubConfig(devBundleUrl: 'https://ci.example/b.tar.gz');
+      final updated = config.copyWith(devBundleEnabled: true);
+      expect(updated.devBundleUrl, 'https://ci.example/b.tar.gz');
+      expect(updated.devBundleEnabled, true);
+    });
+
   });
 
   group('HubConfigNotifier', () {
