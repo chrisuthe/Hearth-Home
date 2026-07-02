@@ -369,4 +369,31 @@ void main() {
       expect(s, contains('Protocol-Capabilities: timeline,playback'));
     });
   });
+
+  group('parseDecision', () {
+    test('mdeDecisionCode 1000 -> directPlay', () {
+      const xml = '<MediaContainer generalDecisionCode="2000" '
+          'mdeDecisionCode="1000" mdeDecisionText="Direct play OK"/>';
+      expect(parseDecision(xml), PlexRouteDecision.directPlay);
+    });
+
+    test('mdeDecisionCode 1001 -> transcode', () {
+      const xml = '<MediaContainer mdeDecisionCode="1001" '
+          'mdeDecisionText="Transcode"/>';
+      expect(parseDecision(xml), PlexRouteDecision.transcode);
+    });
+
+    test('falls through to generalDecisionCode when mde is absent', () {
+      const xml = '<MediaContainer generalDecisionCode="1001"/>';
+      expect(parseDecision(xml), PlexRouteDecision.transcode);
+    });
+
+    test('missing/-1/garbage codes -> unknown', () {
+      expect(parseDecision('<MediaContainer/>'), PlexRouteDecision.unknown);
+      expect(parseDecision('<MediaContainer mdeDecisionCode="-1"/>'),
+          PlexRouteDecision.unknown);
+      expect(parseDecision('not xml at all'), PlexRouteDecision.unknown);
+      expect(parseDecision(''), PlexRouteDecision.unknown);
+    });
+  });
 }

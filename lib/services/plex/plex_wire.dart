@@ -291,6 +291,30 @@ bool plexNeedsTranscode(
     height > maxHeight ||
     scanType.toLowerCase() == 'interlaced';
 
+/// The direct-play-vs-transcode verdict from the PMS media decision engine.
+enum PlexRouteDecision { directPlay, transcode, unknown }
+
+/// Parse a `/video/:/transcode/universal/decision` response. Grounded in
+/// plex-for-kodi `serverdecision.py`: the response carries `mdeDecisionCode` /
+/// `generalDecisionCode` / `directPlayDecisionCode` (default `-1`), where
+/// `1000` = direct-play OK and `1000..1999` (e.g. `1001`) = transcode. Reads the
+/// codes in priority order; the first usable one wins. `unknown` when none parse
+/// (old server, error body, empty) so the caller can fall back to the heuristic.
+PlexRouteDecision parseDecision(String xml) {
+  for (final attr in const [
+    'mdeDecisionCode',
+    'generalDecisionCode',
+    'directPlayDecisionCode',
+  ]) {
+    final m = RegExp('$attr="(-?\\d+)"').firstMatch(xml);
+    final code = int.tryParse(m?.group(1) ?? '');
+    if (code == null || code < 0) continue;
+    if (code == 1000) return PlexRouteDecision.directPlay;
+    if (code >= 1001 && code < 2000) return PlexRouteDecision.transcode;
+  }
+  return PlexRouteDecision.unknown;
+}
+
 final RegExp _videoCodecRe = RegExp(r'<Media\b[^>]*\bvideoCodec="([^"]*)"');
 final RegExp _mediaHeightRe = RegExp(r'<Media\b[^>]*\bheight="([0-9]+)"');
 final RegExp _streamTagRe = RegExp(r'<Stream\b[^>]*>');
