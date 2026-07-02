@@ -415,4 +415,30 @@ void main() {
       expect(kPlexCodecDecoderElements['h264'], 'avdec_h264');
     });
   });
+
+  group('buildDecisionUrl', () {
+    test('targets the decision endpoint with directPlay=1 + profile + token', () {
+      final url = buildDecisionUrl(
+        base: 'http://192.168.1.50:32400',
+        key: '/library/metadata/12345',
+        token: 'srvtok',
+        clientId: 'hearth-client',
+        session: 'sess',
+        sessionIdentifier: 'sid',
+        profileExtra: buildClientProfileExtra(directPlayCodecs: {'h264'}),
+      );
+      final u = Uri.parse(url);
+      expect(u.path, '/video/:/transcode/universal/decision');
+      expect(u.queryParameters['directPlay'], '1');
+      expect(u.queryParameters['directStream'], '0');
+      expect(u.queryParameters['hasMDE'], '1');
+      expect(u.queryParameters['path'], '/library/metadata/12345');
+      expect(u.queryParameters['X-Plex-Token'], 'srvtok');
+      expect(u.queryParameters['X-Plex-Client-Profile-Extra'],
+          contains('scopeName=h264'));
+      // Must NOT reuse the over-permissive HTPC profile name.
+      expect(u.queryParameters.containsKey('X-Plex-Client-Profile-Name'),
+          isFalse);
+    });
+  });
 }

@@ -273,6 +273,51 @@ String buildTranscodeUrl({
   ).toString();
 }
 
+/// Build the media-decision URL: ask the PMS whether the item direct-plays under
+/// our [profileExtra], rather than guessing locally. Mirrors [buildTranscodeUrl]
+/// identity but on the `/decision` path with `directPlay=1`. Deliberately omits
+/// `X-Plex-Client-Profile-Name` (the transcode path's "Plex Home Theater" is a
+/// broad HTPC profile that would over-permit direct play); the capped
+/// [profileExtra] is the sole capability declaration. [token] is the server
+/// access token (the decision endpoint authorizes like the transcoder).
+String buildDecisionUrl({
+  required String base,
+  required String key,
+  required String token,
+  required String clientId,
+  required String session,
+  required String sessionIdentifier,
+  required String profileExtra,
+  int offsetMs = 0,
+}) {
+  final baseUri = Uri.parse(base);
+  return baseUri.replace(
+    path: '/video/:/transcode/universal/decision',
+    queryParameters: {
+      'path': key,
+      'protocol': 'hls',
+      'mediaIndex': '0',
+      'partIndex': '0',
+      'directPlay': '1',
+      'directStream': '0',
+      'fastSeek': '1',
+      'hasMDE': '1',
+      'offset': (offsetMs ~/ 1000).toString(),
+      'session': session,
+      'X-Plex-Session-Identifier': sessionIdentifier,
+      'X-Plex-Client-Identifier': clientId,
+      'X-Plex-Token': token,
+      'X-Plex-Product': kPlexProduct,
+      'X-Plex-Version': kPlexVersion,
+      'X-Plex-Platform': 'Plex Home Theater',
+      'X-Plex-Provides': 'player',
+      'X-Plex-Device': 'RaspberryPI',
+      'X-Plex-Model': 'RaspberryPI',
+      if (profileExtra.isNotEmpty) 'X-Plex-Client-Profile-Extra': profileExtra,
+    },
+  ).toString();
+}
+
 /// Whether the Pi should ask Plex to transcode rather than direct-play. The Pi 5
 /// software-decodes progressive H.264 up to 1080p reliably, but its HEVC hardware
 /// decoder can't negotiate 10-bit to the GL texture and 4K H.264 in software
