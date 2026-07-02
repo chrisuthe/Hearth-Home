@@ -170,7 +170,7 @@ void main() {
       expect(
         metadataUrl(
             base: 'https://h:32400', key: '/library/metadata/99', token: 't'),
-        'https://h:32400/library/metadata/99?X-Plex-Token=t',
+        'https://h:32400/library/metadata/99?X-Plex-Token=t&includeMarkers=1',
       );
     });
 
@@ -367,6 +367,41 @@ void main() {
       expect(s, contains('Name: Kitchen'));
       expect(s, contains('Port: 8296'));
       expect(s, contains('Protocol-Capabilities: timeline,playback'));
+    });
+  });
+
+  group('introMarker', () {
+    const withIntro = '<MediaContainer><Video>'
+        '<Marker id="1" type="intro" startTimeOffset="990" endTimeOffset="28316"/>'
+        '</Video></MediaContainer>';
+
+    test('parses the intro marker start/end ms', () {
+      final m = introMarker(withIntro);
+      expect(m, isNotNull);
+      expect(m!.startMs, 990);
+      expect(m.endMs, 28316);
+    });
+
+    test('null when no marker present', () {
+      expect(introMarker('<MediaContainer><Video/></MediaContainer>'), isNull);
+    });
+
+    test('ignores non-intro marker types', () {
+      const credits = '<MediaContainer><Video>'
+          '<Marker type="credits" startTimeOffset="100" endTimeOffset="200"/>'
+          '</Video></MediaContainer>';
+      expect(introMarker(credits), isNull);
+    });
+
+    test('null when a marker is missing an offset', () {
+      const bad = '<Marker type="intro" startTimeOffset="990"/>';
+      expect(introMarker(bad), isNull);
+    });
+
+    test('metadataUrl requests markers', () {
+      final u = Uri.parse(metadataUrl(
+          base: 'http://h:32400', key: '/library/metadata/1', token: 't'));
+      expect(u.queryParameters['includeMarkers'], '1');
     });
   });
 }
