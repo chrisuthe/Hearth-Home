@@ -315,6 +315,37 @@ PlexRouteDecision parseDecision(String xml) {
   return PlexRouteDecision.unknown;
 }
 
+/// Codecs Hearth lets Plex direct-play — the conservative safety cap. H.264 only:
+/// the Pi 5 software-decodes progressive 8-bit H.264 ≤1080p reliably; HEVC/AV1/
+/// VP9/4K/10-bit/HDR/interlaced all transcode. See the transcode-decision design.
+const Set<String> kPlexDirectPlayCodecs = {'h264'};
+
+/// GStreamer decoder element backing each capped codec, for on-device probing
+/// (the "capped auto-derive": a codec whose decoder is absent is dropped).
+const Map<String, String> kPlexCodecDecoderElements = {'h264': 'avdec_h264'};
+
+const int _kDirectPlayMaxHeight = 1080;
+const int _kDirectPlayMaxBitDepth = 8;
+
+/// Build the `X-Plex-Client-Profile-Extra` string sent on the decision request.
+/// For each still-eligible [directPlayCodecs] entry, allow direct play of that
+/// video codec and cap it to 8-bit / ≤1080p via `add-limitation`. An empty set
+/// yields an empty string — no direct-play profile, so the server transcodes
+/// everything. Directives are `+`-joined. The `add-limitation` forms are
+/// grounded (Plex client profiles); the exact `add-direct-play-profile` form is
+/// validated against the live PMS (see spec on-device verification).
+String buildClientProfileExtra({required Set<String> directPlayCodecs}) {
+  final parts = <String>[];
+  for (final codec in directPlayCodecs) {
+    parts.add('add-direct-play-profile(type=videoProfile&codec=$codec)');
+    parts.add('add-limitation(scope=videoCodec&scopeName=$codec'
+        '&type=upperBound&name=video.bitDepth&value=$_kDirectPlayMaxBitDepth)');
+    parts.add('add-limitation(scope=videoCodec&scopeName=$codec'
+        '&type=upperBound&name=video.height&value=$_kDirectPlayMaxHeight)');
+  }
+  return parts.join('+');
+}
+
 final RegExp _videoCodecRe = RegExp(r'<Media\b[^>]*\bvideoCodec="([^"]*)"');
 final RegExp _mediaHeightRe = RegExp(r'<Media\b[^>]*\bheight="([0-9]+)"');
 final RegExp _streamTagRe = RegExp(r'<Stream\b[^>]*>');

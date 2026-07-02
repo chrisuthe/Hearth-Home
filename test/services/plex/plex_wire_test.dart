@@ -396,4 +396,23 @@ void main() {
       expect(parseDecision(''), PlexRouteDecision.unknown);
     });
   });
+
+  group('buildClientProfileExtra', () {
+    test('H.264 profile carries the 8-bit and 1080p limitations', () {
+      final p = buildClientProfileExtra(directPlayCodecs: {'h264'});
+      expect(p, contains('scopeName=h264'));
+      expect(p, contains('name=video.bitDepth&value=8'));
+      expect(p, contains('name=video.height&value=1080'));
+      expect(p, contains('add-direct-play-profile'));
+    });
+
+    test('empty codec set -> empty profile (deny all direct play)', () {
+      expect(buildClientProfileExtra(directPlayCodecs: const {}), isEmpty);
+    });
+
+    test('cap constant is H.264 only', () {
+      expect(kPlexDirectPlayCodecs, {'h264'});
+      expect(kPlexCodecDecoderElements['h264'], 'avdec_h264');
+    });
+  });
 }
