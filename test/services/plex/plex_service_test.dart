@@ -426,6 +426,47 @@ void main() {
       expect(service.state.hasNext, isFalse);
       expect(service.state.hasPrev, isFalse);
     });
+
+    test('auto-advances to the next item near end of playback', () {
+      fakeAsync((async) {
+        final s = queued();
+        s.dispatchCommand('playMedia', params());
+        async.flushMicrotasks();
+        expect(s.state.key, '/library/metadata/1');
+
+        // Player reports ~1s from the end of a 5-minute item.
+        fake.durationValue = const Duration(minutes: 5);
+        fake.positionValue =
+            const Duration(minutes: 5) - const Duration(seconds: 1);
+        async.elapse(const Duration(seconds: 1)); // one tick
+        async.flushMicrotasks();
+        expect(s.state.key, '/library/metadata/2');
+
+        s.dispose();
+        async.flushMicrotasks();
+      });
+    });
+
+    test('stops at end of playback on the last queue item', () {
+      fakeAsync((async) {
+        final s = queued();
+        s.dispatchCommand('playMedia', params());
+        async.flushMicrotasks();
+        s.dispatchCommand('skipNext', const {}); // -> item 2 (last)
+        async.flushMicrotasks();
+        expect(s.state.key, '/library/metadata/2');
+
+        fake.durationValue = const Duration(minutes: 5);
+        fake.positionValue =
+            const Duration(minutes: 5) - const Duration(seconds: 1);
+        async.elapse(const Duration(seconds: 1));
+        async.flushMicrotasks();
+        expect(s.state.hasMedia, isFalse); // end of queue -> stop
+
+        s.dispose();
+        async.flushMicrotasks();
+      });
+    });
   });
 
   group('source-server reporting', () {

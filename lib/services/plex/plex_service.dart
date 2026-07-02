@@ -144,6 +144,8 @@ class PlexService {
   // with no play-queue container is modeled as a queue of one (index 0).
   List<PlayQueueItem> _queue = const [];
   int _queueIndex = 0;
+  // One-shot guard so end-of-item auto-advance fires exactly once per item.
+  bool _endHandled = false;
 
   // --- Timeline subscribers, keyed by controller X-Plex-Client-Identifier ---
   final Map<String, _Subscriber> _subscribers = {};
@@ -653,6 +655,7 @@ class PlexService {
 
     _player ??= _createPlayer();
     _scrobbled = false;
+    _endHandled = false;
     _audioStreamID = '';
     _subtitleStreamID = '';
     _updateState(
@@ -1042,7 +1045,26 @@ class PlexService {
         _reportServerTimeline('playing');
       }
       _maybeScrobble();
+      _maybeAutoAdvance(p);
     });
+  }
+
+  static const Duration _kEndThreshold = Duration(milliseconds: 1500);
+
+  /// At the end of an item (within [_kEndThreshold] of its duration), advance to
+  /// the next queue item — or stop if this was the last. One-shot per item via
+  /// [_endHandled]; suppressed while paused or when the duration is unknown.
+  Future<void> _maybeAutoAdvance(HearthVideoPlayer p) async {
+    if (_endHandled ||
+        _state.transportState != PlexTransportState.playing ||
+        p.duration <= Duration.zero ||
+        p.position < p.duration - _kEndThreshold) {
+      return;
+    }
+    _endHandled = true;
+    if (!await _advanceTo(_queueIndex + 1)) {
+      await _stopPlayback(); // end of queue → back to ambient
+    }
   }
 
   // ---------------------------------------------------------------------------
