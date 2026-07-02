@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../config/hub_config.dart';
 import '../../utils/alsa_utils.dart';
@@ -23,6 +24,10 @@ typedef VolumeSetter = Future<void> Function(int percent);
 /// Reads the Pi's system (ALSA Master) output volume, 0–100, or null when it
 /// can't be determined. Injectable for the same reason as [VolumeSetter].
 typedef VolumeReader = Future<int?> Function();
+
+/// Whether a GStreamer decoder [element] is present on the device. Injectable so
+/// the capped auto-derive can be tested without a real GStreamer registry.
+typedef PlexDecoderExists = Future<bool> Function(String element);
 
 /// Default [PlexMetadataFetcher]: a plain HTTP GET returning the body. Top-level
 /// so it can seed the service default and be swapped out in tests.
@@ -82,17 +87,24 @@ class PlexService {
   final VolumeSetter _setVolume;
   final VolumeReader _getVolume;
 
+  /// Probes whether a decoder element exists (the capped auto-derive). Overridable
+  /// in tests so the derived direct-play codec set can be exercised without a
+  /// real GStreamer registry.
+  final PlexDecoderExists _decoderExists;
+
   PlexService({
     HearthVideoPlayer Function()? playerFactory,
     PlexMetadataFetcher? metadataFetcher,
     PlexUrlFire? serverReporter,
     VolumeSetter? volumeSetter,
     VolumeReader? volumeReader,
+    PlexDecoderExists? decoderProbe,
   })  : _createPlayer = playerFactory ?? HearthVideoPlayer.create,
         _fetchMetadata = metadataFetcher ?? plexHttpGetBody,
         _reportGet = serverReporter ?? plexHttpFireGet,
         _setVolume = volumeSetter ?? setMasterVolume,
-        _getVolume = volumeReader ?? getMasterVolume;
+        _getVolume = volumeReader ?? getMasterVolume,
+        _decoderExists = decoderProbe ?? _gstDecoderExists;
 
   // --- Identity / config (set by [configure]) ---
   String _clientId = '';
@@ -640,6 +652,37 @@ class PlexService {
     final tok = body == null ? '' : serverTokenFromResources(body, machineId);
     if (tok.isNotEmpty) _serverTokens[machineId] = tok;
     return tok;
+  }
+
+  Set<String>? _directPlayCodecsCache;
+
+  /// The capped auto-derive: the direct-play safety cap ([kPlexDirectPlayCodecs])
+  /// intersected with the decoders actually present on this device. Can only
+  /// *subtract* from the cap, so it is always at least as conservative. Cached —
+  /// the decoder set doesn't change at runtime.
+  @visibleForTesting
+  Future<Set<String>> detectDirectPlayCodecs() async {
+    final cached = _directPlayCodecsCache;
+    if (cached != null) return cached;
+    final present = <String>{};
+    for (final codec in kPlexDirectPlayCodecs) {
+      final element = kPlexCodecDecoderElements[codec];
+      if (element == null || await _decoderExists(element)) present.add(codec);
+    }
+    return _directPlayCodecsCache = present;
+  }
+
+  /// Default decoder probe. Only the GStreamer (Pi) backend needs probing —
+  /// media_kit/libmpv decodes the capped codecs fine — so gate on the same env
+  /// the video backend uses. Fails **open** to the safe cap on any error.
+  static Future<bool> _gstDecoderExists(String element) async {
+    if (!Platform.environment.containsKey('HEARTH_NO_MEDIAKIT')) return true;
+    try {
+      final r = await Process.run('gst-inspect-1.0', ['--exists', element]);
+      return r.exitCode == 0;
+    } catch (_) {
+      return true;
+    }
   }
 
   // --- Transcode session keep-alive (HLS only) ---

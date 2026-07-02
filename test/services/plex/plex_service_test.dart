@@ -147,6 +147,28 @@ void main() {
     });
   });
 
+  group('capped auto-derive (detectDirectPlayCodecs)', () {
+    test('keeps H.264 when its decoder is present', () async {
+      final s = PlexService(
+        playerFactory: () => fake,
+        metadataFetcher: (_) async => metadataXml,
+        decoderProbe: (el) async => true,
+      );
+      expect(await s.detectDirectPlayCodecs(), {'h264'});
+      s.dispose();
+    });
+
+    test('drops H.264 when its decoder is absent', () async {
+      final s = PlexService(
+        playerFactory: () => fake,
+        metadataFetcher: (_) async => metadataXml,
+        decoderProbe: (el) async => el != 'avdec_h264',
+      );
+      expect(await s.detectDirectPlayCodecs(), isEmpty);
+      s.dispose();
+    });
+  });
+
   group('transport commands', () {
     test('pause then play moves playing -> paused -> playing', () async {
       await service.dispatchCommand('playMedia', _playMediaParams());
