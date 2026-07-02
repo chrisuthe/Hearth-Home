@@ -25,6 +25,24 @@ void main() {
     });
   });
 
+  group('parseOwnedServer', () {
+    test('picks the owned server local connection + token', () {
+      const json = '[{"name":"Other","provides":"server","owned":false,'
+          '"connections":[{"local":true,"uri":"http://x"}]},'
+          '{"name":"Mine","provides":"server","owned":true,"accessToken":"srvtok",'
+          '"connections":[{"local":false,"uri":"http://wan:32400"},'
+          '{"local":true,"uri":"http://10.0.2.10:32400"}]}]';
+      final s = parseOwnedServer(json)!;
+      expect(s.base, 'http://10.0.2.10:32400');
+      expect(s.token, 'srvtok');
+    });
+
+    test('null when no owned server / bad json', () {
+      expect(parseOwnedServer('[]'), isNull);
+      expect(parseOwnedServer('not json'), isNull);
+    });
+  });
+
   group('tune / play / teardown wire', () {
     final tuneXml = File(
             'test/services/plex/livetv/fixtures/tune_response.xml')

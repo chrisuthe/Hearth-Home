@@ -9,6 +9,44 @@
 ///   * teardown: `DELETE /media/grabbers/operations/{opId}` (frees the tuner)
 library;
 
+import 'dart:convert';
+
+/// The owned Plex server Hearth talks to as a client: its local base URL and
+/// access token.
+class PlexOwnedServer {
+  final String base;
+  final String token;
+  const PlexOwnedServer(this.base, this.token);
+}
+
+/// Pick the owned server's **local** connection + access token from a plex.tv
+/// `/api/v2/resources` JSON response. Returns null when there's no owned server
+/// with a local connection. Pure (JSON only, no IO).
+PlexOwnedServer? parseOwnedServer(String resourcesJson) {
+  final dynamic decoded;
+  try {
+    decoded = jsonDecode(resourcesJson);
+  } catch (_) {
+    return null;
+  }
+  if (decoded is! List) return null;
+  for (final r in decoded) {
+    if (r is! Map) continue;
+    final provides = (r['provides'] ?? '').toString();
+    if (!provides.contains('server') || r['owned'] != true) continue;
+    final token = (r['accessToken'] ?? '').toString();
+    final conns = r['connections'];
+    if (conns is! List) continue;
+    for (final c in conns) {
+      if (c is Map && c['local'] == true) {
+        final uri = (c['uri'] ?? '').toString();
+        if (uri.isNotEmpty) return PlexOwnedServer(uri, token);
+      }
+    }
+  }
+  return null;
+}
+
 /// A tunable Live TV channel. [number] is the OTA virtual channel
 /// (`deviceIdentifier`, e.g. "11.1"); [channelKey] is what you tune. [callSign]
 /// is filled from the tune response's `<Media channelCallSign>` once known.
