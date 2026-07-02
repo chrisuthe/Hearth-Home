@@ -140,6 +140,11 @@ class PlexService {
   // fires at most once per cast at the watched threshold.
   bool _scrobbled = false;
 
+  // The active play queue and the index of the current item within it. A cast
+  // with no play-queue container is modeled as a queue of one (index 0).
+  List<PlayQueueItem> _queue = const [];
+  int _queueIndex = 0;
+
   // --- Timeline subscribers, keyed by controller X-Plex-Client-Identifier ---
   final Map<String, _Subscriber> _subscribers = {};
 
@@ -450,8 +455,10 @@ class PlexService {
         await _setParameters(params);
         return const PlexCommandResult.ok();
       case 'skipNext':
+        await _advanceTo(_queueIndex + 1);
+        return const PlexCommandResult.ok();
       case 'skipPrevious':
-        // Single-item sink — accept and no-op.
+        await _advanceTo(_queueIndex - 1);
         return const PlexCommandResult.ok();
       case 'setStreams':
         await _setStreams(params);
@@ -547,6 +554,13 @@ class PlexService {
     final base = plexServerBase(address: address, port: port, protocol: protocol);
     final machineId = params['machineIdentifier'] ?? '';
 
+    await _loadQueue(
+      base: base,
+      token: token,
+      containerKey: params['containerKey'] ?? '',
+      playQueueItemID: params['playQueueItemID'] ?? '',
+      requestedKey: key,
+    );
     return _startItem(
       base: base,
       key: key,
@@ -656,6 +670,8 @@ class PlexService {
         protocol: protocol,
         token: token,
         playQueueItemID: playQueueItemID,
+        hasNext: _queueIndex < _queue.length - 1,
+        hasPrev: _queueIndex > 0,
       ),
       pushTimeline: true,
     );
@@ -698,6 +714,76 @@ class PlexService {
     if (tok.isNotEmpty) _serverTokens[machineId] = tok;
     return tok;
   }
+
+  // ---------------------------------------------------------------------------
+  // Play queue
+  // ---------------------------------------------------------------------------
+
+  void _setSingletonQueue(String key, String playQueueItemID) {
+    _queue = [
+      PlayQueueItem(
+        playQueueItemID: playQueueItemID,
+        ratingKey: _ratingKeyFromKey(key),
+        key: key,
+      ),
+    ];
+    _queueIndex = 0;
+  }
+
+  /// Fetch and cache the play queue named by [containerKey]. Falls back to a
+  /// single-item queue (today's behavior) when there's no queue container or the
+  /// fetch/parse fails — so playback never depends on the queue succeeding.
+  Future<void> _loadQueue({
+    required String base,
+    required String token,
+    required String containerKey,
+    required String playQueueItemID,
+    required String requestedKey,
+  }) async {
+    final id = playQueueIdFromContainerKey(containerKey);
+    if (id.isEmpty) {
+      _setSingletonQueue(requestedKey, playQueueItemID);
+      return;
+    }
+    final xml = await _fetchMetadata(playQueueUrl(
+        base: base, playQueueId: id, token: token, clientId: _clientId));
+    final pq = xml == null ? null : parsePlayQueue(xml);
+    if (pq == null || pq.items.isEmpty) {
+      _setSingletonQueue(requestedKey, playQueueItemID);
+      return;
+    }
+    _queue = pq.items;
+    var idx = _queue.indexWhere((i) => i.playQueueItemID == playQueueItemID);
+    if (idx < 0) idx = _queue.indexWhere((i) => i.key == requestedKey);
+    _queueIndex = idx < 0 ? 0 : idx;
+  }
+
+  /// Play the queue item at [index], reusing the current cast's server
+  /// coordinates. Out of range → no-op (manual skip clamps at the ends);
+  /// auto-advance handles end-of-queue by stopping explicitly. Returns whether
+  /// it advanced.
+  Future<bool> _advanceTo(int index) async {
+    if (index < 0 || index >= _queue.length) return false;
+    _queueIndex = index;
+    final item = _queue[index];
+    await _startItem(
+      base: plexServerBase(
+          address: _state.address, port: _state.port, protocol: _state.protocol),
+      key: item.key,
+      address: _state.address,
+      port: _state.port,
+      protocol: _state.protocol,
+      token: _state.token,
+      machineId: _state.machineIdentifier,
+      offsetMs: 0,
+      containerKey: _state.containerKey,
+      playQueueItemID: item.playQueueItemID,
+    );
+    return true;
+  }
+
+  void skipNextFromUi() => _advanceTo(_queueIndex + 1);
+  void skipPreviousFromUi() => _advanceTo(_queueIndex - 1);
 
   Set<String>? _directPlayCodecsCache;
 

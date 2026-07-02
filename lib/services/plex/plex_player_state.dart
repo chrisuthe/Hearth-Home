@@ -43,6 +43,11 @@ class PlexPlayerState {
   /// Empty when the controller didn't supply one (then it's omitted).
   final String playQueueItemID;
 
+  /// Whether the play queue has a next / previous item (drives the overlay's
+  /// Prev/Next buttons). False for a single-item cast.
+  final bool hasNext;
+  final bool hasPrev;
+
   const PlexPlayerState({
     this.transportState = PlexTransportState.stopped,
     this.currentUri = '',
@@ -59,6 +64,8 @@ class PlexPlayerState {
     this.protocol = 'http',
     this.token = '',
     this.playQueueItemID = '',
+    this.hasNext = false,
+    this.hasPrev = false,
   });
 
   /// True when a video is cast — drives whether the kiosk overlay is shown.
@@ -94,6 +101,8 @@ class PlexPlayerState {
     String? protocol,
     String? token,
     String? playQueueItemID,
+    bool? hasNext,
+    bool? hasPrev,
   }) {
     return PlexPlayerState(
       transportState: transportState ?? this.transportState,
@@ -111,6 +120,8 @@ class PlexPlayerState {
       protocol: protocol ?? this.protocol,
       token: token ?? this.token,
       playQueueItemID: playQueueItemID ?? this.playQueueItemID,
+      hasNext: hasNext ?? this.hasNext,
+      hasPrev: hasPrev ?? this.hasPrev,
     );
   }
 }
