@@ -185,6 +185,28 @@ void main() {
     });
   });
 
+  group('capped auto-derive (detectDirectPlayCodecs)', () {
+    test('keeps H.264 when its decoder is present', () async {
+      final s = PlexService(
+        playerFactory: () => fake,
+        metadataFetcher: (_) async => metadataXml,
+        decoderProbe: (el) async => true,
+      );
+      expect(await s.detectDirectPlayCodecs(), {'h264'});
+      s.dispose();
+    });
+
+    test('drops H.264 when its decoder is absent', () async {
+      final s = PlexService(
+        playerFactory: () => fake,
+        metadataFetcher: (_) async => metadataXml,
+        decoderProbe: (el) async => el != 'avdec_h264',
+      );
+      expect(await s.detectDirectPlayCodecs(), isEmpty);
+      s.dispose();
+    });
+  });
+
   group('transport commands', () {
     test('pause then play moves playing -> paused -> playing', () async {
       await service.dispatchCommand('playMedia', _playMediaParams());
@@ -309,6 +331,179 @@ void main() {
       expect(fake.lastUrl, urlBefore);
       expect(service.state.hasMedia, isTrue);
       expect(service.state.ratingKey, '12345');
+    });
+  });
+
+  group('decision-driven routing', () {
+    // A metadataFetcher that answers each URL the decision path hits.
+    PlexService svcWithDecision(String decisionXml) {
+      final s = PlexService(
+        playerFactory: () => fake,
+        metadataFetcher: (url) async {
+          if (url.contains('plex.tv/api/v2/resources')) {
+            return '<MediaContainer><resource clientIdentifier="M" '
+                'accessToken="srvacct"/></MediaContainer>';
+          }
+          if (url.contains('/transcode/universal/decision')) return decisionXml;
+          return metadataXml; // item metadata (H.264 1080p, direct-playable)
+        },
+      );
+      s.debugSetIdentity(clientId: 'hearth', authToken: 'acct');
+      return s;
+    }
+
+    Map<String, String> params() =>
+        {..._playMediaParams(), 'machineIdentifier': 'M'};
+
+    test('decision directPlay -> direct-plays the part', () async {
+      final s = svcWithDecision('<MediaContainer mdeDecisionCode="1000"/>');
+      await s.dispatchCommand('playMedia', params());
+      expect(fake.lastUrl, contains('/library/parts/55/1/file.mkv'));
+      expect(fake.lastUrl, isNot(contains('/transcode/universal/start')));
+      s.dispose();
+    });
+
+    test('decision transcode overrides a heuristic direct-play (Hi10P fix)',
+        () async {
+      // metadataXml is H.264 1080p — plexNeedsTranscode() would say direct-play.
+      // The server (seeing our 8-bit cap vs a 10-bit file) says transcode; obey.
+      final s = svcWithDecision('<MediaContainer mdeDecisionCode="1001"/>');
+      await s.dispatchCommand('playMedia', params());
+      expect(fake.lastUrl, contains('/video/:/transcode/universal/start.m3u8'));
+      s.dispose();
+    });
+
+    test('unparseable decision falls back to the heuristic (direct-play)',
+        () async {
+      final s = svcWithDecision('<MediaContainer/>'); // no codes -> unknown
+      await s.dispatchCommand('playMedia', params());
+      expect(fake.lastUrl, contains('/library/parts/55/1/file.mkv'));
+      s.dispose();
+    });
+
+    test('no server token (unpaired) never calls decision, uses heuristic',
+        () async {
+      // No debugSetIdentity + no machineIdentifier -> _serverToken empty.
+      var decisionHit = false;
+      final s = PlexService(
+        playerFactory: () => fake,
+        metadataFetcher: (url) async {
+          if (url.contains('/decision')) decisionHit = true;
+          return metadataXml;
+        },
+      );
+      await s.dispatchCommand('playMedia', _playMediaParams());
+      expect(decisionHit, isFalse);
+      expect(fake.lastUrl, contains('/library/parts/55/1/file.mkv'));
+      s.dispose();
+    });
+  });
+
+  group('play queue navigation', () {
+    const queueXml = '<MediaContainer playQueueID="42" '
+        'playQueueSelectedItemID="100" playQueueSelectedItemOffset="0">'
+        '<Video key="/library/metadata/1" ratingKey="1" playQueueItemID="100"/>'
+        '<Video key="/library/metadata/2" ratingKey="2" playQueueItemID="101"/>'
+        '</MediaContainer>';
+
+    PlexService queued() => PlexService(
+          playerFactory: () => fake,
+          metadataFetcher: (url) async =>
+              url.contains('/playQueues/') ? queueXml : metadataXml,
+        );
+
+    Map<String, String> params() => {
+          ..._playMediaParams(offset: '0'),
+          'key': '/library/metadata/1',
+          'containerKey': '/playQueues/42',
+          'playQueueItemID': '100',
+        };
+
+    test('caches the queue and exposes hasNext/hasPrev', () async {
+      final s = queued();
+      await s.dispatchCommand('playMedia', params());
+      expect(s.state.hasNext, isTrue);
+      expect(s.state.hasPrev, isFalse);
+      s.dispose();
+    });
+
+    test('skipNext advances to item 2', () async {
+      final s = queued();
+      await s.dispatchCommand('playMedia', params());
+      await s.dispatchCommand('skipNext', const {});
+      expect(s.state.key, '/library/metadata/2');
+      expect(s.state.playQueueItemID, '101');
+      expect(s.state.hasNext, isFalse);
+      expect(s.state.hasPrev, isTrue);
+      s.dispose();
+    });
+
+    test('skipPrevious returns to item 1', () async {
+      final s = queued();
+      await s.dispatchCommand('playMedia', params());
+      await s.dispatchCommand('skipNext', const {});
+      await s.dispatchCommand('skipPrevious', const {});
+      expect(s.state.key, '/library/metadata/1');
+      s.dispose();
+    });
+
+    test('manual skipNext past the last item clamps (stays on the last item)',
+        () async {
+      final s = queued();
+      await s.dispatchCommand('playMedia', params());
+      await s.dispatchCommand('skipNext', const {}); // -> item 2 (last)
+      await s.dispatchCommand('skipNext', const {}); // clamps
+      expect(s.state.key, '/library/metadata/2');
+      expect(s.state.hasMedia, isTrue);
+      s.dispose();
+    });
+
+    test('no containerKey behaves as a single-item queue', () async {
+      // default `service` has no queue container -> queue of one.
+      await service.dispatchCommand('playMedia', _playMediaParams());
+      expect(service.state.hasNext, isFalse);
+      expect(service.state.hasPrev, isFalse);
+    });
+
+    test('auto-advances to the next item near end of playback', () {
+      fakeAsync((async) {
+        final s = queued();
+        s.dispatchCommand('playMedia', params());
+        async.flushMicrotasks();
+        expect(s.state.key, '/library/metadata/1');
+
+        // Player reports ~1s from the end of a 5-minute item.
+        fake.durationValue = const Duration(minutes: 5);
+        fake.positionValue =
+            const Duration(minutes: 5) - const Duration(seconds: 1);
+        async.elapse(const Duration(seconds: 1)); // one tick
+        async.flushMicrotasks();
+        expect(s.state.key, '/library/metadata/2');
+
+        s.dispose();
+        async.flushMicrotasks();
+      });
+    });
+
+    test('stops at end of playback on the last queue item', () {
+      fakeAsync((async) {
+        final s = queued();
+        s.dispatchCommand('playMedia', params());
+        async.flushMicrotasks();
+        s.dispatchCommand('skipNext', const {}); // -> item 2 (last)
+        async.flushMicrotasks();
+        expect(s.state.key, '/library/metadata/2');
+
+        fake.durationValue = const Duration(minutes: 5);
+        fake.positionValue =
+            const Duration(minutes: 5) - const Duration(seconds: 1);
+        async.elapse(const Duration(seconds: 1));
+        async.flushMicrotasks();
+        expect(s.state.hasMedia, isFalse); // end of queue -> stop
+
+        s.dispose();
+        async.flushMicrotasks();
+      });
     });
   });
 

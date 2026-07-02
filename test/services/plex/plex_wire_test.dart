@@ -345,7 +345,7 @@ void main() {
       final xml = resourcesXml(clientId: 'cid', name: 'Kitchen');
       expect(xml, contains('machineIdentifier="cid"'));
       expect(xml, contains('title="Kitchen"'));
-      expect(xml, contains('protocolCapabilities="timeline,playback"'));
+      expect(xml, contains('protocolCapabilities="timeline,playback,playqueues"'));
       expect(xml, contains('deviceClass="pc"'));
     });
   });
@@ -366,7 +366,117 @@ void main() {
       expect(s, contains('Resource-Identifier: cid'));
       expect(s, contains('Name: Kitchen'));
       expect(s, contains('Port: 8296'));
-      expect(s, contains('Protocol-Capabilities: timeline,playback'));
+      expect(s, contains('Protocol-Capabilities: timeline,playback,playqueues'));
+    });
+  });
+
+  group('parseDecision', () {
+    test('mdeDecisionCode 1000 -> directPlay', () {
+      const xml = '<MediaContainer generalDecisionCode="2000" '
+          'mdeDecisionCode="1000" mdeDecisionText="Direct play OK"/>';
+      expect(parseDecision(xml), PlexRouteDecision.directPlay);
+    });
+
+    test('mdeDecisionCode 1001 -> transcode', () {
+      const xml = '<MediaContainer mdeDecisionCode="1001" '
+          'mdeDecisionText="Transcode"/>';
+      expect(parseDecision(xml), PlexRouteDecision.transcode);
+    });
+
+    test('falls through to generalDecisionCode when mde is absent', () {
+      const xml = '<MediaContainer generalDecisionCode="1001"/>';
+      expect(parseDecision(xml), PlexRouteDecision.transcode);
+    });
+
+    test('missing/-1/garbage codes -> unknown', () {
+      expect(parseDecision('<MediaContainer/>'), PlexRouteDecision.unknown);
+      expect(parseDecision('<MediaContainer mdeDecisionCode="-1"/>'),
+          PlexRouteDecision.unknown);
+      expect(parseDecision('not xml at all'), PlexRouteDecision.unknown);
+      expect(parseDecision(''), PlexRouteDecision.unknown);
+    });
+  });
+
+  group('buildClientProfileExtra', () {
+    test('H.264 profile carries the 8-bit and 1080p limitations', () {
+      final p = buildClientProfileExtra(directPlayCodecs: {'h264'});
+      expect(p, contains('scopeName=h264'));
+      expect(p, contains('name=video.bitDepth&value=8'));
+      expect(p, contains('name=video.height&value=1080'));
+      expect(p, contains('add-direct-play-profile'));
+    });
+
+    test('empty codec set -> empty profile (deny all direct play)', () {
+      expect(buildClientProfileExtra(directPlayCodecs: const {}), isEmpty);
+    });
+
+    test('cap constant is H.264 only', () {
+      expect(kPlexDirectPlayCodecs, {'h264'});
+      expect(kPlexCodecDecoderElements['h264'], 'avdec_h264');
+    });
+  });
+
+  group('buildDecisionUrl', () {
+    test('targets the decision endpoint with directPlay=1 + profile + token', () {
+      final url = buildDecisionUrl(
+        base: 'http://192.168.1.50:32400',
+        key: '/library/metadata/12345',
+        token: 'srvtok',
+        clientId: 'hearth-client',
+        session: 'sess',
+        sessionIdentifier: 'sid',
+        profileExtra: buildClientProfileExtra(directPlayCodecs: {'h264'}),
+      );
+      final u = Uri.parse(url);
+      expect(u.path, '/video/:/transcode/universal/decision');
+      expect(u.queryParameters['directPlay'], '1');
+      expect(u.queryParameters['directStream'], '0');
+      expect(u.queryParameters['hasMDE'], '1');
+      expect(u.queryParameters['path'], '/library/metadata/12345');
+      expect(u.queryParameters['X-Plex-Token'], 'srvtok');
+      expect(u.queryParameters['X-Plex-Client-Profile-Extra'],
+          contains('scopeName=h264'));
+      // Must NOT reuse the over-permissive HTPC profile name.
+      expect(u.queryParameters.containsKey('X-Plex-Client-Profile-Name'),
+          isFalse);
+    });
+  });
+
+  group('play queue', () {
+    const queueXml = '<MediaContainer playQueueID="42" '
+        'playQueueSelectedItemID="101" playQueueSelectedItemOffset="1">'
+        '<Video key="/library/metadata/1" ratingKey="1" playQueueItemID="100"/>'
+        '<Video key="/library/metadata/2" ratingKey="2" playQueueItemID="101"/>'
+        '</MediaContainer>';
+
+    test('parsePlayQueue reads ordered items and the selected id', () {
+      final pq = parsePlayQueue(queueXml);
+      expect(pq.items.length, 2);
+      expect(pq.items[0].playQueueItemID, '100');
+      expect(pq.items[0].key, '/library/metadata/1');
+      expect(pq.items[1].ratingKey, '2');
+      expect(pq.selectedItemID, '101');
+    });
+
+    test('parsePlayQueue on non-queue XML yields no items', () {
+      expect(parsePlayQueue('<MediaContainer/>').items, isEmpty);
+    });
+
+    test('playQueueIdFromContainerKey extracts the id', () {
+      expect(playQueueIdFromContainerKey('/playQueues/42?own=1'), '42');
+      expect(playQueueIdFromContainerKey('/library/metadata/5'), isEmpty);
+      expect(playQueueIdFromContainerKey(''), isEmpty);
+    });
+
+    test('playQueueUrl targets the queue with window params', () {
+      final u = Uri.parse(playQueueUrl(
+          base: 'http://h:32400', playQueueId: '42', token: 't',
+          clientId: 'cid'));
+      expect(u.path, '/playQueues/42');
+      expect(u.queryParameters['own'], '0');
+      expect(u.queryParameters['includeBefore'], '1');
+      expect(u.queryParameters['includeAfter'], '1');
+      expect(u.queryParameters['X-Plex-Token'], 't');
     });
   });
 

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../config/hub_config.dart';
 import '../../utils/alsa_utils.dart';
@@ -23,6 +24,10 @@ typedef VolumeSetter = Future<void> Function(int percent);
 /// Reads the Pi's system (ALSA Master) output volume, 0–100, or null when it
 /// can't be determined. Injectable for the same reason as [VolumeSetter].
 typedef VolumeReader = Future<int?> Function();
+
+/// Whether a GStreamer decoder [element] is present on the device. Injectable so
+/// the capped auto-derive can be tested without a real GStreamer registry.
+typedef PlexDecoderExists = Future<bool> Function(String element);
 
 /// Default [PlexMetadataFetcher]: a plain HTTP GET returning the body. Top-level
 /// so it can seed the service default and be swapped out in tests.
@@ -82,17 +87,24 @@ class PlexService {
   final VolumeSetter _setVolume;
   final VolumeReader _getVolume;
 
+  /// Probes whether a decoder element exists (the capped auto-derive). Overridable
+  /// in tests so the derived direct-play codec set can be exercised without a
+  /// real GStreamer registry.
+  final PlexDecoderExists _decoderExists;
+
   PlexService({
     HearthVideoPlayer Function()? playerFactory,
     PlexMetadataFetcher? metadataFetcher,
     PlexUrlFire? serverReporter,
     VolumeSetter? volumeSetter,
     VolumeReader? volumeReader,
+    PlexDecoderExists? decoderProbe,
   })  : _createPlayer = playerFactory ?? HearthVideoPlayer.create,
         _fetchMetadata = metadataFetcher ?? plexHttpGetBody,
         _reportGet = serverReporter ?? plexHttpFireGet,
         _setVolume = volumeSetter ?? setMasterVolume,
-        _getVolume = volumeReader ?? getMasterVolume;
+        _getVolume = volumeReader ?? getMasterVolume,
+        _decoderExists = decoderProbe ?? _gstDecoderExists;
 
   // --- Identity / config (set by [configure]) ---
   String _clientId = '';
@@ -127,6 +139,13 @@ class PlexService {
   // Whether this cast has already been scrobbled (marked watched) — the scrobble
   // fires at most once per cast at the watched threshold.
   bool _scrobbled = false;
+
+  // The active play queue and the index of the current item within it. A cast
+  // with no play-queue container is modeled as a queue of one (index 0).
+  List<PlayQueueItem> _queue = const [];
+  int _queueIndex = 0;
+  // One-shot guard so end-of-item auto-advance fires exactly once per item.
+  bool _endHandled = false;
 
   // --- Timeline subscribers, keyed by controller X-Plex-Client-Identifier ---
   final Map<String, _Subscriber> _subscribers = {};
@@ -169,6 +188,14 @@ class PlexService {
       Log.e('Plex', 'Failed to start player: $e');
       await _stop();
     }
+  }
+
+  /// Set the identity the decision/transcode paths need, without binding the
+  /// live server. Test-only; production identity comes from [configure].
+  @visibleForTesting
+  void debugSetIdentity({String clientId = '', String authToken = ''}) {
+    _clientId = clientId;
+    _authToken = authToken;
   }
 
   Future<void> _stop() async {
@@ -430,8 +457,10 @@ class PlexService {
         await _setParameters(params);
         return const PlexCommandResult.ok();
       case 'skipNext':
+        await _advanceTo(_queueIndex + 1);
+        return const PlexCommandResult.ok();
       case 'skipPrevious':
-        // Single-item sink — accept and no-op.
+        await _advanceTo(_queueIndex - 1);
         return const PlexCommandResult.ok();
       case 'setStreams':
         await _setStreams(params);
@@ -527,6 +556,43 @@ class PlexService {
     final base = plexServerBase(address: address, port: port, protocol: protocol);
     final machineId = params['machineIdentifier'] ?? '';
 
+    await _loadQueue(
+      base: base,
+      token: token,
+      containerKey: params['containerKey'] ?? '',
+      playQueueItemID: params['playQueueItemID'] ?? '',
+      requestedKey: key,
+    );
+    return _startItem(
+      base: base,
+      key: key,
+      address: address,
+      port: port,
+      protocol: protocol,
+      token: token,
+      machineId: machineId,
+      offsetMs: offsetMs,
+      containerKey: params['containerKey'] ?? '',
+      playQueueItemID: params['playQueueItemID'] ?? '',
+    );
+  }
+
+  /// Play a single item — the shared path for the initial cast, auto-advance,
+  /// and manual skip. Fetches metadata, decides direct-play vs transcode, builds
+  /// the URL, drives the player, and stamps state/timeline. Server coordinates
+  /// are passed in so queue navigation can reuse them.
+  Future<bool> _startItem({
+    required String base,
+    required String key,
+    required String address,
+    required String port,
+    required String protocol,
+    required String token,
+    required String machineId,
+    required int offsetMs,
+    String containerKey = '',
+    String playQueueItemID = '',
+  }) async {
     // Fetch metadata: the media Part (for direct play) and the video codec,
     // height + scan type (to route). The Pi 5 direct-plays progressive H.264 up
     // to 1080p; HEVC, 4K, and interlaced 1080i must be transcoded — see
@@ -534,7 +600,7 @@ class PlexService {
     final metaXml =
         await _fetchMetadata(metadataUrl(base: base, key: key, token: token));
     if (metaXml == null) {
-      Log.e('Plex', 'playMedia: metadata fetch failed for $key');
+      Log.e('Plex', 'startItem: metadata fetch failed for $key');
       return false;
     }
     final partKey = firstPartKey(metaXml);
@@ -545,12 +611,19 @@ class PlexService {
 
     final String url;
     var transcoding = false;
-    if (plexNeedsTranscode(codec, height, scanType: scanType)) {
+    if (await _needsTranscode(
+      base: base,
+      key: key,
+      machineId: machineId,
+      codec: codec,
+      height: height,
+      scanType: scanType,
+    )) {
       // Transcoding needs the SERVER access token — the transient cast token
       // can't transcode (401/403). Resolve it from plex.tv resources.
       final srvToken = await _serverToken(machineId);
       if (srvToken.isEmpty) {
-        Log.e('Plex', 'playMedia: $codec ${height}p needs transcode but no '
+        Log.e('Plex', 'startItem: $codec ${height}p needs transcode but no '
             'server token (pair Plex with the owning account) — cannot play');
         return false;
       }
@@ -574,7 +647,7 @@ class PlexService {
           'Cast: transcode $key ($why$codec ${height}p -> H.264 1080p@6M)');
     } else {
       if (partKey.isEmpty) {
-        Log.e('Plex', 'playMedia: no playable media part for $key');
+        Log.e('Plex', 'startItem: no playable media part for $key');
         return false;
       }
       url = buildDirectPlayUrl(base: base, partKey: partKey, token: token);
@@ -583,6 +656,7 @@ class PlexService {
 
     _player ??= _createPlayer();
     _scrobbled = false;
+    _endHandled = false;
     _audioStreamID = '';
     _subtitleStreamID = '';
     _updateState(
@@ -593,15 +667,17 @@ class PlexService {
         duration: Duration.zero,
         key: key,
         ratingKey: _ratingKeyFromKey(key),
-        containerKey: params['containerKey'] ?? '',
+        containerKey: containerKey,
         machineIdentifier: machineId,
         address: address,
         port: port,
         protocol: protocol,
         token: token,
-        playQueueItemID: params['playQueueItemID'] ?? '',
+        playQueueItemID: playQueueItemID,
         introStartMs: intro?.startMs ?? 0,
         introEndMs: intro?.endMs ?? 0,
+        hasNext: _queueIndex < _queue.length - 1,
+        hasPrev: _queueIndex > 0,
       ),
       pushTimeline: true,
     );
@@ -643,6 +719,150 @@ class PlexService {
     final tok = body == null ? '' : serverTokenFromResources(body, machineId);
     if (tok.isNotEmpty) _serverTokens[machineId] = tok;
     return tok;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Play queue
+  // ---------------------------------------------------------------------------
+
+  void _setSingletonQueue(String key, String playQueueItemID) {
+    _queue = [
+      PlayQueueItem(
+        playQueueItemID: playQueueItemID,
+        ratingKey: _ratingKeyFromKey(key),
+        key: key,
+      ),
+    ];
+    _queueIndex = 0;
+  }
+
+  /// Fetch and cache the play queue named by [containerKey]. Falls back to a
+  /// single-item queue (today's behavior) when there's no queue container or the
+  /// fetch/parse fails — so playback never depends on the queue succeeding.
+  Future<void> _loadQueue({
+    required String base,
+    required String token,
+    required String containerKey,
+    required String playQueueItemID,
+    required String requestedKey,
+  }) async {
+    final id = playQueueIdFromContainerKey(containerKey);
+    if (id.isEmpty) {
+      _setSingletonQueue(requestedKey, playQueueItemID);
+      return;
+    }
+    final xml = await _fetchMetadata(playQueueUrl(
+        base: base, playQueueId: id, token: token, clientId: _clientId));
+    final pq = xml == null ? null : parsePlayQueue(xml);
+    if (pq == null || pq.items.isEmpty) {
+      _setSingletonQueue(requestedKey, playQueueItemID);
+      return;
+    }
+    _queue = pq.items;
+    var idx = _queue.indexWhere((i) => i.playQueueItemID == playQueueItemID);
+    if (idx < 0) idx = _queue.indexWhere((i) => i.key == requestedKey);
+    _queueIndex = idx < 0 ? 0 : idx;
+  }
+
+  /// Play the queue item at [index], reusing the current cast's server
+  /// coordinates. Out of range → no-op (manual skip clamps at the ends);
+  /// auto-advance handles end-of-queue by stopping explicitly. Returns whether
+  /// it advanced.
+  Future<bool> _advanceTo(int index) async {
+    if (index < 0 || index >= _queue.length) return false;
+    _queueIndex = index;
+    final item = _queue[index];
+    await _startItem(
+      base: plexServerBase(
+          address: _state.address, port: _state.port, protocol: _state.protocol),
+      key: item.key,
+      address: _state.address,
+      port: _state.port,
+      protocol: _state.protocol,
+      token: _state.token,
+      machineId: _state.machineIdentifier,
+      offsetMs: 0,
+      containerKey: _state.containerKey,
+      playQueueItemID: item.playQueueItemID,
+    );
+    return true;
+  }
+
+  void skipNextFromUi() => _advanceTo(_queueIndex + 1);
+  void skipPreviousFromUi() => _advanceTo(_queueIndex - 1);
+
+  Set<String>? _directPlayCodecsCache;
+
+  /// The capped auto-derive: the direct-play safety cap ([kPlexDirectPlayCodecs])
+  /// intersected with the decoders actually present on this device. Can only
+  /// *subtract* from the cap, so it is always at least as conservative. Cached —
+  /// the decoder set doesn't change at runtime.
+  @visibleForTesting
+  Future<Set<String>> detectDirectPlayCodecs() async {
+    final cached = _directPlayCodecsCache;
+    if (cached != null) return cached;
+    final present = <String>{};
+    for (final codec in kPlexDirectPlayCodecs) {
+      final element = kPlexCodecDecoderElements[codec];
+      if (element == null || await _decoderExists(element)) present.add(codec);
+    }
+    return _directPlayCodecsCache = present;
+  }
+
+  /// Default decoder probe. Only the GStreamer (Pi) backend needs probing —
+  /// media_kit/libmpv decodes the capped codecs fine — so gate on the same env
+  /// the video backend uses. Fails **open** to the safe cap on any error.
+  static Future<bool> _gstDecoderExists(String element) async {
+    if (!Platform.environment.containsKey('HEARTH_NO_MEDIAKIT')) return true;
+    try {
+      final r = await Process.run('gst-inspect-1.0', ['--exists', element]);
+      return r.exitCode == 0;
+    } catch (_) {
+      return true;
+    }
+  }
+
+  /// Decide direct-play vs transcode. Authoritative when the PMS decision engine
+  /// answers; falls back to [plexNeedsTranscode] when we can't reach it (no
+  /// server token, fetch error/timeout, or an unparseable/unknown verdict) so
+  /// behavior degrades to today's heuristic — never a new stutter.
+  Future<bool> _needsTranscode({
+    required String base,
+    required String key,
+    required String machineId,
+    required String codec,
+    required int height,
+    required String scanType,
+  }) async {
+    final heuristic = plexNeedsTranscode(codec, height, scanType: scanType);
+    final srvToken = await _serverToken(machineId);
+    if (srvToken.isEmpty) return heuristic;
+    final profile =
+        buildClientProfileExtra(directPlayCodecs: await detectDirectPlayCodecs());
+    final url = buildDecisionUrl(
+      base: base,
+      key: key,
+      token: srvToken,
+      clientId: _clientId,
+      session: HubConfig.generateUuid(),
+      sessionIdentifier: HubConfig.generateUuid(),
+      profileExtra: profile,
+    );
+    String? xml;
+    try {
+      xml = await _fetchMetadata(url).timeout(const Duration(seconds: 3));
+    } catch (_) {
+      // Timeout or fetch error → unknown → heuristic fallback below.
+      xml = null;
+    }
+    switch (parseDecision(xml ?? '')) {
+      case PlexRouteDecision.directPlay:
+        return false;
+      case PlexRouteDecision.transcode:
+        return true;
+      case PlexRouteDecision.unknown:
+        return heuristic;
+    }
   }
 
   // --- Transcode session keep-alive (HLS only) ---
@@ -836,7 +1056,26 @@ class PlexService {
         _reportServerTimeline('playing');
       }
       _maybeScrobble();
+      _maybeAutoAdvance(p);
     });
+  }
+
+  static const Duration _kEndThreshold = Duration(milliseconds: 1500);
+
+  /// At the end of an item (within [_kEndThreshold] of its duration), advance to
+  /// the next queue item — or stop if this was the last. One-shot per item via
+  /// [_endHandled]; suppressed while paused or when the duration is unknown.
+  Future<void> _maybeAutoAdvance(HearthVideoPlayer p) async {
+    if (_endHandled ||
+        _state.transportState != PlexTransportState.playing ||
+        p.duration <= Duration.zero ||
+        p.position < p.duration - _kEndThreshold) {
+      return;
+    }
+    _endHandled = true;
+    if (!await _advanceTo(_queueIndex + 1)) {
+      await _stopPlayback(); // end of queue → back to ambient
+    }
   }
 
   // ---------------------------------------------------------------------------

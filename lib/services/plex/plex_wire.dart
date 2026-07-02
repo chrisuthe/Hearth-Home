@@ -31,8 +31,9 @@ const int kPlexGdmRegistrationPort = 32413;
 const String kPlexProduct = 'Hearth';
 const String kPlexVersion = '1.0';
 
-/// We are a single-item video sink — advertise only the honest capabilities.
-const String kPlexProtocolCapabilities = 'timeline,playback';
+/// Advertised capabilities: timeline reporting, playback control, and play-queue
+/// traversal (auto-advance + skipNext/skipPrevious).
+const String kPlexProtocolCapabilities = 'timeline,playback,playqueues';
 const String kPlexDeviceClass = 'pc';
 
 /// Companion HTTP path prefixes (matched in the service router).
@@ -273,6 +274,126 @@ String buildTranscodeUrl({
   ).toString();
 }
 
+/// Build the media-decision URL: ask the PMS whether the item direct-plays under
+/// our [profileExtra], rather than guessing locally. Mirrors [buildTranscodeUrl]
+/// identity but on the `/decision` path with `directPlay=1`. Deliberately omits
+/// `X-Plex-Client-Profile-Name` (the transcode path's "Plex Home Theater" is a
+/// broad HTPC profile that would over-permit direct play); the capped
+/// [profileExtra] is the sole capability declaration. [token] is the server
+/// access token (the decision endpoint authorizes like the transcoder).
+String buildDecisionUrl({
+  required String base,
+  required String key,
+  required String token,
+  required String clientId,
+  required String session,
+  required String sessionIdentifier,
+  required String profileExtra,
+  int offsetMs = 0,
+}) {
+  final baseUri = Uri.parse(base);
+  return baseUri.replace(
+    path: '/video/:/transcode/universal/decision',
+    queryParameters: {
+      'path': key,
+      'protocol': 'hls',
+      'mediaIndex': '0',
+      'partIndex': '0',
+      'directPlay': '1',
+      'directStream': '0',
+      'fastSeek': '1',
+      'hasMDE': '1',
+      'offset': (offsetMs ~/ 1000).toString(),
+      'session': session,
+      'X-Plex-Session-Identifier': sessionIdentifier,
+      'X-Plex-Client-Identifier': clientId,
+      'X-Plex-Token': token,
+      'X-Plex-Product': kPlexProduct,
+      'X-Plex-Version': kPlexVersion,
+      'X-Plex-Platform': 'Plex Home Theater',
+      'X-Plex-Provides': 'player',
+      'X-Plex-Device': 'RaspberryPI',
+      'X-Plex-Model': 'RaspberryPI',
+      if (profileExtra.isNotEmpty) 'X-Plex-Client-Profile-Extra': profileExtra,
+    },
+  ).toString();
+}
+
+/// One entry in a Plex play queue. [playQueueItemID] is the queue-scoped id
+/// (distinct from the media [ratingKey]); [key] is the `/library/metadata/…`
+/// path used to start it.
+class PlayQueueItem {
+  final String playQueueItemID;
+  final String ratingKey;
+  final String key;
+  const PlayQueueItem({
+    required this.playQueueItemID,
+    required this.ratingKey,
+    required this.key,
+  });
+}
+
+/// A parsed Plex play queue: ordered [items] plus the [selectedItemID]
+/// (`playQueueSelectedItemID`).
+class PlayQueue {
+  final List<PlayQueueItem> items;
+  final String selectedItemID;
+  const PlayQueue(this.items, this.selectedItemID);
+}
+
+final RegExp _pqItemTagRe = RegExp(r'<(?:Video|Track)\b[^>]*>');
+final RegExp _pqItemIdRe = RegExp(r'\bplayQueueItemID="([^"]*)"');
+final RegExp _pqRatingKeyRe = RegExp(r'\bratingKey="([^"]*)"');
+final RegExp _pqKeyRe = RegExp(r'\bkey="([^"]*)"');
+final RegExp _pqSelectedRe = RegExp(r'\bplayQueueSelectedItemID="([^"]*)"');
+
+/// Parse a `/playQueues/{id}` response into an ordered [PlayQueue]. Scans each
+/// `<Video>`/`<Track>` tag for its `playQueueItemID`/`ratingKey`/`key` (only
+/// entries carrying a `playQueueItemID` are queue items). Grounded in
+/// python-plexapi `playqueue.py`.
+PlayQueue parsePlayQueue(String xml) {
+  final items = <PlayQueueItem>[];
+  for (final m in _pqItemTagRe.allMatches(xml)) {
+    final tag = m.group(0)!;
+    final id = _pqItemIdRe.firstMatch(tag)?.group(1) ?? '';
+    if (id.isEmpty) continue;
+    items.add(PlayQueueItem(
+      playQueueItemID: id,
+      ratingKey: _pqRatingKeyRe.firstMatch(tag)?.group(1) ?? '',
+      key: _pqKeyRe.firstMatch(tag)?.group(1) ?? '',
+    ));
+  }
+  return PlayQueue(items, _pqSelectedRe.firstMatch(xml)?.group(1) ?? '');
+}
+
+final RegExp _playQueueIdRe = RegExp(r'/playQueues/([0-9]+)');
+
+/// The numeric play-queue id from a `containerKey` like `/playQueues/42?own=1`,
+/// or empty when the container isn't a play queue.
+String playQueueIdFromContainerKey(String containerKey) =>
+    _playQueueIdRe.firstMatch(containerKey)?.group(1) ?? '';
+
+/// GET URL for an existing play queue. `own=0` (don't take ownership), window
+/// both sides so we receive the full order. Grounded in python-plexapi.
+String playQueueUrl({
+  required String base,
+  required String playQueueId,
+  required String token,
+  required String clientId,
+}) {
+  final baseUri = Uri.parse(base);
+  return baseUri.replace(
+    path: '/playQueues/$playQueueId',
+    queryParameters: {
+      'own': '0',
+      'includeBefore': '1',
+      'includeAfter': '1',
+      'X-Plex-Token': token,
+      'X-Plex-Client-Identifier': clientId,
+    },
+  ).toString();
+}
+
 /// Whether the Pi should ask Plex to transcode rather than direct-play. The Pi 5
 /// software-decodes progressive H.264 up to 1080p reliably, but its HEVC hardware
 /// decoder can't negotiate 10-bit to the GL texture and 4K H.264 in software
@@ -290,6 +411,61 @@ bool plexNeedsTranscode(
     videoCodec.toLowerCase() != 'h264' ||
     height > maxHeight ||
     scanType.toLowerCase() == 'interlaced';
+
+/// The direct-play-vs-transcode verdict from the PMS media decision engine.
+enum PlexRouteDecision { directPlay, transcode, unknown }
+
+/// Parse a `/video/:/transcode/universal/decision` response. Grounded in
+/// plex-for-kodi `serverdecision.py`: the response carries `mdeDecisionCode` /
+/// `generalDecisionCode` / `directPlayDecisionCode` (default `-1`), where
+/// `1000` = direct-play OK and `1000..1999` (e.g. `1001`) = transcode. Reads the
+/// codes in priority order; the first usable one wins. `unknown` when none parse
+/// (old server, error body, empty) so the caller can fall back to the heuristic.
+PlexRouteDecision parseDecision(String xml) {
+  for (final attr in const [
+    'mdeDecisionCode',
+    'generalDecisionCode',
+    'directPlayDecisionCode',
+  ]) {
+    final m = RegExp('$attr="(-?\\d+)"').firstMatch(xml);
+    final code = int.tryParse(m?.group(1) ?? '');
+    if (code == null || code < 0) continue;
+    if (code == 1000) return PlexRouteDecision.directPlay;
+    if (code >= 1001 && code < 2000) return PlexRouteDecision.transcode;
+  }
+  return PlexRouteDecision.unknown;
+}
+
+/// Codecs Hearth lets Plex direct-play — the conservative safety cap. H.264 only:
+/// the Pi 5 software-decodes progressive 8-bit H.264 ≤1080p reliably; HEVC/AV1/
+/// VP9/4K/10-bit/HDR/interlaced all transcode. See the transcode-decision design.
+const Set<String> kPlexDirectPlayCodecs = {'h264'};
+
+/// GStreamer decoder element backing each capped codec, for on-device probing
+/// (the "capped auto-derive": a codec whose decoder is absent is dropped).
+const Map<String, String> kPlexCodecDecoderElements = {'h264': 'avdec_h264'};
+
+const int _kDirectPlayMaxHeight = 1080;
+const int _kDirectPlayMaxBitDepth = 8;
+
+/// Build the `X-Plex-Client-Profile-Extra` string sent on the decision request.
+/// For each still-eligible [directPlayCodecs] entry, allow direct play of that
+/// video codec and cap it to 8-bit / ≤1080p via `add-limitation`. An empty set
+/// yields an empty string — no direct-play profile, so the server transcodes
+/// everything. Directives are `+`-joined. The `add-limitation` forms are
+/// grounded (Plex client profiles); the exact `add-direct-play-profile` form is
+/// validated against the live PMS (see spec on-device verification).
+String buildClientProfileExtra({required Set<String> directPlayCodecs}) {
+  final parts = <String>[];
+  for (final codec in directPlayCodecs) {
+    parts.add('add-direct-play-profile(type=videoProfile&codec=$codec)');
+    parts.add('add-limitation(scope=videoCodec&scopeName=$codec'
+        '&type=upperBound&name=video.bitDepth&value=$_kDirectPlayMaxBitDepth)');
+    parts.add('add-limitation(scope=videoCodec&scopeName=$codec'
+        '&type=upperBound&name=video.height&value=$_kDirectPlayMaxHeight)');
+  }
+  return parts.join('+');
+}
 
 final RegExp _videoCodecRe = RegExp(r'<Media\b[^>]*\bvideoCodec="([^"]*)"');
 final RegExp _mediaHeightRe = RegExp(r'<Media\b[^>]*\bheight="([0-9]+)"');

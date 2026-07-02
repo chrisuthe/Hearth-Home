@@ -48,6 +48,11 @@ class PlexPlayerState {
   final int introStartMs;
   final int introEndMs;
 
+  /// Whether the play queue has a next / previous item (drives the overlay's
+  /// Prev/Next buttons). False for a single-item cast.
+  final bool hasNext;
+  final bool hasPrev;
+
   const PlexPlayerState({
     this.transportState = PlexTransportState.stopped,
     this.currentUri = '',
@@ -66,6 +71,8 @@ class PlexPlayerState {
     this.playQueueItemID = '',
     this.introStartMs = 0,
     this.introEndMs = 0,
+    this.hasNext = false,
+    this.hasPrev = false,
   });
 
   /// True when a video is cast — drives whether the kiosk overlay is shown.
@@ -111,6 +118,8 @@ class PlexPlayerState {
     String? playQueueItemID,
     int? introStartMs,
     int? introEndMs,
+    bool? hasNext,
+    bool? hasPrev,
   }) {
     return PlexPlayerState(
       transportState: transportState ?? this.transportState,
@@ -130,6 +139,8 @@ class PlexPlayerState {
       playQueueItemID: playQueueItemID ?? this.playQueueItemID,
       introStartMs: introStartMs ?? this.introStartMs,
       introEndMs: introEndMs ?? this.introEndMs,
+      hasNext: hasNext ?? this.hasNext,
+      hasPrev: hasPrev ?? this.hasPrev,
     );
   }
 }
