@@ -7,6 +7,7 @@ import 'controls/controls_module.dart';
 import 'cameras/cameras_module.dart';
 import 'protect/protect_module.dart';
 import 'mealie/mealie_module.dart';
+import 'livetv/live_tv_module.dart';
 import 'webview/webview_module.dart';
 
 /// Static, app-lifetime modules. These don't depend on config.
@@ -17,6 +18,7 @@ final List<HearthModule> _staticModules = <HearthModule>[
   CamerasModule(),
   ProtectModule(),
   MealieModule(),
+  LiveTvModule(),
 ];
 
 /// All modules for a given config: static modules first, then webviews in

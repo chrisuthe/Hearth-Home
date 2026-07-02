@@ -22,6 +22,7 @@ import '../modules/alarm_clock/sunrise_controller.dart';
 import '../modules/webview/webview_session_pool.dart';
 import '../services/dlna/dlna_cast_overlay.dart';
 import '../services/plex/plex_cast_overlay.dart';
+import '../modules/livetv/live_tv_overlay.dart';
 import '../services/sendspin/sendspin_service.dart';
 import '../services/toast_service.dart';
 import '../widgets/toast_overlay.dart';
@@ -492,6 +493,10 @@ class _HubShellState extends ConsumerState<HubShell> {
             // Plex cast — full-screen video overlay when a Plex app casts a
             // video to the kiosk. Renders nothing when idle.
             PlexCastOverlay(onWake: _onUserActivity),
+
+            // Plex Live TV — full-screen video overlay while a channel is
+            // tuning/playing (client-initiated). Renders nothing when idle.
+            LiveTvOverlay(onWake: _onUserActivity),
           ],
         ),
       ),
