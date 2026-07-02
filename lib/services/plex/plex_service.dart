@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../config/hub_config.dart';
 import '../../utils/alsa_utils.dart';
@@ -23,6 +24,10 @@ typedef VolumeSetter = Future<void> Function(int percent);
 /// Reads the Pi's system (ALSA Master) output volume, 0–100, or null when it
 /// can't be determined. Injectable for the same reason as [VolumeSetter].
 typedef VolumeReader = Future<int?> Function();
+
+/// Whether a GStreamer decoder [element] is present on the device. Injectable so
+/// the capped auto-derive can be tested without a real GStreamer registry.
+typedef PlexDecoderExists = Future<bool> Function(String element);
 
 /// Default [PlexMetadataFetcher]: a plain HTTP GET returning the body. Top-level
 /// so it can seed the service default and be swapped out in tests.
@@ -82,17 +87,24 @@ class PlexService {
   final VolumeSetter _setVolume;
   final VolumeReader _getVolume;
 
+  /// Probes whether a decoder element exists (the capped auto-derive). Overridable
+  /// in tests so the derived direct-play codec set can be exercised without a
+  /// real GStreamer registry.
+  final PlexDecoderExists _decoderExists;
+
   PlexService({
     HearthVideoPlayer Function()? playerFactory,
     PlexMetadataFetcher? metadataFetcher,
     PlexUrlFire? serverReporter,
     VolumeSetter? volumeSetter,
     VolumeReader? volumeReader,
+    PlexDecoderExists? decoderProbe,
   })  : _createPlayer = playerFactory ?? HearthVideoPlayer.create,
         _fetchMetadata = metadataFetcher ?? plexHttpGetBody,
         _reportGet = serverReporter ?? plexHttpFireGet,
         _setVolume = volumeSetter ?? setMasterVolume,
-        _getVolume = volumeReader ?? getMasterVolume;
+        _getVolume = volumeReader ?? getMasterVolume,
+        _decoderExists = decoderProbe ?? _gstDecoderExists;
 
   // --- Identity / config (set by [configure]) ---
   String _clientId = '';
@@ -169,6 +181,14 @@ class PlexService {
       Log.e('Plex', 'Failed to start player: $e');
       await _stop();
     }
+  }
+
+  /// Set the identity the decision/transcode paths need, without binding the
+  /// live server. Test-only; production identity comes from [configure].
+  @visibleForTesting
+  void debugSetIdentity({String clientId = '', String authToken = ''}) {
+    _clientId = clientId;
+    _authToken = authToken;
   }
 
   Future<void> _stop() async {
@@ -544,7 +564,14 @@ class PlexService {
 
     final String url;
     var transcoding = false;
-    if (plexNeedsTranscode(codec, height, scanType: scanType)) {
+    if (await _needsTranscode(
+      base: base,
+      key: key,
+      machineId: machineId,
+      codec: codec,
+      height: height,
+      scanType: scanType,
+    )) {
       // Transcoding needs the SERVER access token — the transient cast token
       // can't transcode (401/403). Resolve it from plex.tv resources.
       final srvToken = await _serverToken(machineId);
@@ -640,6 +667,80 @@ class PlexService {
     final tok = body == null ? '' : serverTokenFromResources(body, machineId);
     if (tok.isNotEmpty) _serverTokens[machineId] = tok;
     return tok;
+  }
+
+  Set<String>? _directPlayCodecsCache;
+
+  /// The capped auto-derive: the direct-play safety cap ([kPlexDirectPlayCodecs])
+  /// intersected with the decoders actually present on this device. Can only
+  /// *subtract* from the cap, so it is always at least as conservative. Cached —
+  /// the decoder set doesn't change at runtime.
+  @visibleForTesting
+  Future<Set<String>> detectDirectPlayCodecs() async {
+    final cached = _directPlayCodecsCache;
+    if (cached != null) return cached;
+    final present = <String>{};
+    for (final codec in kPlexDirectPlayCodecs) {
+      final element = kPlexCodecDecoderElements[codec];
+      if (element == null || await _decoderExists(element)) present.add(codec);
+    }
+    return _directPlayCodecsCache = present;
+  }
+
+  /// Default decoder probe. Only the GStreamer (Pi) backend needs probing —
+  /// media_kit/libmpv decodes the capped codecs fine — so gate on the same env
+  /// the video backend uses. Fails **open** to the safe cap on any error.
+  static Future<bool> _gstDecoderExists(String element) async {
+    if (!Platform.environment.containsKey('HEARTH_NO_MEDIAKIT')) return true;
+    try {
+      final r = await Process.run('gst-inspect-1.0', ['--exists', element]);
+      return r.exitCode == 0;
+    } catch (_) {
+      return true;
+    }
+  }
+
+  /// Decide direct-play vs transcode. Authoritative when the PMS decision engine
+  /// answers; falls back to [plexNeedsTranscode] when we can't reach it (no
+  /// server token, fetch error/timeout, or an unparseable/unknown verdict) so
+  /// behavior degrades to today's heuristic — never a new stutter.
+  Future<bool> _needsTranscode({
+    required String base,
+    required String key,
+    required String machineId,
+    required String codec,
+    required int height,
+    required String scanType,
+  }) async {
+    final heuristic = plexNeedsTranscode(codec, height, scanType: scanType);
+    final srvToken = await _serverToken(machineId);
+    if (srvToken.isEmpty) return heuristic;
+    final profile =
+        buildClientProfileExtra(directPlayCodecs: await detectDirectPlayCodecs());
+    final url = buildDecisionUrl(
+      base: base,
+      key: key,
+      token: srvToken,
+      clientId: _clientId,
+      session: HubConfig.generateUuid(),
+      sessionIdentifier: HubConfig.generateUuid(),
+      profileExtra: profile,
+    );
+    String? xml;
+    try {
+      xml = await _fetchMetadata(url).timeout(const Duration(seconds: 3));
+    } catch (_) {
+      // Timeout or fetch error → unknown → heuristic fallback below.
+      xml = null;
+    }
+    switch (parseDecision(xml ?? '')) {
+      case PlexRouteDecision.directPlay:
+        return false;
+      case PlexRouteDecision.transcode:
+        return true;
+      case PlexRouteDecision.unknown:
+        return heuristic;
+    }
   }
 
   // --- Transcode session keep-alive (HLS only) ---

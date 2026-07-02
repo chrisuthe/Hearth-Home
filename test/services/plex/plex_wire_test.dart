@@ -369,4 +369,76 @@ void main() {
       expect(s, contains('Protocol-Capabilities: timeline,playback'));
     });
   });
+
+  group('parseDecision', () {
+    test('mdeDecisionCode 1000 -> directPlay', () {
+      const xml = '<MediaContainer generalDecisionCode="2000" '
+          'mdeDecisionCode="1000" mdeDecisionText="Direct play OK"/>';
+      expect(parseDecision(xml), PlexRouteDecision.directPlay);
+    });
+
+    test('mdeDecisionCode 1001 -> transcode', () {
+      const xml = '<MediaContainer mdeDecisionCode="1001" '
+          'mdeDecisionText="Transcode"/>';
+      expect(parseDecision(xml), PlexRouteDecision.transcode);
+    });
+
+    test('falls through to generalDecisionCode when mde is absent', () {
+      const xml = '<MediaContainer generalDecisionCode="1001"/>';
+      expect(parseDecision(xml), PlexRouteDecision.transcode);
+    });
+
+    test('missing/-1/garbage codes -> unknown', () {
+      expect(parseDecision('<MediaContainer/>'), PlexRouteDecision.unknown);
+      expect(parseDecision('<MediaContainer mdeDecisionCode="-1"/>'),
+          PlexRouteDecision.unknown);
+      expect(parseDecision('not xml at all'), PlexRouteDecision.unknown);
+      expect(parseDecision(''), PlexRouteDecision.unknown);
+    });
+  });
+
+  group('buildClientProfileExtra', () {
+    test('H.264 profile carries the 8-bit and 1080p limitations', () {
+      final p = buildClientProfileExtra(directPlayCodecs: {'h264'});
+      expect(p, contains('scopeName=h264'));
+      expect(p, contains('name=video.bitDepth&value=8'));
+      expect(p, contains('name=video.height&value=1080'));
+      expect(p, contains('add-direct-play-profile'));
+    });
+
+    test('empty codec set -> empty profile (deny all direct play)', () {
+      expect(buildClientProfileExtra(directPlayCodecs: const {}), isEmpty);
+    });
+
+    test('cap constant is H.264 only', () {
+      expect(kPlexDirectPlayCodecs, {'h264'});
+      expect(kPlexCodecDecoderElements['h264'], 'avdec_h264');
+    });
+  });
+
+  group('buildDecisionUrl', () {
+    test('targets the decision endpoint with directPlay=1 + profile + token', () {
+      final url = buildDecisionUrl(
+        base: 'http://192.168.1.50:32400',
+        key: '/library/metadata/12345',
+        token: 'srvtok',
+        clientId: 'hearth-client',
+        session: 'sess',
+        sessionIdentifier: 'sid',
+        profileExtra: buildClientProfileExtra(directPlayCodecs: {'h264'}),
+      );
+      final u = Uri.parse(url);
+      expect(u.path, '/video/:/transcode/universal/decision');
+      expect(u.queryParameters['directPlay'], '1');
+      expect(u.queryParameters['directStream'], '0');
+      expect(u.queryParameters['hasMDE'], '1');
+      expect(u.queryParameters['path'], '/library/metadata/12345');
+      expect(u.queryParameters['X-Plex-Token'], 'srvtok');
+      expect(u.queryParameters['X-Plex-Client-Profile-Extra'],
+          contains('scopeName=h264'));
+      // Must NOT reuse the over-permissive HTPC profile name.
+      expect(u.queryParameters.containsKey('X-Plex-Client-Profile-Name'),
+          isFalse);
+    });
+  });
 }
