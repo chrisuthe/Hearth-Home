@@ -6,6 +6,7 @@ import '../../screens/settings/update_settings.dart';
 import '../framework/fields/bool_setting_field.dart';
 import '../framework/fields/password_setting_field.dart';
 import '../framework/fields/select_setting_field.dart';
+import '../framework/fields/text_setting_field.dart';
 import '../framework/web_context.dart';
 import '../hearth_plugin.dart';
 
@@ -17,6 +18,9 @@ import '../hearth_plugin.dart';
 ///     so we expose it only in the web portal
 ///   * `captureToolsEnabled` — gates the Capture plugin's sidebar entry
 ///     (screenshots + recording)
+///   * `devBundleEnabled` / `devBundleUrl` — developer OTA override. The URL is
+///     web-only (OSK-hostile); the toggle is on both surfaces. The updater
+///     honors these in scripts/hearth-updater.sh.
 ///   * Update check / install actions — reuse the existing
 ///     `/api/update/check` and `/api/update/apply` HTTP routes
 ///
@@ -66,8 +70,14 @@ class SystemPlugin extends HearthPlugin {
           configPath: 'captureToolsEnabled',
           subtitle: 'Enable screenshot/recording in the web portal',
         ).buildWidget(ref),
-        // Gitea API token is NOT shown on-device — typing it via OSK is
-        // painful. Set it from the web portal instead.
+        const BoolSettingField(
+          label: 'Dev bundle',
+          icon: Icons.science_outlined,
+          configPath: 'devBundleEnabled',
+          subtitle: 'Load a bundle from a custom URL (set the URL in the web portal)',
+        ).buildWidget(ref),
+        // Gitea API token and the dev bundle URL are NOT shown on-device —
+        // typing long strings via OSK is painful. Set them from the web portal.
       ],
     );
   }
@@ -96,6 +106,16 @@ class SystemPlugin extends HearthPlugin {
           label: 'Capture tools',
           configPath: 'captureToolsEnabled',
           subtitle: 'Enable screenshot/recording UI',
+        ).buildHtml(ctx) +
+        const TextSettingField(
+          label: 'Dev bundle URL',
+          configPath: 'devBundleUrl',
+          hint: 'https://…/hearth-bundle-x.y.z.tar.gz',
+        ).buildHtml(ctx) +
+        const BoolSettingField(
+          label: 'Dev bundle',
+          configPath: 'devBundleEnabled',
+          subtitle: 'Install from the URL above on the next update (skips release check)',
         ).buildHtml(ctx) +
         _updateButtonsHtml();
   }

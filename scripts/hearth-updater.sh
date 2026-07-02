@@ -33,6 +33,13 @@ auto_update_enabled() {
     return 0
 }
 
+# Developer OTA override: when devBundleEnabled is true the updater installs
+# devBundleUrl directly, bypassing the release API. Set from the web portal.
+dev_bundle_enabled() {
+    [ -n "$CONFIG_FILE" ] || return 1
+    grep -q '"devBundleEnabled":true' "$CONFIG_FILE"
+}
+
 # Read a string value for a JSON key from hub_config.json. Matches the compact
 # format Flutter's jsonEncode writes ("key":"value"); empty if unset/missing.
 config_value() {
@@ -55,57 +62,71 @@ if ! auto_update_enabled; then
     exit 0
 fi
 
-# Pick the release source from the device toggle (absent/empty -> github).
-UPDATE_SOURCE=$(config_value updateSource)
-[ -n "$UPDATE_SOURCE" ] || UPDATE_SOURCE="github"
+DEV_BUNDLE_URL=$(config_value devBundleUrl)
 
-if [ "$UPDATE_SOURCE" = "gitea" ]; then
-    RELEASE_URL="$GITEA_RELEASE_URL"
-    GITEA_TOKEN=$(config_value giteaApiToken)
-    if [ -n "$GITEA_TOKEN" ]; then
-        AUTH_HEADER="Authorization: token $GITEA_TOKEN"
+if dev_bundle_enabled && [ -n "$DEV_BUNDLE_URL" ]; then
+    # Install the pasted bundle directly — no release lookup, no version gate,
+    # no prerelease check. Reinstalls on every run while the toggle is on, so
+    # turn it off when done. Arbitrary URLs carry no auth header. The bundle's
+    # optional sibling .sha256 is still honored below if present. Writing "dev"
+    # as the version guarantees a clean reinstall of a real release afterward.
+    BUNDLE_URL="$DEV_BUNDLE_URL"
+    LATEST_VERSION="dev"
+    AUTH_HEADER=""
+    log "Dev bundle override active: $BUNDLE_URL"
+else
+    # Pick the release source from the device toggle (absent/empty -> github).
+    UPDATE_SOURCE=$(config_value updateSource)
+    [ -n "$UPDATE_SOURCE" ] || UPDATE_SOURCE="github"
+
+    if [ "$UPDATE_SOURCE" = "gitea" ]; then
+        RELEASE_URL="$GITEA_RELEASE_URL"
+        GITEA_TOKEN=$(config_value giteaApiToken)
+        if [ -n "$GITEA_TOKEN" ]; then
+            AUTH_HEADER="Authorization: token $GITEA_TOKEN"
+        else
+            AUTH_HEADER=""
+        fi
     else
+        RELEASE_URL="$GITHUB_RELEASE_URL"
         AUTH_HEADER=""
     fi
-else
-    RELEASE_URL="$GITHUB_RELEASE_URL"
-    AUTH_HEADER=""
-fi
 
-log "Checking for updates (source: $UPDATE_SOURCE)..."
+    log "Checking for updates (source: $UPDATE_SOURCE)..."
 
-RELEASE_JSON=$(fetch -O - "$RELEASE_URL" 2>/dev/null) || {
-    log "Failed to fetch release info"
-    exit 1
-}
+    RELEASE_JSON=$(fetch -O - "$RELEASE_URL" 2>/dev/null) || {
+        log "Failed to fetch release info"
+        exit 1
+    }
 
-LATEST_TAG=$(echo "$RELEASE_JSON" | grep -o '"tag_name": *"[^"]*"' | head -1 | cut -d'"' -f4)
-LATEST_VERSION="${LATEST_TAG#v}"
+    LATEST_TAG=$(echo "$RELEASE_JSON" | grep -o '"tag_name": *"[^"]*"' | head -1 | cut -d'"' -f4)
+    LATEST_VERSION="${LATEST_TAG#v}"
 
-IS_PRERELEASE=$(echo "$RELEASE_JSON" | grep -o '"prerelease": *true' | head -1)
-if [ -n "$IS_PRERELEASE" ]; then
-    log "Latest release is a pre-release, skipping"
-    exit 0
-fi
+    IS_PRERELEASE=$(echo "$RELEASE_JSON" | grep -o '"prerelease": *true' | head -1)
+    if [ -n "$IS_PRERELEASE" ]; then
+        log "Latest release is a pre-release, skipping"
+        exit 0
+    fi
 
-CURRENT=$(current_version)
-log "Current: $CURRENT, Latest: $LATEST_VERSION"
+    CURRENT=$(current_version)
+    log "Current: $CURRENT, Latest: $LATEST_VERSION"
 
-if [ "$CURRENT" = "$LATEST_VERSION" ]; then
-    log "Already up to date"
-    exit 0
-fi
+    if [ "$CURRENT" = "$LATEST_VERSION" ]; then
+        log "Already up to date"
+        exit 0
+    fi
 
-if [ -z "$LATEST_VERSION" ]; then
-    log "Could not determine latest version"
-    exit 1
-fi
+    if [ -z "$LATEST_VERSION" ]; then
+        log "Could not determine latest version"
+        exit 1
+    fi
 
-BUNDLE_URL=$(echo "$RELEASE_JSON" | grep -o '"browser_download_url": *"[^"]*hearth-bundle-[^"]*\.tar\.gz"' | head -1 | cut -d'"' -f4)
+    BUNDLE_URL=$(echo "$RELEASE_JSON" | grep -o '"browser_download_url": *"[^"]*hearth-bundle-[^"]*\.tar\.gz"' | head -1 | cut -d'"' -f4)
 
-if [ -z "$BUNDLE_URL" ]; then
-    log "No bundle asset found in release $LATEST_TAG"
-    exit 1
+    if [ -z "$BUNDLE_URL" ]; then
+        log "No bundle asset found in release $LATEST_TAG"
+        exit 1
+    fi
 fi
 
 log "Downloading $BUNDLE_URL ..."
