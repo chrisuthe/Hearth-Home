@@ -547,6 +547,36 @@ class PlexService {
     final base = plexServerBase(address: address, port: port, protocol: protocol);
     final machineId = params['machineIdentifier'] ?? '';
 
+    return _startItem(
+      base: base,
+      key: key,
+      address: address,
+      port: port,
+      protocol: protocol,
+      token: token,
+      machineId: machineId,
+      offsetMs: offsetMs,
+      containerKey: params['containerKey'] ?? '',
+      playQueueItemID: params['playQueueItemID'] ?? '',
+    );
+  }
+
+  /// Play a single item — the shared path for the initial cast, auto-advance,
+  /// and manual skip. Fetches metadata, decides direct-play vs transcode, builds
+  /// the URL, drives the player, and stamps state/timeline. Server coordinates
+  /// are passed in so queue navigation can reuse them.
+  Future<bool> _startItem({
+    required String base,
+    required String key,
+    required String address,
+    required String port,
+    required String protocol,
+    required String token,
+    required String machineId,
+    required int offsetMs,
+    String containerKey = '',
+    String playQueueItemID = '',
+  }) async {
     // Fetch metadata: the media Part (for direct play) and the video codec,
     // height + scan type (to route). The Pi 5 direct-plays progressive H.264 up
     // to 1080p; HEVC, 4K, and interlaced 1080i must be transcoded — see
@@ -554,7 +584,7 @@ class PlexService {
     final metaXml =
         await _fetchMetadata(metadataUrl(base: base, key: key, token: token));
     if (metaXml == null) {
-      Log.e('Plex', 'playMedia: metadata fetch failed for $key');
+      Log.e('Plex', 'startItem: metadata fetch failed for $key');
       return false;
     }
     final partKey = firstPartKey(metaXml);
@@ -576,7 +606,7 @@ class PlexService {
       // can't transcode (401/403). Resolve it from plex.tv resources.
       final srvToken = await _serverToken(machineId);
       if (srvToken.isEmpty) {
-        Log.e('Plex', 'playMedia: $codec ${height}p needs transcode but no '
+        Log.e('Plex', 'startItem: $codec ${height}p needs transcode but no '
             'server token (pair Plex with the owning account) — cannot play');
         return false;
       }
@@ -600,7 +630,7 @@ class PlexService {
           'Cast: transcode $key ($why$codec ${height}p -> H.264 1080p@6M)');
     } else {
       if (partKey.isEmpty) {
-        Log.e('Plex', 'playMedia: no playable media part for $key');
+        Log.e('Plex', 'startItem: no playable media part for $key');
         return false;
       }
       url = buildDirectPlayUrl(base: base, partKey: partKey, token: token);
@@ -619,13 +649,13 @@ class PlexService {
         duration: Duration.zero,
         key: key,
         ratingKey: _ratingKeyFromKey(key),
-        containerKey: params['containerKey'] ?? '',
+        containerKey: containerKey,
         machineIdentifier: machineId,
         address: address,
         port: port,
         protocol: protocol,
         token: token,
-        playQueueItemID: params['playQueueItemID'] ?? '',
+        playQueueItemID: playQueueItemID,
       ),
       pushTimeline: true,
     );
