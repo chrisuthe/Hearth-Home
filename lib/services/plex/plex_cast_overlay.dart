@@ -41,18 +41,6 @@ class _PlexCastOverlayState extends ConsumerState<PlexCastOverlay> {
     });
   }
 
-  String _fmt(Duration d) {
-    final h = d.inHours;
-    final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
-    final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
-    return h > 0 ? '$h:$m:$s' : '$m:$s';
-  }
-
-  Duration _remaining(PlexPlayerState state) {
-    final r = state.duration - state.position;
-    return r.isNegative ? Duration.zero : r;
-  }
-
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(plexPlayerStateProvider).valueOrNull;
@@ -101,8 +89,6 @@ class _PlexCastOverlayState extends ConsumerState<PlexCastOverlay> {
                   child: _TransportBar(
                     state: state,
                     isPlaying: isPlaying,
-                    elapsed: _fmt(state.position),
-                    remaining: _fmt(_remaining(state)),
                     onPlayPause: () {
                       if (isPlaying) {
                         service.pauseFromUi();
@@ -111,10 +97,9 @@ class _PlexCastOverlayState extends ConsumerState<PlexCastOverlay> {
                       }
                       _revealControls();
                     },
-                    onVolumeChanged: (v) {
-                      service.setVolumeFromUi(v);
-                      _revealControls();
-                    },
+                    onVolumeChanged: service.setVolumeFromUi,
+                    onSeek: service.seekFromUi,
+                    onInteract: _revealControls,
                     onDismiss: () => service.stopFromUi(),
                   ),
                 ),
@@ -141,38 +126,58 @@ class _PlexCastOverlayState extends ConsumerState<PlexCastOverlay> {
   }
 }
 
-/// Bottom transport bar: play/pause, a volume slider, elapsed + remaining time
-/// flanking the progress bar, and a dismiss button.
-class _TransportBar extends StatelessWidget {
+String _formatDuration(Duration d) {
+  final h = d.inHours;
+  final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+  final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+  return h > 0 ? '$h:$m:$s' : '$m:$s';
+}
+
+/// Bottom transport bar: a scrubbable progress bar flanked by elapsed +
+/// remaining time, plus play/pause, a system-volume slider, and a Stop button.
+class _TransportBar extends StatefulWidget {
   final PlexPlayerState state;
   final bool isPlaying;
-  final String elapsed;
-  final String remaining;
   final VoidCallback onPlayPause;
   final ValueChanged<int> onVolumeChanged;
+  final ValueChanged<Duration> onSeek;
+  final VoidCallback onInteract;
   final VoidCallback onDismiss;
 
   const _TransportBar({
     required this.state,
     required this.isPlaying,
-    required this.elapsed,
-    required this.remaining,
     required this.onPlayPause,
     required this.onVolumeChanged,
+    required this.onSeek,
+    required this.onInteract,
     required this.onDismiss,
   });
 
+  @override
+  State<_TransportBar> createState() => _TransportBarState();
+}
+
+class _TransportBarState extends State<_TransportBar> {
   static const _timeStyle = TextStyle(
     color: Colors.white70,
     fontSize: HearthFont.label,
   );
+  static const _accent = Color(0xFF646CFF);
+
+  /// While the user drags the scrubber, the in-progress position in ms; null
+  /// when not scrubbing. Held locally so the 1s tick doesn't yank the thumb.
+  double? _scrubMs;
 
   @override
   Widget build(BuildContext context) {
-    final total = state.duration.inMilliseconds;
-    final progress = total > 0
-        ? (state.position.inMilliseconds / total).clamp(0.0, 1.0)
-        : 0.0;
+    final total = widget.state.duration.inMilliseconds.toDouble();
+    final liveMs = widget.state.position.inMilliseconds.toDouble();
+    final posMs = (_scrubMs ?? liveMs).clamp(0.0, total > 0 ? total : liveMs);
+    final elapsed = _formatDuration(Duration(milliseconds: posMs.round()));
+    final remaining = _formatDuration(
+        Duration(milliseconds: (total - posMs).clamp(0, total).round()));
+
     return Container(
       padding: const EdgeInsets.fromLTRB(
         HearthSpacing.x6,
@@ -193,18 +198,12 @@ class _TransportBar extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Elapsed — progress — remaining.
+          // Elapsed — scrubbable progress — remaining.
           Row(
             children: [
               Text(elapsed, style: _timeStyle),
               const SizedBox(width: HearthSpacing.x3),
-              Expanded(
-                child: LinearProgressIndicator(
-                  value: progress,
-                  backgroundColor: Colors.white24,
-                  valueColor: const AlwaysStoppedAnimation(Color(0xFF646CFF)),
-                ),
-              ),
+              Expanded(child: _buildScrubber(total, posMs)),
               const SizedBox(width: HearthSpacing.x3),
               Text('-$remaining', style: _timeStyle),
             ],
@@ -213,23 +212,26 @@ class _TransportBar extends StatelessWidget {
           Row(
             children: [
               IconButton(
-                icon: Icon(isPlaying ? Icons.pause : Icons.play_arrow),
+                icon: Icon(widget.isPlaying ? Icons.pause : Icons.play_arrow),
                 color: Colors.white,
                 iconSize: HearthIcon.lg,
-                onPressed: onPlayPause,
+                onPressed: widget.onPlayPause,
               ),
               const Icon(Icons.volume_up, color: Colors.white70),
               Expanded(
                 child: Slider(
-                  value: state.volume.clamp(0, 100).toDouble(),
+                  value: widget.state.volume.clamp(0, 100).toDouble(),
                   max: 100,
-                  activeColor: const Color(0xFF646CFF),
+                  activeColor: _accent,
                   inactiveColor: Colors.white24,
-                  onChanged: (v) => onVolumeChanged(v.round()),
+                  onChanged: (v) {
+                    widget.onInteract();
+                    widget.onVolumeChanged(v.round());
+                  },
                 ),
               ),
               TextButton.icon(
-                onPressed: onDismiss,
+                onPressed: widget.onDismiss,
                 icon: const Icon(Icons.stop, color: Colors.white),
                 label: const Text('Stop',
                     style: TextStyle(color: Colors.white)),
@@ -237,6 +239,39 @@ class _TransportBar extends StatelessWidget {
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildScrubber(double total, double posMs) {
+    // No duration yet (buffering) — show an indeterminate bar; nothing to seek.
+    if (total <= 0) {
+      return const LinearProgressIndicator(
+        backgroundColor: Colors.white24,
+        valueColor: AlwaysStoppedAnimation(_accent),
+      );
+    }
+    return SliderTheme(
+      data: SliderTheme.of(context).copyWith(
+        trackHeight: 3,
+        activeTrackColor: _accent,
+        inactiveTrackColor: Colors.white24,
+        thumbColor: Colors.white,
+        overlayColor: _accent.withValues(alpha: 0.2),
+        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
+        overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
+      ),
+      child: Slider(
+        value: posMs.clamp(0.0, total),
+        max: total,
+        onChanged: (v) {
+          widget.onInteract();
+          setState(() => _scrubMs = v);
+        },
+        onChangeEnd: (v) {
+          widget.onSeek(Duration(milliseconds: v.round()));
+          setState(() => _scrubMs = null);
+        },
       ),
     );
   }

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../config/hub_config.dart';
+import '../../utils/alsa_utils.dart';
 import '../../utils/logger.dart';
 import '../video/hearth_video_player.dart';
 import 'plex_player_state.dart';
@@ -14,6 +15,14 @@ typedef PlexMetadataFetcher = Future<String?> Function(String url);
 /// Fire-and-forget GET (result ignored) — used to report playback to the source
 /// PMS. Injectable so tests can capture the reported URLs without a real server.
 typedef PlexUrlFire = Future<void> Function(String url);
+
+/// Sets the Pi's system (ALSA Master) output volume, 0–100. Injectable so tests
+/// can observe volume changes without shelling out to `amixer`.
+typedef VolumeSetter = Future<void> Function(int percent);
+
+/// Reads the Pi's system (ALSA Master) output volume, 0–100, or null when it
+/// can't be determined. Injectable for the same reason as [VolumeSetter].
+typedef VolumeReader = Future<int?> Function();
 
 /// Default [PlexMetadataFetcher]: a plain HTTP GET returning the body. Top-level
 /// so it can seed the service default and be swapped out in tests.
@@ -68,13 +77,22 @@ class PlexService {
   /// the reported URLs/states can be captured without a real Plex server.
   final PlexUrlFire _reportGet;
 
+  /// Sets/reads the Pi's system output volume. Overridable in tests so volume
+  /// changes can be observed without shelling out to `amixer`.
+  final VolumeSetter _setVolume;
+  final VolumeReader _getVolume;
+
   PlexService({
     HearthVideoPlayer Function()? playerFactory,
     PlexMetadataFetcher? metadataFetcher,
     PlexUrlFire? serverReporter,
+    VolumeSetter? volumeSetter,
+    VolumeReader? volumeReader,
   })  : _createPlayer = playerFactory ?? HearthVideoPlayer.create,
         _fetchMetadata = metadataFetcher ?? plexHttpGetBody,
-        _reportGet = serverReporter ?? plexHttpFireGet;
+        _reportGet = serverReporter ?? plexHttpFireGet,
+        _setVolume = volumeSetter ?? setMasterVolume,
+        _getVolume = volumeReader ?? getMasterVolume;
 
   // --- Identity / config (set by [configure]) ---
   String _clientId = '';
@@ -484,7 +502,9 @@ class PlexService {
       pushTimeline: true,
     );
     await _player!.play(url);
-    await _player!.setVolume(_state.volume / 100.0);
+    // Player stays at full; the Pi's ALSA Master is the sole output control
+    // (see setVolumeFromUi), so player volume must not compound with it.
+    await _player!.setVolume(1.0);
     _updateState(
       _state.copyWith(transportState: PlexTransportState.playing),
       pushTimeline: true,
@@ -587,7 +607,8 @@ class PlexService {
     if (!transcoding && offsetMs > 0) {
       await _player!.seek(Duration(milliseconds: offsetMs));
     }
-    await _player!.setVolume(_state.volume / 100.0);
+    // Player stays at full; ALSA Master is the sole output control.
+    await _player!.setVolume(1.0);
     _updateState(
       _state.copyWith(transportState: PlexTransportState.playing),
       pushTimeline: true,
@@ -595,6 +616,12 @@ class PlexService {
     _reportServerTimeline('playing');
     _startTick();
     if (transcoding) _startTranscodePing();
+    // Seed the overlay volume slider from the live system volume so it opens at
+    // the true level (no-op / null off-Pi, leaving the 100 default).
+    final sysVol = await _getVolume();
+    if (sysVol != null) {
+      _updateState(_state.copyWith(volume: sysVol));
+    }
     return true;
   }
 
@@ -717,7 +744,9 @@ class PlexService {
     if (vol != null) {
       final v = (int.tryParse(vol) ?? _state.volume).clamp(0, 100);
       _updateState(_state.copyWith(volume: v), pushTimeline: true);
-      await _player?.setVolume(v / 100.0);
+      // Volume is the Pi's system (ALSA Master) output, same as the overlay
+      // slider — so the phone remote and the on-screen slider stay in agreement.
+      await _setVolume(v);
     }
   }
 
@@ -734,14 +763,44 @@ class PlexService {
   void resumeFromUi() => _play();
   void stopFromUi() => _stopPlayback();
 
-  /// Set the Pi's output volume (0–100) from the cast overlay. Mirrors the
-  /// Companion `setParameters` volume path: clamp, update state, drive the
-  /// player. State updates synchronously (before the player await) so the
-  /// overlay slider tracks the drag without lag.
+  int? _pendingVolume;
+  bool _applyingVolume = false;
+
+  /// Set the Pi's system (ALSA Master) output volume (0–100) from the cast
+  /// overlay slider. State updates synchronously so the slider tracks the drag;
+  /// the actual `amixer` write is coalesced to the latest pending value so a
+  /// fast drag doesn't queue a spawn per frame.
   Future<void> setVolumeFromUi(int volume) async {
     final v = volume.clamp(0, 100);
-    _updateState(_state.copyWith(volume: v), pushTimeline: true);
-    await _player?.setVolume(v / 100.0);
+    // State only (no pushTimeline): the slider updates instantly, and the 1s
+    // tick already carries the new volume to any subscribed controllers.
+    _updateState(_state.copyWith(volume: v));
+    _pendingVolume = v;
+    if (_applyingVolume) return;
+    _applyingVolume = true;
+    try {
+      while (_pendingVolume != null) {
+        final target = _pendingVolume!;
+        _pendingVolume = null;
+        await _setVolume(target);
+      }
+    } finally {
+      _applyingVolume = false;
+    }
+  }
+
+  /// Seek to an absolute [position] from the cast overlay's scrubber. Mirrors
+  /// the Companion `seekTo` path: clamp into range, drive the player, update
+  /// state, and report the new position to the source PMS.
+  Future<void> seekFromUi(Duration position) async {
+    if (_player == null) return;
+    var pos = position;
+    if (pos.isNegative) pos = Duration.zero;
+    final dur = _state.duration;
+    if (dur > Duration.zero && pos > dur) pos = dur;
+    await _player!.seek(pos);
+    _updateState(_state.copyWith(position: pos), pushTimeline: true);
+    _reportServerTimeline(_state.transportState.wire);
   }
 
   // ---------------------------------------------------------------------------
