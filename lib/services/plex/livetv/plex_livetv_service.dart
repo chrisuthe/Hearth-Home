@@ -20,6 +20,13 @@ typedef LiveTvHttp = Future<String?> Function(String url,
 /// and leave the UI spinning with nothing logged.
 const Duration kLiveTvTuneTimeout = Duration(seconds: 90);
 
+/// Ceiling on getting a picture up once the grab exists — warming the transcode
+/// manifest and the player's own start-up. PMS needs ~25s to answer a cold live
+/// `start.mpd`, so this has to clear that comfortably; without any ceiling a
+/// player that never prerolls left the UI on `tuning` forever, still holding a
+/// tuner.
+const Duration kLiveTvPlaybackTimeout = Duration(seconds: 60);
+
 /// Client-role Plex Live TV service.
 ///
 /// Unlike [PlexService] (a cast *sink*), this **initiates** playback: it resolves
@@ -150,7 +157,16 @@ class PlexLiveTvService {
     // One session for this stream, registered with a decision before playing:
     // PMS answers start.m3u8 with 400 for any session it hasn't decided.
     final session = HubConfig.generateUuid();
-    final sessionIdentifier = HubConfig.generateUuid();
+    // NOT a fresh uuid. PMS's transcoder fetches the live grab's own HLS from
+    // /livetv/sessions/{uuid}/{X-Plex-Session-Identifier}/index.m3u8, and the
+    // grabber wrote that directory under the client identifier that tuned the
+    // channel. Any other value points the transcoder at a directory that never
+    // existed — it 404s on its own input, no streaming transcode is started,
+    // and start.mpd stalls ~25s before answering with a manifest whose
+    // segments all 404. Verified against the live DVR: with a fresh uuid,
+    // start.mpd 25.1s and every segment 404; with this, 1.5s and segments
+    // serve real media. Real clients send one value for both.
+    final sessionIdentifier = _clientId;
     await _registerLiveSession(
       playRef: grab.playRef,
       session: session,
@@ -165,7 +181,18 @@ class PlexLiveTvService {
       sessionIdentifier: sessionIdentifier,
     );
     _player ??= _createPlayer();
-    await _player!.play(url);
+    try {
+      await _player!.play(url).timeout(kLiveTvPlaybackTimeout);
+    } on TimeoutException {
+      Log.w(
+          'LiveTV',
+          'playback of ${channel.number} never started after '
+              '${kLiveTvPlaybackTimeout.inSeconds}s — freeing the tuner');
+      await _teardownGrab(); // the grab is live; never leave it held
+      _update(_state.copyWith(
+          phase: LiveTvPhase.error, error: 'Could not play ${channel.number}'));
+      return;
+    }
     await _player!.setVolume(1.0);
     _startKeepalive(grab.playRef);
     final labelled = grab.callSign.isNotEmpty

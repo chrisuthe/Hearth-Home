@@ -8,10 +8,19 @@ import 'package:hearth/services/plex/livetv/plex_livetv_state.dart';
 import 'package:hearth/services/video/hearth_video_player.dart';
 
 class _FakePlayer implements HearthVideoPlayer {
+  _FakePlayer([this.log]);
+
+  /// Shared call log, so a test can assert playback ordering against the HTTP
+  /// calls (the manifest must be warmed *before* the player is handed the URL).
+  final List<String>? log;
   String? lastUrl;
   bool stopped = false;
   @override
-  Future<void> play(String url) async => lastUrl = url;
+  Future<void> play(String url) async {
+    log?.add('PLAY $url');
+    lastUrl = url;
+  }
+
   @override
   Future<void> stop() async => stopped = true;
   @override
@@ -34,6 +43,14 @@ class _FakePlayer implements HearthVideoPlayer {
   Widget buildView({BoxFit fit = BoxFit.contain}) => const SizedBox.shrink();
 }
 
+/// A player whose [play] never completes. GStreamer's `initialize()` does
+/// exactly this when the pipeline can't preroll, and it neither throws nor
+/// returns — so `await play(url)` hangs for the life of the app.
+class _HangingPlayer extends _FakePlayer {
+  @override
+  Future<void> play(String url) => Completer<void>().future;
+}
+
 void main() {
   const resourcesJson = '[{"name":"Mine","provides":"server","owned":true,'
       '"accessToken":"srvtok","connections":[{"local":true,"uri":"http://10.0.2.10:32400"}]}]';
@@ -49,8 +66,8 @@ void main() {
   late List<String> calls; // "METHOD url"
 
   PlexLiveTvService svc({String token = 'acct'}) {
-    fake = _FakePlayer();
     calls = [];
+    fake = _FakePlayer(calls);
     return PlexLiveTvService(
       authToken: token,
       clientId: 'cid',
@@ -85,7 +102,7 @@ void main() {
     final s = svc();
     await s.resolve();
     await s.tune(s.state.channels.first);
-    expect(fake.lastUrl, contains('/video/:/transcode/universal/start.m3u8'));
+    expect(fake.lastUrl, contains('/video/:/transcode/universal/start.mpd'));
     expect(fake.lastUrl, contains('path=%2Flivetv%2Fsessions%2F'));
     expect(s.state.phase, LiveTvPhase.playing);
     expect(s.state.currentChannel?.callSign, 'KELODT'); // from the tune response
@@ -167,4 +184,89 @@ void main() {
     expect(deleteIdx, lessThan(tuneIdx));
     await s.dispose();
   });
+
+  test('reuses the client identifier as the transcode session identifier',
+      () async {
+    // PMS's transcoder reads the live grab's own HLS from
+    //   /livetv/sessions/{uuid}/{X-Plex-Session-Identifier}/index.m3u8
+    // but the grabber writes that directory under the *client* identifier that
+    // tuned the channel. Sending a fresh uuid pointed the transcoder at a
+    // directory that never existed: it 404'd on its own input, started no
+    // streaming transcode, and start.mpd stalled 25s before returning a
+    // manifest whose segments all 404 — no picture, no error. Real clients
+    // send the same value for both.
+    final s = svc();
+    await s.resolve();
+    await s.tune(s.state.channels.first);
+
+    final q = Uri.parse(fake.lastUrl!).queryParameters;
+    expect(q['X-Plex-Session-Identifier'], 'cid',
+        reason: 'the transcoder resolves its input by this identifier');
+    expect(q['X-Plex-Session-Identifier'], q['X-Plex-Client-Identifier']);
+    await s.dispose();
+  });
+
+  /// Builds a service whose player hangs in `play`, plus the call log.
+  ({PlexLiveTvService service, List<String> calls, _HangingPlayer player})
+      hungPlayback() {
+    final log = <String>[];
+    final player = _HangingPlayer();
+    return (
+      service: PlexLiveTvService(
+        authToken: 'acct',
+        clientId: 'cid',
+        playerFactory: () => player,
+        http: (url, {String method = 'GET', bool json = false}) async {
+          log.add('$method $url');
+          if (url.contains('plex.tv/api/v2/resources')) return resourcesJson;
+          if (url.contains('/tune')) return tuneXml;
+          if (url.contains('/livetv/dvrs')) return dvrXml;
+          return '';
+        },
+      ),
+      calls: log,
+      player: player,
+    );
+  }
+
+  test('playback that never starts surfaces an error, not a forever spinner',
+      () {
+    // On device this is the actual failure: the DASH pipeline can't preroll,
+    // GStreamer's initialize() never returns, and tune() awaited play() with
+    // no ceiling — so phase stayed on `tuning` and the UI spun indefinitely
+    // with neither "Playing:" nor "Failed to play" in the log.
+    fakeAsync((async) {
+      final h = hungPlayback();
+      h.service.resolve();
+      async.flushMicrotasks();
+      h.service.tune(h.service.state.channels.first);
+      async.elapse(const Duration(seconds: 300));
+      async.flushMicrotasks();
+
+      expect(h.service.state.phase, LiveTvPhase.error,
+          reason: 'a player that never starts must not spin forever');
+    });
+  });
+
+  test('playback that never starts still frees the tuner', () {
+    // The grab is live by the time we hand off to the player, so the bail-out
+    // path has to run the teardown DELETE too — otherwise a failed tune leaks
+    // an HDHomeRun tuner until the app is restarted.
+    fakeAsync((async) {
+      final h = hungPlayback();
+      h.service.resolve();
+      async.flushMicrotasks();
+      h.service.tune(h.service.state.channels.first);
+      async.elapse(const Duration(seconds: 300));
+      async.flushMicrotasks();
+
+      expect(
+          h.calls.any((c) =>
+              c.startsWith('DELETE') &&
+              c.contains('/media/grabbers/operations/')),
+          isTrue,
+          reason: 'a tuner must never be left held by a failed playback');
+    });
+  });
+
 }
