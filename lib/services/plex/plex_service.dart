@@ -147,6 +147,13 @@ class PlexService {
   // One-shot guard so end-of-item auto-advance fires exactly once per item.
   bool _endHandled = false;
 
+  // Stall watchdog: the position seen on the previous tick, how many
+  // consecutive ticks it has failed to move, and a one-shot so the warning
+  // fires once per item rather than every tick.
+  Duration _lastTickPosition = Duration.zero;
+  int _stalledTicks = 0;
+  bool _stallWarned = false;
+
   // --- Timeline subscribers, keyed by controller X-Plex-Client-Identifier ---
   final Map<String, _Subscriber> _subscribers = {};
 
@@ -545,7 +552,19 @@ class PlexService {
     final key = params['key'] ?? '';
     final address = params['address'] ?? '';
     final port = params['port'] ?? '';
-    if (key.isEmpty || address.isEmpty || port.isEmpty) return false;
+    if (key.isEmpty || address.isEmpty || port.isEmpty) {
+      // The controller only sees the resulting HTTP 500, so without this the
+      // log stays empty and a malformed playMedia is indistinguishable from a
+      // cast that never arrived. Names the absent fields only — the params also
+      // carry the cast token, which must never reach the log.
+      final missing = [
+        if (key.isEmpty) 'key',
+        if (address.isEmpty) 'address',
+        if (port.isEmpty) 'port',
+      ].join(', ');
+      Log.w('Plex', 'playMedia rejected — missing required param(s): $missing');
+      return false;
+    }
 
     final protocol =
         params['protocol']?.isNotEmpty == true ? params['protocol']! : 'http';
@@ -658,6 +677,9 @@ class PlexService {
     _player ??= _createPlayer();
     _scrobbled = false;
     _endHandled = false;
+    _lastTickPosition = Duration.zero;
+    _stalledTicks = 0;
+    _stallWarned = false;
     _audioStreamID = '';
     _subtitleStreamID = '';
     _updateState(
@@ -711,6 +733,14 @@ class PlexService {
   /// resources` using the stored account token and cached. Empty when we have
   /// no account token or the server isn't in the account's resources.
   final Map<String, String> _serverTokens = {};
+
+  /// How long to wait on plex.tv before giving up on a server token. Longer
+  /// than the decision fetch's 3s because this is a WAN round-trip, but bounded:
+  /// [plexHttpGetBody] caps connect time only, so a server that accepts the
+  /// connection and then goes quiet would otherwise hang the cast indefinitely,
+  /// before either routing branch has been logged.
+  static const Duration _kServerTokenTimeout = Duration(seconds: 8);
+
   Future<String> _serverToken(String machineId) async {
     if (machineId.isEmpty || _authToken.isEmpty) return '';
     final cached = _serverTokens[machineId];
@@ -718,7 +748,16 @@ class PlexService {
     final url = 'https://plex.tv/api/v2/resources?includeHttps=1'
         '&X-Plex-Token=${Uri.encodeQueryComponent(_authToken)}'
         '&X-Plex-Client-Identifier=${Uri.encodeQueryComponent(_clientId)}';
-    final body = await _fetchMetadata(url);
+    final String? body;
+    try {
+      body = await _fetchMetadata(url).timeout(_kServerTokenTimeout);
+    } on TimeoutException {
+      Log.w(
+          'Plex',
+          'server token lookup timed out after ${_kServerTokenTimeout.inSeconds}s '
+              '— continuing as unpaired (no transcode available this cast)');
+      return '';
+    }
     final tok = body == null ? '' : serverTokenFromResources(body, machineId);
     if (tok.isNotEmpty) _serverTokens[machineId] = tok;
     return tok;
@@ -843,11 +882,20 @@ class PlexService {
     required int height,
     required String scanType,
   }) async {
-    if (plexNeedsTranscode(codec, height, scanType: scanType)) return true;
+    // Each exit names its source: the two can disagree, so "why did this route
+    // that way" has to be answerable from the log alone.
+    if (plexNeedsTranscode(codec, height, scanType: scanType)) {
+      final why = scanType.isEmpty ? '$codec ${height}p' : '$codec ${height}p $scanType';
+      Log.i('Plex', 'route: transcode (local guard — $why)');
+      return true;
+    }
     // Past here the heuristic is content to direct-play, so every remaining
     // path defaults to that; only the engine can upgrade it to a transcode.
     final srvToken = await _serverToken(machineId);
-    if (srvToken.isEmpty) return false;
+    if (srvToken.isEmpty) {
+      Log.i('Plex', 'route: direct-play (no server token — engine not consulted)');
+      return false;
+    }
     final profile =
         buildClientProfileExtra(directPlayCodecs: await detectDirectPlayCodecs());
     final url = buildDecisionUrl(
@@ -868,10 +916,13 @@ class PlexService {
     }
     switch (parseDecision(xml ?? '')) {
       case PlexRouteDecision.directPlay:
+        Log.i('Plex', 'route: direct-play (PMS decision)');
         return false;
       case PlexRouteDecision.transcode:
+        Log.i('Plex', 'route: transcode (PMS decision)');
         return true;
       case PlexRouteDecision.unknown:
+        Log.i('Plex', 'route: direct-play (no usable PMS decision)');
         return false;
     }
   }
@@ -1067,8 +1118,39 @@ class PlexService {
         _reportServerTimeline('playing');
       }
       _maybeScrobble();
+      _maybeWarnStalled(p);
       _maybeAutoAdvance(p);
     });
+  }
+
+  /// Ticks (seconds) a playing item may sit at the same position before the
+  /// watchdog calls it stalled.
+  static const int _kStallTicks = 10;
+
+  /// Warn once when the player claims to be playing but its position never
+  /// moves. [_startItem] stamps `playing` the moment `play()` returns, and
+  /// [HearthVideoPlayer] exposes no error channel, so a pipeline that prerolls
+  /// and then deadlocks keeps reporting healthy playback to the overlay, the
+  /// controlling Plex app, and the log. This is the only place that notices.
+  ///
+  /// Diagnostic only — it deliberately does not try to recover, since tearing
+  /// down or restarting a cast is a behaviour change, not instrumentation.
+  void _maybeWarnStalled(HearthVideoPlayer p) {
+    if (_state.transportState != PlexTransportState.playing) {
+      _stalledTicks = 0;
+      return;
+    }
+    if (p.position != _lastTickPosition) {
+      _lastTickPosition = p.position;
+      _stalledTicks = 0;
+      return;
+    }
+    if (_stallWarned || ++_stalledTicks < _kStallTicks) return;
+    _stallWarned = true;
+    Log.w(
+        'Plex',
+        'playback stalled — position stuck at ${p.position.inSeconds}s for '
+            '${_kStallTicks}s while state=playing (${_state.key})');
   }
 
   static const Duration _kEndThreshold = Duration(milliseconds: 1500);
