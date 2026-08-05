@@ -163,10 +163,57 @@ String buildLivePlayUrl({
   required String clientId,
   required String session,
   required String sessionIdentifier,
+}) =>
+    _liveUniversalUrl(
+      endpoint: 'start.m3u8',
+      base: base,
+      playRef: playRef,
+      token: token,
+      clientId: clientId,
+      session: session,
+      sessionIdentifier: sessionIdentifier,
+    );
+
+/// Register [session] with the PMS decision engine for the live stream that
+/// [buildLivePlayUrl] is about to request. PMS binds a decision to the session
+/// that asked for it and answers `start.m3u8` with 400 for any session it hasn't
+/// decided (`Denying access due to session lacking decision`) — which surfaces
+/// as a tuner that never produces a picture.
+///
+/// Mirrors [buildLivePlayUrl] parameter for parameter, on the `decision`
+/// endpoint: PMS binds the decision to the parameters, not just the id.
+String buildLiveDecisionUrl({
+  required String base,
+  required String playRef,
+  required String token,
+  required String clientId,
+  required String session,
+  required String sessionIdentifier,
+}) =>
+    _liveUniversalUrl(
+      endpoint: 'decision',
+      base: base,
+      playRef: playRef,
+      token: token,
+      clientId: clientId,
+      session: session,
+      sessionIdentifier: sessionIdentifier,
+    );
+
+/// Shared builder behind [buildLivePlayUrl] and [buildLiveDecisionUrl] — one
+/// param set, so the registration can never drift from the stream it authorises.
+String _liveUniversalUrl({
+  required String endpoint,
+  required String base,
+  required String playRef,
+  required String token,
+  required String clientId,
+  required String session,
+  required String sessionIdentifier,
 }) {
   final baseUri = Uri.parse(base);
   return baseUri.replace(
-    path: '/video/:/transcode/universal/start.m3u8',
+    path: '/video/:/transcode/universal/$endpoint',
     queryParameters: {
       'path': playRef,
       'protocol': 'hls',

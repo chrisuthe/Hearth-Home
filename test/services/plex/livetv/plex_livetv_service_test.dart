@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:io';
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hearth/services/plex/livetv/plex_livetv_service.dart';
@@ -88,6 +90,54 @@ void main() {
     expect(s.state.phase, LiveTvPhase.playing);
     expect(s.state.currentChannel?.callSign, 'KELODT'); // from the tune response
     await s.dispose();
+  });
+
+  test('registers the live transcode session with a decision first', () async {
+    // PMS refuses start.m3u8 for a session it hasn't decided ("Denying access
+    // due to session lacking decision") and answers 400, which the player sees
+    // as a stream that never yields a segment — the Live TV spinner.
+    final s = svc();
+    await s.resolve();
+    await s.tune(s.state.channels.first);
+
+    final session = Uri.parse(fake.lastUrl!).queryParameters['session'];
+    expect(session, isNotNull);
+    final decided = calls
+        .where((c) => c.contains('/transcode/universal/decision'))
+        .map((c) => Uri.parse(c.split(' ').last).queryParameters['session'])
+        .toList();
+    expect(decided, contains(session),
+        reason: 'the decision must register the SAME session start.m3u8 uses');
+    await s.dispose();
+  });
+
+  test('a tune that never answers surfaces an error, not a forever spinner',
+      () {
+    // _defaultHttp bounds connect time only, so a PMS that accepts and then
+    // goes quiet (a cold tuner lock can exceed 25s) left phase stuck on
+    // `tuning` — a spinner, with nothing logged and no way out.
+    fakeAsync((async) {
+      final player = _FakePlayer();
+      final s = PlexLiveTvService(
+        authToken: 'acct',
+        clientId: 'cid',
+        playerFactory: () => player,
+        http: (url, {String method = 'GET', bool json = false}) async {
+          if (url.contains('plex.tv/api/v2/resources')) return resourcesJson;
+          if (url.contains('/tune')) return Completer<String?>().future;
+          if (url.contains('/livetv/dvrs')) return dvrXml;
+          return '';
+        },
+      );
+      s.resolve();
+      async.flushMicrotasks();
+      s.tune(s.state.channels.first);
+      async.elapse(const Duration(seconds: 120));
+      async.flushMicrotasks();
+
+      expect(s.state.phase, LiveTvPhase.error,
+          reason: 'a hung tune must not leave the UI spinning forever');
+    });
   });
 
   test('stop fires the grab-teardown DELETE and goes idle', () async {
