@@ -18,6 +18,11 @@ import 'dart:convert';
 /// Sendspin (8928), mirroring the "one server per integration" pattern.
 const int kPlexHttpPort = 8296;
 
+/// How long a `wait=1` (long-poll) timeline request is held before answering
+/// with the current state. The controller re-polls on its own afterwards, so
+/// this only bounds how long one socket stays open.
+const Duration kPlexPollHold = Duration(seconds: 30);
+
 /// GDM (G'Day Mate) discovery — ports fixed by Plex. A *player* listens on
 /// [kPlexGdmPort] for controller `M-SEARCH` probes (arriving as a
 /// 255.255.255.255 broadcast) and joins [kPlexGdmMulticast]. Proactive

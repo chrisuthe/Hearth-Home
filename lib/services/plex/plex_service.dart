@@ -397,7 +397,31 @@ class PlexService {
     // Plex Web polls instead of subscribing — answer with the current timeline,
     // do not track it as a persistent subscriber.
     final commandID = int.tryParse(request.uri.queryParameters['commandID'] ?? '') ?? 0;
-    await _serveXml(request, _currentTimelineXml(commandID));
+    final wait = request.uri.queryParameters['wait'] == '1';
+    await _serveXml(request, await timelineForPoll(commandID, wait: wait));
+  }
+
+  /// The timeline body for a poll.
+  ///
+  /// `wait=1` means the controller is **long-polling**: hold the response until
+  /// the timeline actually changes, then answer. Answering immediately is
+  /// legal-looking but makes the controller re-poll at once — measured at
+  /// 24,453 polls in four minutes against the device, a busy loop that burns
+  /// CPU on both ends for nothing.
+  ///
+  /// Bounded by [kPlexPollHold] so a quiet player still answers (the controller
+  /// re-polls on its own after that) rather than leaving a socket open forever.
+  @visibleForTesting
+  Future<String> timelineForPoll(int commandID, {bool wait = false}) async {
+    if (wait) {
+      try {
+        await _stateController.stream.first.timeout(kPlexPollHold);
+      } catch (_) {
+        // Window expired, or the service shut down mid-hold: fall through and
+        // answer with the current timeline.
+      }
+    }
+    return _currentTimelineXml(commandID);
   }
 
   // ---------------------------------------------------------------------------

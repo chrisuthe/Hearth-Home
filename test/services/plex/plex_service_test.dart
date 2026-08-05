@@ -165,6 +165,48 @@ void main() {
 
   tearDown(() => service.dispose());
 
+  group('timeline long-poll', () {
+    test('a poll without wait answers immediately', () async {
+      final xml = await service
+          .timelineForPoll(1)
+          .timeout(const Duration(seconds: 1));
+      expect(xml, contains('<MediaContainer'));
+    });
+
+    test('a wait=1 poll is held until the timeline actually changes', () async {
+      // Plex long-polls with wait=1. Answering at once makes the controller
+      // re-poll immediately — measured at 24,453 polls in 4 minutes on device.
+      var completed = false;
+      final held = service.timelineForPoll(2, wait: true).then((xml) {
+        completed = true;
+        return xml;
+      });
+      await Future<void>.delayed(Duration.zero);
+      expect(completed, isFalse,
+          reason: 'answering a wait=1 poll at once is a busy loop');
+
+      await service.dispatchCommand('playMedia', _playMediaParams());
+      final xml = await held.timeout(const Duration(seconds: 2));
+      expect(completed, isTrue);
+      expect(xml, contains('commandID="2"'));
+    });
+
+    test('a held poll gives up after the hold window rather than hanging', () {
+      fakeAsync((async) {
+        String? answered;
+        service.timelineForPoll(3, wait: true).then((xml) => answered = xml);
+        async.elapse(const Duration(seconds: 29));
+        async.flushMicrotasks();
+        expect(answered, isNull);
+
+        async.elapse(const Duration(seconds: 2));
+        async.flushMicrotasks();
+        expect(answered, isNotNull,
+            reason: 'a held poll must eventually answer, not hang forever');
+      });
+    });
+  });
+
   group('track selection', () {
     test('playMedia records the selected audio and subtitle streams', () async {
       // Without this the timeline advertises audioStream+subtitleStream as
