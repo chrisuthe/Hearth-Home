@@ -86,5 +86,29 @@ void main() {
       expect(u.queryParameters['offset'], '-1'); // live edge
       expect(u.queryParameters['X-Plex-Token'], 't');
     });
+
+    test('buildLiveDecisionUrl mirrors the play request, on /decision', () {
+      // PMS binds a decision to the session AND the parameters it describes, so
+      // the registration must not drift from the stream it authorises.
+      final p = Uri.parse(buildLivePlayUrl(
+        base: 'http://h:32400',
+        playRef: '/livetv/sessions/u1',
+        token: 't',
+        clientId: 'cid',
+        session: 's1',
+        sessionIdentifier: 'si1',
+      ));
+      final d = Uri.parse(buildLiveDecisionUrl(
+        base: 'http://h:32400',
+        playRef: '/livetv/sessions/u1',
+        token: 't',
+        clientId: 'cid',
+        session: 's1',
+        sessionIdentifier: 'si1',
+      ));
+      expect(p.path, '/video/:/transcode/universal/start.m3u8');
+      expect(d.path, '/video/:/transcode/universal/decision');
+      expect(d.queryParameters, p.queryParameters);
+    });
   });
 }

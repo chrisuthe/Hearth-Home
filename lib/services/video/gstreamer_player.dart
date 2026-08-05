@@ -49,9 +49,9 @@ class GstreamerVideoPlayer implements HearthVideoPlayer {
       await _controller!.initialize();
       await _controller!.play();
       _playing = true;
-      Log.i('Video', 'Playing: $url');
+      Log.i('Video', 'Playing: ${redactSecrets(url)}');
     } catch (e) {
-      Log.e('Video', 'Failed to play $url: $e');
+      Log.e('Video', 'Failed to play ${redactSecrets(url)}: $e');
       _playing = false;
       _controller?.dispose();
       _controller = null;

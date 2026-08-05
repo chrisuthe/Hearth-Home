@@ -14,6 +14,12 @@ import 'plex_livetv_wire.dart';
 typedef LiveTvHttp = Future<String?> Function(String url,
     {String method, bool json});
 
+/// Ceiling on a tune (and its session registration). Generous because a cold
+/// HDHomeRun lock can take 25s+, but bounded — [_defaultHttp] caps connect time
+/// only, so an accepted-then-silent PMS would otherwise hang the tune forever
+/// and leave the UI spinning with nothing logged.
+const Duration kLiveTvTuneTimeout = Duration(seconds: 90);
+
 /// Client-role Plex Live TV service.
 ///
 /// Unlike [PlexService] (a cast *sink*), this **initiates** playback: it resolves
@@ -76,6 +82,9 @@ class PlexLiveTvService {
     final resJson = await _http(resUrl, json: true);
     final server = resJson == null ? null : parseOwnedServer(resJson);
     if (server == null) {
+      // Silent here meant a channel grid that never populated and a tune() that
+      // no-oped, with no way to tell which stage gave up.
+      Log.w('LiveTV', 'no owned server in plex.tv resources — Live TV disabled');
       _update(_state.copyWith(resolved: false, channels: const []));
       return;
     }
@@ -85,6 +94,12 @@ class PlexLiveTvService {
     final dvrXml = await _http('$_base/livetv/dvrs'
         '?X-Plex-Token=${Uri.encodeQueryComponent(_serverToken)}');
     final dvr = dvrXml == null ? null : parseDvr(dvrXml);
+    if (dvr == null) {
+      Log.w('LiveTV', 'no DVR on $_base — tuning will be unavailable');
+    } else {
+      Log.i('LiveTV',
+          'DVR ${dvr.dvrKey} on $_base with ${dvr.channels.length} channels');
+    }
     _dvr = dvr;
     _update(_state.copyWith(
       resolved: true,
@@ -108,21 +123,46 @@ class PlexLiveTvService {
     final tuneUrl = '${buildTuneUrl(base: _base, dvrKey: dvr.dvrKey, channelKey: channel.channelKey)}'
         '?X-Plex-Token=${Uri.encodeQueryComponent(_serverToken)}'
         '&X-Plex-Client-Identifier=${Uri.encodeQueryComponent(_clientId)}';
-    final tuneXml = await _http(tuneUrl, method: 'POST');
+    // A cold tuner lock is slow but not unbounded, and the HTTP layer caps only
+    // connect time — without this a PMS that accepts and then goes quiet leaves
+    // the UI on `tuning` forever, with nothing logged.
+    String? tuneXml;
+    try {
+      tuneXml =
+          await _http(tuneUrl, method: 'POST').timeout(kLiveTvTuneTimeout);
+    } on TimeoutException {
+      Log.w('LiveTV', 'tune ${channel.number} timed out after '
+          '${kLiveTvTuneTimeout.inSeconds}s');
+      _update(_state.copyWith(
+          phase: LiveTvPhase.error,
+          error: 'Tuning ${channel.number} timed out'));
+      return;
+    }
     final grab = tuneXml == null ? null : parseGrab(tuneXml);
     if (grab == null || grab.playRef.isEmpty) {
+      Log.w('LiveTV',
+          'tune ${channel.number} returned no playable grab — cannot play');
       _update(_state.copyWith(phase: LiveTvPhase.error, error: 'Could not tune ${channel.number}'));
       return;
     }
     _grab = grab;
 
+    // One session for this stream, registered with a decision before playing:
+    // PMS answers start.m3u8 with 400 for any session it hasn't decided.
+    final session = HubConfig.generateUuid();
+    final sessionIdentifier = HubConfig.generateUuid();
+    await _registerLiveSession(
+      playRef: grab.playRef,
+      session: session,
+      sessionIdentifier: sessionIdentifier,
+    );
     final url = buildLivePlayUrl(
       base: _base,
       playRef: grab.playRef,
       token: _serverToken,
       clientId: _clientId,
-      session: HubConfig.generateUuid(),
-      sessionIdentifier: HubConfig.generateUuid(),
+      session: session,
+      sessionIdentifier: sessionIdentifier,
     );
     _player ??= _createPlayer();
     await _player!.play(url);
@@ -136,6 +176,30 @@ class PlexLiveTvService {
         : channel;
     _update(_state.copyWith(phase: LiveTvPhase.playing, currentChannel: labelled));
     Log.i('LiveTV', 'Playing ${channel.number} (${grab.callSign}) via ${grab.playRef}');
+  }
+
+  /// Register [session] with the PMS decision engine for the live stream about
+  /// to be played. The verdict is irrelevant — this exists so PMS knows the
+  /// session, without which `start.m3u8` returns 400 and the tuner never yields
+  /// a picture. Best effort: a failure here shows up as the 400 it was meant to
+  /// prevent, which the error path below reports.
+  Future<void> _registerLiveSession({
+    required String playRef,
+    required String session,
+    required String sessionIdentifier,
+  }) async {
+    try {
+      await _http(buildLiveDecisionUrl(
+        base: _base,
+        playRef: playRef,
+        token: _serverToken,
+        clientId: _clientId,
+        session: session,
+        sessionIdentifier: sessionIdentifier,
+      )).timeout(kLiveTvTuneTimeout);
+    } catch (_) {
+      Log.w('LiveTV', 'live session registration failed for $playRef');
+    }
   }
 
   /// Stop playback and free the tuner.
@@ -195,7 +259,10 @@ Future<String?> _defaultHttp(String url,
   try {
     final client = HttpClient()..connectionTimeout = const Duration(seconds: 12);
     final req = await client.openUrl(method, Uri.parse(url));
-    req.headers.set('X-Plex-Client-Identifier', 'hearth-livetv');
+    // The identity PMS keys the grab on comes from the URL's
+    // X-Plex-Client-Identifier; sending a different one in the header risks the
+    // teardown DELETE addressing an opId the server never issued — a leaked
+    // tuner. Every caller already puts the real client id on the URL.
     if (json) req.headers.set('Accept', 'application/json');
     final resp = await req.close();
     if (resp.statusCode >= 400) {
