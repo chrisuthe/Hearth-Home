@@ -825,10 +825,16 @@ class PlexService {
     }
   }
 
-  /// Decide direct-play vs transcode. Authoritative when the PMS decision engine
-  /// answers; falls back to [plexNeedsTranscode] when we can't reach it (no
-  /// server token, fetch error/timeout, or an unparseable/unknown verdict) so
-  /// behavior degrades to today's heuristic — never a new stutter.
+  /// Decide direct-play vs transcode. [plexNeedsTranscode] is a floor: whatever
+  /// it rejects is transcoded, full stop. The PMS decision engine is consulted
+  /// only for what the heuristic would let through, so it can add transcodes
+  /// (e.g. Hi10P, which we can't see locally) but never take one away.
+  ///
+  /// The engine only enforces limits we declare, and [buildClientProfileExtra]
+  /// declares codec/bit-depth/height — not scan type. So a 1080i recording looks
+  /// like plain H.264 1080p to the server and comes back "direct play", which on
+  /// the Pi deadlocks the pipeline after the first frame. Letting that verdict
+  /// win would silently undo the interlaced fix, so it doesn't get to.
   Future<bool> _needsTranscode({
     required String base,
     required String key,
@@ -837,9 +843,11 @@ class PlexService {
     required int height,
     required String scanType,
   }) async {
-    final heuristic = plexNeedsTranscode(codec, height, scanType: scanType);
+    if (plexNeedsTranscode(codec, height, scanType: scanType)) return true;
+    // Past here the heuristic is content to direct-play, so every remaining
+    // path defaults to that; only the engine can upgrade it to a transcode.
     final srvToken = await _serverToken(machineId);
-    if (srvToken.isEmpty) return heuristic;
+    if (srvToken.isEmpty) return false;
     final profile =
         buildClientProfileExtra(directPlayCodecs: await detectDirectPlayCodecs());
     final url = buildDecisionUrl(
@@ -855,7 +863,7 @@ class PlexService {
     try {
       xml = await _fetchMetadata(url).timeout(const Duration(seconds: 3));
     } catch (_) {
-      // Timeout or fetch error → unknown → heuristic fallback below.
+      // Timeout or fetch error → unknown → direct-play, as the heuristic said.
       xml = null;
     }
     switch (parseDecision(xml ?? '')) {
@@ -864,7 +872,7 @@ class PlexService {
       case PlexRouteDecision.transcode:
         return true;
       case PlexRouteDecision.unknown:
-        return heuristic;
+        return false;
     }
   }
 

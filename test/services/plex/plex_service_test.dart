@@ -99,6 +99,14 @@ void main() {
       '<Marker type="intro" startTimeOffset="990" endTimeOffset="28316"/>'
       '</Video></MediaContainer>';
 
+  // A 1080i DVR recording: H.264 1080p in an MPEG-TS part, whose video Stream
+  // reports scanType="interlaced" (exactly what a real PMS returns for one).
+  const metadataInterlaced = '<MediaContainer><Video>'
+      '<Media videoCodec="h264" width="1920" height="1080" container="mpegts">'
+      '<Part id="55" key="/library/parts/55/1/file.ts" container="mpegts"/>'
+      '<Stream streamType="1" codec="h264" scanType="interlaced"/>'
+      '</Media></Video></MediaContainer>';
+
   // Same item, with a credits marker (55min..59min of a 60min episode).
   const metadataWithCredits = '<MediaContainer><Video>'
       '<Media videoCodec="h264" width="1920" height="1080">'
@@ -355,7 +363,7 @@ void main() {
 
   group('decision-driven routing', () {
     // A metadataFetcher that answers each URL the decision path hits.
-    PlexService svcWithDecision(String decisionXml) {
+    PlexService svcWithDecision(String decisionXml, {String? itemXml}) {
       final s = PlexService(
         playerFactory: () => fake,
         metadataFetcher: (url) async {
@@ -364,7 +372,8 @@ void main() {
                 'accessToken="srvacct"/></MediaContainer>';
           }
           if (url.contains('/transcode/universal/decision')) return decisionXml;
-          return metadataXml; // item metadata (H.264 1080p, direct-playable)
+          // item metadata (H.264 1080p, direct-playable) unless overridden
+          return itemXml ?? metadataXml;
         },
       );
       s.debugSetIdentity(clientId: 'hearth', authToken: 'acct');
@@ -389,6 +398,20 @@ void main() {
       final s = svcWithDecision('<MediaContainer mdeDecisionCode="1001"/>');
       await s.dispatchCommand('playMedia', params());
       expect(fake.lastUrl, contains('/video/:/transcode/universal/start.m3u8'));
+      s.dispose();
+    });
+
+    test('decision directPlay never overrides the interlaced guard', () async {
+      // A 1080i DVR recording. The PMS sees H.264 / 8-bit / 1080p and answers
+      // direct-play, because our client profile declares no interlacing
+      // limitation — but the Pi cannot deinterlace 1080i in real time, so the
+      // local guard must win. Regression test for the stall that returned when
+      // the decision engine was made authoritative over plexNeedsTranscode().
+      final s = svcWithDecision('<MediaContainer mdeDecisionCode="1000"/>',
+          itemXml: metadataInterlaced);
+      await s.dispatchCommand('playMedia', params());
+      expect(fake.lastUrl, contains('/video/:/transcode/universal/start.m3u8'));
+      expect(fake.lastUrl, isNot(contains('/library/parts/55/1/file.ts')));
       s.dispose();
     });
 
