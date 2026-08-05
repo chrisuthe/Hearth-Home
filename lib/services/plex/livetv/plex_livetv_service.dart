@@ -157,7 +157,16 @@ class PlexLiveTvService {
     // One session for this stream, registered with a decision before playing:
     // PMS answers start.m3u8 with 400 for any session it hasn't decided.
     final session = HubConfig.generateUuid();
-    final sessionIdentifier = HubConfig.generateUuid();
+    // NOT a fresh uuid. PMS's transcoder fetches the live grab's own HLS from
+    // /livetv/sessions/{uuid}/{X-Plex-Session-Identifier}/index.m3u8, and the
+    // grabber wrote that directory under the client identifier that tuned the
+    // channel. Any other value points the transcoder at a directory that never
+    // existed — it 404s on its own input, no streaming transcode is started,
+    // and start.mpd stalls ~25s before answering with a manifest whose
+    // segments all 404. Verified against the live DVR: with a fresh uuid,
+    // start.mpd 25.1s and every segment 404; with this, 1.5s and segments
+    // serve real media. Real clients send one value for both.
+    final sessionIdentifier = _clientId;
     await _registerLiveSession(
       playRef: grab.playRef,
       session: session,
@@ -171,7 +180,6 @@ class PlexLiveTvService {
       session: session,
       sessionIdentifier: sessionIdentifier,
     );
-    await _warmLiveStream(url);
     _player ??= _createPlayer();
     try {
       await _player!.play(url).timeout(kLiveTvPlaybackTimeout);
@@ -218,23 +226,6 @@ class PlexLiveTvService {
       )).timeout(kLiveTvTuneTimeout);
     } catch (_) {
       Log.w('LiveTV', 'live session registration failed for $playRef');
-    }
-  }
-
-  /// Fetch the live manifest once before the player does.
-  ///
-  /// PMS takes ~25s to answer a cold live `start.mpd` (it holds the response
-  /// until the transcoder is up), while the player's GStreamer source abandons
-  /// the fetch at its own 15s default and the pipeline dies with "Can't
-  /// typefind stream". This request is bounded by us, not by GStreamer, so the
-  /// player's request lands on an already-warm session and returns in
-  /// milliseconds. Best effort: on failure the player simply asks cold, which
-  /// is where we started.
-  Future<void> _warmLiveStream(String url) async {
-    try {
-      await _http(url).timeout(kLiveTvPlaybackTimeout);
-    } catch (_) {
-      Log.w('LiveTV', 'could not warm the live transcode manifest');
     }
   }
 

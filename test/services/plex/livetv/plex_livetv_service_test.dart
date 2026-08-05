@@ -185,6 +185,27 @@ void main() {
     await s.dispose();
   });
 
+  test('reuses the client identifier as the transcode session identifier',
+      () async {
+    // PMS's transcoder reads the live grab's own HLS from
+    //   /livetv/sessions/{uuid}/{X-Plex-Session-Identifier}/index.m3u8
+    // but the grabber writes that directory under the *client* identifier that
+    // tuned the channel. Sending a fresh uuid pointed the transcoder at a
+    // directory that never existed: it 404'd on its own input, started no
+    // streaming transcode, and start.mpd stalled 25s before returning a
+    // manifest whose segments all 404 — no picture, no error. Real clients
+    // send the same value for both.
+    final s = svc();
+    await s.resolve();
+    await s.tune(s.state.channels.first);
+
+    final q = Uri.parse(fake.lastUrl!).queryParameters;
+    expect(q['X-Plex-Session-Identifier'], 'cid',
+        reason: 'the transcoder resolves its input by this identifier');
+    expect(q['X-Plex-Session-Identifier'], q['X-Plex-Client-Identifier']);
+    await s.dispose();
+  });
+
   /// Builds a service whose player hangs in `play`, plus the call log.
   ({PlexLiveTvService service, List<String> calls, _HangingPlayer player})
       hungPlayback() {
@@ -248,27 +269,4 @@ void main() {
     });
   });
 
-  test('warms the transcode manifest before handing the URL to the player',
-      () async {
-    // A cold live start.mpd takes PMS ~25s to answer (measured, repeatedly).
-    // souphttpsrc gives up at its 15s default and the pipeline dies with
-    // "Can't typefind stream". Fetching it once ourselves — on our own
-    // generous timeout — leaves it warm, and the player's request returns in
-    // milliseconds.
-    final s = svc();
-    await s.resolve();
-    await s.tune(s.state.channels.first);
-
-    final warmIdx = calls.indexWhere(
-        (c) => c.startsWith('GET') && c.contains('/transcode/universal/start.mpd'));
-    final playIdx = calls.indexWhere((c) => c.startsWith('PLAY '));
-    expect(warmIdx, isNonNegative,
-        reason: 'the manifest must be fetched before the player sees it');
-    expect(playIdx, isNonNegative);
-    expect(warmIdx, lessThan(playIdx),
-        reason: 'warming after handing off leaves the player to eat the 25s');
-    expect(calls[warmIdx].split(' ').last, fake.lastUrl,
-        reason: 'warming a different URL warms a different transcode session');
-    await s.dispose();
-  });
 }
