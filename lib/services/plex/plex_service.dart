@@ -512,15 +512,27 @@ class PlexService {
     final offsetMs = _state.position.inMilliseconds;
     await _stopTranscodeSession();
     final session = HubConfig.generateUuid();
+    final sessionIdentifier = HubConfig.generateUuid();
     _transcodeBase = base;
     _transcodeSession = session;
+    // A re-transcode is a new session, so it needs registering too.
+    await _registerTranscodeSession(
+      base: base,
+      key: _state.key,
+      token: _transcodeToken,
+      session: session,
+      sessionIdentifier: sessionIdentifier,
+      offsetMs: offsetMs,
+      audioStreamID: _audioStreamID,
+      subtitleStreamID: _subtitleStreamID,
+    );
     final url = buildTranscodeUrl(
       base: base,
       key: _state.key,
       token: _transcodeToken,
       clientId: _clientId,
       session: session,
-      sessionIdentifier: HubConfig.generateUuid(),
+      sessionIdentifier: sessionIdentifier,
       offsetMs: offsetMs,
       audioStreamID: _audioStreamID,
       subtitleStreamID: _subtitleStreamID,
@@ -648,16 +660,25 @@ class PlexService {
         return false;
       }
       final session = HubConfig.generateUuid();
+      final sessionIdentifier = HubConfig.generateUuid();
       _transcodeBase = base;
       _transcodeSession = session;
       _transcodeToken = srvToken;
+      await _registerTranscodeSession(
+        base: base,
+        key: key,
+        token: srvToken,
+        session: session,
+        sessionIdentifier: sessionIdentifier,
+        offsetMs: offsetMs,
+      );
       url = buildTranscodeUrl(
         base: base,
         key: key,
         token: srvToken,
         clientId: _clientId,
         session: session,
-        sessionIdentifier: HubConfig.generateUuid(),
+        sessionIdentifier: sessionIdentifier,
         offsetMs: offsetMs,
         deviceName: _playerName,
       );
@@ -727,6 +748,47 @@ class PlexService {
       _updateState(_state.copyWith(volume: sysVol));
     }
     return true;
+  }
+
+  /// Register [session] with the PMS decision engine for the transcode about to
+  /// be requested. PMS binds a decision to the session that asked for it and
+  /// answers `start.m3u8` with 400 for any session it hasn't decided (server log:
+  /// `Denying access due to session lacking decision`). To the player that looks
+  /// like a stream that never yields a segment — a black screen that reports
+  /// `playing` forever.
+  ///
+  /// The verdict is deliberately ignored: [_needsTranscode] has already decided,
+  /// and its local guard intentionally overrides the server (see #189). This call
+  /// exists purely so the session is known to PMS.
+  Future<void> _registerTranscodeSession({
+    required String base,
+    required String key,
+    required String token,
+    required String session,
+    required String sessionIdentifier,
+    required int offsetMs,
+    String audioStreamID = '',
+    String subtitleStreamID = '',
+  }) async {
+    final url = buildTranscodeDecisionUrl(
+      base: base,
+      key: key,
+      token: token,
+      clientId: _clientId,
+      session: session,
+      sessionIdentifier: sessionIdentifier,
+      offsetMs: offsetMs,
+      deviceName: _playerName,
+      audioStreamID: audioStreamID,
+      subtitleStreamID: subtitleStreamID,
+    );
+    try {
+      await _fetchMetadata(url).timeout(const Duration(seconds: 8));
+    } catch (_) {
+      // Best effort: if registration fails the transcode will 400, which the
+      // stall watchdog surfaces. Don't block the cast on it.
+      Log.w('Plex', 'transcode session registration failed for $key');
+    }
   }
 
   /// Server access token for [machineId], resolved from plex.tv `/api/v2/

@@ -442,6 +442,41 @@ void main() {
     });
   });
 
+  group('buildTranscodeDecisionUrl', () {
+    test('mirrors the transcode request exactly, on the decision endpoint', () {
+      // PMS refuses start.m3u8 with "session lacking decision" unless the same
+      // session was registered by a decision describing the same transcode, so
+      // these two URLs must never drift apart in anything but the endpoint.
+      final t = Uri.parse(buildTranscodeUrl(
+        base: 'https://h:32400',
+        key: '/library/metadata/862',
+        token: 'srvtok',
+        clientId: 'cid',
+        session: 'sess-1',
+        sessionIdentifier: 'sid-1',
+        offsetMs: 5000,
+        deviceName: 'Hearth',
+        audioStreamID: '2',
+        subtitleStreamID: '3',
+      ));
+      final d = Uri.parse(buildTranscodeDecisionUrl(
+        base: 'https://h:32400',
+        key: '/library/metadata/862',
+        token: 'srvtok',
+        clientId: 'cid',
+        session: 'sess-1',
+        sessionIdentifier: 'sid-1',
+        offsetMs: 5000,
+        deviceName: 'Hearth',
+        audioStreamID: '2',
+        subtitleStreamID: '3',
+      ));
+      expect(d.path, '/video/:/transcode/universal/decision');
+      expect(t.path, '/video/:/transcode/universal/start.m3u8');
+      expect(d.queryParameters, t.queryParameters);
+    });
+  });
+
   group('play queue', () {
     const queueXml = '<MediaContainer playQueueID="42" '
         'playQueueSelectedItemID="101" playQueueSelectedItemOffset="1">'

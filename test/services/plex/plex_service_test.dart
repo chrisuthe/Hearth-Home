@@ -574,6 +574,48 @@ void main() {
     });
   });
 
+  group('transcode session registration', () {
+    // PMS answers start.m3u8 with 400 ("Denying access due to session lacking
+    // decision") unless that exact session was first registered by a decision
+    // call. Hearth generated a fresh uuid for each, and once the interlaced
+    // guard landed it skipped the decision entirely — so every transcode 400'd
+    // and the cast sat at position 0 showing a black screen.
+    test('registers the session with a decision before playing start.m3u8',
+        () async {
+      final fetched = <String>[];
+      final s = PlexService(
+        playerFactory: () => fake,
+        metadataFetcher: (url) async {
+          fetched.add(url);
+          if (url.contains('plex.tv/api/v2/resources')) {
+            return '<MediaContainer><resource clientIdentifier="M" '
+                'accessToken="srvacct"/></MediaContainer>';
+          }
+          if (url.contains('/transcode/universal/decision')) {
+            return '<MediaContainer mdeDecisionCode="1001"/>';
+          }
+          return metadataInterlaced; // forces the transcode path
+        },
+      );
+      s.debugSetIdentity(clientId: 'hearth', authToken: 'acct');
+      await s.dispatchCommand(
+          'playMedia', {..._playMediaParams(), 'machineIdentifier': 'M'});
+
+      final play = Uri.parse(fake.lastUrl!);
+      expect(play.path, contains('start.m3u8'));
+      final session = play.queryParameters['session'];
+      expect(session, isNotNull);
+
+      final registrations = fetched
+          .where((u) => u.contains('/transcode/universal/decision'))
+          .map((u) => Uri.parse(u).queryParameters['session'])
+          .toList();
+      expect(registrations, contains(session),
+          reason: 'the decision must register the SAME session start.m3u8 uses');
+      s.dispose();
+    });
+  });
+
   group('play queue navigation', () {
     const queueXml = '<MediaContainer playQueueID="42" '
         'playQueueSelectedItemID="100" playQueueSelectedItemOffset="0">'
