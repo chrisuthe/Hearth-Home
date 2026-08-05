@@ -20,6 +20,13 @@ typedef LiveTvHttp = Future<String?> Function(String url,
 /// and leave the UI spinning with nothing logged.
 const Duration kLiveTvTuneTimeout = Duration(seconds: 90);
 
+/// Ceiling on getting a picture up once the grab exists — warming the transcode
+/// manifest and the player's own start-up. PMS needs ~25s to answer a cold live
+/// `start.mpd`, so this has to clear that comfortably; without any ceiling a
+/// player that never prerolls left the UI on `tuning` forever, still holding a
+/// tuner.
+const Duration kLiveTvPlaybackTimeout = Duration(seconds: 60);
+
 /// Client-role Plex Live TV service.
 ///
 /// Unlike [PlexService] (a cast *sink*), this **initiates** playback: it resolves
@@ -164,8 +171,20 @@ class PlexLiveTvService {
       session: session,
       sessionIdentifier: sessionIdentifier,
     );
+    await _warmLiveStream(url);
     _player ??= _createPlayer();
-    await _player!.play(url);
+    try {
+      await _player!.play(url).timeout(kLiveTvPlaybackTimeout);
+    } on TimeoutException {
+      Log.w(
+          'LiveTV',
+          'playback of ${channel.number} never started after '
+              '${kLiveTvPlaybackTimeout.inSeconds}s — freeing the tuner');
+      await _teardownGrab(); // the grab is live; never leave it held
+      _update(_state.copyWith(
+          phase: LiveTvPhase.error, error: 'Could not play ${channel.number}'));
+      return;
+    }
     await _player!.setVolume(1.0);
     _startKeepalive(grab.playRef);
     final labelled = grab.callSign.isNotEmpty
@@ -199,6 +218,23 @@ class PlexLiveTvService {
       )).timeout(kLiveTvTuneTimeout);
     } catch (_) {
       Log.w('LiveTV', 'live session registration failed for $playRef');
+    }
+  }
+
+  /// Fetch the live manifest once before the player does.
+  ///
+  /// PMS takes ~25s to answer a cold live `start.mpd` (it holds the response
+  /// until the transcoder is up), while the player's GStreamer source abandons
+  /// the fetch at its own 15s default and the pipeline dies with "Can't
+  /// typefind stream". This request is bounded by us, not by GStreamer, so the
+  /// player's request lands on an already-warm session and returns in
+  /// milliseconds. Best effort: on failure the player simply asks cold, which
+  /// is where we started.
+  Future<void> _warmLiveStream(String url) async {
+    try {
+      await _http(url).timeout(kLiveTvPlaybackTimeout);
+    } catch (_) {
+      Log.w('LiveTV', 'could not warm the live transcode manifest');
     }
   }
 
