@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -76,6 +78,30 @@ Map<String, String> _playMediaParams({String offset = '60000'}) => {
       'token': 'srvtoken',
       'offset': offset,
     };
+
+/// Runs [body] with `debugPrint` captured, returning every line [Log] emitted.
+/// Log writes through debugPrint, so this is how the instrumentation added for
+/// issue #188 is asserted — those lines are the feature, not a side effect.
+Future<List<String>> _captureLog(Future<void> Function() body) async {
+  final (lines, restore) = _captureLogManual();
+  try {
+    await body();
+  } finally {
+    restore();
+  }
+  return lines;
+}
+
+/// Same capture, but as an install/restore pair — `fakeAsync` bodies are
+/// synchronous and so can't use the awaiting form above.
+(List<String>, void Function()) _captureLogManual() {
+  final lines = <String>[];
+  final original = debugPrint;
+  debugPrint = (String? message, {int? wrapWidth}) {
+    if (message != null) lines.add(message);
+  };
+  return (lines, () => debugPrint = original);
+}
 
 void main() {
   late FakeVideoPlayer fake;
@@ -415,6 +441,29 @@ void main() {
       s.dispose();
     });
 
+    // #188: the two sources can disagree, so the log has to say which one won —
+    // otherwise an unexpected route is untraceable after the fact.
+    test('logs that the PMS decision chose the route', () async {
+      final lines = await _captureLog(() async {
+        final s = svcWithDecision('<MediaContainer mdeDecisionCode="1001"/>');
+        await s.dispatchCommand('playMedia', params());
+        s.dispose();
+      });
+      expect(
+          lines, anyElement(allOf(contains('route:'), contains('PMS decision'))));
+    });
+
+    test('logs that the local guard chose the route', () async {
+      final lines = await _captureLog(() async {
+        final s = svcWithDecision('<MediaContainer mdeDecisionCode="1000"/>',
+            itemXml: metadataInterlaced);
+        await s.dispatchCommand('playMedia', params());
+        s.dispose();
+      });
+      expect(
+          lines, anyElement(allOf(contains('route:'), contains('local guard'))));
+    });
+
     test('unparseable decision falls back to the heuristic (direct-play)',
         () async {
       final s = svcWithDecision('<MediaContainer/>'); // no codes -> unknown
@@ -438,6 +487,90 @@ void main() {
       expect(decisionHit, isFalse);
       expect(fake.lastUrl, contains('/library/parts/55/1/file.mkv'));
       s.dispose();
+    });
+  });
+
+  group('silent failure instrumentation (#188)', () {
+    test('playMedia names the required param that was missing', () async {
+      final lines = await _captureLog(() async {
+        final result = await service.dispatchCommand('playMedia', const {
+          'key': '/library/metadata/12345',
+          'port': '32400', // no address -> rejected
+        });
+        expect(result.ok, isFalse);
+      });
+      // Without this the controller just gets a 500 and journalctl shows
+      // nothing, which is indistinguishable from the cast never arriving.
+      expect(lines, anyElement(allOf(contains('Plex'), contains('address'))));
+    });
+
+    test('a plex.tv fetch that never answers cannot stall the cast', () {
+      // _serverToken is consulted on every cast. plexHttpGetBody sets a
+      // connectionTimeout but no total timeout, so a server that accepts the
+      // connection and then goes quiet used to hang _startItem before either
+      // branch was logged — the cast simply never happened, silently.
+      fakeAsync((async) {
+        final s = PlexService(
+          playerFactory: () => fake,
+          metadataFetcher: (url) async => url.contains('plex.tv')
+              ? Completer<String?>().future // never completes
+              : metadataXml,
+        );
+        s.debugSetIdentity(clientId: 'hearth', authToken: 'acct');
+
+        var settled = false;
+        s.dispatchCommand('playMedia',
+            {..._playMediaParams(), 'machineIdentifier': 'M'}).then((_) {
+          settled = true;
+        });
+
+        async.elapse(const Duration(seconds: 30));
+        expect(settled, isTrue,
+            reason: 'the cast must give up on plex.tv, not hang forever');
+        // Giving up means no server token, so it direct-plays as the heuristic
+        // already decided — playback still happens.
+        expect(fake.lastUrl, contains('/library/parts/55/1/file.mkv'));
+        s.dispose();
+      });
+    });
+
+    test('warns once when a playing item makes no progress', () {
+      // The exact shape of the GStreamer deadlock: _startItem stamps `playing`
+      // as soon as play() returns, HearthVideoPlayer has no error channel, and
+      // the pipeline then prerolls and freezes — so the cast reports healthy
+      // playback forever while nothing decodes.
+      fakeAsync((async) {
+        final (lines, restore) = _captureLogManual();
+        try {
+          final s = PlexService(
+            playerFactory: () => fake,
+            metadataFetcher: (_) async => metadataXml,
+          );
+          s.dispatchCommand('playMedia', _playMediaParams());
+          async.flushMicrotasks();
+
+          // fake.positionValue never changes from here.
+          async.elapse(const Duration(seconds: 60));
+          async.flushMicrotasks();
+
+          expect(lines.where((l) => l.contains('stalled')), hasLength(1),
+              reason: 'exactly one warning per stalled item, not one per tick');
+          s.dispose();
+          async.flushMicrotasks();
+        } finally {
+          restore();
+        }
+      });
+    });
+
+    test('playMedia never logs the cast token', () async {
+      final lines = await _captureLog(() async {
+        await service.dispatchCommand('playMedia', const {
+          'key': '/library/metadata/12345',
+          'token': 'super-secret-cast-token', // no address -> rejected
+        });
+      });
+      expect(lines.join('\n'), isNot(contains('super-secret-cast-token')));
     });
   });
 
