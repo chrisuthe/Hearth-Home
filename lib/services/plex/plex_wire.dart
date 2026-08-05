@@ -226,6 +226,80 @@ String buildTranscodeUrl({
   String deviceName = '',
   String audioStreamID = '',
   String subtitleStreamID = '',
+}) =>
+    _universalUrl(
+      endpoint: 'start.m3u8',
+      base: base,
+      key: key,
+      token: token,
+      clientId: clientId,
+      session: session,
+      sessionIdentifier: sessionIdentifier,
+      offsetMs: offsetMs,
+      maxBitrateKbps: maxBitrateKbps,
+      videoResolution: videoResolution,
+      deviceName: deviceName,
+      audioStreamID: audioStreamID,
+      subtitleStreamID: subtitleStreamID,
+    );
+
+/// Register [session] with the PMS media decision engine for the transcode that
+/// [buildTranscodeUrl] is about to request. PMS binds a decision to the session
+/// that asked for it and refuses `start.m3u8` for any session it hasn't decided
+/// — logging `Denying access due to session lacking decision` and answering 400,
+/// which the player sees as a stream that never produces a segment.
+///
+/// So this deliberately mirrors [buildTranscodeUrl] parameter for parameter: it
+/// must describe the *same* transcode, on the `decision` endpoint. Distinct from
+/// [buildDecisionUrl], which asks the routing question ("can this direct play?")
+/// with `directPlay=1` and a capped profile.
+String buildTranscodeDecisionUrl({
+  required String base,
+  required String key,
+  required String token,
+  required String clientId,
+  required String session,
+  required String sessionIdentifier,
+  int offsetMs = 0,
+  int maxBitrateKbps = 6000,
+  String videoResolution = '1920x1080',
+  String deviceName = '',
+  String audioStreamID = '',
+  String subtitleStreamID = '',
+}) =>
+    _universalUrl(
+      endpoint: 'decision',
+      base: base,
+      key: key,
+      token: token,
+      clientId: clientId,
+      session: session,
+      sessionIdentifier: sessionIdentifier,
+      offsetMs: offsetMs,
+      maxBitrateKbps: maxBitrateKbps,
+      videoResolution: videoResolution,
+      deviceName: deviceName,
+      audioStreamID: audioStreamID,
+      subtitleStreamID: subtitleStreamID,
+    );
+
+/// Shared builder behind [buildTranscodeUrl] and [buildTranscodeDecisionUrl] —
+/// one param set, so the decision can never drift from the transcode it
+/// authorises.
+String _universalUrl({
+  required String endpoint,
+  required String base,
+  required String key,
+  required String token,
+  required String clientId,
+  required String session,
+  required String sessionIdentifier,
+  int offsetMs = 0,
+  int maxBitrateKbps = 6000,
+  String videoResolution = '1920x1080',
+  String deviceName = '',
+  String audioStreamID = '',
+  String subtitleStreamID = '',
 }) {
   final baseUri = Uri.parse(base);
   final params = <String, String>{
@@ -269,7 +343,7 @@ String buildTranscodeUrl({
     params['subtitleStreamID'] = subtitleStreamID;
   }
   return baseUri.replace(
-    path: '/video/:/transcode/universal/start.m3u8',
+    path: '/video/:/transcode/universal/$endpoint',
     queryParameters: params,
   ).toString();
 }
