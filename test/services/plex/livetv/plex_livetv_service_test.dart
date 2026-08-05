@@ -85,7 +85,7 @@ void main() {
     final s = svc();
     await s.resolve();
     await s.tune(s.state.channels.first);
-    expect(fake.lastUrl, contains('/video/:/transcode/universal/start.m3u8'));
+    expect(fake.lastUrl, contains('/video/:/transcode/universal/start.mpd'));
     expect(fake.lastUrl, contains('path=%2Flivetv%2Fsessions%2F'));
     expect(s.state.phase, LiveTvPhase.playing);
     expect(s.state.currentChannel?.callSign, 'KELODT'); // from the tune response

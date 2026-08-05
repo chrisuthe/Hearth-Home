@@ -71,7 +71,16 @@ void main() {
           'http://h:32400/media/grabbers/operations/x-y');
     });
 
-    test('buildLivePlayUrl is an HLS transcode pinned to the live edge', () {
+    test('buildLivePlayUrl is a DASH transcode with a DASH-capable profile', () {
+      // Plex serves live grabs over DASH, not HLS. Asking for start.m3u8 gets a
+      // 200 master manifest and then a 500 sub-playlist, because the transcoder
+      // 404s resolving its own live input. Verified against the live DVR:
+      //   profile=Plex Home Theater -> decision 200, start.mpd 400
+      //   profile=Generic           -> decision 200, start.mpd 400
+      //   profile=Chrome            -> decision 200, start.mpd 200
+      // "Plex Home Theater" is an HTPC profile that doesn't advertise DASH, so
+      // PMS refuses to produce an MPD for it. The cast path keeps that profile;
+      // only live presents as Chrome.
       final u = Uri.parse(buildLivePlayUrl(
           base: 'http://h:32400',
           playRef: '/livetv/sessions/abc',
@@ -79,12 +88,15 @@ void main() {
           clientId: 'c',
           session: 's',
           sessionIdentifier: 'sid'));
-      expect(u.path, '/video/:/transcode/universal/start.m3u8');
-      expect(u.queryParameters['protocol'], 'hls');
+      expect(u.path, '/video/:/transcode/universal/start.mpd');
+      expect(u.queryParameters['protocol'], 'dash');
+      expect(u.queryParameters['X-Plex-Client-Profile-Name'], 'Chrome');
       expect(u.queryParameters['hasMDE'], '1');
       expect(u.queryParameters['path'], '/livetv/sessions/abc');
-      expect(u.queryParameters['offset'], '-1'); // live edge
       expect(u.queryParameters['X-Plex-Token'], 't');
+      // No offset: a real client sends none and lets PMS pick the live edge.
+      // Ours propagated into the transcoder's own input fetch and 404'd there.
+      expect(u.queryParameters.containsKey('offset'), isFalse);
     });
 
     test('buildLiveDecisionUrl mirrors the play request, on /decision', () {
@@ -106,7 +118,7 @@ void main() {
         session: 's1',
         sessionIdentifier: 'si1',
       ));
-      expect(p.path, '/video/:/transcode/universal/start.m3u8');
+      expect(p.path, '/video/:/transcode/universal/start.mpd');
       expect(d.path, '/video/:/transcode/universal/decision');
       expect(d.queryParameters, p.queryParameters);
     });

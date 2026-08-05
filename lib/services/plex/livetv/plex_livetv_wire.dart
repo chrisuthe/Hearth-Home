@@ -5,7 +5,8 @@
 ///   * `POST /livetv/dvrs/{dvr}/channels/{channelKey}/tune` →
 ///     `MediaGrabOperation(id,key) > Video(key="/livetv/sessions/{uuid}") >
 ///     Media(uuid, channelCallSign)`
-///   * play: `start.m3u8?path=/livetv/sessions/{uuid}&protocol=hls&offset=-1`
+///   * play: `start.mpd?path=/livetv/sessions/{uuid}&protocol=dash` (DASH, with a
+///     DASH-capable client profile — see [buildLivePlayUrl])
 ///   * teardown: `DELETE /media/grabbers/operations/{opId}` (frees the tuner)
 library;
 
@@ -153,9 +154,9 @@ PlexGrab? parseGrab(String tuneXml) {
 String grabTeardownUrl({required String base, required String opId}) =>
     '${_trimSlash(base)}/media/grabbers/operations/$opId';
 
-/// Universal HLS transcode URL for a live grab. Mirrors the VOD transcode params
-/// but pins the start to the **live edge** with `offset=-1` (the convention the
-/// PMS itself uses on the live `<Part key>`).
+/// Universal DASH transcode URL for a live grab. Live is served over DASH, not
+/// HLS — see [_liveUniversalUrl] for the profile gating and the offset finding.
+///
 String buildLivePlayUrl({
   required String base,
   required String playRef,
@@ -165,7 +166,7 @@ String buildLivePlayUrl({
   required String sessionIdentifier,
 }) =>
     _liveUniversalUrl(
-      endpoint: 'start.m3u8',
+      endpoint: 'start.mpd',
       base: base,
       playRef: playRef,
       token: token,
@@ -215,21 +216,38 @@ String _liveUniversalUrl({
   return baseUri.replace(
     path: '/video/:/transcode/universal/$endpoint',
     queryParameters: {
-      'path': playRef,
-      'protocol': 'hls',
       'hasMDE': '1',
+      'path': playRef,
       'mediaIndex': '0',
       'partIndex': '0',
+      'protocol': 'dash',
+      'fastSeek': '1',
       'directPlay': '0',
       'directStream': '0',
-      'fastSeek': '1',
+      'subtitleSize': '100',
+      'audioBoost': '100',
       'location': 'lan',
-      'offset': '-1',
+      'addDebugOverlay': '0',
+      // The live edge is PMS's to choose. Sending our own offset propagated into
+      // the transcoder's fetch of its own input, which 404'd there.
+      'autoAdjustQuality': '1',
+      'directStreamAudio': '0',
+      'autoAdjustSubtitle': '1',
+      'mediaBufferSize': '102400',
       'session': session,
+      'subtitles': 'burn',
+      'copyts': '0',
       'X-Plex-Session-Identifier': sessionIdentifier,
       'X-Plex-Client-Identifier': clientId,
       'X-Plex-Token': token,
-      'X-Plex-Platform': 'Plex Home Theater',
+      // Live is served as DASH, and PMS gates DASH on the client profile:
+      // "Plex Home Theater" (what the cast path uses) and "Generic" both get a
+      // 400 from start.mpd; "Chrome" gets a 200. So the live path presents as a
+      // DASH-capable browser client. The cast path is untouched.
+      'X-Plex-Product': 'Plex Web',
+      'X-Plex-Version': '1.0',
+      'X-Plex-Platform': 'Chrome',
+      'X-Plex-Client-Profile-Name': 'Chrome',
     },
   ).toString();
 }
