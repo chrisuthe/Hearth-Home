@@ -284,7 +284,53 @@ void main() {
     });
   });
 
+  group('selectedStreamIds', () {
+    test('picks the selected audio and subtitle stream ids', () {
+      // Plex marks the active track with selected="1" on the <Stream>. The
+      // controller's Settings panel renders the current selection from the
+      // timeline, so we must know it before anyone asks to change it.
+      const xml = '<MediaContainer><Video><Media><Part>'
+          '<Stream id="1" streamType="1" codec="h264"/>'
+          '<Stream id="2" streamType="2" codec="ac3"/>'
+          '<Stream id="3" streamType="2" codec="aac" selected="1"/>'
+          '<Stream id="4" streamType="3" codec="srt" selected="1"/>'
+          '</Part></Media></Video></MediaContainer>';
+      expect(selectedStreamIds(xml), ('3', '4'));
+    });
+
+    test('subtitles off reports "0", the id Plex uses for none', () {
+      const xml = '<MediaContainer><Video><Media><Part>'
+          '<Stream id="2" streamType="2" selected="1"/>'
+          '<Stream id="4" streamType="3"/>'
+          '</Part></Media></Video></MediaContainer>';
+      expect(selectedStreamIds(xml), ('2', '0'));
+    });
+  });
+
   group('timelineXml', () {
+    test('reports the current audio/subtitle selection when playing', () {
+      // We advertise audioStream+subtitleStream as controllable; a controller
+      // that believes us opens Settings and needs the current selection to
+      // render it. Advertising a capability without reporting its state is
+      // what left Plex Web with nothing to show.
+      final xml = timelineXml(
+        commandID: 1,
+        state: 'playing',
+        media: const PlexTimelineMedia(
+          key: '/library/metadata/1',
+          ratingKey: '1',
+          address: 'a',
+          port: '32400',
+          timeMs: 0,
+          durationMs: 1000,
+          audioStreamID: '3',
+          subtitleStreamID: '0',
+        ),
+      );
+      expect(xml, contains('audioStreamID="3"'));
+      expect(xml, contains('subtitleStreamID="0"'));
+    });
+
     test('playing video carries all three types + video attrs', () {
       final xml = timelineXml(
         commandID: 7,

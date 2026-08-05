@@ -117,6 +117,16 @@ void main() {
       '<Part id="55" key="/library/parts/55/1/file.mkv" container="mkv"/>'
       '</Media></Video></MediaContainer>';
 
+  // Same item, with explicit track selection: Plex marks the active audio and
+  // subtitle streams with selected="1".
+  const metadataWithStreams = '<MediaContainer><Video>'
+      '<Media videoCodec="h264" width="1920" height="1080">'
+      '<Part id="55" key="/library/parts/55/1/file.mkv" container="mkv">'
+      '<Stream id="1" streamType="1" codec="h264"/>'
+      '<Stream id="7" streamType="2" codec="aac" selected="1"/>'
+      '<Stream id="9" streamType="3" codec="srt" selected="1"/>'
+      '</Part></Media></Video></MediaContainer>';
+
   // Same item, but carrying a server-generated intro marker (1s..28.316s).
   const metadataWithIntro = '<MediaContainer><Video>'
       '<Media videoCodec="h264" width="1920" height="1080">'
@@ -154,6 +164,23 @@ void main() {
   });
 
   tearDown(() => service.dispose());
+
+  group('track selection', () {
+    test('playMedia records the selected audio and subtitle streams', () async {
+      // Without this the timeline advertises audioStream+subtitleStream as
+      // controllable but reports no current selection, so the controller's
+      // Settings panel has nothing to render — Plex Web answers that by
+      // sending `stop`, which kills the cast.
+      final s = PlexService(
+        playerFactory: () => fake,
+        metadataFetcher: (_) async => metadataWithStreams,
+      );
+      await s.dispatchCommand('playMedia', _playMediaParams());
+      expect(s.state.audioStreamID, '7');
+      expect(s.state.subtitleStreamID, '9');
+      s.dispose();
+    });
+  });
 
   group('skip intro', () {
     test('playMedia stamps the intro marker into state', () async {

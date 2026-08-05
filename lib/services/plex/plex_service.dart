@@ -505,8 +505,18 @@ class PlexService {
 
     // Merge the requested selection over the current one — the panel may send
     // only the stream that changed. '0' is a real value (subtitles off).
-    if (audio != null && audio.isNotEmpty) _audioStreamID = audio;
-    if (subtitle != null && subtitle.isNotEmpty) _subtitleStreamID = subtitle;
+    // Merge over the live selection in state, which was read from the item's
+    // metadata on cast — so an unchanged track keeps its real id rather than
+    // reverting to "unset".
+    _audioStreamID =
+        (audio != null && audio.isNotEmpty) ? audio : _state.audioStreamID;
+    _subtitleStreamID = (subtitle != null && subtitle.isNotEmpty)
+        ? subtitle
+        : _state.subtitleStreamID;
+    _updateState(_state.copyWith(
+      audioStreamID: _audioStreamID,
+      subtitleStreamID: _subtitleStreamID,
+    ));
 
     // Re-transcode from the current position with the new stream selection.
     final offsetMs = _state.position.inMilliseconds;
@@ -701,10 +711,18 @@ class PlexService {
     _lastTickPosition = Duration.zero;
     _stalledTicks = 0;
     _stallWarned = false;
+    // Overrides are per-item; the transcode URL keeps sending none until the
+    // controller actually asks for a change.
     _audioStreamID = '';
     _subtitleStreamID = '';
+    // The live track selection, so the timeline can report what it advertises
+    // as controllable. Without it a controller opening its Settings panel has
+    // nothing to render and answers by stopping the cast.
+    final (selectedAudio, selectedSubtitle) = selectedStreamIds(metaXml);
     _updateState(
       _state.copyWith(
+        audioStreamID: selectedAudio,
+        subtitleStreamID: selectedSubtitle,
         currentUri: url,
         transportState: PlexTransportState.buffering,
         position: Duration(milliseconds: offsetMs),
