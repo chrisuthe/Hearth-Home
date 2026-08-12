@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hearth/services/dlna/dlna_renderer_state.dart';
@@ -211,6 +213,38 @@ void main() {
       ));
       expect(result.xml, contains('http-get:*:video/mp4:*'));
       expect(result.xml, contains('http-get:*:*:*'));
+    });
+  });
+
+  group('HTTP handler error handling', () {
+    test(
+        'a body-decode error inside the control handler is caught and '
+        'answered as HTTP 500, not left to hang unanswered', () async {
+      // Regression test for unawaited_return_in_try_block: _handleHttpRequest
+      // routes POST /AVTransport/control via `return _handleControl(request);`
+      // inside its try block. If that Future isn't awaited, the try's scope is
+      // already exited by the time _handleControl's body-decode throws, so the
+      // catch below never runs, no 500 is sent, and the connection just hangs.
+      final regressionService = DlnaService(playerFactory: () => fake);
+      await regressionService.configure(
+        enabled: true,
+        rendererName: 'Regression Renderer',
+        uuid: 'regression-uuid',
+      );
+      addTearDown(regressionService.dispose);
+
+      final client = HttpClient();
+      addTearDown(client.close);
+      final request = await client.postUrl(
+          Uri.parse('http://127.0.0.1:$kDlnaHttpPort$avtControlPath'));
+      // A lone 0xFF byte is invalid anywhere in a UTF-8 sequence, so
+      // `utf8.decoder.bind(request).join()` inside _handleControl throws.
+      request.add([0xFF, 0xFE, 0xFD]);
+      final response =
+          await request.close().timeout(const Duration(seconds: 2));
+
+      expect(response.statusCode, HttpStatus.internalServerError);
+      await response.drain();
     });
   });
 

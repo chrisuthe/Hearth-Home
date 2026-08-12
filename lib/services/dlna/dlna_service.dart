@@ -297,26 +297,26 @@ class DlnaService {
     final method = request.method;
     try {
       if (method == 'GET' && path == kDescriptionPath) {
-        return _serveXml(
+        return await _serveXml(
             request, deviceDescription(uuid: _uuid, friendlyName: _friendlyName));
       }
       if (method == 'GET' && path == avtScpdPath) {
-        return _serveXml(request, avTransportScpd);
+        return await _serveXml(request, avTransportScpd);
       }
       if (method == 'GET' && path == rcScpdPath) {
-        return _serveXml(request, renderingControlScpd);
+        return await _serveXml(request, renderingControlScpd);
       }
       if (method == 'GET' && path == cmScpdPath) {
-        return _serveXml(request, connectionManagerScpd);
+        return await _serveXml(request, connectionManagerScpd);
       }
       if (method == 'POST' &&
           (path == avtControlPath ||
               path == rcControlPath ||
               path == cmControlPath)) {
-        return _handleControl(request);
+        return await _handleControl(request);
       }
       if (method == 'SUBSCRIBE' || method == 'UNSUBSCRIBE') {
-        return _handleSubscription(request);
+        return await _handleSubscription(request);
       }
       request.response
         ..statusCode = HttpStatus.notFound
