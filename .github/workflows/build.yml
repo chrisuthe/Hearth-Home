@@ -7,9 +7,12 @@ on:
   pull_request:
     branches: [main]
 
+# Kept in step with .gitea/workflows/build.yml. GitHub-hosted runners get a
+# fresh VM per job so they don't hit the shared-toolcache race that motivated
+# this on Gitea, but the two files are maintained as a pair.
 concurrency:
-  group: build-${{ github.ref }}
-  cancel-in-progress: true
+  group: build
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -21,7 +24,11 @@ jobs:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
         with:
-          channel: stable
+          # Pinned, and deliberately the same version build-pi-image.yml uses to
+          # build the shipped bundle — `channel: stable` floated onto whatever
+          # Flutter had released that day, so tests validated a toolchain we
+          # don't ship. Bump both files together.
+          flutter-version: '3.38.0'
       - run: flutter pub get
       - run: flutter analyze --no-fatal-infos
       - run: flutter test
