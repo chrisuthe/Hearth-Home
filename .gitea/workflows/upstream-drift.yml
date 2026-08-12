@@ -1,0 +1,62 @@
+name: Upstream drift
+
+on:
+  schedule:
+    - cron: '31 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Check fork drift
+        id: drift
+        run: |
+          if ./scripts/check-upstream-drift.sh > drift-report.md; then
+            echo "drift=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "drift=true" >> "$GITHUB_OUTPUT"
+          fi
+          cat drift-report.md
+
+      - name: Open or update the drift issue
+        if: steps.drift.outputs.drift == 'true'
+        env:
+          GITEA_TOKEN: ${{ secrets.TOKEN }}
+        run: |
+          SERVER="${GITHUB_SERVER_URL}"
+          REPO="${GITHUB_REPOSITORY}"
+          TITLE="Upstream drift detected"
+
+          # Use python3 (not grep) to parse the issue-search response: the
+          # field order in Gitea's JSON isn't a contract, and a grep for
+          # "number":N is one API version bump away from silently matching
+          # the wrong field. python3 is already required below for the body
+          # encoding, so this keeps all JSON handling in one tool.
+          ISSUE=$(curl -s -H "Authorization: token ${GITEA_TOKEN}" \
+            "${SERVER}/api/v1/repos/${REPO}/issues?state=open&q=$(echo "$TITLE" | tr ' ' '+')" \
+            | python3 -c "import json,sys; d=json.load(sys.stdin); print(d[0]['number'] if d else '')")
+
+          BODY=$(python3 -c "import json,sys; print(json.dumps(open('drift-report.md').read()))")
+
+          if [ -n "$ISSUE" ]; then
+            curl -s -X PATCH \
+              -H "Authorization: token ${GITEA_TOKEN}" \
+              -H "Content-Type: application/json" \
+              -d "{\"body\": ${BODY}}" \
+              "${SERVER}/api/v1/repos/${REPO}/issues/${ISSUE}"
+            echo "Updated issue #${ISSUE}"
+          else
+            curl -s -X POST \
+              -H "Authorization: token ${GITEA_TOKEN}" \
+              -H "Content-Type: application/json" \
+              -d "{\"title\": \"${TITLE}\", \"body\": ${BODY}}" \
+              "${SERVER}/api/v1/repos/${REPO}/issues"
+            echo "Opened a new drift issue"
+          fi
