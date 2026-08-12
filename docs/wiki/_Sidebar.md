@@ -9,6 +9,7 @@
 
 **Modules & integrations**
 - [[Photos & Ambient Display]]
+- [[Weather]]
 - [[Home Assistant Controls]]
 - [[Music Assistant]]
 - [[Cameras (Frigate)]]
@@ -21,6 +22,8 @@
 - [[Notifications]]
 - [[Multi-Room Audio (Sendspin)]]
 - [[Cast to Hearth (DLNA)]]
+- [[Plex Cast]]
+- [[Live TV (Plex)]]
 
 **Device settings**
 - [[Display & Night Mode]]

@@ -13,11 +13,11 @@ where you are.
 Home is the center, and **Settings** is always the last screen on the right. When every
 screen is enabled, they fall left-to-right in this default order:
 
-**Music ← Alarms ← Home → Controls → Cameras → Recipes → *(Web Dashboards)* → Settings**
+**Music ← Alarms ← Home → Controls → Live TV → Cameras → Protect → Recipes → *(Web Dashboards)* → Settings**
 
 Out of the box, the enabled screens are **Music, Controls, and Cameras** — you turn on the
-others (Alarms, Recipes) as you set them up, and they take their position in that order. Any
-**[[Web Dashboards]]** you add slot in at their configured position.
+others (Alarms, Live TV, Protect, Recipes) as you set them up, and they take their position in
+that order. Any **[[Web Dashboards]]** you add slot in at their configured position.
 
 > On a desktop dev build you can also use the arrow keys: **←/→** move between screens, **↑**
 > jumps to Home, **↓** jumps to Settings.
@@ -63,5 +63,9 @@ After a period of no touch (the **Idle Timeout**, default 120 s — set under
 **[[Display|Display & Night Mode]]**), Hearth returns to Home, fades in the ambient clock and
 weather, and suspends any web dashboards to save resources. Touch the screen to wake it.
 
-Playing a **camera** stream or an active **timer/alarm** holds off the idle return so it isn't
-interrupted.
+Anything that's actively showing something holds off the idle return so it isn't interrupted:
+a playing **camera** stream, a running **timer** or **alarm**, an arriving
+**[[notification|Notifications]]**, a **[[DLNA|Cast to Hearth (DLNA)]]** or
+**[[Plex|Plex Cast]]** cast, and **[[Live TV|Live TV (Plex)]]** playback. Each of these also
+*wakes* the kiosk when it starts, so a cast or an alarm surfaces over the ambient screen on its
+own.

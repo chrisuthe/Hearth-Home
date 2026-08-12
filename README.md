@@ -11,8 +11,14 @@ https://youtube.com/watch?v=pPN4-EoO-Nc&feature=youtu.be
 - **Full-Bleed Photo Display** — Immich memories rotate behind a transparent home screen with clock, weather, and memory labels. Photo sources include "on this day" memories, a chosen album, photos of selected **people**, and free-text **smart search** (CLIP) — e.g. "beach" or "snow". The ambient crop is **face-aware**, biasing toward detected faces so people aren't cut off.
 - **Embedded Web Dashboards** — Render Home Assistant Lovelace dashboards (or any URL) as first-class swipe screens via WPE WebKit. Full touch (tap, long-press, vertical scroll), pipelines suspend when the kiosk goes idle and auto-restart on error, and HA dashboards are **token-injected** so they load already signed in.
 - **Home Assistant Controls** — Lights and climate cards over the HA WebSocket. Pin your most-used entities for quick access.
-- **Music Assistant** — Media playback with album art, transport controls, volume slider, and multi-zone support.
+- **Weather** — An ambient temperature readout on Home that opens a full-screen forecast: **animated condition scenes** (rain, snow, thunder, fog, sun, clear night), a 24-hour strip, an 8-day row, and per-day detail. Driven by any Home Assistant `weather.*` entity.
+- **Music Assistant** — A cinematic now-playing screen: album-art backdrop, a continuous-drag transport shelf that reveals the **queue** and a multi-player **mixer**, library browse with search, and multi-zone support.
 - **Frigate Cameras** — Live RTSP video streams from go2rtc with a snapshot grid. Tap a camera for full-screen live video; playback suppresses the idle timeout so streams aren't interrupted.
+- **UniFi Protect Cameras** — Protect cameras over the local API key, with the same snapshot grid and full-screen live streams.
+- **Plex Cast** — Hearth advertises itself on the LAN as a Plex player, so Plex apps can cast to the kiosk. Full-screen playback with a scrubbable transport, **Skip Intro** and **Next Episode** markers, and **play-queue** navigation with auto-advance.
+- **Plex Live TV** — Browse your Plex DVR's channel lineup on-device, tune a channel through the HDHomeRun grabber, and watch full-screen with channel up/down. Tuner grabs are torn down on every exit path so a tuner is never leaked.
+- **Cast to Hearth (DLNA)** — Acts as a UPnP/DLNA MediaRenderer, so a control point (BubbleUPnP, Windows "Cast to Device", HA's DLNA DMR integration) can push video to the kiosk.
+- **Notifications** — Push messages to the kiosk over MQTT or HTTP; they surface as a deck over whatever's on screen and wake the display.
 - **Recipes** — Browse and view recipes from Mealie with category filtering.
 - **Alarm Clock** — Scheduled alarms (recurring or one-time), separate from countdown timers, with optional sunrise lights, snooze, and Music Assistant or built-in alarm sounds.
 - **Timers** — Countdown timers with full-screen alerts that show over any screen.
@@ -22,6 +28,10 @@ https://youtube.com/watch?v=pPN4-EoO-Nc&feature=youtu.be
 - **System Volume** — Quick-access volume slider via configurable swipe menu.
 - **Configurable Gestures** — Top and bottom edge swipes can be mapped to menus, settings, or screen navigation.
 - **Night Mode** — Triggered by clock schedule, HA entity state, or external API call.
+- **Guided Setup** — A first-run wizard walks through the initial configuration before the kiosk shell takes over.
+- **Touch-First Input** — A built-in on-screen keyboard (auto / always / never) so text fields are usable without a keyboard attached, plus an optional touch indicator for demos and screen recordings.
+- **Display Profiles & UI Scale** — Presets for the 11" AMOLED, the official 7" touchscreen, and generic HDMI, with a manual resolution override and a 75–150% UI scale.
+- **Capture Tools** — Optional on-device screenshot and screen recording (ffmpeg `kmsgrab` against the DRM device, capturing the display scanout rather than the Flutter scene — so live video planes are included), with a download gallery in the web portal.
 - **Web Portal** — A full configuration portal at `http://hearth.local:8090` with near-complete parity to the on-device Settings: service setup, HA entity pickers, Immich photo-source pickers, screen enable/reorder, alarm editing, timezone, update source, capture tools, and more.
 - **OTA Updates** — Automatic app-bundle updates from GitHub or Gitea releases, with a selectable update source, manual force-update, a self-refreshing updater, and systemd rollback to the previous bundle on repeated failures.
 
@@ -35,11 +45,15 @@ Captured from a live Hearth kiosk (Raspberry Pi 5, 11" AMOLED).
 
 | Home Assistant Controls | Music Assistant |
 | --- | --- |
-| ![Pinned Home Assistant lights and climate controls](docs/screenshots/controls.png) | ![Music Assistant now-playing with album art and transport controls](docs/screenshots/music.png) |
+| ![Pinned Home Assistant lights and climate controls](docs/screenshots/controls.png) | ![Music Assistant cinematic now-playing with the expanded transport shelf, queue, and player mixer](docs/screenshots/music.png) |
 
 | Frigate Cameras | Settings — plugin sidebar |
 | --- | --- |
 | ![Frigate camera snapshot grid](docs/screenshots/cameras.png) | ![On-device Settings screen with the plugin sidebar](docs/screenshots/settings.png) |
+
+| Weather — full-screen forecast | Plex cast — playing |
+| --- | --- |
+| ![Full-screen weather forecast with an animated sun scene, hourly strip, and 8-day row](docs/screenshots/weather.png) | ![A Plex cast playing full-screen with the scrubber, transport, and volume bar](docs/screenshots/plex-cast.png) |
 
 ## Install on Raspberry Pi
 
@@ -88,8 +102,10 @@ Enter the PIN shown on the kiosk display. The portal mirrors the on-device Setti
 - **Home Assistant** — WebSocket URL + long-lived access token; pick pinned entities, the voice satellite, and the night-mode entity
 - **Immich** — Server URL + API key, then choose photo sources (memories, albums, people, smart search)
 - **Frigate** — Server URL (for camera streams, optional)
+- **UniFi Protect** — Controller URL + local API key (optional)
 - **Music Assistant** — Server URL + token (optional)
 - **Mealie** — Server URL + token (for recipes, optional)
+- **Plex Cast** — Player name + enable toggle (pairing with plex.tv is on-device only)
 - **Web Dashboards** — Add Home Assistant Lovelace dashboards or arbitrary URLs as swipe screens
 - **MQTT** — Broker URL (+ optional credentials) to expose Hearth as a Home Assistant device (see [docs/home-assistant-mqtt-setup.md](docs/home-assistant-mqtt-setup.md))
 - **Screens & Order** — Enable/disable screens and set their swipe order
@@ -117,15 +133,17 @@ curl -sL https://raw.githubusercontent.com/chrisuthe/Hearth-Home/main/scripts/se
 
 Swipe-based horizontal navigation. The screens and their order are configurable; by default:
 
-**Music ← Alarm ← Home → Controls → Cameras → Recipes → Settings**
+**Music ← Alarms ← Home → Controls → Live TV → Cameras → Protect → Recipes → Settings**
 
-Any **Web Dashboards** you add appear as additional swipe screens in their configured position. The Home screen is transparent over the photo carousel — photos are always visible — while other screens use a dark background for readability.
+Out of the box only **Music, Controls, and Cameras** are enabled; the rest are turned on as you configure them. Any **Web Dashboards** you add appear as additional swipe screens in their configured position. Modules can also be tucked into one of the two edge menus instead of taking a swipe slot. The Home screen is transparent over the photo carousel — photos are always visible — while other screens use a dark background for readability.
 
 Configurable edge swipe menus slide in from top/bottom without dimming the background.
 
 ### Module System
 
-Optional screens implement the `HearthModule` interface (`lib/modules/hearth_module.dart`). Each module provides a screen, a settings section, and enable/disable + placement support. The registered modules are **Alarm Clock, Music, Controls, Cameras, and Recipes (Mealie)** (`lib/modules/module_registry.dart`). **Web Dashboards** are dynamic: one `WebviewModule` is synthesized per configured dashboard, so they aren't a fixed entry in the list — they're driven by your config.
+Optional screens implement the `HearthModule` interface (`lib/modules/hearth_module.dart`). Each module provides a screen, a settings section, and enable/disable + placement support. The registered modules are **Alarm Clock, Music, Controls, Cameras (Frigate), Protect (UniFi), Recipes (Mealie), and Live TV** (`lib/modules/module_registry.dart`). **Web Dashboards** are dynamic: one `WebviewModule` is synthesized per configured dashboard, so they aren't a fixed entry in the list — they're driven by your config.
+
+Modules are placed rather than merely enabled: `modulePlacements` maps a module ID to one or more surfaces (`swipe`, `menu1`, `menu2`), so a screen can live in the swipe row, an edge menu, or both.
 
 ### Embedded Web Dashboards (WPE)
 
@@ -134,6 +152,15 @@ Webview screens render web content with **WPE WebKit** through a GStreamer `wpev
 ### Plugin Settings & Web Portal
 
 Settings are organized as **plugins** (`lib/plugins/`). Each plugin renders itself twice from one definition: a Flutter widget for the on-device Settings sidebar and an HTML fragment for the `:8090` web portal — which is why the portal stays at near-full parity with the device. The portal is served by `LocalApiServer` (`lib/services/local_api_server.dart`): the page is PIN-gated, and the `/api/*` endpoints accept either the web-session cookie or a `Bearer` API key.
+
+### Plex: Two Roles, One Pairing
+
+Hearth talks to Plex in two opposite directions, and they share the account token from a single on-device `plex.tv/link` pairing:
+
+- **Cast sink** (`lib/services/plex/`) — Hearth advertises itself over **GDM** as a Plex player. Plex apps push media to it, and Hearth serves the Plex Companion control endpoints. It parses intro and credits markers to drive the **Skip Intro** / **Next Episode** buttons, and follows the **play queue** for prev/next and auto-advance.
+- **Client** (`lib/services/plex/livetv/`) — Live TV *initiates* playback: it resolves the owned server and its DVR from the account token, lists channels, tunes through the HDHomeRun grabber, and plays the result. Every exit path issues the teardown so a tuner isn't leaked.
+
+The transcode path keeps a **local guard that the PMS decision cannot override**: HEVC, 4K, and interlaced sources are transcoded regardless of what the server decides. The two sources of truth can disagree, and letting the server win silently reintroduced an interlaced-playback bug — so each routing decision logs which source produced it.
 
 ### Home Assistant Device (MQTT)
 

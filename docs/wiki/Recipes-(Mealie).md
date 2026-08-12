@@ -4,6 +4,8 @@ The **Recipes** screen browses and displays recipes from your
 [Mealie](https://mealie.io/) server — handy for pulling up a recipe on the kiosk while you
 cook.
 
+![The Recipes screen showing a grid of recipe cards](images/recipes.png)
+
 ## Connect Mealie
 
 In the [[web portal|The Web Portal]], open **Mealie** and enter:

@@ -3,8 +3,8 @@
 **Hearth** is an open-source smart-home kiosk — a Google Nest Hub replacement built
 for a Raspberry Pi 5 with an 11" AMOLED display. It rotates your Immich photos behind
 an ambient clock and weather, and gives you swipe-away screens for Home Assistant
-controls, Music Assistant playback, Frigate cameras, recipes, alarms, and embedded web
-dashboards.
+controls, Music Assistant playback, Frigate and UniFi Protect cameras, recipes, alarms,
+live TV, and embedded web dashboards.
 
 ![Hearth home screen with ambient clock and weather over an Immich photo](images/home.png)
 
@@ -28,8 +28,9 @@ Each page covers **how to connect it** (which URL/token/key, and where to enter 
 | Page | What it is |
 | --- | --- |
 | [[Photos & Ambient Display]] | Immich photo memories, albums, people, smart search; clock + weather overlays |
+| [[Weather]] | The ambient readout and the full-screen animated forecast |
 | [[Home Assistant Controls]] | Lights & climate cards over the HA WebSocket; pinned entities |
-| [[Music Assistant]] | Now-playing, transport, volume, multi-zone playback |
+| [[Music Assistant]] | Cinematic now-playing, drag-up transport shelf, library browse, multi-zone |
 | [[Cameras (Frigate)]] | Snapshot grid and full-screen live camera streams |
 | [[Cameras (UniFi Protect)]] | UniFi Protect cameras via the local API key: snapshot grid and full-screen live streams |
 | [[Recipes (Mealie)]] | Browse and view recipes with category filtering |
@@ -37,8 +38,11 @@ Each page covers **how to connect it** (which URL/token/key, and where to enter 
 | [[Alarms & Timers]] | Scheduled alarms (sunrise, snooze) and countdown timers |
 | [[Voice Satellite]] | Mute/unmute a Home Assistant Assist satellite |
 | [[Home Assistant Device (MQTT)]] | Expose Hearth to Home Assistant as an MQTT device |
+| [[Notifications]] | Push messages to the kiosk over MQTT or HTTP |
 | [[Multi-Room Audio (Sendspin)]] | Use Hearth as a synced Music Assistant player |
 | [[Cast to Hearth (DLNA)]] | Cast video to the kiosk from a phone |
+| [[Plex Cast]] | Cast from Plex apps to the kiosk; skip intro/credits, play queues |
+| [[Live TV (Plex)]] | Browse and watch your Plex DVR's live channels on the kiosk |
 
 ## Device settings
 
