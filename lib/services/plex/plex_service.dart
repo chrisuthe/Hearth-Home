@@ -397,7 +397,31 @@ class PlexService {
     // Plex Web polls instead of subscribing — answer with the current timeline,
     // do not track it as a persistent subscriber.
     final commandID = int.tryParse(request.uri.queryParameters['commandID'] ?? '') ?? 0;
-    await _serveXml(request, _currentTimelineXml(commandID));
+    final wait = request.uri.queryParameters['wait'] == '1';
+    await _serveXml(request, await timelineForPoll(commandID, wait: wait));
+  }
+
+  /// The timeline body for a poll.
+  ///
+  /// `wait=1` means the controller is **long-polling**: hold the response until
+  /// the timeline actually changes, then answer. Answering immediately is
+  /// legal-looking but makes the controller re-poll at once — measured at
+  /// 24,453 polls in four minutes against the device, a busy loop that burns
+  /// CPU on both ends for nothing.
+  ///
+  /// Bounded by [kPlexPollHold] so a quiet player still answers (the controller
+  /// re-polls on its own after that) rather than leaving a socket open forever.
+  @visibleForTesting
+  Future<String> timelineForPoll(int commandID, {bool wait = false}) async {
+    if (wait) {
+      try {
+        await _stateController.stream.first.timeout(kPlexPollHold);
+      } catch (_) {
+        // Window expired, or the service shut down mid-hold: fall through and
+        // answer with the current timeline.
+      }
+    }
+    return _currentTimelineXml(commandID);
   }
 
   // ---------------------------------------------------------------------------
@@ -505,8 +529,18 @@ class PlexService {
 
     // Merge the requested selection over the current one — the panel may send
     // only the stream that changed. '0' is a real value (subtitles off).
-    if (audio != null && audio.isNotEmpty) _audioStreamID = audio;
-    if (subtitle != null && subtitle.isNotEmpty) _subtitleStreamID = subtitle;
+    // Merge over the live selection in state, which was read from the item's
+    // metadata on cast — so an unchanged track keeps its real id rather than
+    // reverting to "unset".
+    _audioStreamID =
+        (audio != null && audio.isNotEmpty) ? audio : _state.audioStreamID;
+    _subtitleStreamID = (subtitle != null && subtitle.isNotEmpty)
+        ? subtitle
+        : _state.subtitleStreamID;
+    _updateState(_state.copyWith(
+      audioStreamID: _audioStreamID,
+      subtitleStreamID: _subtitleStreamID,
+    ));
 
     // Re-transcode from the current position with the new stream selection.
     final offsetMs = _state.position.inMilliseconds;
@@ -701,10 +735,18 @@ class PlexService {
     _lastTickPosition = Duration.zero;
     _stalledTicks = 0;
     _stallWarned = false;
+    // Overrides are per-item; the transcode URL keeps sending none until the
+    // controller actually asks for a change.
     _audioStreamID = '';
     _subtitleStreamID = '';
+    // The live track selection, so the timeline can report what it advertises
+    // as controllable. Without it a controller opening its Settings panel has
+    // nothing to render and answers by stopping the cast.
+    final (selectedAudio, selectedSubtitle) = selectedStreamIds(metaXml);
     _updateState(
       _state.copyWith(
+        audioStreamID: selectedAudio,
+        subtitleStreamID: selectedSubtitle,
         currentUri: url,
         transportState: PlexTransportState.buffering,
         position: Duration(milliseconds: offsetMs),

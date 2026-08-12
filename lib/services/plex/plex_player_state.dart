@@ -58,6 +58,14 @@ class PlexPlayerState {
   final bool hasNext;
   final bool hasPrev;
 
+  /// The live track selection — read from the item's metadata on cast, updated
+  /// by `setStreams`. Reported in the timeline because we advertise
+  /// `audioStream`/`subtitleStream` as controllable, and a controller that
+  /// opens its Settings panel needs to know which track is playing.
+  /// `subtitleStreamID` of `'0'` means subtitles off.
+  final String audioStreamID;
+  final String subtitleStreamID;
+
   const PlexPlayerState({
     this.transportState = PlexTransportState.stopped,
     this.currentUri = '',
@@ -80,6 +88,8 @@ class PlexPlayerState {
     this.creditsEndMs = 0,
     this.hasNext = false,
     this.hasPrev = false,
+    this.audioStreamID = '',
+    this.subtitleStreamID = '',
   });
 
   /// True when a video is cast — drives whether the kiosk overlay is shown.
@@ -115,6 +125,8 @@ class PlexPlayerState {
         token: token,
         timeMs: position.inMilliseconds,
         durationMs: duration.inMilliseconds,
+        audioStreamID: audioStreamID,
+        subtitleStreamID: subtitleStreamID,
       );
 
   PlexPlayerState copyWith({
@@ -139,6 +151,8 @@ class PlexPlayerState {
     int? creditsEndMs,
     bool? hasNext,
     bool? hasPrev,
+    String? audioStreamID,
+    String? subtitleStreamID,
   }) {
     return PlexPlayerState(
       transportState: transportState ?? this.transportState,
@@ -162,6 +176,8 @@ class PlexPlayerState {
       creditsEndMs: creditsEndMs ?? this.creditsEndMs,
       hasNext: hasNext ?? this.hasNext,
       hasPrev: hasPrev ?? this.hasPrev,
+      audioStreamID: audioStreamID ?? this.audioStreamID,
+      subtitleStreamID: subtitleStreamID ?? this.subtitleStreamID,
     );
   }
 }

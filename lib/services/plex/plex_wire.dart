@@ -18,6 +18,11 @@ import 'dart:convert';
 /// Sendspin (8928), mirroring the "one server per integration" pattern.
 const int kPlexHttpPort = 8296;
 
+/// How long a `wait=1` (long-poll) timeline request is held before answering
+/// with the current state. The controller re-polls on its own afterwards, so
+/// this only bounds how long one socket stays open.
+const Duration kPlexPollHold = Duration(seconds: 30);
+
 /// GDM (G'Day Mate) discovery — ports fixed by Plex. A *player* listens on
 /// [kPlexGdmPort] for controller `M-SEARCH` probes (arriving as a
 /// 255.255.255.255 broadcast) and joins [kPlexGdmMulticast]. Proactive
@@ -130,6 +135,12 @@ class PlexTimelineMedia {
   final int timeMs;
   final int durationMs;
 
+  /// The live track selection, mirroring the `audioStream`/`subtitleStream`
+  /// entries this timeline advertises as controllable. Emitted only when set;
+  /// `subtitleStreamID` of `'0'` means subtitles off.
+  final String audioStreamID;
+  final String subtitleStreamID;
+
   const PlexTimelineMedia({
     this.key = '',
     this.ratingKey = '',
@@ -141,6 +152,8 @@ class PlexTimelineMedia {
     this.token = '',
     this.timeMs = 0,
     this.durationMs = 0,
+    this.audioStreamID = '',
+    this.subtitleStreamID = '',
   });
 }
 
@@ -172,8 +185,17 @@ String timelineXml({
       ..write('address="${xmlEscape(media.address)}" ')
       ..write('port="${xmlEscape(media.port)}" ')
       ..write('token="${xmlEscape(media.token)}" ')
-      ..write('volume="$volume" ')
-      ..write('controllable="$_videoControllable"/>');
+      ..write('volume="$volume" ');
+    // Report the live selection for the tracks we claim to control. Without
+    // these the controller's Settings panel has nothing to render.
+    if (media.audioStreamID.isNotEmpty) {
+      videoEntry.write('audioStreamID="${xmlEscape(media.audioStreamID)}" ');
+    }
+    if (media.subtitleStreamID.isNotEmpty) {
+      videoEntry
+          .write('subtitleStreamID="${xmlEscape(media.subtitleStreamID)}" ');
+    }
+    videoEntry.write('controllable="$_videoControllable"/>');
   } else {
     videoEntry.write('state="stopped" controllable="$_videoControllable"/>');
   }
@@ -595,6 +617,32 @@ IntroMarker? introMarker(String metadataXml) =>
 /// "Next Episode" affordance.
 IntroMarker? creditsMarker(String metadataXml) =>
     _markerOfType(metadataXml, const ['credits', 'credit']);
+
+final RegExp _streamIdRe = RegExp(r'\bid="([^"]*)"');
+
+/// The currently selected `(audioStreamID, subtitleStreamID)` from an item's
+/// metadata. Plex marks the active track with `selected="1"` on the `<Stream>`;
+/// `streamType="2"` is audio and `"3"` is subtitles.
+///
+/// Subtitles report `"0"` when nothing is selected — that is Plex's id for
+/// "none", not a missing value, and the Settings panel renders it as Off.
+///
+/// The timeline advertises `audioStream`/`subtitleStream` as controllable, so
+/// it has to report which track is live; a controller that opens its Settings
+/// panel with nothing to render gives up and stops the cast.
+(String, String) selectedStreamIds(String metadataXml) {
+  var audio = '';
+  var subtitle = '0';
+  for (final m in _streamTagRe.allMatches(metadataXml)) {
+    final tag = m.group(0)!;
+    if (!tag.contains('selected="1"')) continue;
+    final id = _streamIdRe.firstMatch(tag)?.group(1) ?? '';
+    if (id.isEmpty) continue;
+    if (tag.contains('streamType="2"')) audio = id;
+    if (tag.contains('streamType="3"')) subtitle = id;
+  }
+  return (audio, subtitle);
+}
 
 /// The `scanType` of the video `<Stream streamType="1">` (the H.264 stream).
 /// Attribute order isn't guaranteed, so scan each `<Stream>` tag and pull
