@@ -140,7 +140,7 @@ Fix: tag the fork (`v1.0.0`, incrementing per merged change), pin `setup-pi.sh` 
 1. Fetch upstream and fork.
 2. Read `UPSTREAM_PIN` from the fork.
 3. Compare against upstream HEAD; count commits between.
-4. If non-zero, open or update a Gitea issue titled `Upstream drift: <fork> is N commits behind`, listing the commit subjects.
+4. If non-zero, open or update a Gitea issue titled `Upstream drift detected`, listing the commit subjects. The title is a fixed string rather than embedding the fork name or count so the workflow can find and update the same issue on subsequent runs instead of opening duplicates.
 
 Comparing against `UPSTREAM_PIN` rather than raw branch distance keeps the check consistent with the fork's existing rebase procedure, which is already documented in the fork design doc.
 

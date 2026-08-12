@@ -93,6 +93,11 @@
       "groupName": null
     },
     {
+      "description": "lockFileMaintenance is never automerged, even though it is not a 'major'. It runs weekly regardless — this only stops it from self-merging. A weekly `pub upgrade` can raise pubspec.lock's `sdks: flutter:` floor without touching pubspec.yaml or matching any depName above, so the toolchain carve-out can't catch it: lockFileMaintenance branches have no depName to match. Desktop CI uses `channel: stable` and would stay green on a raised floor while the Pi's pinned, older Flutter breaks. Must stay below both the broad automerge rule and the toolchain carve-out above: Renovate applies packageRules in order and later matches win.",
+      "matchUpdateTypes": ["lockFileMaintenance"],
+      "automerge": false
+    },
+    {
       "description": "Majors always get a human.",
       "matchUpdateTypes": ["major"],
       "automerge": false,

@@ -11,12 +11,22 @@
 # Comparing against the pin — rather than raw branch distance — matches the
 # rebase procedure in docs/specs/2026-05-08-flutter-pi-fork-and-mirror-design.md.
 #
-# Prints a markdown report on stdout. Exit 0 = all level, exit 1 = drift found.
+# Prints a markdown report on stdout. Exit contract (the caller must branch on
+# it, not just treat non-zero as drift):
+#   0 = all forks level
+#   1 = drift found (the only case that should open/update an issue)
+#   2 = the check itself failed (fetch error, unreadable pin, etc.) — not a
+#       drift result, and callers must not report it as one.
 
-set -euo pipefail
+set -Eeuo pipefail
 
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
+# -E (errtrace) is required above: without it, an ERR trap is not inherited
+# into shell functions, so a failure inside check_fork (e.g. a bad git fetch)
+# would fall straight through set -e with git's raw exit code instead of
+# going through this trap.
+trap 'echo "check-upstream-drift: check failed unexpectedly (line $LINENO)" >&2; exit 2' ERR
 
 DRIFT=0
 
