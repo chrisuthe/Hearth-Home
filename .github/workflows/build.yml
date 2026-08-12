@@ -7,9 +7,12 @@ on:
   pull_request:
     branches: [main]
 
+# Kept in step with .gitea/workflows/build.yml. GitHub-hosted runners get a
+# fresh VM per job so they don't hit the shared-toolcache race that motivated
+# this on Gitea, but the two files are maintained as a pair.
 concurrency:
-  group: build-${{ github.ref }}
-  cancel-in-progress: true
+  group: build
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -21,7 +24,16 @@ jobs:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
         with:
-          channel: stable
+          # Pinned rather than `channel: stable`, which floated onto whatever
+          # Flutter had released that day — so a Flutter release could turn CI
+          # red without a commit, and the toolcache was re-extracted each time.
+          #
+          # This must satisfy pubspec.yaml's `sdk: ^3.11.4`. It intentionally
+          # does NOT match build-pi-image.yml's 3.38.0 pin: that job runs
+          # scripts/prepare-pi-build.sh first, which rewrites the constraint
+          # down to ^3.7.0, so the Pi toolchain can't resolve this pubspec as
+          # written. Bump this when the pubspec SDK floor moves.
+          flutter-version: '3.44.9'
       - run: flutter pub get
       - run: flutter analyze --no-fatal-infos
       - run: flutter test
