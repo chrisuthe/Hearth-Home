@@ -32,9 +32,9 @@ dependencies:
   flutterpi_gstreamer_video_player:
     git:
       url: https://github.com/chrisuthe/flutterpi_gstreamer_video_player-hearth.git
-      # webviewInitScript API (HA token injection). Bump back to `main` once
-      # the plugin PR merges.
-      ref: chrisuthe/feat/webview-init-script
+      # Tagged, not a branch: branch pins float, and Renovate's github-tags
+      # datasource needs a tag to compare against.
+      ref: v0.2.0-hearth.1
       path: packages/flutterpi_gstreamer_video_player
   mqtt_client: ^10.11.11
   qr_flutter: ^4.1.0
