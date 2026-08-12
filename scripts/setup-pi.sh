@@ -78,14 +78,20 @@ fi
 # Patches live as commits on the `hearth` branch of the fork. See
 # UPSTREAM_PIN in the fork repo for which upstream commit it tracks.
 # Primary: Gitea (private, home network). Fallback: GitHub mirror.
+#
+# Pinned to a tag, not `hearth`: a branch clone means two Pis provisioned a
+# week apart run different binaries with no record of which. Renovate bumps
+# this tag under review (never automerged) — see
+# docs/specs/2026-08-12-dependency-maintenance-process-design.md.
+FORK_TAG="v1.0.0"
 FORK_GITEA="https://registry.home.chrisuthe.com/chris/flutter-pi-hearth.git"
 FORK_GITHUB="https://github.com/chrisuthe/flutter-pi-hearth.git"
-echo "Building flutter-pi from Hearth fork..."
+echo "Building flutter-pi from Hearth fork (${FORK_TAG})..."
 cd /tmp
 rm -rf flutter-pi
-if ! git clone --depth 1 -b hearth "$FORK_GITEA" flutter-pi 2>/dev/null; then
+if ! git clone --depth 1 -b "$FORK_TAG" "$FORK_GITEA" flutter-pi 2>/dev/null; then
     echo "Gitea unreachable, falling back to GitHub mirror..."
-    git clone --depth 1 -b hearth "$FORK_GITHUB" flutter-pi
+    git clone --depth 1 -b "$FORK_TAG" "$FORK_GITHUB" flutter-pi
 fi
 cd flutter-pi
 
