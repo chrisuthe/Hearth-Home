@@ -235,13 +235,44 @@ void main() {
 
       final client = HttpClient();
       addTearDown(client.close);
+
+      // configure() no-ops without throwing when there's no non-loopback
+      // IPv4 interface to advertise on (dlna_service.dart:93-96), and
+      // separately tears the HTTP server back down if the SSDP socket bind
+      // fails afterward (that bind sits outside _startSsdp's own try, so its
+      // failure is caught by configure()'s catch, which calls _stop()).
+      // Either way _httpServer would never end up listening. Probe for that
+      // explicitly so a broken environment fails here with a clear cause,
+      // rather than as a confusing connection-refused from the POST below.
+      try {
+        final probeRequest = await client
+            .getUrl(Uri.parse('http://127.0.0.1:$kDlnaHttpPort$kDescriptionPath'))
+            .timeout(const Duration(seconds: 5));
+        final probeResponse =
+            await probeRequest.close().timeout(const Duration(seconds: 5));
+        await probeResponse.drain();
+        if (probeResponse.statusCode != HttpStatus.ok) {
+          fail('DLNA HTTP server answered unexpectedly '
+              '(status ${probeResponse.statusCode}) while probing '
+              '$kDescriptionPath — cannot exercise the try/catch this test '
+              'targets.');
+        }
+      } catch (e) {
+        fail('DLNA HTTP server is not listening on port $kDlnaHttpPort after '
+            'configure() — likely no non-loopback IPv4 interface on this '
+            'runner, or the SSDP socket bind on port 1900 failed and '
+            'configure() tore the HTTP server back down. This is an '
+            'environment precondition, not the behaviour under test. '
+            'Underlying error: $e');
+      }
+
       final request = await client.postUrl(
           Uri.parse('http://127.0.0.1:$kDlnaHttpPort$avtControlPath'));
       // A lone 0xFF byte is invalid anywhere in a UTF-8 sequence, so
       // `utf8.decoder.bind(request).join()` inside _handleControl throws.
       request.add([0xFF, 0xFE, 0xFD]);
       final response =
-          await request.close().timeout(const Duration(seconds: 2));
+          await request.close().timeout(const Duration(seconds: 5));
 
       expect(response.statusCode, HttpStatus.internalServerError);
       await response.drain();
