@@ -14,7 +14,7 @@ jobs:
     name: Cross-compile Flutter bundle
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: subosito/flutter-action@v2
         with:
@@ -59,7 +59,7 @@ jobs:
           sha256sum hearth-bundle-*.tar.gz > hearth-bundle-${VERSION:-dev}.sha256
 
       - name: Upload bundle artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: hearth-bundle
           path: |
@@ -75,10 +75,10 @@ jobs:
       contents: write
     steps:
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
 
       - name: Create release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: |
             hearth-bundle/hearth-bundle-*.tar.gz
