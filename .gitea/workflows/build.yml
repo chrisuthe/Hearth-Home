@@ -28,11 +28,10 @@ jobs:
           # Flutter had released that day — so a Flutter release could turn CI
           # red without a commit, and the toolcache was re-extracted each time.
           #
-          # This must satisfy pubspec.yaml's `sdk: ^3.11.4`. It intentionally
-          # does NOT match build-pi-image.yml's 3.38.0 pin: that job runs
-          # scripts/prepare-pi-build.sh first, which rewrites the constraint
-          # down to ^3.7.0, so the Pi toolchain can't resolve this pubspec as
-          # written. Bump this when the pubspec SDK floor moves.
+          # All four workflow files (GitHub + Gitea, desktop + Pi) share this
+          # single value. Renovate keys updates on name + current value, so a
+          # split here produces competing update branches. Bump all four
+          # together, and only after flutterpi_tool supports the new version.
           flutter-version: '3.44.9'
       - run: flutter pub get
       - run: flutter analyze --no-fatal-infos
