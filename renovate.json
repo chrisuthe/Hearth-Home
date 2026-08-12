@@ -80,9 +80,10 @@
       "groupName": "github actions"
     },
     {
-      "description": "Toolchain and forks are never automerged, at any update type. flutterpi_tool must ship arm64 engine support before the Pi can build a Flutter version, and that has lagged by up to nine weeks — a green desktop CI run proves nothing about it. Bump flutterpi_tool first, then Flutter to whatever it unlocked. See docs/specs/2026-08-12-dependency-maintenance-process-design.md.",
+      "description": "Toolchain and forks are never automerged, at any update type. flutterpi_tool must ship arm64 engine support before the Pi can build a Flutter version, and that has lagged by up to nine weeks — a green desktop CI run proves nothing about it. Bump flutterpi_tool first, then Flutter to whatever it unlocked. 'dart' is the pubspec `environment: sdk:` constraint (datasource dart-version) — the desktop workflow uses `channel: stable` so it would stay green on a raised floor while the Pi's pinned, older Flutter breaks, so it never automerges either. This rule must stay below the broad automerge rule above: Renovate applies packageRules in order and later matches win, so any new automerge rule must be added ABOVE this one, not below. See docs/specs/2026-08-12-dependency-maintenance-process-design.md.",
       "matchDepNames": [
         "flutter",
+        "dart",
         "flutterpi_tool",
         "chrisuthe/flutter-pi-hearth",
         "chrisuthe/flutterpi_gstreamer_video_player-hearth",
