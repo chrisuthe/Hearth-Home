@@ -1,0 +1,30 @@
+name: Renovate
+
+on:
+  schedule:
+    - cron: '3 6 * * 1'
+  workflow_dispatch:
+
+jobs:
+  renovate:
+    runs-on: ubuntu-latest
+    container:
+      image: renovate/renovate:41
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Renovate
+        run: renovate
+        env:
+          RENOVATE_PLATFORM: gitea
+          RENOVATE_ENDPOINT: https://registry.home.chrisuthe.com/api/v1
+          RENOVATE_TOKEN: ${{ secrets.RENOVATE_TOKEN }}
+          RENOVATE_REPOSITORIES: chris/Hearth
+          RENOVATE_GIT_AUTHOR: 'Renovate <renovate@chrisuthe.com>'
+          RENOVATE_ONBOARDING: 'false'
+          RENOVATE_REQUIRE_CONFIG: 'required'
+          # GitHub datasources (github-tags, flutter-version) are rate-limited
+          # hard for anonymous callers. Without this, lookups fail intermittently
+          # and Renovate reports "no updates" rather than an error.
+          GITHUB_COM_TOKEN: ${{ secrets.GITHUB_COM_TOKEN }}
+          LOG_LEVEL: info
