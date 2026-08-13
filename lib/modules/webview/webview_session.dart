@@ -158,7 +158,7 @@ class WebviewSession extends ChangeNotifier {
         Log.w('Webview', 'size caps gave Size.zero for $url; '
             'rebuilding without caps');
         await _teardownForFallback();
-        return _initController();
+        return await _initController();
       }
 
       Log.i('Webview', 'controller initialized for $url '

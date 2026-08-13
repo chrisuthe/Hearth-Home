@@ -1,0 +1,107 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "timezone": "America/Chicago",
+  "schedule": ["before 6am on monday"],
+  "dependencyDashboard": true,
+  "dependencyDashboardTitle": "Dependency Dashboard",
+  "prConcurrentLimit": 5,
+  "prHourlyLimit": 2,
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["before 6am on monday"]
+  },
+  "github-actions": {
+    "managerFilePatterns": [
+      "/^\\.github/workflows/[^/]+\\.ya?ml$/",
+      "/^\\.gitea/workflows/[^/]+\\.ya?ml$/"
+    ]
+  },
+  "customManagers": [
+    {
+      "description": "Flutter SDK pin across all four workflow files.",
+      "customType": "regex",
+      "managerFilePatterns": ["/^\\.(github|gitea)/workflows/[^/]+\\.ya?ml$/"],
+      "matchStrings": ["flutter-version:\\s*'(?<currentValue>[0-9.]+)'"],
+      "depNameTemplate": "flutter",
+      "datasourceTemplate": "flutter-version"
+    },
+    {
+      "description": "flutterpi_tool, activated via dart pub global.",
+      "customType": "regex",
+      "managerFilePatterns": ["/^\\.(github|gitea)/workflows/[^/]+\\.ya?ml$/"],
+      "matchStrings": ["dart pub global activate flutterpi_tool (?<currentValue>[0-9.]+)"],
+      "depNameTemplate": "flutterpi_tool",
+      "datasourceTemplate": "dart"
+    },
+    {
+      "description": "sendspin_dart git tag.",
+      "customType": "regex",
+      "managerFilePatterns": ["/^pubspec\\.yaml$/"],
+      "matchStrings": ["url: https://github\\.com/chrisuthe/sendspin_dart\\.git\\s+ref: (?<currentValue>v[0-9.]+)"],
+      "depNameTemplate": "chrisuthe/sendspin_dart",
+      "datasourceTemplate": "github-tags"
+    },
+    {
+      "description": "GStreamer plugin fork git tag.",
+      "customType": "regex",
+      "managerFilePatterns": ["/^pubspec\\.yaml$/"],
+      "matchStrings": ["ref: (?<currentValue>v[0-9][0-9a-zA-Z.\\-]*)\\s+path: packages/flutterpi_gstreamer_video_player"],
+      "depNameTemplate": "chrisuthe/flutterpi_gstreamer_video_player-hearth",
+      "datasourceTemplate": "github-tags"
+    },
+    {
+      "description": "flutter-pi fork tag used by the Pi provisioning script.",
+      "customType": "regex",
+      "managerFilePatterns": ["/^scripts/setup-pi\\.sh$/"],
+      "matchStrings": ["FORK_TAG=\"(?<currentValue>v[0-9.]+)\""],
+      "depNameTemplate": "chrisuthe/flutter-pi-hearth",
+      "datasourceTemplate": "github-tags"
+    }
+  ],
+  "packageRules": [
+    {
+      "description": "Automerge everything non-major once CI is green.",
+      "matchUpdateTypes": ["patch", "minor", "pin", "digest", "lockFileMaintenance"],
+      "automerge": true,
+      "automergeType": "pr",
+      "platformAutomerge": true
+    },
+    {
+      "description": "All non-major pub updates land as one weekly PR.",
+      "matchManagers": ["pub"],
+      "matchUpdateTypes": ["patch", "minor"],
+      "groupName": "pub packages"
+    },
+    {
+      "description": "Action bumps get their own group.",
+      "matchManagers": ["github-actions"],
+      "matchUpdateTypes": ["patch", "minor"],
+      "groupName": "github actions"
+    },
+    {
+      "description": "Toolchain and forks are never automerged, at any update type. flutterpi_tool must ship arm64 engine support before the Pi can build a Flutter version, and that has lagged by up to nine weeks — a green desktop CI run proves nothing about it. Bump flutterpi_tool first, then Flutter to whatever it unlocked. 'dart' is the pubspec `environment: sdk:` constraint (datasource dart-version) — the desktop workflow uses `channel: stable` so it would stay green on a raised floor while the Pi's pinned, older Flutter breaks, so it never automerges either. This rule must stay below the broad automerge rule above: Renovate applies packageRules in order and later matches win, so any new automerge rule must be added ABOVE this one, not below. See docs/specs/2026-08-12-dependency-maintenance-process-design.md.",
+      "matchDepNames": [
+        "flutter",
+        "dart",
+        "flutterpi_tool",
+        "chrisuthe/flutter-pi-hearth",
+        "chrisuthe/flutterpi_gstreamer_video_player-hearth",
+        "chrisuthe/sendspin_dart"
+      ],
+      "automerge": false,
+      "groupName": null
+    },
+    {
+      "description": "lockFileMaintenance is never automerged, even though it is not a 'major'. It runs weekly regardless — this only stops it from self-merging. A weekly `pub upgrade` can raise pubspec.lock's `sdks: flutter:` floor without touching pubspec.yaml or matching any depName above, so the toolchain carve-out can't catch it: lockFileMaintenance branches have no depName to match. Desktop CI uses `channel: stable` and would stay green on a raised floor while the Pi's pinned, older Flutter breaks. Must stay below both the broad automerge rule and the toolchain carve-out above: Renovate applies packageRules in order and later matches win.",
+      "matchUpdateTypes": ["lockFileMaintenance"],
+      "automerge": false
+    },
+    {
+      "description": "Majors always get a human.",
+      "matchUpdateTypes": ["major"],
+      "automerge": false,
+      "groupName": null
+    }
+  ]
+}

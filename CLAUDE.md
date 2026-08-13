@@ -106,3 +106,26 @@ The default branch is `main`. All PRs target `main`.
 - Tests use `flutter_test` + `mockito`. WebSocket tests use custom `FakeWebSocketChannel` classes
 - Dark theme with true black background (`Colors.black`) for AMOLED power savings
 - Color accent: indigo `0xFF646CFF`
+
+## Dependency maintenance
+
+Renovate runs weekly on Gitea Actions (`.gitea/workflows/renovate.yml`, config
+in `renovate.json`). Packages and Actions automerge on green CI. The Flutter
+pin, `dart`, `flutterpi_tool`, and the three fork tags never automerge.
+
+**The Flutter pin is not independent.** `flutterpi_tool` must ship arm64 engine
+support before the Pi can build a given Flutter version, and that has lagged by
+up to nine weeks. Always bump `flutterpi_tool` first; its changelog states which
+Flutter versions it unlocked. All four `flutter-version` pins (GitHub + Gitea ×
+desktop + Pi) must move together — a split makes Renovate emit competing update
+branches. `dart` (the `environment: sdk:` constraint) is similarly pinned because
+the desktop workflow uses `channel: stable` and would stay green on a raised SDK
+floor while the Pi's pinned older Flutter breaks.
+
+Two checks cover what Renovate cannot see:
+- `.gitea/workflows/upstream-drift.yml` — weekly, compares each fork's
+  `UPSTREAM_PIN` against its upstream HEAD and opens a tracking issue.
+- `.github/workflows/build-pi-image.yml` — weekly scheduled run, cross-compiles
+  for arm64. Desktop CI never does.
+
+Design rationale: `docs/specs/2026-08-12-dependency-maintenance-process-design.md`

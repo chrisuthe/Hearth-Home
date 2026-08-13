@@ -4,6 +4,15 @@ on:
   push:
     tags: ['v*']
   workflow_dispatch:
+  # Weekly canary. Desktop CI runs only `flutter analyze` + `flutter test`,
+  # which never invokes flutterpi_tool, never cross-compiles for arm64, and
+  # never links GStreamer. This catches a dependency that stops building for
+  # the Pi within a week instead of at release time.
+  #
+  # Publishes nothing: the `release` job below is gated on a v* tag ref, so a
+  # scheduled run performs `build-bundle` only.
+  schedule:
+    - cron: '17 6 * * 1'
 
 concurrency:
   group: pi-image-${{ github.ref }}
@@ -14,14 +23,14 @@ jobs:
     name: Cross-compile Flutter bundle
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.38.0'
+          flutter-version: '3.44.9'
 
       - name: Install flutterpi_tool
-        run: dart pub global activate flutterpi_tool 0.10.1
+        run: dart pub global activate flutterpi_tool 0.12.0
 
       - name: Swap dependencies for Pi
         run: ./scripts/prepare-pi-build.sh
@@ -59,7 +68,7 @@ jobs:
           sha256sum hearth-bundle-*.tar.gz > hearth-bundle-${VERSION:-dev}.sha256
 
       - name: Upload bundle artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: hearth-bundle
           path: |
@@ -75,10 +84,10 @@ jobs:
       contents: write
     steps:
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
 
       - name: Create release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: |
             hearth-bundle/hearth-bundle-*.tar.gz

@@ -1,0 +1,80 @@
+name: Upstream drift
+
+on:
+  schedule:
+    - cron: '31 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Check fork drift
+        id: drift
+        run: |
+          set +e
+          ./scripts/check-upstream-drift.sh > drift-report.md
+          rc=$?
+          set -e
+          cat drift-report.md
+
+          # Exit contract from check-upstream-drift.sh: 0 = level, 1 = drift
+          # (the only case that should open/update an issue), anything else
+          # = the check itself failed (fetch error, unreadable pin, etc.) and
+          # must not be misreported as drift.
+          if [ "$rc" -eq 0 ]; then
+            echo "drift=false" >> "$GITHUB_OUTPUT"
+          elif [ "$rc" -eq 1 ]; then
+            echo "drift=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "check-upstream-drift.sh failed unexpectedly (exit $rc)" >&2
+            exit "$rc"
+          fi
+
+      - name: Open or update the drift issue
+        if: steps.drift.outputs.drift == 'true'
+        env:
+          GITEA_TOKEN: ${{ secrets.TOKEN }}
+        run: |
+          SERVER="${GITHUB_SERVER_URL}"
+          REPO="${GITHUB_REPOSITORY}"
+          TITLE="Upstream drift detected"
+
+          # Use node (not grep) to parse the issue-search response: the
+          # field order in Gitea's JSON isn't a contract, and a grep for
+          # "number":N is one API version bump away from silently matching
+          # the wrong field. node, not python3, because every Gitea Actions
+          # runner capable of running this workflow already has node —
+          # Gitea Actions needs it to execute JavaScript actions such as
+          # actions/checkout — whereas python3 would be a brand-new runtime
+          # dependency with no such guarantee. &type=issues excludes pull
+          # requests: Gitea's issues endpoint returns both, and without the
+          # filter a matching open PR could be returned first and then have
+          # its body overwritten below.
+          ISSUE=$(curl -s -H "Authorization: token ${GITEA_TOKEN}" \
+            "${SERVER}/api/v1/repos/${REPO}/issues?state=open&type=issues&q=$(echo "$TITLE" | tr ' ' '+')" \
+            | node -e "const d = JSON.parse(require('fs').readFileSync(0, 'utf8')); process.stdout.write(d.length ? String(d[0].number) : '');")
+
+          BODY=$(node -e "process.stdout.write(JSON.stringify(require('fs').readFileSync('drift-report.md', 'utf8')));")
+
+          if [ -n "$ISSUE" ]; then
+            curl -s -X PATCH \
+              -H "Authorization: token ${GITEA_TOKEN}" \
+              -H "Content-Type: application/json" \
+              -d "{\"body\": ${BODY}}" \
+              "${SERVER}/api/v1/repos/${REPO}/issues/${ISSUE}"
+            echo "Updated issue #${ISSUE}"
+          else
+            curl -s -X POST \
+              -H "Authorization: token ${GITEA_TOKEN}" \
+              -H "Content-Type: application/json" \
+              -d "{\"title\": \"${TITLE}\", \"body\": ${BODY}}" \
+              "${SERVER}/api/v1/repos/${REPO}/issues"
+            echo "Opened a new drift issue"
+          fi

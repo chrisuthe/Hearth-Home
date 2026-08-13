@@ -296,23 +296,23 @@ class PlexService {
     _setCommonHeaders(request.response);
     try {
       if (method == 'OPTIONS') {
-        return _corsPreflight(request);
+        return await _corsPreflight(request);
       }
       if (method == 'GET' && path == kPlexResourcesPath) {
-        return _serveXml(
+        return await _serveXml(
             request, resourcesXml(clientId: _clientId, name: _playerName));
       }
       if (path == kPlexTimelineSubscribePath) {
-        return _handleSubscribe(request);
+        return await _handleSubscribe(request);
       }
       if (path == kPlexTimelineUnsubscribePath) {
-        return _handleUnsubscribe(request);
+        return await _handleUnsubscribe(request);
       }
       if (path == kPlexTimelinePollPath) {
-        return _handlePoll(request);
+        return await _handlePoll(request);
       }
       if (path.startsWith(kPlexPlaybackPrefix)) {
-        return _handlePlayback(request);
+        return await _handlePlayback(request);
       }
       request.response
         ..statusCode = HttpStatus.notFound
