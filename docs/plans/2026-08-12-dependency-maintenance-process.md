@@ -942,7 +942,7 @@ jobs:
           # GitHub datasources (github-tags, flutter-version) are rate-limited
           # hard for anonymous callers. Without this, lookups fail intermittently
           # and Renovate reports "no updates" rather than an error.
-          GITHUB_COM_TOKEN: ${{ secrets.GITHUB_COM_TOKEN }}
+          RENOVATE_GITHUB_COM_TOKEN: ${{ secrets.RENOVATE_GITHUB_COM_TOKEN }}
           LOG_LEVEL: info
 ```
 
@@ -950,7 +950,9 @@ The image tag is pinned to a major (`41`) rather than `latest`, so a Renovate re
 
 - [ ] **Step 6: Add the GitHub read token**
 
-Create a GitHub PAT with **public repo read** scope only, and store it on `chris/Hearth` as the Gitea Actions secret `GITHUB_COM_TOKEN`. This is for datasource lookups against `flutter/flutter` and the fork repos, not for writes.
+Create a GitHub classic PAT with **no scopes ticked at all** — unscoped classic tokens already read public data, which is all this needs — and store it on `chris/Hearth` as the Gitea Actions secret `RENOVATE_GITHUB_COM_TOKEN`. This is for datasource lookups against `flutter/flutter` and the fork repos, not for writes.
+
+The name matters: Gitea reserves the `GITHUB_` prefix for secret names, so a secret called `GITHUB_COM_TOKEN` cannot be created and the reference would silently resolve to an empty string.
 
 - [ ] **Step 7: Dry run before letting it write anything**
 

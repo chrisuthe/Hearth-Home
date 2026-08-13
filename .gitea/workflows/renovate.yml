@@ -26,5 +26,11 @@ jobs:
           # GitHub datasources (github-tags, flutter-version) are rate-limited
           # hard for anonymous callers. Without this, lookups fail intermittently
           # and Renovate reports "no updates" rather than an error.
-          GITHUB_COM_TOKEN: ${{ secrets.GITHUB_COM_TOKEN }}
+          #
+          # Named RENOVATE_GITHUB_COM_TOKEN, not GITHUB_COM_TOKEN: Gitea reserves
+          # the GITHUB_ prefix for secret names, so `secrets.GITHUB_COM_TOKEN`
+          # cannot be created and would silently resolve to an empty string —
+          # leaving Renovate to run anonymous and rate-limited. The RENOVATE_
+          # prefix is also Renovate's own convention for self-hosted config.
+          RENOVATE_GITHUB_COM_TOKEN: ${{ secrets.RENOVATE_GITHUB_COM_TOKEN }}
           LOG_LEVEL: info
