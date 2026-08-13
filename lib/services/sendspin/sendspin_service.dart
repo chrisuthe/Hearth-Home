@@ -18,6 +18,17 @@ import 'sendspin_codec.dart' as hearth_codec;
 /// via bonsoir. Exposes state via a broadcast stream and is driven by config
 /// through Riverpod providers.
 class SendspinService {
+  /// Ceiling for reconnect backoff. An unreachable server should settle at one
+  /// retry per hour rather than hammering the log — a fixed short retry filled
+  /// the journal fast enough to push real events out of its retention window.
+  static const int maxReconnectDelaySeconds = 3600;
+
+  /// Next backoff delay after a failed attempt. Doubles, then saturates at
+  /// [maxReconnectDelaySeconds] — 12 failures (~68 minutes) to reach the cap.
+  @visibleForTesting
+  static int nextReconnectDelay(int current) =>
+      (current * 2).clamp(1, maxReconnectDelaySeconds);
+
   SendspinPlayer? _client;
   AudioSink? _audioSink;
   HttpServer? _httpServer;
@@ -188,7 +199,9 @@ class SendspinService {
 
   Future<void> _connectToServer(String url) async {
     _serverUrl = url;
-    _reconnectDelay = 1;
+    // The backoff is NOT reset here. Doing so on every attempt defeated it
+    // entirely — an unreachable server retried at a fixed ~1s forever. It is
+    // reset below, once the socket actually connects.
     _updateState(
       _state.copyWith(connectionState: SendspinConnectionState.advertising),
     );
@@ -371,7 +384,7 @@ class SendspinService {
     _reconnectTimer = Timer(Duration(seconds: _reconnectDelay), () {
       _connectToServer(_serverUrl);
     });
-    _reconnectDelay = (_reconnectDelay * 2).clamp(1, 30);
+    _reconnectDelay = nextReconnectDelay(_reconnectDelay);
   }
 
   Future<void> _stop() async {
