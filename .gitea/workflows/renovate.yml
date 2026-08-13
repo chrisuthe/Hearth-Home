@@ -4,6 +4,11 @@ on:
   schedule:
     - cron: '3 6 * * 1'
   workflow_dispatch:
+    inputs:
+      dryRun:
+        description: 'Dry run — log what would change without creating branches, PRs, or the dashboard issue'
+        type: boolean
+        default: true
 
 jobs:
   renovate:
@@ -14,7 +19,26 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Run Renovate
-        run: renovate
+        # Manual runs default to a dry run so a config change can be proven
+        # before it is allowed to write anything — the failure mode this guards
+        # against is a customManager regex that matches nothing, which Renovate
+        # reports as "no updates" rather than as an error.
+        #
+        # The comparison is done in bash rather than a `${{ }}` ternary because a
+        # workflow_dispatch boolean may arrive as the STRING "false", which is
+        # truthy in expression syntax and would silently invert the default.
+        # On a schedule trigger `inputs` is empty, so this collapses to a live run.
+        #
+        # LOG_LEVEL is raised to debug only for dry runs: Renovate emits the
+        # per-manager, per-dependency detail you actually need to check at debug
+        # level, but that is far too noisy for the weekly scheduled run.
+        run: |
+          if [ "${{ inputs.dryRun }}" = "true" ]; then
+            echo "=== DRY RUN — no branches, PRs, or issues will be created ==="
+            LOG_LEVEL=debug renovate --dry-run=full
+          else
+            renovate
+          fi
         env:
           RENOVATE_PLATFORM: gitea
           RENOVATE_ENDPOINT: https://registry.home.chrisuthe.com/api/v1
