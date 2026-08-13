@@ -181,14 +181,28 @@ class PlexLiveTvService {
       sessionIdentifier: sessionIdentifier,
     );
     _player ??= _createPlayer();
+    final bool started;
     try {
-      await _player!.play(url).timeout(kLiveTvPlaybackTimeout);
+      started = await _player!.play(url).timeout(kLiveTvPlaybackTimeout);
     } on TimeoutException {
       Log.w(
           'LiveTV',
           'playback of ${channel.number} never started after '
               '${kLiveTvPlaybackTimeout.inSeconds}s — freeing the tuner');
       await _teardownGrab(); // the grab is live; never leave it held
+      _update(_state.copyWith(
+          phase: LiveTvPhase.error, error: 'Could not play ${channel.number}'));
+      return;
+    }
+    // A player that came back without starting used to be indistinguishable
+    // from a good one: the channel was announced as playing, the keepalive held
+    // a tuner, and the black screen was the only symptom. Observed on the
+    // device as PMS answering start.mpd with 400 and GStreamer reporting
+    // Input/output error.
+    if (!started) {
+      Log.w('LiveTV',
+          'playback of ${channel.number} failed to start — freeing the tuner');
+      await _teardownGrab(); // never leave a tuner held for a stream nobody has
       _update(_state.copyWith(
           phase: LiveTvPhase.error, error: 'Could not play ${channel.number}'));
       return;
@@ -216,7 +230,11 @@ class PlexLiveTvService {
     required String sessionIdentifier,
   }) async {
     try {
-      await _http(buildLiveDecisionUrl(
+      // The result was previously discarded, and the HTTP helper turns every
+      // error into null — so a rejected registration was invisible and the only
+      // symptom was start.mpd answering 400 much later, with nothing to link
+      // the two. The catch below only ever fired on a timeout.
+      final decision = await _http(buildLiveDecisionUrl(
         base: _base,
         playRef: playRef,
         token: _serverToken,
@@ -224,6 +242,12 @@ class PlexLiveTvService {
         session: session,
         sessionIdentifier: sessionIdentifier,
       )).timeout(kLiveTvTuneTimeout);
+      if (decision == null) {
+        Log.w(
+            'LiveTV',
+            'live session registration rejected for $playRef — PMS has not '
+                'decided this session, so start.mpd will answer 400');
+      }
     } catch (_) {
       Log.w('LiveTV', 'live session registration failed for $playRef');
     }

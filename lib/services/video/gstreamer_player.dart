@@ -21,7 +21,7 @@ class GstreamerVideoPlayer implements HearthVideoPlayer {
       _controller = controller;
 
   @override
-  Future<void> play(String url) async {
+  Future<bool> play(String url) async {
     await stop();
     try {
       if (url.startsWith('rtsp://')) {
@@ -50,11 +50,13 @@ class GstreamerVideoPlayer implements HearthVideoPlayer {
       await _controller!.play();
       _playing = true;
       Log.i('Video', 'Playing: ${redactSecrets(url)}');
+      return true;
     } catch (e) {
       Log.e('Video', 'Failed to play ${redactSecrets(url)}: $e');
       _playing = false;
       _controller?.dispose();
       _controller = null;
+      return false;
     }
   }
 

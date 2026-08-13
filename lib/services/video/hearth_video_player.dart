@@ -8,7 +8,15 @@ import 'package:flutter/material.dart';
 /// Create via [HearthVideoPlayer.create] which selects the right
 /// implementation based on the HEARTH_NO_MEDIAKIT environment variable.
 abstract class HearthVideoPlayer {
-  Future<void> play(String url);
+  /// Starts [url]. Returns true once the stream is playing, false if it could
+  /// not be started.
+  ///
+  /// Deliberately a result rather than an exception: two callers
+  /// (the camera and Protect screens) fire this without awaiting, and throwing
+  /// would surface there as an unhandled async error. Returning void was worse
+  /// — a failed start was indistinguishable from a good one, so Live TV
+  /// announced "Playing" over a black screen. Callers that care must check.
+  Future<bool> play(String url);
   Future<void> stop();
 
   /// Pause playback, keeping the current position. No-op if not playing.

@@ -20,9 +20,10 @@ class FakeVideoPlayer implements HearthVideoPlayer {
   bool _playing = false;
 
   @override
-  Future<void> play(String url) async {
+  Future<bool> play(String url) async {
     lastUrl = url;
     _playing = true;
+    return true;
   }
 
   @override

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'hearth_video_player.dart';
+import '../../utils/logger.dart';
 
 class MediaKitVideoPlayer implements HearthVideoPlayer {
   Player? _player;
@@ -9,12 +10,22 @@ class MediaKitVideoPlayer implements HearthVideoPlayer {
   bool _playing = false;
 
   @override
-  Future<void> play(String url) async {
+  Future<bool> play(String url) async {
     await stop();
-    _player = Player();
-    _controller = VideoController(_player!);
-    _player!.open(Media(url));
-    _playing = true;
+    try {
+      _player = Player();
+      _controller = VideoController(_player!);
+      _player!.open(Media(url));
+      _playing = true;
+      return true;
+    } catch (e) {
+      Log.e('Video', 'Failed to play ${redactSecrets(url)}: $e');
+      _playing = false;
+      _player?.dispose();
+      _player = null;
+      _controller = null;
+      return false;
+    }
   }
 
   @override

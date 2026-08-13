@@ -16,9 +16,10 @@ class _FakePlayer implements HearthVideoPlayer {
   String? lastUrl;
   bool stopped = false;
   @override
-  Future<void> play(String url) async {
+  Future<bool> play(String url) async {
     log?.add('PLAY $url');
     lastUrl = url;
+    return true;
   }
 
   @override
@@ -48,7 +49,23 @@ class _FakePlayer implements HearthVideoPlayer {
 /// returns — so `await play(url)` hangs for the life of the app.
 class _HangingPlayer extends _FakePlayer {
   @override
-  Future<void> play(String url) => Completer<void>().future;
+  Future<bool> play(String url) => Completer<bool>().future;
+}
+
+/// A player that cannot start the stream. GStreamer does exactly this when the
+/// pipeline errors — on the device, PMS answered `start.mpd` with 400 and the
+/// player reported `Input/output error`. It used to log and return normally, so
+/// `tune()` could not tell a dead stream from a live one and announced
+/// "Playing" over a black screen with no error anywhere.
+class _FailingPlayer extends _FakePlayer {
+  _FailingPlayer([super.log]);
+
+  @override
+  Future<bool> play(String url) async {
+    log?.add('PLAY-FAILED $url');
+    lastUrl = null;
+    return false;
+  }
 }
 
 void main() {
@@ -81,6 +98,36 @@ void main() {
       },
     );
   }
+
+  // Regression: on the device this reported "Playing 11.1" over a black screen.
+  // PMS answered start.mpd with 400, the player failed with Input/output error,
+  // and tune() marked the channel playing and started the keepalive anyway —
+  // so nothing surfaced to the user or the log as a failure.
+  test('a player that cannot start leaves Live TV in error, not playing',
+      () async {
+    final calls = <String>[];
+    final player = _FailingPlayer(calls);
+    final s = PlexLiveTvService(
+      authToken: 'acct',
+      clientId: 'cid',
+      playerFactory: () => player,
+      http: (url, {String method = 'GET', bool json = false}) async {
+        calls.add('$method $url');
+        if (url.contains('plex.tv/api/v2/resources')) return resourcesJson;
+        if (url.contains('/tune')) return tuneXml;
+        if (url.contains('/livetv/dvrs')) return dvrXml;
+        return '';
+      },
+    );
+    await s.resolve();
+    await s.tune(s.state.channels.first);
+
+    expect(s.state.phase, LiveTvPhase.error,
+        reason: 'a failed start must not be reported as playing');
+    expect(s.state.error, isNotEmpty,
+        reason: 'the user needs to be told the channel could not play');
+    await s.dispose();
+  });
 
   test('resolve caches the owned server channels', () async {
     final s = svc();
