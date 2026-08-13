@@ -32,7 +32,16 @@ jobs:
           # single value. Renovate keys updates on name + current value, so a
           # split here produces competing update branches. Bump all four
           # together, and only after flutterpi_tool supports the new version.
-          flutter-version: '3.44.9'
+          #
+          # HELD AT 3.41.6 — DO NOT BUMP WITHOUT RE-TESTING 1080p PLAYBACK.
+          # The 3.44.9 engine segfaults flutter-pi a few seconds into a 1080p
+          # h264 direct-play stream on the Pi. Bisected on hardware: 3.44.9
+          # crashed 2/2 on the same file, 3.41.6 and 3.38.0 played it fine, and
+          # 720p is unaffected on all three. Renovate will keep offering newer
+          # Flutter releases and they are review-gated for exactly this reason.
+          # Before accepting one, cast a 1080p direct-play title on a real Pi.
+          # See docs/specs/2026-08-12-dependency-maintenance-process-design.md.
+          flutter-version: '3.41.6'
       - run: flutter pub get
       - run: flutter analyze --no-fatal-infos
       - run: flutter test

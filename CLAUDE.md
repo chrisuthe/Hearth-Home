@@ -122,6 +122,15 @@ branches. `dart` (the `environment: sdk:` constraint) is similarly pinned becaus
 the desktop workflow uses `channel: stable` and would stay green on a raised SDK
 floor while the Pi's pinned older Flutter breaks.
 
+**Flutter is held at 3.41.6 by a known engine bug, not just by lag.** The 3.44.9
+engine segfaults flutter-pi a few seconds into a **1080p h264 direct-play** stream
+on the Pi. Bisected on hardware: 3.44.9 crashed 2/2 on the same file; 3.41.6 and
+3.38.0 played it fine; 720p is unaffected on all three. The crash is silent — no
+GStreamer error, no Dart exception — so it will not show up in CI, only on a
+device. Before accepting any Flutter bump, cast a 1080p direct-play title on a
+real Pi. 3.41.6 is also the lowest version whose Dart (3.11.4) satisfies
+`pubspec.yaml`'s `^3.11.4` floor.
+
 Two checks cover what Renovate cannot see:
 - `.gitea/workflows/upstream-drift.yml` — weekly, compares each fork's
   `UPSTREAM_PIN` against its upstream HEAD and opens a tracking issue.
