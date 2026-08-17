@@ -175,6 +175,33 @@ String buildLivePlayUrl({
       sessionIdentifier: sessionIdentifier,
     );
 
+final RegExp _timescaleRe = RegExp(r'timescale="(\d+)"');
+final RegExp _segStartRe = RegExp(r'<S\b[^>]*\bt="(\d+)"');
+
+/// How many seconds of media the live DASH manifest currently offers, read from
+/// the newest `<S t=...>` in the segment timeline and scaled by the template's
+/// `timescale`.
+///
+/// PMS starts a live transcode session with an effectively empty timeline — two
+/// segments, `startNumber="0"` — and grows it as the transcoder runs. Measured
+/// against the live DVR: 2 segments at t=0, 22 by 10s, 44 by 20s, and segments
+/// already passed still serve real bytes. So this is what says whether there is
+/// any history for the player to sit behind, which is the difference between
+/// riding the live edge and having a cushion.
+///
+/// Returns 0 for a manifest with no timeline yet (or an unparseable one), which
+/// is the "not warm" answer callers want.
+double liveManifestSeconds(String mpd) {
+  final timescale = int.tryParse(_timescaleRe.firstMatch(mpd)?.group(1) ?? '');
+  if (timescale == null || timescale <= 0) return 0;
+  var newest = 0;
+  for (final m in _segStartRe.allMatches(mpd)) {
+    final t = int.tryParse(m.group(1) ?? '') ?? 0;
+    if (t > newest) newest = t;
+  }
+  return newest / timescale;
+}
+
 /// Register [session] with the PMS decision engine for the live stream that
 /// [buildLivePlayUrl] is about to request. PMS binds a decision to the session
 /// that asked for it and answers `start.m3u8` with 400 for any session it hasn't

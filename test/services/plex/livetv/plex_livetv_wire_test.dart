@@ -121,6 +121,42 @@ void main() {
       expect(u.queryParameters['videoQuality'], '75');
     });
 
+    test('liveManifestSeconds reads the cushion out of the segment timeline',
+        () {
+      // PMS starts a live session with an effectively empty timeline and grows
+      // it as the transcoder runs (measured: 2 segments at t=0, 22 by 10s, 44
+      // by 20s). Attaching the player at t=0 pins it to the live edge with
+      // nothing to sit behind, which is what makes live stutter where a movie
+      // does not.
+      const mpd = '''
+<MPD type="dynamic" minimumUpdatePeriod="PT1S">
+ <Period start="PT0S" id="0">
+  <AdaptationSet segmentAlignment="true">
+   <SegmentTemplate timescale="1000000" startNumber="0">
+    <SegmentTimeline>
+     <S t="0" d="1001001"/>
+     <S t="1001001" d="1001000"/>
+     <S t="2002001" d="1001000"/>
+    </SegmentTimeline>
+   </SegmentTemplate>
+  </AdaptationSet>
+ </Period>
+</MPD>''';
+      expect(liveManifestSeconds(mpd), closeTo(2.002, 0.001));
+    });
+
+    test('liveManifestSeconds reports no cushion for a fresh timeline', () {
+      // t=0 only: the transcoder has produced nothing to sit behind yet.
+      const mpd = '<MPD><SegmentTemplate timescale="1000000">'
+          '<SegmentTimeline><S t="0" d="1001001"/>'
+          '</SegmentTimeline></SegmentTemplate></MPD>';
+      expect(liveManifestSeconds(mpd), 0);
+      // And a body that isn't a manifest at all must read as "not warm", not
+      // crash the tune.
+      expect(liveManifestSeconds(''), 0);
+      expect(liveManifestSeconds('<html>400</html>'), 0);
+    });
+
     test('buildLiveDecisionUrl mirrors the play request, on /decision', () {
       // PMS binds a decision to the session AND the parameters it describes, so
       // the registration must not drift from the stream it authorises.

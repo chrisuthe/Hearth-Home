@@ -68,6 +68,14 @@ class _FailingPlayer extends _FakePlayer {
   }
 }
 
+/// A manifest already offering more than [kLiveTvWarmup] of media, so tune()'s
+/// warm-up is satisfied on its first poll and these tests don't sit through it.
+/// The real thing starts effectively empty and fills as the transcoder runs.
+const warmMpd = '<MPD type="dynamic"><Period><AdaptationSet>'
+    '<SegmentTemplate timescale="1000000" startNumber="0"><SegmentTimeline>'
+    '<S t="0" d="1001001"/><S t="9009009" d="1001000"/>'
+    '</SegmentTimeline></SegmentTemplate></AdaptationSet></Period></MPD>';
+
 void main() {
   const resourcesJson = '[{"name":"Mine","provides":"server","owned":true,'
       '"accessToken":"srvtok","connections":[{"local":true,"uri":"http://10.0.2.10:32400"}]}]';
@@ -94,6 +102,7 @@ void main() {
         if (url.contains('plex.tv/api/v2/resources')) return resourcesJson;
         if (url.contains('/tune')) return tuneXml; // before /livetv/dvrs (substring)
         if (url.contains('/livetv/dvrs')) return dvrXml;
+        if (url.contains('start.mpd')) return warmMpd;
         return ''; // timeline keepalive / DELETE
       },
     );
@@ -116,6 +125,7 @@ void main() {
         if (url.contains('plex.tv/api/v2/resources')) return resourcesJson;
         if (url.contains('/tune')) return tuneXml;
         if (url.contains('/livetv/dvrs')) return dvrXml;
+        if (url.contains('start.mpd')) return warmMpd;
         return '';
       },
     );
@@ -127,6 +137,57 @@ void main() {
     expect(s.state.error, isNotEmpty,
         reason: 'the user needs to be told the channel could not play');
     await s.dispose();
+  });
+
+  test('warms the manifest before handing the URL to the player', () async {
+    // PMS starts a live session with an effectively empty timeline and fills it
+    // as the transcoder runs. Attaching at t=0 pins GStreamer to the live edge
+    // with nothing to sit behind, and the transcoder swings between 0.5x and
+    // 1.8x around realtime — so every dip underruns and the picture stutters,
+    // while a movie (transcoded minutes ahead) plays smoothly. Fetching the
+    // manifest first lets a cushion build.
+    final s = svc();
+    await s.resolve();
+    await s.tune(s.state.channels.first);
+
+    final warmed = calls.indexWhere((c) => c.contains('start.mpd'));
+    final played = calls.indexWhere((c) => c.startsWith('PLAY '));
+    expect(warmed, isNonNegative, reason: 'the manifest must be fetched');
+    expect(played, isNonNegative);
+    expect(warmed, lessThan(played),
+        reason: 'the cushion has to exist before the player attaches');
+    await s.dispose();
+  });
+
+  test('a manifest that never fills still plays, rather than hanging the tune',
+      () {
+    // Best effort: if the transcoder never produces, falling back to the live
+    // edge is exactly what shipped before the warm-up, and is far better than
+    // holding a tuner open on a spinner.
+    fakeAsync((async) {
+      final log = <String>[];
+      final player = _FakePlayer(log);
+      final s = PlexLiveTvService(
+        authToken: 'acct',
+        clientId: 'cid',
+        playerFactory: () => player,
+        http: (url, {String method = 'GET', bool json = false}) async {
+          log.add('$method $url');
+          if (url.contains('plex.tv/api/v2/resources')) return resourcesJson;
+          if (url.contains('/tune')) return tuneXml;
+          if (url.contains('/livetv/dvrs')) return dvrXml;
+          return ''; // start.mpd never reports any buffered media
+        },
+      );
+      s.resolve();
+      async.flushMicrotasks();
+      s.tune(s.state.channels.first);
+      async.elapse(kLiveTvWarmupTimeout + const Duration(seconds: 2));
+      async.flushMicrotasks();
+
+      expect(log.any((c) => c.startsWith('PLAY ')), isTrue,
+          reason: 'the warm-up must be bounded, not a new way to hang');
+    });
   });
 
   test('resolve caches the owned server channels', () async {
@@ -190,6 +251,7 @@ void main() {
           if (url.contains('plex.tv/api/v2/resources')) return resourcesJson;
           if (url.contains('/tune')) return Completer<String?>().future;
           if (url.contains('/livetv/dvrs')) return dvrXml;
+        if (url.contains('start.mpd')) return warmMpd;
           return '';
         },
       );
@@ -268,6 +330,7 @@ void main() {
           if (url.contains('plex.tv/api/v2/resources')) return resourcesJson;
           if (url.contains('/tune')) return tuneXml;
           if (url.contains('/livetv/dvrs')) return dvrXml;
+        if (url.contains('start.mpd')) return warmMpd;
           return '';
         },
       ),
