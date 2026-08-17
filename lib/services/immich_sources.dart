@@ -28,12 +28,20 @@ class MemoriesSource implements PhotoSource {
         _baseUrl = baseUrl,
         _now = now ?? DateTime.now;
 
+  /// Immich validates `for` as a bare calendar date and rejects any value
+  /// carrying a time component with a 400, so send `YYYY-MM-DD` rather than
+  /// [DateTime.toIso8601String].
+  static String _formatForDate(DateTime date) =>
+      '${date.year.toString().padLeft(4, '0')}-'
+      '${date.month.toString().padLeft(2, '0')}-'
+      '${date.day.toString().padLeft(2, '0')}';
+
   @override
   Future<List<PhotoMemory>> fetch({required int limit}) async {
     final today = _now();
     final response = await _dio.get<List<dynamic>>(
       '/api/memories',
-      queryParameters: {'for': today.toIso8601String()},
+      queryParameters: {'for': _formatForDate(today)},
     );
     final memoriesJson = (response.data ?? []).cast<Map<String, dynamic>>();
     final photos = <PhotoMemory>[];
