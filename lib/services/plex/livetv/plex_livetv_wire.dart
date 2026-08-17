@@ -237,6 +237,22 @@ String _liveUniversalUrl({
       'session': session,
       'subtitles': 'burn',
       'copyts': '0',
+      // The Pi 5 has no hardware H.264 decoder — its only V4L2 decoder is
+      // v4l2slh265dec — so every live frame is decoded in software. Left
+      // uncapped, PMS serves the maximum (1080p at 20 Mbps) and playback
+      // stutters: 93% of a core across av:h264 frame threads, with the pipeline
+      // signalling buffering several times a second. Verified against the live
+      // DVR, one variable at a time:
+      //   uncapped -> <Media bitrate="20000" width="1920" height="1080">
+      //   capped   -> <Media bitrate="7162"  width="1280" height="720">
+      // The panel renders at 1184x864, so the 1080p was downscaled on arrival
+      // anyway — those pixels were decoded and then thrown away. These ride the
+      // shared builder so the decision and start.mpd can never disagree about
+      // them; a decision that doesn't match the stream is what makes PMS answer
+      // start.mpd with 400. The cast path sets its own quality and is untouched.
+      'maxVideoBitrate': '8000',
+      'videoResolution': '1280x720',
+      'videoQuality': '75',
       'X-Plex-Session-Identifier': sessionIdentifier,
       'X-Plex-Client-Identifier': clientId,
       'X-Plex-Token': token,
