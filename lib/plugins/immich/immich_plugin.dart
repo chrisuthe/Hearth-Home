@@ -287,10 +287,52 @@ const _photoSourcesHtml = r'''
     return wrap;
   }
 
+  // Mirrors PhotoSourcesConfig.activeSourceCount on the Dart side: a source
+  // switched on but missing its required setting contributes nothing.
+  function activeSourceCount() {
+    var n = 0;
+    if (state.memoriesEnabled) n++;
+    if (state.albumEnabled && state.albumId) n++;
+    if (state.peopleEnabled && state.personIds.length) n++;
+    if (state.smartSearchEnabled && state.smartSearchQuery) n++;
+    return n;
+  }
+
+  function weightSlider(label, key) {
+    var wrap = document.createElement('div');
+    wrap.className = 'field weight-field';
+    var cap = document.createElement('label');
+    cap.textContent = label + ' share';
+    var out = document.createElement('span');
+    out.className = 'weight-value';
+    out.textContent = state[key];
+    var input = document.createElement('input');
+    input.type = 'range';
+    input.min = '1';
+    input.max = '5';
+    input.step = '1';
+    input.value = state[key];
+    input.addEventListener('input', function () {
+      out.textContent = input.value;
+    });
+    input.addEventListener('change', function () {
+      state[key] = parseInt(input.value, 10);
+      commit();
+    });
+    wrap.appendChild(cap);
+    wrap.appendChild(input);
+    wrap.appendChild(out);
+    return wrap;
+  }
+
   function render() {
     root.textContent = '';
+    var showWeights = activeSourceCount() >= 2;
     root.appendChild(toggle('Memories ("On This Day")', state.memoriesEnabled,
-      function (v) { state.memoriesEnabled = v; commit(); }));
+      function (v) { state.memoriesEnabled = v; commit(); render(); }));
+    if (showWeights && state.memoriesEnabled) {
+      root.appendChild(weightSlider('Memories', 'memoriesWeight'));
+    }
 
     root.appendChild(toggle('Album', state.albumEnabled,
       function (v) { state.albumEnabled = v; commit(); render(); }));
@@ -298,6 +340,9 @@ const _photoSourcesHtml = r'''
       root.appendChild(albumDropdown());
       if (!albumsError && state.albumId === '') {
         root.appendChild(hint('Pick an album.', true));
+      }
+      if (showWeights && state.albumId) {
+        root.appendChild(weightSlider('Album', 'albumWeight'));
       }
     }
 
@@ -308,6 +353,9 @@ const _photoSourcesHtml = r'''
       if (!peopleError && people.length && !state.personIds.length) {
         root.appendChild(hint('Pick at least one person.', true));
       }
+      if (showWeights && state.personIds.length) {
+        root.appendChild(weightSlider('People', 'peopleWeight'));
+      }
     }
 
     root.appendChild(toggle('Smart search', state.smartSearchEnabled,
@@ -317,6 +365,15 @@ const _photoSourcesHtml = r'''
       if (state.smartSearchQuery === '') {
         root.appendChild(hint('Enter a query.', true));
       }
+      if (showWeights && state.smartSearchQuery) {
+        root.appendChild(weightSlider('Smart search', 'smartSearchWeight'));
+      }
+    }
+    if (showWeights) {
+      root.appendChild(hint(
+        'Weights set how much of the rotation each source gets, relative to '
+        + 'the others. A source with fewer photos than its share repeats to '
+        + 'fill it.', false));
     }
   }
 
@@ -330,6 +387,10 @@ const _photoSourcesHtml = r'''
       if (!Array.isArray(state.personIds)) state.personIds = [];
       if (state.smartSearchEnabled === undefined) state.smartSearchEnabled = false;
       if (state.smartSearchQuery === undefined) state.smartSearchQuery = '';
+      if (state.memoriesWeight === undefined) state.memoriesWeight = 1;
+      if (state.albumWeight === undefined) state.albumWeight = 1;
+      if (state.peopleWeight === undefined) state.peopleWeight = 1;
+      if (state.smartSearchWeight === undefined) state.smartSearchWeight = 1;
       albums = data.albums || [];
       albumsError = data.albumsError;
       people = data.people || [];

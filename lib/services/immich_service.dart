@@ -7,6 +7,7 @@ import '../models/immich_album.dart';
 import '../models/immich_person.dart';
 import '../models/photo_memory.dart';
 import 'immich_sources.dart';
+import 'immich_weighted_merge.dart';
 
 // dart:io and path_provider are native-only, guarded by kIsWeb at runtime.
 import 'dart:io' if (dart.library.html) 'dart:io';
@@ -84,8 +85,10 @@ class ImmichService {
     // source fail against an unusable host.
     if (_baseUrl.isEmpty || _apiKey.isEmpty) return;
     final sources = <PhotoSource>[];
+    final weights = <int>[];
     if (config.memoriesEnabled) {
       sources.add(MemoriesSource(dio: _dio, baseUrl: _baseUrl));
+      weights.add(config.memoriesWeight);
     }
     if (config.albumEnabled && config.albumId.isNotEmpty) {
       sources.add(AlbumSource(
@@ -93,6 +96,7 @@ class ImmichService {
         baseUrl: _baseUrl,
         albumId: config.albumId,
       ));
+      weights.add(config.albumWeight);
     }
     if (config.peopleEnabled && config.personIds.isNotEmpty) {
       sources.add(PeopleSource(
@@ -100,6 +104,7 @@ class ImmichService {
         baseUrl: _baseUrl,
         personIds: config.personIds,
       ));
+      weights.add(config.peopleWeight);
     }
     if (config.smartSearchEnabled && config.smartSearchQuery.isNotEmpty) {
       sources.add(SmartSearchSource(
@@ -107,8 +112,13 @@ class ImmichService {
         baseUrl: _baseUrl,
         query: config.smartSearchQuery,
       ));
+      weights.add(config.smartSearchWeight);
     }
-    final merged = await mergeSources(sources, limitPerSource: kSourceQuota);
+    final merged = await mergeSources(
+      sources,
+      limitPerSource: kSourceQuota,
+      weights: weights,
+    );
     if (merged.isEmpty) {
       Log.w('Immich',
           'All sources returned zero photos; keeping prior cache');
@@ -365,11 +375,16 @@ class ImmichService {
 }
 
 /// Run every source's fetch in parallel, log failures (don't propagate),
-/// and return the unioned + shuffled list. Each source is capped at
-/// [limitPerSource] (typically 50).
+/// and allocate the results into a single shuffled pool. Each source is
+/// capped at [limitPerSource] (typically 50) when fetching.
+///
+/// [weights] is positional against [sources] and defaults to all-1s, which
+/// gives every source an equal share of the feed. See [allocateWeighted]
+/// for how a share is turned into pool slots.
 Future<List<PhotoMemory>> mergeSources(
   List<PhotoSource> sources, {
   required int limitPerSource,
+  List<int>? weights,
 }) async {
   if (sources.isEmpty) return const [];
   final results = await Future.wait(sources.map((s) async {
@@ -380,12 +395,16 @@ Future<List<PhotoMemory>> mergeSources(
       return const <PhotoMemory>[];
     }
   }));
-  final union = <PhotoMemory>[];
-  for (final list in results) {
-    union.addAll(list);
-  }
-  union.shuffle();
-  return union;
+  return allocateWeighted(
+    [
+      for (var i = 0; i < results.length; i++)
+        WeightedPool(
+          photos: results[i],
+          weight: (weights != null && i < weights.length) ? weights[i] : 1,
+        ),
+    ],
+    totalSlots: limitPerSource * sources.length,
+  );
 }
 
 final immichServiceProvider = Provider<ImmichService>((ref) {

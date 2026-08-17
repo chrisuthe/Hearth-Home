@@ -163,6 +163,38 @@ void main() {
       expect(saved.smartSearchEnabled, true);
       expect(saved.smartSearchQuery, 'sunset');
     });
+
+    test('POST persists per-source weights from the portal', () async {
+      await startWith(_FakeImmichService(albums: const [], people: const []));
+
+      final r = await post('/api/plugin/hearth.immich/photo-sources',
+          body: jsonEncode({
+            'memoriesEnabled': true,
+            'albumEnabled': true,
+            'albumId': 'album-x',
+            'memoriesWeight': 4,
+            'albumWeight': 2,
+          }));
+      expect(r.statusCode, 200);
+
+      final saved = configNotifier.state.photoSources;
+      expect(saved.memoriesWeight, 4);
+      expect(saved.albumWeight, 2);
+      // Omitted weights fall back to the default rather than zeroing out.
+      expect(saved.peopleWeight, 1);
+      expect(saved.smartSearchWeight, 1);
+    });
+
+    test('GET exposes weights so the portal can render the sliders', () async {
+      await startWith(_FakeImmichService(albums: const [], people: const []));
+
+      final r = await get('/api/plugin/hearth.immich/photo-sources');
+      final selected = (await readJson(r))['selected'] as Map;
+      expect(selected['memoriesWeight'], 1);
+      expect(selected['albumWeight'], 1);
+      expect(selected['peopleWeight'], 1);
+      expect(selected['smartSearchWeight'], 1);
+    });
   });
 }
 

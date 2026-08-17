@@ -90,6 +90,13 @@ class PhotoSourcesConfig {
   final bool smartSearchEnabled;
   final String smartSearchQuery;
 
+  /// Share of the ambient feed each source occupies, relative to the other
+  /// enabled sources. All-equal (the default) means an even split.
+  final int memoriesWeight;
+  final int albumWeight;
+  final int peopleWeight;
+  final int smartSearchWeight;
+
   const PhotoSourcesConfig({
     this.memoriesEnabled = true,
     this.albumEnabled = false,
@@ -98,7 +105,26 @@ class PhotoSourcesConfig {
     this.personIds = const [],
     this.smartSearchEnabled = false,
     this.smartSearchQuery = '',
+    this.memoriesWeight = 1,
+    this.albumWeight = 1,
+    this.peopleWeight = 1,
+    this.smartSearchWeight = 1,
   });
+
+  /// How many sources will actually contribute photos. A source that is
+  /// switched on but missing its required setting (no album picked, no
+  /// people selected, empty query) fetches nothing, so it doesn't count.
+  ///
+  /// Weights only mean something once two sources compete for the feed,
+  /// so both settings surfaces use this to decide whether to show them.
+  int get activeSourceCount {
+    var n = 0;
+    if (memoriesEnabled) n++;
+    if (albumEnabled && albumId.isNotEmpty) n++;
+    if (peopleEnabled && personIds.isNotEmpty) n++;
+    if (smartSearchEnabled && smartSearchQuery.isNotEmpty) n++;
+    return n;
+  }
 
   PhotoSourcesConfig copyWith({
     bool? memoriesEnabled,
@@ -108,6 +134,10 @@ class PhotoSourcesConfig {
     List<String>? personIds,
     bool? smartSearchEnabled,
     String? smartSearchQuery,
+    int? memoriesWeight,
+    int? albumWeight,
+    int? peopleWeight,
+    int? smartSearchWeight,
   }) {
     return PhotoSourcesConfig(
       memoriesEnabled: memoriesEnabled ?? this.memoriesEnabled,
@@ -117,6 +147,10 @@ class PhotoSourcesConfig {
       personIds: personIds ?? this.personIds,
       smartSearchEnabled: smartSearchEnabled ?? this.smartSearchEnabled,
       smartSearchQuery: smartSearchQuery ?? this.smartSearchQuery,
+      memoriesWeight: memoriesWeight ?? this.memoriesWeight,
+      albumWeight: albumWeight ?? this.albumWeight,
+      peopleWeight: peopleWeight ?? this.peopleWeight,
+      smartSearchWeight: smartSearchWeight ?? this.smartSearchWeight,
     );
   }
 
@@ -128,6 +162,10 @@ class PhotoSourcesConfig {
         'personIds': personIds,
         'smartSearchEnabled': smartSearchEnabled,
         'smartSearchQuery': smartSearchQuery,
+        'memoriesWeight': memoriesWeight,
+        'albumWeight': albumWeight,
+        'peopleWeight': peopleWeight,
+        'smartSearchWeight': smartSearchWeight,
       };
 
   factory PhotoSourcesConfig.fromJson(Map<String, dynamic> json) =>
@@ -140,6 +178,10 @@ class PhotoSourcesConfig {
             const [],
         smartSearchEnabled: json['smartSearchEnabled'] as bool? ?? false,
         smartSearchQuery: json['smartSearchQuery'] as String? ?? '',
+        memoriesWeight: json['memoriesWeight'] as int? ?? 1,
+        albumWeight: json['albumWeight'] as int? ?? 1,
+        peopleWeight: json['peopleWeight'] as int? ?? 1,
+        smartSearchWeight: json['smartSearchWeight'] as int? ?? 1,
       );
 
   @override
@@ -152,7 +194,11 @@ class PhotoSourcesConfig {
           peopleEnabled == other.peopleEnabled &&
           listEquals(personIds, other.personIds) &&
           smartSearchEnabled == other.smartSearchEnabled &&
-          smartSearchQuery == other.smartSearchQuery;
+          smartSearchQuery == other.smartSearchQuery &&
+          memoriesWeight == other.memoriesWeight &&
+          albumWeight == other.albumWeight &&
+          peopleWeight == other.peopleWeight &&
+          smartSearchWeight == other.smartSearchWeight;
 
   @override
   int get hashCode => Object.hash(
@@ -163,6 +209,10 @@ class PhotoSourcesConfig {
         Object.hashAll(personIds),
         smartSearchEnabled,
         smartSearchQuery,
+        memoriesWeight,
+        albumWeight,
+        peopleWeight,
+        smartSearchWeight,
       );
 }
 
