@@ -27,23 +27,6 @@ const Duration kLiveTvTuneTimeout = Duration(seconds: 90);
 /// tuner.
 const Duration kLiveTvPlaybackTimeout = Duration(seconds: 60);
 
-/// How much media the DASH timeline must offer before the player is attached.
-///
-/// PMS starts a live transcode session with an effectively empty timeline and
-/// grows it as the transcoder runs, so attaching immediately pins GStreamer to
-/// the live edge with no history to sit behind. Measured on the device, the
-/// transcoder holds ~1.0x on average but swings between 0.5x and 1.8x — so at
-/// the edge every dip below realtime underruns and the picture stutters, while
-/// a movie (whose transcode runs minutes ahead) never does. `dashdemux`'s
-/// `presentation-delay` already defaults to 10s; it just has nothing to work
-/// with at t=0. Waiting for a cushion buys smoothness with tune latency.
-const Duration kLiveTvWarmup = Duration(seconds: 5);
-
-/// Ceiling on the warm-up, so a transcoder that never produces can't hold the
-/// tune open. On timeout playback starts anyway — at the live edge, which is
-/// exactly what it did before the warm-up existed.
-const Duration kLiveTvWarmupTimeout = Duration(seconds: 8);
-
 /// Client-role Plex Live TV service.
 ///
 /// Unlike [PlexService] (a cast *sink*), this **initiates** playback: it resolves
@@ -197,7 +180,6 @@ class PlexLiveTvService {
       session: session,
       sessionIdentifier: sessionIdentifier,
     );
-    await _warmManifest(url);
     _player ??= _createPlayer();
     final bool started;
     try {
@@ -269,32 +251,6 @@ class PlexLiveTvService {
     } catch (_) {
       Log.w('LiveTV', 'live session registration failed for $playRef');
     }
-  }
-
-  /// Poll `start.mpd` until it offers [kLiveTvWarmup] of media, so the player
-  /// attaches *behind* the live edge instead of on it.
-  ///
-  /// Fetching the manifest is also what starts the transcoder, so this is the
-  /// same request the player would make first — we just make it early and let
-  /// the timeline fill. Best effort: on timeout we hand over anyway, which is
-  /// the behaviour that shipped before this existed.
-  Future<void> _warmManifest(String url) async {
-    const poll = Duration(milliseconds: 500);
-    // Bounded by attempts, not by a wall-clock deadline: the poll interval is
-    // fixed, and DateTime.now() doesn't advance under fake timers, so a
-    // clock-based bound can't be exercised in a test.
-    final attempts = kLiveTvWarmupTimeout.inMilliseconds ~/ poll.inMilliseconds;
-    for (var i = 0; i < attempts; i++) {
-      final mpd = await _http(url);
-      if (mpd != null && liveManifestSeconds(mpd) >= kLiveTvWarmup.inSeconds) {
-        return;
-      }
-      await Future<void>.delayed(poll);
-    }
-    Log.w(
-        'LiveTV',
-        'manifest never reached ${kLiveTvWarmup.inSeconds}s of buffer — '
-            'playing at the live edge, expect stutter');
   }
 
   /// Stop playback and free the tuner.
