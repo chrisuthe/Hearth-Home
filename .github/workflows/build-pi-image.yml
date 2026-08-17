@@ -83,8 +83,16 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Download all artifacts
+      # Name the artifact and its destination explicitly. Downloading *all*
+      # artifacts puts each in a directory named after it — but only in some
+      # versions of the action, and v1.18.1 shipped with no assets at all
+      # because the v4 -> v8 bump (939b3a4) moved them out from under the glob
+      # below. Pinning both ends the dependence on that default.
+      - name: Download bundle artifact
         uses: actions/download-artifact@v8
+        with:
+          name: hearth-bundle
+          path: hearth-bundle
 
       - name: Create release
         uses: softprops/action-gh-release@v3
@@ -92,4 +100,9 @@ jobs:
           files: |
             hearth-bundle/hearth-bundle-*.tar.gz
             hearth-bundle/hearth-bundle-*.sha256
+          # Without this an unmatched glob is only a warning, so the job goes
+          # green having published a release with nothing attached — which is
+          # exactly how v1.18.1 shipped a bundle-less release and broke OTA for
+          # devices on updateSource: github. Fail loudly instead.
+          fail_on_unmatched_files: true
           generate_release_notes: true
