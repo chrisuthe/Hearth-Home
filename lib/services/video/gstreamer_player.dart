@@ -61,27 +61,40 @@ class GstreamerVideoPlayer implements HearthVideoPlayer {
     }
   }
 
-  /// Start the initialized controller, tolerating the seek `video_player`
-  /// performs on a live stream.
+  /// Start the initialized controller without letting `video_player` seek a
+  /// live stream.
   ///
   /// [VideoPlayerController.play] treats `position == duration` as "this video
   /// already finished" and seeks back to zero before playing. A live stream has
   /// no duration, and flutter-pi reports an unknown duration as zero — so on the
-  /// first play of a live stream that test is always true and the seek lands on
-  /// a pipeline with no seekable range. GStreamer refuses it and flutter-pi
-  /// turns the refusal into EIO, which arrives here as a PlatformException.
-  /// Verified on the Pi against Plex Live TV: PMS served the manifest and both
-  /// first segments with 200s, and the tune still died with "Input/output
-  /// error". There is nowhere to seek to on a live stream, so drive the pipeline
-  /// to PLAYING directly instead.
+  /// first play of a live stream that test is always true, and the seek lands on
+  /// a pipeline with no seekable range. GStreamer refuses it. Verified on the Pi
+  /// against Plex Live TV: PMS served the manifest and both first segments with
+  /// 200s, and the tune still died with "Input/output error".
+  ///
+  /// The refusal is worse than one failed call. flutter-pi sets its
+  /// desired-position flag *before* attempting the seek and only clears it once
+  /// one succeeds, so a single refusal leaves the flag set and every later
+  /// play/pause retries the same doomed seek — observed on the device as a
+  /// second refusal and an unhandled PlatformException out of
+  /// `_applyPlayPause` -> `pause`. So the seek has to be prevented, not caught:
+  /// nudging the cached position breaks the tie before `play()` tests it. A
+  /// live stream has no meaningful position, and the first position tick
+  /// overwrites the nudge.
   @visibleForTesting
   Future<void> startPlayback() async {
     final controller = _controller!;
+    final value = controller.value;
+    if (value.position == value.duration) {
+      controller.value = value.copyWith(position: const Duration(microseconds: 1));
+    }
     try {
       await controller.play();
     } on PlatformException catch (e) {
-      // A stream that knows its length has a real seekable range, so a refusal
-      // there is a genuine failure and must not be papered over.
+      // Backstop: a live source that refuses the seek anyway still gets a
+      // picture, rather than the caller tearing the tuner down. A stream that
+      // knows its length has a real seekable range, so a refusal there is a
+      // genuine failure and must not be papered over.
       if (controller.value.duration != Duration.zero) rethrow;
       Log.w('Video',
           'live stream refused the pre-play seek ($e) — starting it directly');

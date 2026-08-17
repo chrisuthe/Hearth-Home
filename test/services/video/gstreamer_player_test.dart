@@ -19,6 +19,11 @@ class _FakeController extends VideoPlayerController {
   /// that `video_player` performs before playing.
   Object? playError;
 
+  /// The value as it stood when [play] was called. `video_player`'s real
+  /// `play()` decides whether to seek from this, so it is what the fix has to
+  /// influence.
+  VideoPlayerValue? valueAtPlay;
+
   void resetCounts() {
     playCount = 0;
     pauseCount = 0;
@@ -27,6 +32,7 @@ class _FakeController extends VideoPlayerController {
   @override
   Future<void> play() async {
     playCount++;
+    valueAtPlay = value;
     if (playError != null) throw playError!;
   }
 
@@ -92,6 +98,37 @@ void main() {
   });
 
   group('startPlayback', () {
+    test('breaks the position == duration tie a live stream would seek on',
+        () async {
+      // This is the real fix. video_player's play() seeks to zero whenever
+      // position == duration, which is always true on the first play of a live
+      // stream (unknown duration arrives as zero). flutter-pi sets its
+      // desired-position flag *before* attempting that seek and only clears it
+      // on success — so one refusal leaves the flag stuck and every later
+      // play/pause retries the same doomed seek forever. Observed on the device
+      // as a second refusal plus an unhandled PlatformException out of
+      // _applyPlayPause -> pause. Breaking the tie means the seek is never
+      // issued at all.
+      expect(controller.value.position, controller.value.duration);
+
+      await player.startPlayback();
+
+      expect(controller.valueAtPlay!.position,
+          isNot(controller.valueAtPlay!.duration));
+    });
+
+    test('leaves a stream that knows its length alone', () async {
+      controller.value =
+          const VideoPlayerValue(duration: Duration(minutes: 42));
+
+      await player.startPlayback();
+
+      // position 0 != duration 42min already, so there is no tie to break and
+      // nothing should be touched.
+      expect(controller.valueAtPlay!.position, Duration.zero);
+      expect(controller.valueAtPlay!.duration, const Duration(minutes: 42));
+    });
+
     test('starts the pipeline directly when a live stream refuses the seek',
         () async {
       // An unknown duration arrives as zero, which is what makes video_player
