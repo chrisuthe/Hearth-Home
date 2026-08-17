@@ -32,6 +32,7 @@ const FocalPoint kCenterFocalPoint = (x: 0.5, y: 0.5);
 class ImmichService {
   final Dio _dio;
   final String _baseUrl;
+  final String _apiKey;
   final List<PhotoMemory> _cachedMemories = [];
   final List<String> _cachedFilePaths = [];
   final Map<String, FocalPoint> _cachedFocalPoints = {};
@@ -42,6 +43,7 @@ class ImmichService {
     required String apiKey,
     @visibleForTesting Dio? dio,
   })  : _baseUrl = baseUrl,
+        _apiKey = apiKey,
         _dio = dio ??
             Dio(BaseOptions(
               baseUrl: baseUrl,
@@ -77,6 +79,10 @@ class ImmichService {
   /// in parallel, and replaces [_cachedMemories] only if the union is
   /// non-empty (so a transient failure doesn't blank the carousel).
   Future<void> refresh(PhotoSourcesConfig config) async {
+    // The ambient screen re-runs this on a 5-minute timer regardless of
+    // whether Immich is set up, so bail out here rather than let every
+    // source fail against an unusable host.
+    if (_baseUrl.isEmpty || _apiKey.isEmpty) return;
     final sources = <PhotoSource>[];
     if (config.memoriesEnabled) {
       sources.add(MemoriesSource(dio: _dio, baseUrl: _baseUrl));
