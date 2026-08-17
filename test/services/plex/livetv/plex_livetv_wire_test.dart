@@ -99,6 +99,28 @@ void main() {
       expect(u.queryParameters.containsKey('offset'), isFalse);
     });
 
+    test('live transcode is capped to something the Pi can decode', () {
+      // The Pi 5 has no hardware H.264 decoder — its only V4L2 decoder is
+      // v4l2slh265dec (H.265) — so every live frame is decoded in software.
+      // Uncapped, PMS hands out the maximum and playback stutters: measured on
+      // the device at 93% of a core across av:h264 frame threads. Verified
+      // against the live DVR, single variable:
+      //   uncapped -> <Media bitrate="20000" width="1920" height="1080">
+      //   capped   -> <Media bitrate="7162"  width="1280" height="720">
+      // The panel renders at 1184x864, so the 1080p was being downscaled
+      // anyway. The cast path is untouched; this is the live URL only.
+      final u = Uri.parse(buildLivePlayUrl(
+          base: 'http://h:32400',
+          playRef: '/livetv/sessions/abc',
+          token: 't',
+          clientId: 'c',
+          session: 's',
+          sessionIdentifier: 'sid'));
+      expect(u.queryParameters['maxVideoBitrate'], '8000');
+      expect(u.queryParameters['videoResolution'], '1280x720');
+      expect(u.queryParameters['videoQuality'], '75');
+    });
+
     test('buildLiveDecisionUrl mirrors the play request, on /decision', () {
       // PMS binds a decision to the session AND the parameters it describes, so
       // the registration must not drift from the stream it authorises.

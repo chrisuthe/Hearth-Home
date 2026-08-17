@@ -52,6 +52,11 @@ dev_dependencies:
   # exercise on-disk config persistence. See update_source_persistence_test.dart.
   path_provider_platform_interface: ^2.1.2
   plugin_platform_interface: ^2.1.8
+  # Lets a test stand in for the flutter-pi video platform. `setPipelineState`
+  # is an extension on VideoPlayerController, so it is dispatched statically and
+  # always reaches VideoPlayerPlatform.instance — swapping that is the only way
+  # to exercise it off-device.
+  video_player_platform_interface: ^6.9.0
 
 flutter:
   uses-material-design: true
