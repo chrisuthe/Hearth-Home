@@ -4,6 +4,7 @@ import 'package:hearth/config/hub_config.dart';
 import 'package:hearth/config/webview_config.dart';
 
 void main() {
+  _weightTests();
   group('HubConfig', () {
     test('default values match expected kiosk defaults', () {
       const config = HubConfig();
@@ -753,4 +754,75 @@ class _MemoryHubConfigNotifier extends HubConfigNotifier {
   Future<void> update(HubConfig Function(HubConfig) updater) async {
     state = updater(state);
   }
+}
+
+void _weightTests() {
+  group('PhotoSourcesConfig weights', () {
+    test('default to 1 for every source', () {
+      const c = PhotoSourcesConfig();
+      expect(c.memoriesWeight, 1);
+      expect(c.albumWeight, 1);
+      expect(c.peopleWeight, 1);
+      expect(c.smartSearchWeight, 1);
+    });
+
+    test('survive a JSON round-trip', () {
+      const c = PhotoSourcesConfig(
+        memoriesWeight: 3,
+        albumWeight: 2,
+        peopleWeight: 5,
+        smartSearchWeight: 4,
+      );
+      final restored = PhotoSourcesConfig.fromJson(c.toJson());
+      expect(restored, c);
+    });
+
+    test('read as 1 when absent from stored JSON', () {
+      // Config written before weights existed must still load.
+      final restored = PhotoSourcesConfig.fromJson(const {
+        'memoriesEnabled': true,
+        'albumEnabled': false,
+      });
+      expect(restored.memoriesWeight, 1);
+      expect(restored.smartSearchWeight, 1);
+    });
+
+    test('activeSourceCount ignores sources missing their required config',
+        () {
+      // Enabled but unconfigured sources contribute nothing to the feed,
+      // so they must not make the weight sliders appear either.
+      const c = PhotoSourcesConfig(
+        memoriesEnabled: true,
+        albumEnabled: true,
+        albumId: '',
+        peopleEnabled: true,
+        personIds: [],
+        smartSearchEnabled: true,
+        smartSearchQuery: '',
+      );
+      expect(c.activeSourceCount, 1);
+    });
+
+    test('activeSourceCount counts fully-configured sources', () {
+      const c = PhotoSourcesConfig(
+        memoriesEnabled: true,
+        albumEnabled: true,
+        albumId: 'album-1',
+        peopleEnabled: true,
+        personIds: ['p1'],
+      );
+      expect(c.activeSourceCount, 3);
+    });
+
+    test('activeSourceCount is zero when nothing is enabled', () {
+      const c = PhotoSourcesConfig(memoriesEnabled: false);
+      expect(c.activeSourceCount, 0);
+    });
+
+    test('copyWith updates a single weight', () {
+      const c = PhotoSourcesConfig();
+      expect(c.copyWith(memoriesWeight: 4).memoriesWeight, 4);
+      expect(c.copyWith(memoriesWeight: 4).albumWeight, 1);
+    });
+  });
 }

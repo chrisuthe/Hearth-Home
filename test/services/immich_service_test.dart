@@ -465,13 +465,28 @@ void main() {
   });
 
   group('ImmichService.mergeSources', () {
-    test('returns union shuffled across sources, capped per source', () async {
+    test('gives each source an equal share by default', () async {
+      // Default weights are all 1, which means equal *share* of the feed —
+      // not the natural union. Sources of 3 and 2 therefore balance to 3
+      // slots each (one 'b' repeats) rather than contributing 3:2.
       final a = _FakeSource([_photo('a1'), _photo('a2'), _photo('a3')]);
       final b = _FakeSource([_photo('b1'), _photo('b2')]);
       final merged = await mergeSources([a, b], limitPerSource: 50);
-      expect(merged, hasLength(5));
+      expect(merged, hasLength(6));
       final ids = merged.map((p) => p.assetId).toSet();
       expect(ids, {'a1', 'a2', 'a3', 'b1', 'b2'});
+      expect(merged.where((p) => p.assetId.startsWith('a')), hasLength(3));
+      expect(merged.where((p) => p.assetId.startsWith('b')), hasLength(3));
+    });
+
+    test('weights shift the share between sources', () async {
+      final a = _FakeSource(List.generate(50, (i) => _photo('a$i')));
+      final b = _FakeSource(List.generate(50, (i) => _photo('b$i')));
+      final merged =
+          await mergeSources([a, b], limitPerSource: 50, weights: [3, 1]);
+      final aShare =
+          merged.where((p) => p.assetId.startsWith('a')).length / merged.length;
+      expect(aShare, closeTo(0.75, 0.03));
     });
 
     test('caps each source at limitPerSource', () async {

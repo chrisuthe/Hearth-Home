@@ -59,6 +59,18 @@ class _PhotoSourcesSectionState extends ConsumerState<PhotoSourcesSection> {
       notifier.update((c) => c.copyWith(photoSources: next));
     }
 
+    // Weights only matter once two sources compete for the feed.
+    final showWeights = config.activeSourceCount >= 2;
+
+    Widget weight(String label, int value, PhotoSourcesConfig Function(int) set) {
+      if (!showWeights) return const SizedBox.shrink();
+      return _WeightSlider(
+        label: label,
+        value: value,
+        onChanged: (v) => update(set(v)),
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -72,6 +84,9 @@ class _PhotoSourcesSectionState extends ConsumerState<PhotoSourcesSection> {
           value: config.memoriesEnabled,
           onChanged: (v) => update(config.copyWith(memoriesEnabled: v)),
         ),
+        if (config.memoriesEnabled)
+          weight('Memories', config.memoriesWeight,
+              (v) => config.copyWith(memoriesWeight: v)),
         SwitchListTile(
           title: const Text('Album'),
           subtitle: config.albumEnabled && config.albumId.isEmpty
@@ -90,6 +105,9 @@ class _PhotoSourcesSectionState extends ConsumerState<PhotoSourcesSection> {
               onChanged: (id) => update(config.copyWith(albumId: id)),
             ),
           ),
+        if (config.albumEnabled && config.albumId.isNotEmpty)
+          weight('Album', config.albumWeight,
+              (v) => config.copyWith(albumWeight: v)),
         SwitchListTile(
           title: const Text('People'),
           subtitle: config.peopleEnabled && config.personIds.isEmpty
@@ -108,6 +126,9 @@ class _PhotoSourcesSectionState extends ConsumerState<PhotoSourcesSection> {
               onChanged: (ids) => update(config.copyWith(personIds: ids)),
             ),
           ),
+        if (config.peopleEnabled && config.personIds.isNotEmpty)
+          weight('People', config.peopleWeight,
+              (v) => config.copyWith(peopleWeight: v)),
         SwitchListTile(
           title: const Text('Smart search'),
           subtitle: config.smartSearchEnabled && config.smartSearchQuery.isEmpty
@@ -139,6 +160,20 @@ class _PhotoSourcesSectionState extends ConsumerState<PhotoSourcesSection> {
                   style: TextStyle(fontSize: HearthFont.caption),
                 ),
               ],
+            ),
+          ),
+        if (config.smartSearchEnabled && config.smartSearchQuery.isNotEmpty)
+          weight('Smart search', config.smartSearchWeight,
+              (v) => config.copyWith(smartSearchWeight: v)),
+        if (showWeights)
+          const Padding(
+            padding: EdgeInsets.symmetric(
+                horizontal: HearthSpacing.x4, vertical: HearthSpacing.x2),
+            child: Text(
+              'Weights set how much of the rotation each source gets, '
+              'relative to the others. A source with fewer photos than its '
+              'share repeats to fill it.',
+              style: TextStyle(fontSize: HearthFont.caption),
             ),
           ),
       ],
@@ -278,6 +313,52 @@ class _PeopleChips extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+/// Per-source share control. 1-5, where the number is meaningful only
+/// relative to the other enabled sources' weights.
+class _WeightSlider extends StatelessWidget {
+  final String label;
+  final int value;
+  final ValueChanged<int> onChanged;
+
+  const _WeightSlider({
+    required this.label,
+    required this.value,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+          horizontal: HearthSpacing.x4, vertical: HearthSpacing.x1),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 120,
+            child: Text('$label share',
+                style: const TextStyle(fontSize: HearthFont.caption)),
+          ),
+          Expanded(
+            child: Slider(
+              value: value.toDouble(),
+              min: 1,
+              max: 5,
+              divisions: 4,
+              label: '$value',
+              onChanged: (v) => onChanged(v.round()),
+            ),
+          ),
+          SizedBox(
+            width: 24,
+            child: Text('$value',
+                style: const TextStyle(fontSize: HearthFont.caption)),
+          ),
+        ],
+      ),
     );
   }
 }
