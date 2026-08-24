@@ -14,7 +14,7 @@ jobs:
   renovate:
     runs-on: ubuntu-latest
     container:
-      image: renovate/renovate:41
+      image: renovate/renovate:44
     steps:
       - uses: actions/checkout@v7
 
