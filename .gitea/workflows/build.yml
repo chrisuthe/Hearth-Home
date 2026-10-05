@@ -41,7 +41,7 @@ jobs:
           # Flutter releases and they are review-gated for exactly this reason.
           # Before accepting one, cast a 1080p direct-play title on a real Pi.
           # See docs/specs/2026-08-12-dependency-maintenance-process-design.md.
-          flutter-version: '3.41.6'
+          flutter-version: '3.47.6'
       - run: flutter pub get
       - run: flutter analyze --no-fatal-infos
       - run: flutter test
