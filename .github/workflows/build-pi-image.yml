@@ -27,10 +27,20 @@ jobs:
 
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.41.6'
+          flutter-version: '3.47.6'
 
       - name: Install flutterpi_tool
-        run: dart pub global activate flutterpi_tool 0.11.0
+        # Installed from an unreleased upstream commit: the latest pub.dev
+        # release (0.12.0) does not compile against Flutter 3.47's
+        # flutter_tools, and upstream's 3.47 support is not published yet.
+        # Pinned by full SHA so the ref cannot move. Go back to a pub.dev
+        # version once one ships with 3.47 support — see issue #226.
+        #
+        # Renovate anchor: dart pub global activate flutterpi_tool 0.12.0
+        # The line above is not executed. It keeps the flutterpi_tool custom
+        # manager in renovate.json matching, so Renovate opens a PR when a
+        # newer release appears — the signal to act on #226.
+        run: dart pub global activate --source git https://github.com/ardera/flutterpi_tool --git-ref 248d79914b84ce89b44435ad8f104e81a37e1ffc
 
       - name: Swap dependencies for Pi
         run: ./scripts/prepare-pi-build.sh

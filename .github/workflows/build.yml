@@ -33,15 +33,16 @@ jobs:
           # split here produces competing update branches. Bump all four
           # together, and only after flutterpi_tool supports the new version.
           #
-          # HELD AT 3.41.6 — DO NOT BUMP WITHOUT RE-TESTING 1080p PLAYBACK.
-          # The 3.44.9 engine segfaults flutter-pi a few seconds into a 1080p
-          # h264 direct-play stream on the Pi. Bisected on hardware: 3.44.9
-          # crashed 2/2 on the same file, 3.41.6 and 3.38.0 played it fine, and
-          # 720p is unaffected on all three. Renovate will keep offering newer
-          # Flutter releases and they are review-gated for exactly this reason.
-          # Before accepting one, cast a 1080p direct-play title on a real Pi.
+          # RE-TEST 1080p PLAYBACK ON A REAL PI BEFORE BUMPING.
+          # The 3.44.9 engine segfaulted flutter-pi a few seconds into a 1080p
+          # h264 direct-play stream on the Pi (2/2 on one file; 3.41.6 and
+          # 3.38.0 played it, 720p was unaffected). 3.47.6 was accepted after
+          # it booted on the Pi and direct-played a generated 1080p h264 clip
+          # for 60s — but 3.44.9 played that clip too, so the original crash
+          # was not reproduced and is not proven fixed. Flutter bumps stay
+          # review-gated: cast a 1080p direct-play title on a real Pi first.
           # See docs/specs/2026-08-12-dependency-maintenance-process-design.md.
-          flutter-version: '3.41.6'
+          flutter-version: '3.47.6'
       - run: flutter pub get
       - run: flutter analyze --no-fatal-infos
       - run: flutter test

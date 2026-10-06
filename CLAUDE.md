@@ -122,14 +122,21 @@ branches. `dart` (the `environment: sdk:` constraint) is similarly pinned becaus
 the desktop workflow uses `channel: stable` and would stay green on a raised SDK
 floor while the Pi's pinned older Flutter breaks.
 
-**Flutter is held at 3.41.6 by a known engine bug, not just by lag.** The 3.44.9
-engine segfaults flutter-pi a few seconds into a **1080p h264 direct-play** stream
-on the Pi. Bisected on hardware: 3.44.9 crashed 2/2 on the same file; 3.41.6 and
-3.38.0 played it fine; 720p is unaffected on all three. The crash is silent — no
+**Flutter bumps need a hardware test, not just green CI.** The 3.44.9 engine
+segfaulted flutter-pi a few seconds into a **1080p h264 direct-play** stream on
+the Pi. Bisected on hardware: 3.44.9 crashed 2/2 on the same file; 3.41.6 and
+3.38.0 played it fine; 720p was unaffected on all three. The crash is silent — no
 GStreamer error, no Dart exception — so it will not show up in CI, only on a
-device. Before accepting any Flutter bump, cast a 1080p direct-play title on a
-real Pi. 3.41.6 is also the lowest version whose Dart (3.11.4) satisfies
-`pubspec.yaml`'s `^3.11.4` floor.
+device. Flutter is now at 3.47.6, accepted after it booted on the Pi and
+direct-played a generated 1080p h264 clip for 60s. That clip also played on
+3.44.9, so the original crash was not reproduced and is **not proven fixed**.
+Before accepting any Flutter bump, cast a 1080p direct-play title on a real Pi.
+
+**`flutterpi_tool` is temporarily installed from an unreleased upstream commit.**
+The latest pub.dev release (0.12.0) does not compile against Flutter 3.47, so
+both Pi workflows pin upstream's 3.47 commit by full SHA. A `# Renovate anchor:`
+comment beside it keeps Renovate watching for the next release. Move back to a
+pub.dev version when one ships with 3.47 support — tracked in issue #226.
 
 Two checks cover what Renovate cannot see:
 - `.gitea/workflows/upstream-drift.yml` — weekly, compares each fork's
