@@ -378,7 +378,13 @@ class SendspinService {
       }
     };
     player.onStreamStop = () {
-      Log.d('Sendspin', 'stream/end received');
+      // One line per stream on how well it kept time. The counters belong to
+      // the stream and are gone once this callback returns.
+      Log.i('Sendspin', 'Stream ended: sync error ${player.syncErrorUs}us, '
+          '${player.resyncCount} resyncs, '
+          '${player.framesDropped} frames dropped, '
+          '${player.framesInserted} inserted, '
+          '${player.lateChunksDropped} late chunks');
       if (identical(_admitted, session)) _closeOutput();
     };
     player.onStreamError =
@@ -616,8 +622,22 @@ class SendspinService {
       SendspinPlayer player, AudioSink sink, OutputQueue queue, int epoch) {
     final sampleRate = _sinkRate;
     final channels = _sinkChannels;
+    var ticks = 0;
     _pump = Timer.periodic(_pumpInterval, (_) {
       final now = player.nowUs();
+      // A running view of the figures the end-of-stream line reports: once
+      // at 30 seconds for every stream, then every 30 seconds in debug
+      // builds only, to keep a long listen out of the journal.
+      if (++ticks % 3000 == 0) {
+        final line = 'sync error ${player.syncErrorUs}us, '
+            'queued ${queue.queuedUs(now) ~/ 1000}ms, '
+            '${player.resyncCount} resyncs, '
+            '${player.framesDropped} dropped, '
+            '${player.framesInserted} inserted';
+        ticks == 3000
+            ? Log.i('Sendspin', 'Stream after 30s: $line')
+            : Log.d('Sendspin', line);
+      }
       final frames =
           (_targetQueueUs - queue.queuedUs(now)) * sampleRate ~/ 1000000;
       if (frames < sampleRate ~/ 200) return; // under 5 ms: wait for more
