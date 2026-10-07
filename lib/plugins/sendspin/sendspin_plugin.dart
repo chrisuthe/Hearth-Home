@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../config/hub_config.dart';
+import '../../services/sendspin/sendspin_service.dart';
 import '../framework/fields/bool_setting_field.dart';
 import '../framework/fields/select_setting_field.dart';
 import '../framework/fields/text_setting_field.dart';
@@ -11,27 +13,22 @@ import '../hearth_plugin.dart';
 /// Sendspin music streaming integration.
 ///
 /// Owns:
-///   * `sendspinEnabled`  (with side-effect: generate clientId on first enable)
+///   * `sendspinEnabled`
 ///   * `sendspinPlayerName`
 ///   * `sendspinServerUrl`
 ///   * `sendspinBufferSeconds` (one of 5, 7, 10)
+///   * `sendspinUnpairedAccess`
 ///
-/// `sendspinClientId` is internal — not surfaced as a field; written by the
-/// enable toggle's [BoolSettingField.writeOverride] when the user first
-/// flips the toggle on with an empty clientId.
+/// The device's identity is not a config field: it is a key pair the
+/// Sendspin service creates on first use and keeps in its own file.
 ///
 /// Live runtime status (streaming state, codec, sample rate) is observed
 /// from `sendspinStateProvider` and shown elsewhere in the UI; this plugin
 /// surfaces only the configuration fields. A future pass can wire it back in
 /// via a `/api/plugin/<id>/status` route.
 ///
-/// Web caveats:
-///   * The enable checkbox in the web portal posts `sendspinEnabled` directly
-///     to `/api/config` and does NOT generate `sendspinClientId`. Users must
-///     toggle once on-device to seed the clientId. Legacy behavior matched
-///     this — the web form never generated a clientId either. (Seeding the
-///     clientId from the web is deferred until a plugin HTTP route handles
-///     the side-effect.)
+/// Web caveat: the pairing token is shown on the device only, like Plex
+/// pairing. It carries the pairing key, so it stays off the network.
 class SendspinPlugin extends HearthPlugin {
   @override
   String get id => 'hearth.sendspin';
@@ -72,18 +69,6 @@ class SendspinPlugin extends HearthPlugin {
           configPath: 'sendspinEnabled',
           disabledReason: (c) =>
               c.sendspinPlayerName.isEmpty ? 'Set player name first' : null,
-          writeOverride: (ref, value) async {
-            final notifier = ref.read(hubConfigProvider.notifier);
-            await notifier.update((c) {
-              if (value && c.sendspinClientId.isEmpty) {
-                return c.copyWith(
-                  sendspinEnabled: true,
-                  sendspinClientId: HubConfig.generateApiKey(),
-                );
-              }
-              return c.copyWith(sendspinEnabled: value);
-            });
-          },
         ).buildWidget(ref),
         const TextSettingField(
           configPath: 'sendspinPlayerName',
@@ -110,9 +95,20 @@ class SendspinPlugin extends HearthPlugin {
             );
           },
         ).buildWidget(ref),
+        const BoolSettingField(
+          label: 'Allow unpaired servers',
+          icon: Icons.lock_open,
+          configPath: 'sendspinUnpairedAccess',
+          subtitle: _unpairedAccessHelp,
+        ).buildWidget(ref),
+        const SizedBox(height: 12),
+        const SendspinPairingSection(),
       ],
     );
   }
+
+  static const _unpairedAccessHelp =
+      'A server can play here once approved there, without pairing';
 
   @override
   String buildSettingsHtml(WebContext ctx) {
@@ -121,9 +117,6 @@ class SendspinPlugin extends HearthPlugin {
       configPath: 'sendspinEnabled',
       disabledReason: (c) =>
           c.sendspinPlayerName.isEmpty ? 'Set player name first' : null,
-      // No writeOverride on the web side: the legacy web form never generated
-      // a clientId either, and the auto-save helper writes the bool directly.
-      // Users must toggle once on-device to seed the clientId.
     );
     const playerName = TextSettingField(
       configPath: 'sendspinPlayerName',
@@ -149,9 +142,78 @@ class SendspinPlugin extends HearthPlugin {
       },
       readOverride: (c) => c.sendspinBufferSeconds.toString(),
     );
+    const unpairedAccess = BoolSettingField(
+      label: 'Allow unpaired servers',
+      configPath: 'sendspinUnpairedAccess',
+      subtitle: _unpairedAccessHelp,
+    );
     return enable.buildHtml(ctx) +
         playerName.buildHtml(ctx) +
         serverUrl.buildHtml(ctx) +
-        bufferSize.buildHtml(ctx);
+        bufferSize.buildHtml(ctx) +
+        unpairedAccess.buildHtml(ctx);
+  }
+}
+
+/// The device's Sendspin pairing token, as a QR code and as text.
+///
+/// Pairing is started from the server: its operator scans or types this
+/// token there, and the two then recognise each other on every later
+/// connection. Shown only while the player is enabled, since the identity
+/// behind the token is created when the service first starts.
+class SendspinPairingSection extends ConsumerWidget {
+  const SendspinPairingSection({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (!ref.watch(hubConfigProvider.select((c) => c.sendspinEnabled))) {
+      return const SizedBox.shrink();
+    }
+    final service = ref.watch(sendspinServiceProvider);
+    return ValueListenableBuilder<SendspinPairingInfo?>(
+      valueListenable: service.pairingInfo,
+      builder: (context, info, _) {
+        if (info == null) return const SizedBox.shrink();
+        final paired = info.pairedServers;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Pair with a server',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+            const SizedBox(height: 4),
+            Text(
+              paired == 0
+                  ? 'Not paired with any server'
+                  : 'Paired with $paired server${paired == 1 ? '' : 's'}',
+              style: const TextStyle(color: Colors.white54),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: QrImageView(
+                data: info.pairingToken,
+                version: QrVersions.auto,
+                size: 160,
+                backgroundColor: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Scan this in your Sendspin server, or enter the token:',
+              style: TextStyle(color: Colors.white54),
+            ),
+            const SizedBox(height: 4),
+            SelectableText(
+              info.pairingToken,
+              style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+            ),
+          ],
+        );
+      },
+    );
   }
 }

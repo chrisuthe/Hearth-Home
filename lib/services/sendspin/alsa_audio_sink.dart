@@ -46,6 +46,44 @@ typedef _SndPcmDropDart = int Function(Pointer<Void>);
 typedef _SndPcmCloseC = Int32 Function(Pointer<Void>);
 typedef _SndPcmCloseDart = int Function(Pointer<Void>);
 
+// snd_pcm_prepare(pcm) -> int
+typedef _SndPcmPrepareC = Int32 Function(Pointer<Void>);
+typedef _SndPcmPrepareDart = int Function(Pointer<Void>);
+
+// snd_pcm_delay(pcm, snd_pcm_sframes_t* delayp) -> int
+typedef _SndPcmDelayC = Int32 Function(Pointer<Void>, Pointer<IntPtr>);
+typedef _SndPcmDelayDart = int Function(Pointer<Void>, Pointer<IntPtr>);
+
+// clock_gettime(clockid, struct timespec*) -> int
+final class _Timespec extends Struct {
+  @IntPtr()
+  external int tvSec;
+  @IntPtr()
+  external int tvNsec;
+}
+
+typedef _ClockGettimeC = Int32 Function(Int32, Pointer<_Timespec>);
+typedef _ClockGettimeDart = int Function(int, Pointer<_Timespec>);
+
+const int _clockMonotonic = 1;
+
+_ClockGettimeDart? _clockGettime;
+Pointer<_Timespec>? _timespec;
+
+/// `CLOCK_MONOTONIC` in microseconds.
+///
+/// The ALSA isolate and the main isolate each have their own [Stopwatch]
+/// epoch, so a time taken in one means nothing in the other. This clock is
+/// the same in both, which is what lets a delay measured in the isolate be
+/// placed on the main isolate's timeline.
+int monotonicUs() {
+  final clockGettime = _clockGettime ??= DynamicLibrary.process()
+      .lookupFunction<_ClockGettimeC, _ClockGettimeDart>('clock_gettime');
+  final ts = _timespec ??= calloc<_Timespec>();
+  clockGettime(_clockMonotonic, ts);
+  return ts.ref.tvSec * 1000000 + ts.ref.tvNsec ~/ 1000;
+}
+
 // ALSA constants
 const int _sndPcmStreamPlayback = 0;
 const int _sndPcmFormatS16Le = 2;
@@ -95,7 +133,33 @@ class _DuckMsg {
   const _DuckMsg(this.factor);
 }
 
-enum _Cmd { stop, dispose }
+enum _Cmd { stop, flush, dispose }
+
+/// The output's progress, measured in the ALSA isolate straight after a
+/// write: how many of the frames sent so far it has taken, how many were
+/// queued in the device at that moment, and when that was.
+class AlsaProgress {
+  /// Frames taken from the main isolate since the sink was opened, whether
+  /// they reached the device or were lost to a failed write.
+  final int framesProcessed;
+
+  /// `snd_pcm_delay`: frames queued between the last write and the speaker.
+  final int delayFrames;
+
+  /// When the two figures above were read, on [monotonicUs].
+  final int monotonicUs;
+
+  /// True when the queue was just emptied by a flush or an underrun
+  /// recovery, so the output delay stepped instead of drifting.
+  final bool discontinuity;
+
+  const AlsaProgress({
+    required this.framesProcessed,
+    required this.delayFrames,
+    required this.monotonicUs,
+    required this.discontinuity,
+  });
+}
 
 // ---------------------------------------------------------------------------
 // ALSA Audio Sink (main isolate interface)
@@ -108,8 +172,13 @@ enum _Cmd { stop, dispose }
 class AlsaAudioSink implements AudioSink {
   final String device;
 
+  /// Called on the main isolate after each write the ALSA isolate
+  /// completes, and after a flush.
+  void Function(AlsaProgress progress)? onProgress;
+
   SendPort? _cmdPort;
   Isolate? _isolate;
+  ReceivePort? _receivePort;
   bool _initialized = false;
 
   /// Constructs a sink that opens the named ALSA device. The default
@@ -128,26 +197,30 @@ class AlsaAudioSink implements AudioSink {
     await dispose();
 
     final receivePort = ReceivePort();
+    _receivePort = receivePort;
     _isolate = await Isolate.spawn(
       _alsaIsolateEntry,
       receivePort.sendPort,
     );
 
-    // The isolate sends a stream of messages: first its command SendPort,
-    // then an _InitAck after each _InitMsg we send. Use a StreamIterator
-    // so we can await each in sequence without losing messages.
-    final iter = StreamIterator(receivePort);
+    // The isolate sends its command SendPort first, then an _InitAck for the
+    // _InitMsg, then an AlsaProgress after every write for as long as it
+    // lives.
+    final portReady = Completer<SendPort>();
+    final initAck = Completer<_InitAck>();
+    receivePort.listen((msg) {
+      if (msg is SendPort) {
+        portReady.complete(msg);
+      } else if (msg is _InitAck) {
+        initAck.complete(msg);
+      } else if (msg is AlsaProgress) {
+        onProgress?.call(msg);
+      }
+    });
 
-    if (!await iter.moveNext()) {
-      throw StateError('ALSA isolate exited before sending command port');
-    }
-    _cmdPort = iter.current as SendPort;
-
+    _cmdPort = await portReady.future;
     _cmdPort!.send(_InitMsg(sampleRate, channels, bitDepth, device));
-    if (!await iter.moveNext()) {
-      throw StateError('ALSA isolate exited before _InitAck');
-    }
-    final ack = iter.current as _InitAck;
+    final ack = await initAck.future;
     if (!ack.ok) {
       Log.e('Sendspin',
           'ALSA sink init failed: device=$device — ${ack.error}');
@@ -188,6 +261,14 @@ class AlsaAudioSink implements AudioSink {
     _cmdPort?.send(_VolumeMsg(-1, muted));
   }
 
+  /// Throws away everything queued in the device, so audio stops now
+  /// instead of when the queue runs out. Writes sent before this are
+  /// discarded with it; writes sent after it play normally.
+  void flush() {
+    if (!_initialized) return;
+    _cmdPort?.send(_Cmd.flush);
+  }
+
   /// Local-only attenuation (0.0–1.0). Independent of [setVolume]; doesn't
   /// round-trip to the Sendspin server. Used by the voice ducker.
   Future<void> setDuckFactor(double factor) async {
@@ -197,10 +278,14 @@ class AlsaAudioSink implements AudioSink {
   @override
   Future<void> dispose() async {
     if (_isolate != null) {
+      // The isolate drops the queued audio, closes the device and then exits
+      // by itself. Killing it here would race that and leak the PCM handle,
+      // which matters now that a sink is opened per stream.
       _cmdPort?.send(_Cmd.dispose);
-      _isolate!.kill(priority: Isolate.beforeNextEvent);
       _isolate = null;
       _cmdPort = null;
+      _receivePort?.close();
+      _receivePort = null;
       _initialized = false;
     }
   }
@@ -249,8 +334,14 @@ void _alsaIsolateEntry(SendPort mainPort) {
       lib.lookupFunction<_SndPcmDropC, _SndPcmDropDart>('snd_pcm_drop');
   final pcmClose =
       lib.lookupFunction<_SndPcmCloseC, _SndPcmCloseDart>('snd_pcm_close');
+  final pcmPrepare = lib
+      .lookupFunction<_SndPcmPrepareC, _SndPcmPrepareDart>('snd_pcm_prepare');
+  final pcmDelay =
+      lib.lookupFunction<_SndPcmDelayC, _SndPcmDelayDart>('snd_pcm_delay');
 
   Pointer<Void> pcm = nullptr;
+  final delayPtr = calloc<IntPtr>();
+  int framesProcessed = 0;
   int bytesPerFrame = 4; // 2 channels * 16-bit
   double volume = 1.0;
   double duckFactor = 1.0;
@@ -262,6 +353,20 @@ void _alsaIsolateEntry(SendPort mainPort) {
       pcmClose(pcm);
       pcm = nullptr;
     }
+  }
+
+  // Tells the main isolate where the output stands. The delay and the time
+  // are read back to back, so the pair stays true however long the message
+  // takes to arrive.
+  void reportProgress({required bool discontinuity}) {
+    // An error here means the device is in underrun: nothing is queued.
+    final queued = pcmDelay(pcm, delayPtr) < 0 ? 0 : delayPtr.value;
+    mainPort.send(AlsaProgress(
+      framesProcessed: framesProcessed,
+      delayFrames: queued < 0 ? 0 : queued,
+      monotonicUs: monotonicUs(),
+      discontinuity: discontinuity,
+    ));
   }
 
   cmdPort.listen((msg) {
@@ -315,6 +420,7 @@ void _alsaIsolateEntry(SendPort mainPort) {
       }
 
       bytesPerFrame = msg.channels * (msg.bitDepth ~/ 8);
+      framesProcessed = 0;
       mainPort.send(const _InitAck());
     } else if (msg is _WriteMsg) {
       if (pcm == nullptr) return;
@@ -351,6 +457,7 @@ void _alsaIsolateEntry(SendPort mainPort) {
       nativeBuf.asTypedList(processed.length).setAll(0, processed);
 
       int written = 0;
+      var recovered = false;
       while (written < frames) {
         final result = pcmWritei(
           pcm,
@@ -360,12 +467,18 @@ void _alsaIsolateEntry(SendPort mainPort) {
         if (result < 0) {
           // Recover from underrun (-EPIPE) or suspend (-ESTRPIPE).
           pcmRecover(pcm, result, 1);
+          recovered = true;
           break;
         }
         written += result;
       }
 
       calloc.free(nativeBuf);
+
+      // Counted in full even when a failed write lost the tail: the main
+      // isolate counts what it sent, and the two must not drift apart.
+      framesProcessed += frames;
+      reportProgress(discontinuity: recovered);
     } else if (msg is _VolumeMsg) {
       if (msg.volume >= 0) volume = msg.volume.clamp(0.0, 1.0);
       muted = msg.muted;
@@ -375,8 +488,15 @@ void _alsaIsolateEntry(SendPort mainPort) {
       if (pcm != nullptr) {
         pcmDrain(pcm);
       }
+    } else if (msg == _Cmd.flush) {
+      if (pcm != nullptr) {
+        pcmDrop(pcm);
+        pcmPrepare(pcm);
+        reportProgress(discontinuity: true);
+      }
     } else if (msg == _Cmd.dispose) {
       cleanup();
+      calloc.free(delayPtr);
       cmdPort.close();
     }
   });

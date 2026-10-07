@@ -102,15 +102,17 @@ void main() {
     // --- Permanent: internal / app-managed ---
     'apiKey': 'internal: API bearer token, redacted on read, never web-writable',
     'currentVersion': 'internal: managed by the updater',
-    'sendspinClientId': 'internal: app-seeded Sendspin device identity',
     'dlnaUuid': 'internal: app-seeded UPnP device identity (UDN), web read-only',
     'plexClientId':
         'internal: app-seeded Plex device identity (X-Plex-Client-Identifier), '
             'web read-only',
     'plexAuthToken':
         'internal: plex.tv token from on-device PIN pairing, web read-only secret',
-    'sendspinStaticDelayMs':
-        'internal: advanced sync tuning, not surfaced in any settings panel',
+    'sendspinOutputDelayMs':
+        'internal: set by the Sendspin server, not surfaced in any settings '
+            'panel',
+    'sendspinLastPlaybackServerId':
+        'internal: which Sendspin server last played here, kept by the app',
     'setupComplete': 'internal: first-run flow state',
     'touchIndicator':
         'nested object edited via the Capture plugin panel through the '

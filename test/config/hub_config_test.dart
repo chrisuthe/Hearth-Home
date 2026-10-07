@@ -97,7 +97,9 @@ void main() {
       expect(config.sendspinEnabled, false);
       expect(config.sendspinPlayerName, '');
       expect(config.sendspinBufferSeconds, 5);
-      expect(config.sendspinClientId, '');
+      expect(config.sendspinUnpairedAccess, true);
+      expect(config.sendspinOutputDelayMs, 0);
+      expect(config.sendspinLastPlaybackServerId, '');
     });
 
     // sendspinAlsaDevice was removed in the PipeWire migration —
@@ -109,14 +111,23 @@ void main() {
         sendspinEnabled: true,
         sendspinPlayerName: 'Kitchen Display',
         sendspinBufferSeconds: 10,
-        sendspinClientId: 'abc-123',
+        sendspinUnpairedAccess: false,
+        sendspinOutputDelayMs: 120,
+        sendspinLastPlaybackServerId: 'server-a',
       );
       final json = config.toJson();
       final restored = HubConfig.fromJson(json);
       expect(restored.sendspinEnabled, true);
       expect(restored.sendspinPlayerName, 'Kitchen Display');
       expect(restored.sendspinBufferSeconds, 10);
-      expect(restored.sendspinClientId, 'abc-123');
+      expect(restored.sendspinUnpairedAccess, false);
+      expect(restored.sendspinOutputDelayMs, 120);
+      expect(restored.sendspinLastPlaybackServerId, 'server-a');
+    });
+
+    test('a delay saved under the pre-1.0 name is still read', () {
+      final restored = HubConfig.fromJson({'sendspinStaticDelayMs': 85});
+      expect(restored.sendspinOutputDelayMs, 85);
     });
 
     test('sendspinServerUrl round-trips through JSON', () {

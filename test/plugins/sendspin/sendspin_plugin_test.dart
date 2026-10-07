@@ -5,6 +5,8 @@ import 'package:hearth/config/hub_config.dart';
 import 'package:hearth/plugins/framework/web_context.dart';
 import 'package:hearth/plugins/hearth_plugin.dart';
 import 'package:hearth/plugins/sendspin/sendspin_plugin.dart';
+import 'package:hearth/services/sendspin/sendspin_service.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 /// In-memory notifier: stores state without touching the path_provider
 /// platform channel (which isn't available in widget tests).
@@ -97,79 +99,103 @@ void main() {
       expect(p.pageScreen, isNull);
     });
 
-    testWidgets(
-        'enable toggle generates sendspinClientId on first enable when empty',
-        (tester) async {
-      // Seed config with a player name (so toggle is enabled) and empty
-      // clientId. Tapping the switch on should set sendspinEnabled=true AND
-      // generate a non-empty sendspinClientId in a single write.
-      final notifier = _MemoryHubConfigNotifier(
-        const HubConfig(sendspinPlayerName: 'Kitchen'),
-      );
+    test('buildSettingsHtml offers the unpaired access toggle', () {
+      final p = SendspinPlugin();
+      final html = p.buildSettingsHtml(WebContext(
+        config: const HubConfig(sendspinPlayerName: 'Kitchen'),
+        apiBearerToken: 'k',
+        pluginActionPrefix: '/api/plugin/hearth.sendspin',
+      ));
+      expect(html, contains('Allow unpaired servers'));
+      expect(html, contains('data-config-path="sendspinUnpairedAccess"'));
+    });
 
+    Future<_MemoryHubConfigNotifier> pumpPanel(
+      WidgetTester tester,
+      HubConfig config,
+      SendspinService service,
+    ) async {
+      final notifier = _MemoryHubConfigNotifier(config);
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
             hubConfigProvider.overrideWith((_) => notifier),
+            // The real provider would open sockets and touch path_provider.
+            sendspinServiceProvider.overrideWithValue(service),
           ],
           child: MaterialApp(
             home: Scaffold(
               body: Consumer(
-                builder: (_, ref, __) =>
-                    SingleChildScrollView(child: SendspinPlugin().buildSettingsWidget(ref)),
+                builder: (_, ref, __) => SingleChildScrollView(
+                    child: SendspinPlugin().buildSettingsWidget(ref)),
               ),
             ),
           ),
         ),
       );
       await tester.pumpAndSettle();
+      return notifier;
+    }
 
-      // Sanity: pre-tap state.
+    testWidgets('enable toggle turns the player on', (tester) async {
+      final service = SendspinService();
+      addTearDown(service.dispose);
+      final notifier = await pumpPanel(
+          tester, const HubConfig(sendspinPlayerName: 'Kitchen'), service);
       expect(notifier.state.sendspinEnabled, isFalse);
-      expect(notifier.state.sendspinClientId, isEmpty);
 
       // First SwitchListTile in the panel is the enable toggle.
-      final switchTile = find.byType(SwitchListTile).first;
-      await tester.tap(switchTile);
-      await tester.pumpAndSettle();
-
-      expect(notifier.state.sendspinEnabled, isTrue);
-      expect(notifier.state.sendspinClientId, isNotEmpty);
-      expect(notifier.state.sendspinClientId.length, 32);
-    });
-
-    testWidgets(
-        'enable toggle preserves existing clientId when re-enabling',
-        (tester) async {
-      const existingId = 'pre-existing-client-id-value-123';
-      final notifier = _MemoryHubConfigNotifier(
-        const HubConfig(
-          sendspinPlayerName: 'Kitchen',
-          sendspinClientId: existingId,
-        ),
-      );
-
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [hubConfigProvider.overrideWith((_) => notifier)],
-          child: MaterialApp(
-            home: Scaffold(
-              body: Consumer(
-                builder: (_, ref, __) =>
-                    SingleChildScrollView(child: SendspinPlugin().buildSettingsWidget(ref)),
-              ),
-            ),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
       await tester.tap(find.byType(SwitchListTile).first);
       await tester.pumpAndSettle();
 
       expect(notifier.state.sendspinEnabled, isTrue);
-      // ClientId must not be regenerated when one already exists.
-      expect(notifier.state.sendspinClientId, existingId);
+    });
+
+    testWidgets('unpaired access toggle writes the setting', (tester) async {
+      final service = SendspinService();
+      addTearDown(service.dispose);
+      final notifier = await pumpPanel(
+          tester, const HubConfig(sendspinPlayerName: 'Kitchen'), service);
+      expect(notifier.state.sendspinUnpairedAccess, isTrue);
+
+      await tester.tap(
+          find.widgetWithText(SwitchListTile, 'Allow unpaired servers'));
+      await tester.pumpAndSettle();
+
+      expect(notifier.state.sendspinUnpairedAccess, isFalse);
+    });
+
+    testWidgets('pairing token is hidden while the player is disabled',
+        (tester) async {
+      final service = SendspinService();
+      addTearDown(service.dispose);
+      service.pairingInfo.value = const SendspinPairingInfo(
+          clientId: 'id', pairingToken: 'SP:0TOKEN', pairedServers: 0);
+      await pumpPanel(
+          tester, const HubConfig(sendspinPlayerName: 'Kitchen'), service);
+
+      expect(find.text('SP:0TOKEN'), findsNothing);
+    });
+
+    testWidgets('pairing token is shown as text and QR once loaded',
+        (tester) async {
+      final service = SendspinService();
+      addTearDown(service.dispose);
+      await pumpPanel(
+        tester,
+        const HubConfig(sendspinPlayerName: 'Kitchen', sendspinEnabled: true),
+        service,
+      );
+      // Nothing to show until the service has loaded the identity.
+      expect(find.byType(QrImageView), findsNothing);
+
+      service.pairingInfo.value = const SendspinPairingInfo(
+          clientId: 'id', pairingToken: 'SP:0TOKEN', pairedServers: 2);
+      await tester.pumpAndSettle();
+
+      expect(find.text('SP:0TOKEN'), findsOneWidget);
+      expect(find.byType(QrImageView), findsOneWidget);
+      expect(find.text('Paired with 2 servers'), findsOneWidget);
     });
   });
 }

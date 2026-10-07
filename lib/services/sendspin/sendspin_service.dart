@@ -7,16 +7,52 @@ import 'package:sendspin_dart/sendspin_dart.dart';
 import '../../config/hub_config.dart';
 import '../../utils/logger.dart';
 import 'alsa_audio_sink.dart';
+import 'output_queue.dart';
+import 'sendspin_admission.dart';
 import 'sendspin_audio_sink.dart';
 import 'sendspin_codec.dart' as hearth_codec;
+import 'sendspin_stores.dart';
+
+/// What the settings screen shows about the kiosk's Sendspin identity.
+class SendspinPairingInfo {
+  /// The device's public key, which is how servers identify it.
+  final String clientId;
+
+  /// The `SP:0…` string an operator enters into a server to pair with this
+  /// device. It contains the pairing key: treat it as a secret.
+  final String pairingToken;
+
+  /// How many servers the device is paired with.
+  final int pairedServers;
+
+  const SendspinPairingInfo({
+    required this.clientId,
+    required this.pairingToken,
+    required this.pairedServers,
+  });
+}
+
+/// One WebSocket to one Sendspin server, with the player that speaks to it.
+class _Session {
+  final SendspinPlayer player;
+  final WebSocket socket;
+  StreamSubscription<SendspinPlayerState>? stateSub;
+
+  /// True once this connection's first `server/activate` has been weighed
+  /// against the current holder. Later activations do not reopen that.
+  bool arbitrated = false;
+
+  _Session(this.player, this.socket);
+}
 
 /// Top-level Sendspin player service.
 ///
-/// Manages a WebSocket server on port 8928, handles upgrade requests from
-/// Music Assistant's Sendspin server, creates a [SendspinPlayer] for protocol
-/// handling and a [SendspinAudioSink] for audio output, and registers mDNS
-/// via bonsoir. Exposes state via a broadcast stream and is driven by config
-/// through Riverpod providers.
+/// Speaks Sendspin 1.0.0-rc1 through `sendspin_dart`. With a server URL
+/// configured it connects out to that server; without one it listens on port
+/// 8928, advertises itself over mDNS, and lets servers connect to it. Either
+/// way it owns the socket, the audio output and the device's stored identity,
+/// and exposes player state via a broadcast stream driven by config through
+/// Riverpod providers.
 class SendspinService {
   /// Ceiling for reconnect backoff. An unreachable server should settle at one
   /// retry per hour rather than hammering the log — a fixed short retry filled
@@ -29,26 +65,67 @@ class SendspinService {
   static int nextReconnectDelay(int current) =>
       (current * 2).clamp(1, maxReconnectDelaySeconds);
 
-  SendspinPlayer? _client;
-  AudioSink? _audioSink;
+  /// The port and WebSocket path servers connect to in listening mode. Both
+  /// are the spec's recommended values.
+  static const int listenPort = 8928;
+  static const String wsPath = '/sendspin';
+
+  /// How much audio the pump keeps queued in the output. Enough to ride out
+  /// a UI frame that stalls the main isolate; the delay it adds is measured
+  /// and compensated, so it costs no sync accuracy.
+  static const int _targetQueueUs = 120000;
+  static const Duration _pumpInterval = Duration(milliseconds: 10);
+
+  /// Latency assumed for an output that cannot report its own (the desktop
+  /// method-channel sink).
+  static const int _assumedSinkLatencyUs = 100000;
+
+  /// Connections allowed to be waiting for their first `server/activate`.
+  static const int _maxProvisional = 4;
+
+  SendspinIdentity? _identity;
+  SendspinPairing? _pairing;
+  String _playerName = '';
+  int _bufferSeconds = 5;
+  bool _unpairedAccess = true;
+  int _outputDelayMs = 0;
+  String? _lastPlaybackServerId;
+
+  final Set<_Session> _sessions = {};
+
+  /// The connection that currently owns the kiosk's audio and its state.
+  _Session? _admitted;
+
   HttpServer? _httpServer;
   BonsoirBroadcast? _bonsoirBroadcast;
-  StreamSubscription? _stateSubscription;
-  WebSocket? _webSocket;
   Timer? _reconnectTimer;
-  Timer? _audioFeedTimer;
   int _reconnectDelay = 1;
   String _serverUrl = '';
-  int _channels = 2;
+  bool _listening = false;
+
+  /// Bumped whenever the service is stopped, so work that was awaiting
+  /// something across the stop can tell it is no longer wanted.
+  int _generation = 0;
+
+  AudioSink? _sink;
+  Timer? _pump;
+  int _sinkRate = 0;
+  int _sinkChannels = 0;
+  int _outputEpoch = 0;
+  double _duckFactor = 1.0;
+
   final _stateController = StreamController<SendspinPlayerState>.broadcast();
 
   SendspinPlayerState _state = const SendspinPlayerState();
   SendspinPlayerState get state => _state;
   Stream<SendspinPlayerState> get stateStream => _stateController.stream;
 
+  /// The device's identity and pairing token, once they have been loaded.
+  final ValueNotifier<SendspinPairingInfo?> pairingInfo = ValueNotifier(null);
+
   /// Set volume from the local UI slider and report to the server.
   void setVolume(double volume) {
-    _client?.updateVolume(volume);
+    _admitted?.player.updateVolume(volume);
   }
 
   /// Local-only attenuation (0.0–1.0). Used by the voice ducker to dim
@@ -56,7 +133,8 @@ class SendspinService {
   /// Sendspin server (which would otherwise dim other rooms in the
   /// same multi-room group).
   void setLocalDuckFactor(double factor) {
-    final sink = _audioSink;
+    _duckFactor = factor;
+    final sink = _sink;
     if (sink is AlsaAudioSink) {
       sink.setDuckFactor(factor);
     }
@@ -65,42 +143,90 @@ class SendspinService {
     // desktop dev parity is a follow-up if needed.
   }
 
-  void Function(int delayMs)? _onStaticDelayPersist;
+  void Function(int delayMs)? _onOutputDelayPersist;
+  void Function(String serverId)? _onLastPlaybackServer;
 
   Future<void> configure({
     required bool enabled,
     required String playerName,
     required int bufferSeconds,
-    required String clientId,
     required String serverUrl,
-    int initialStaticDelayMs = 0,
-    void Function(int delayMs)? onStaticDelayPersist,
+    bool unpairedAccess = true,
+    int initialOutputDelayMs = 0,
+    void Function(int delayMs)? onOutputDelayPersist,
+    String lastPlaybackServerId = '',
+    void Function(String serverId)? onLastPlaybackServer,
+    SendspinIdentityStore? identityStore,
+    SendspinPairingStore? pairingStore,
   }) async {
-    _onStaticDelayPersist = onStaticDelayPersist;
+    _onOutputDelayPersist = onOutputDelayPersist;
+    _onLastPlaybackServer = onLastPlaybackServer;
     await _stop();
     if (!enabled || playerName.isEmpty) {
       _updateState(const SendspinPlayerState());
       return;
     }
-    // Generate a stable client_id from the player name if not configured.
-    final effectiveClientId = clientId.isNotEmpty
-        ? clientId
-        : 'hearth-${playerName.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '')}';
-    _client = SendspinPlayer(
-      playerName: playerName,
-      clientId: effectiveClientId,
-      bufferSeconds: bufferSeconds,
-      initialStaticDelayMs: initialStaticDelayMs,
+    final generation = _generation;
+    // The identity is the device's key pair, created on first use. Its public
+    // half is the client_id, so this file is what makes the kiosk the same
+    // player to a server from one run to the next.
+    final identity = await SendspinIdentity.loadOrCreate(
+        identityStore ?? FileSendspinIdentityStore());
+    final pairing =
+        await SendspinPairing.load(pairingStore ?? FileSendspinPairingStore());
+    if (generation != _generation) return;
+
+    _identity = identity;
+    _pairing = pairing;
+    _playerName = playerName;
+    _bufferSeconds = bufferSeconds;
+    _unpairedAccess = unpairedAccess;
+    _outputDelayMs = initialOutputDelayMs;
+    _lastPlaybackServerId =
+        lastPlaybackServerId.isEmpty ? null : lastPlaybackServerId;
+    _publishPairingInfo();
+
+    if (serverUrl.isNotEmpty) {
+      // Client mode: connect outward to the specified server
+      await _connectToServer(serverUrl);
+    } else {
+      // Server mode: advertise via mDNS and wait for connections
+      await _startServer();
+    }
+  }
+
+  void _publishPairingInfo() {
+    final identity = _identity;
+    final pairing = _pairing;
+    if (identity == null || pairing == null) return;
+    pairingInfo.value = SendspinPairingInfo(
+      clientId: identity.clientId,
+      pairingToken: pairing.pairingToken(identity.publicKey),
+      pairedServers: pairing.records.length,
+    );
+  }
+
+  SendspinPlayer _newPlayer() {
+    return SendspinPlayer(
+      playerName: _playerName,
+      identity: _identity!,
+      pairing: _pairing,
+      unpairedAccess: _unpairedAccess,
+      bufferSeconds: _bufferSeconds,
+      initialOutputDelayMs: _outputDelayMs,
+      // From stream/start to the first audible sample: the output has to be
+      // opened and the queue the pump keeps has to fill.
+      requiredLeadTimeMs: 500,
       deviceInfo: const DeviceInfo(
         productName: 'Hearth',
         manufacturer: 'Hearth',
         softwareVersion: '0.6.0',
       ),
+      // One sample rate and channel count: the output cannot change either
+      // without reopening the device, so the server resamples instead.
       supportedFormats: const [
         AudioFormat(codec: 'pcm', channels: 2, sampleRate: 48000, bitDepth: 16),
-        AudioFormat(codec: 'pcm', channels: 2, sampleRate: 44100, bitDepth: 16),
         AudioFormat(codec: 'flac', channels: 2, sampleRate: 48000, bitDepth: 16),
-        AudioFormat(codec: 'flac', channels: 2, sampleRate: 44100, bitDepth: 16),
       ],
       codecFactory: (codec, bitDepth, channels, sampleRate) {
         try {
@@ -115,31 +241,20 @@ class SendspinService {
         }
       },
     );
-    _stateSubscription = _client!.stateStream.listen(_updateState);
-    _client!.onStaticDelayChanged = (delayMs) {
-      Log.i('Sendspin', 'Static delay changed: ${delayMs}ms');
-      _onStaticDelayPersist?.call(delayMs);
-    };
-
-    if (serverUrl.isNotEmpty) {
-      // Client mode: connect outward to the specified server
-      await _connectToServer(serverUrl);
-    } else {
-      // Server mode: advertise via mDNS and wait for connections
-      await _startServer(playerName, clientId);
-    }
   }
 
-  Future<void> _startServer(String playerName, String clientId) async {
+  Future<void> _startServer() async {
+    _listening = true;
     try {
-      _httpServer = await HttpServer.bind(InternetAddress.anyIPv4, 8928);
+      _httpServer = await HttpServer.bind(InternetAddress.anyIPv4, listenPort);
       _updateState(
         _state.copyWith(connectionState: SendspinConnectionState.advertising),
       );
-      Log.i('Sendspin', 'WebSocket server listening on port 8928');
+      Log.i('Sendspin', 'WebSocket server listening on port $listenPort');
 
       _httpServer!.listen((request) {
-        if (WebSocketTransformer.isUpgradeRequest(request)) {
+        if (request.uri.path == wsPath &&
+            WebSocketTransformer.isUpgradeRequest(request)) {
           _handleWebSocketUpgrade(request);
         } else {
           request.response
@@ -148,22 +263,21 @@ class SendspinService {
         }
       });
 
-      // Register mDNS
+      // Register mDNS. `path` is required by the spec: it is where servers
+      // open the WebSocket.
       final service = BonsoirService(
-        name: playerName,
+        name: _playerName,
         type: '_sendspin._tcp',
-        port: 8928,
+        port: listenPort,
         attributes: {
-          'client_id': clientId,
-          'product_name': 'Hearth',
-          'manufacturer': 'Hearth',
-          'software_version': '0.1.0',
+          'path': wsPath,
+          'name': _playerName,
         },
       );
       _bonsoirBroadcast = BonsoirBroadcast(service: service);
       await _bonsoirBroadcast!.initialize();
       await _bonsoirBroadcast!.start();
-      Log.i('Sendspin', 'mDNS registered as "$playerName"');
+      Log.i('Sendspin', 'mDNS registered as "$_playerName"');
     } catch (e) {
       Log.e('Sendspin', 'Failed to start server: $e');
       _updateState(
@@ -175,23 +289,17 @@ class SendspinService {
   }
 
   Future<void> _handleWebSocketUpgrade(HttpRequest request) async {
+    final generation = _generation;
     try {
       final socket = await WebSocketTransformer.upgrade(request);
+      // One admitted connection plus a few still introducing themselves.
+      if (generation != _generation ||
+          _sessions.length >= _maxProvisional + 1) {
+        await socket.close();
+        return;
+      }
       Log.i('Sendspin', 'Server connected');
-      _setupWebSocket(socket, onDone: () {
-        Log.i('Sendspin', 'Server disconnected '
-            '(close=${socket.closeCode} ${socket.closeReason})');
-        _client?.resetForNewConnection();
-        _stopAudioFeed();
-        _audioSink?.stop();
-        _audioSink?.dispose();
-        _audioSink = null;
-        _updateState(
-          _state.copyWith(
-            connectionState: SendspinConnectionState.advertising,
-          ),
-        );
-      });
+      _attach(socket, admitted: false);
     } catch (e) {
       Log.e('Sendspin', 'WebSocket upgrade failed: $e');
     }
@@ -199,6 +307,7 @@ class SendspinService {
 
   Future<void> _connectToServer(String url) async {
     _serverUrl = url;
+    final generation = _generation;
     // The backoff is NOT reset here. Doing so on every attempt defeated it
     // entirely — an unreachable server retried at a fixed ~1s forever. It is
     // reset below, once the socket actually connects.
@@ -206,70 +315,83 @@ class SendspinService {
       _state.copyWith(connectionState: SendspinConnectionState.advertising),
     );
 
+    // Sendspin encrypts inside the WebSocket and requires the transport
+    // itself to be plain ws://.
+    if (!url.startsWith('ws://')) {
+      Log.e('Sendspin', 'Server URL must start with ws:// — not connecting');
+      _updateState(
+        _state.copyWith(connectionState: SendspinConnectionState.disconnected),
+      );
+      return;
+    }
+
     // MA's Sendspin server expects connections on the /sendspin path.
-    final wsUrl = url.endsWith('/sendspin') ? url : '$url/sendspin';
+    final wsUrl = url.endsWith(wsPath) ? url : '$url$wsPath';
     Log.i('Sendspin', 'Connecting to server $wsUrl');
 
     try {
-      _webSocket = await WebSocket.connect(wsUrl);
+      final socket = await WebSocket.connect(wsUrl);
+      if (generation != _generation) {
+        await socket.close();
+        return;
+      }
       _reconnectDelay = 1;
-      _setupWebSocket(_webSocket!, onDone: () {
-        Log.w('Sendspin', 'Server disconnected, reconnecting... '
-            '(close=${_webSocket?.closeCode} ${_webSocket?.closeReason})');
-        _client?.resetForNewConnection();
-        _stopAudioFeed();
-        _audioSink?.stop();
-        _audioSink?.dispose();
-        _audioSink = null;
-        _updateState(
-          _state.copyWith(
-            connectionState: SendspinConnectionState.disconnected,
-          ),
-        );
-        _scheduleReconnect();
-      });
+      _attach(socket, admitted: true);
     } catch (e) {
       Log.e('Sendspin', 'Connection to $url failed: $e');
-      _scheduleReconnect();
+      if (generation == _generation) _scheduleReconnect();
     }
   }
 
-  void _setupWebSocket(dynamic socket, {required VoidCallback onDone}) {
-    socket.add(_client!.buildClientHello());
-    _client!.onSendText = (message) => socket.add(message);
+  /// Wires a player to [socket] and opens the Sendspin connection on it.
+  ///
+  /// A connection the kiosk made itself is [admitted] from the start. One a
+  /// server made to the kiosk is provisional until its first
+  /// `server/activate` says what it is for.
+  void _attach(WebSocket socket, {required bool admitted}) {
+    final player = _newPlayer();
+    final session = _Session(player, socket);
+    _sessions.add(session);
 
-    _audioSink = Platform.isLinux
-        ? AlsaAudioSink()
-        : SendspinAudioSink();
+    // WebSocket ping/pong is Sendspin's liveness check; without it a server
+    // that vanishes leaves the connection looking open.
+    socket.pingInterval = const Duration(seconds: 20);
 
-    _client!.onStreamStart = (sampleRate, channels, bitDepth) {
-      _channels = channels;
-      if (_audioFeedTimer != null) {
-        // Already streaming (track switch) — keep the sink and timer running.
-        Log.i('Sendspin', 'Track switch: reusing audio sink');
-        return;
+    void send(dynamic message) {
+      if (socket.readyState == WebSocket.open) socket.add(message);
+    }
+
+    player.onSendText = send;
+    player.onSendBinary = send;
+    player.onClose = (reason) {
+      Log.i('Sendspin', 'Closing connection: $reason');
+      socket.close();
+    };
+    player.onServerError =
+        (reason) => Log.e('Sendspin', 'Server refused the connection: $reason');
+    player.onActivate =
+        (activities, roles) => _onActivate(session, activities, roles);
+
+    player.onStreamStart = (sampleRate, channels, bitDepth) {
+      if (identical(_admitted, session)) {
+        _openOutput(session, sampleRate, channels);
       }
-      Log.i('Sendspin', 'Initializing audio sink: '
-          '${sampleRate}Hz ${channels}ch ${bitDepth}bit');
-      // Start draining the buffer immediately so it doesn't overflow
-      // while the async ALSA initialization completes.
-      _startAudioFeed(sampleRate);
-      _audioSink?.initialize(
-        sampleRate: sampleRate,
-        channels: channels,
-        bitDepth: bitDepth,
-      ).then((_) => _audioSink?.start()).catchError((e, st) {
-        // Sink init failed (e.g., libasound returned an error from
-        // snd_pcm_set_params). Surface it in the log instead of letting
-        // it land as an unhandled async error, and clear the sink so
-        // subsequent writes don't drop silently against a stale handle.
-        Log.e('Sendspin', 'Audio sink init failed: $e');
-        _audioSink?.dispose();
-        _audioSink = null;
-      });
+    };
+    player.onStreamStop = () {
+      Log.d('Sendspin', 'stream/end received');
+      if (identical(_admitted, session)) _closeOutput();
+    };
+    player.onStreamError =
+        (error) => Log.e('Sendspin', 'Stream cannot be played: $error');
+    // A seek or track jump: the player has dropped its buffer, so drop what
+    // is already queued in the device too instead of letting it play out.
+    final clearBuffer = player.protocol.onStreamClear;
+    player.protocol.onStreamClear = () {
+      clearBuffer?.call();
+      if (identical(_admitted, session)) _flushOutput();
     };
 
-    _client!.onVolumeChanged = (volume, muted) async {
+    player.onVolumeChanged = (volume, muted) async {
       // Sync Sendspin volume to ALSA hardware volume.
       final percent = (volume * 100).round();
       Log.i('Sendspin', 'Volume changed: $percent%${muted ? " (muted)" : ""}');
@@ -277,28 +399,255 @@ class SendspinService {
         await setAlsaVolume(percent, muted);
       }
     };
-
-    _client!.onStreamStop = () {
-      // Don't stop the sink here — stream/end is followed by stream/start
-      // on track switches. The sink and timer are cleaned up on disconnect.
-      Log.d('Sendspin', 'stream/end received');
+    player.onOutputDelayChanged = (delayMs) {
+      Log.i('Sendspin', 'Output delay changed: ${delayMs}ms');
+      _outputDelayMs = delayMs;
+      _onOutputDelayPersist?.call(delayMs);
     };
+
+    player.onPaired = (serverId) {
+      Log.i('Sendspin', 'Paired with server $serverId');
+      _publishPairingInfo();
+    };
+    player.onPairingAborted =
+        (reason) => Log.w('Sendspin', 'Pairing aborted: $reason');
+    player.onPairingStoreError =
+        (error) => Log.e('Sendspin', 'Could not save pairing records: $error');
 
     socket.listen(
       (data) {
         if (data is String) {
-          _client!.handleTextMessage(data);
+          player.handleTextMessage(data);
         } else if (data is List<int>) {
-          _client!.handleBinaryMessage(Uint8List.fromList(data));
+          player.handleBinaryMessage(Uint8List.fromList(data));
         }
       },
-      onDone: onDone,
+      onDone: () => _sessionEnded(session),
       onError: (e) => Log.e('Sendspin', 'WebSocket error: $e'),
     );
 
-    _updateState(
-      _state.copyWith(connectionState: SendspinConnectionState.connected),
+    if (admitted) _admit(session);
+
+    // Report the volume the hardware is actually at, rather than assuming
+    // the last value a server set survived whatever happened since.
+    if (Platform.isLinux) {
+      readAlsaVolume().then((volume) {
+        if (volume != null && _sessions.contains(session)) {
+          player.updateVolume(volume);
+        }
+      });
+    }
+
+    player.start();
+  }
+
+  void _admit(_Session session) {
+    _admitted = session;
+    session.stateSub = session.player.stateStream.listen(_updateState);
+    _updateState(session.player.state);
+  }
+
+  void _onActivate(
+      _Session session, Set<String> activities, List<String> roles) {
+    Log.i('Sendspin', 'Activated: activities=$activities roles=$roles '
+        'paired=${session.player.isPaired}');
+    // An unpair leaves through here too, as the server drops to no roles.
+    _publishPairingInfo();
+
+    if (!session.arbitrated) {
+      session.arbitrated = true;
+      if (_listening && !identical(_admitted, session)) {
+        final current = _admitted;
+        final decision = decideAdmission(
+          current: current == null
+              ? null
+              : AdmissionCandidate(
+                  activities: current.player.state.activities,
+                  serverId: current.player.serverId,
+                ),
+          incoming: AdmissionCandidate(
+            activities: activities,
+            serverId: session.player.serverId,
+          ),
+          lastPlaybackServerId: _lastPlaybackServerId,
+        );
+        switch (decision) {
+          case AdmissionDecision.admit:
+            _admit(session);
+          case AdmissionDecision.displaceCurrent:
+            Log.i('Sendspin', 'Another server took over the player');
+            _dismiss(current!, displaced: true);
+            _admit(session);
+          case AdmissionDecision.rejectIncoming:
+            Log.i('Sendspin', 'Refused a second server: player is in use');
+            _dismiss(session, displaced: false);
+            return;
+        }
+      }
+    }
+
+    // Remember the server that last played here: it is the one that gets
+    // the kiosk back when several idle servers reconnect.
+    final serverId = session.player.serverId;
+    if (identical(_admitted, session) &&
+        activities.contains('playback') &&
+        serverId != null &&
+        serverId != _lastPlaybackServerId) {
+      _lastPlaybackServerId = serverId;
+      _onLastPlaybackServer?.call(serverId);
+    }
+  }
+
+  /// Tells a server it has lost the kiosk and closes its connection.
+  ///
+  /// A [displaced] holder is told the kiosk moved to `another_server`; a
+  /// refused newcomer is told of the `concurrent_attempt`. A connection that
+  /// was pairing gets `pair/abort` instead, either way.
+  void _dismiss(_Session session, {required bool displaced}) {
+    if (identical(_admitted, session)) {
+      _closeOutput();
+      _admitted = null;
+      session.stateSub?.cancel();
+      session.stateSub = null;
+    }
+    final pairing = session.player.state.activities.contains('pairing');
+    if (displaced && !pairing) {
+      session.player.sendGoodbye(SendspinGoodbyeReason.anotherServer);
+      session.socket.close();
+    } else {
+      session.player.rejectConcurrentPairing();
+    }
+  }
+
+  void _sessionEnded(_Session session) {
+    if (!_sessions.remove(session)) return;
+    final wasAdmitted = identical(_admitted, session);
+    Log.i('Sendspin', 'Server disconnected '
+        '(close=${session.socket.closeCode} ${session.socket.closeReason})');
+    session.stateSub?.cancel();
+    session.player.dispose();
+    if (wasAdmitted) {
+      _closeOutput();
+      _admitted = null;
+      _updateState(
+        SendspinPlayerState(
+          connectionState: _listening
+              ? SendspinConnectionState.advertising
+              : SendspinConnectionState.disconnected,
+        ),
+      );
+    }
+    if (!_listening) _scheduleReconnect();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Audio output
+  // ---------------------------------------------------------------------------
+
+  /// Opens the audio output for a stream in the given format and starts
+  /// feeding it. Also called by the player, from inside a pull, when the
+  /// format changes on a running stream.
+  void _openOutput(_Session session, int sampleRate, int channels) {
+    if (_sink != null && sampleRate == _sinkRate && channels == _sinkChannels) {
+      return;
+    }
+    _closeOutput();
+    final epoch = _outputEpoch;
+    _sinkRate = sampleRate;
+    _sinkChannels = channels;
+    Log.i('Sendspin', 'Initializing audio sink: '
+        '${sampleRate}Hz ${channels}ch');
+
+    final player = session.player;
+    final sink = Platform.isLinux ? AlsaAudioSink() : SendspinAudioSink();
+    final queue = OutputQueue(
+      sampleRate: sampleRate,
+      assumedLatencyUs: sink is AlsaAudioSink ? 0 : _assumedSinkLatencyUs,
     );
+    if (sink is AlsaAudioSink) {
+      // The sink times its reports on CLOCK_MONOTONIC; the player keeps its
+      // own clock. Both are monotonic, so one offset relates them.
+      final toPlayerClock = player.nowUs() - monotonicUs();
+      sink.onProgress = (progress) {
+        if (epoch != _outputEpoch) return;
+        final first = !queue.hasReport;
+        queue.report(
+          timeUs: progress.monotonicUs + toPlayerClock,
+          framesProcessed: progress.framesProcessed,
+          delayFrames: progress.delayFrames,
+        );
+        // The player smooths the output times it is given. When the real
+        // delay steps (the first measurement, a flush, an underrun), say so
+        // instead of letting it chase the step for seconds.
+        if (first || progress.discontinuity) player.resetOutputClock();
+      };
+    }
+    _sink = sink;
+
+    // The library always hands back 16-bit samples, whatever the wire format.
+    sink
+        .initialize(sampleRate: sampleRate, channels: channels, bitDepth: 16)
+        .then((_) async {
+      if (epoch != _outputEpoch) {
+        await sink.dispose();
+        return;
+      }
+      await sink.start();
+      if (sink is AlsaAudioSink) sink.setDuckFactor(_duckFactor);
+      _startPump(player, sink, queue, epoch);
+    }).catchError((e, st) {
+      // Sink init failed (e.g., libasound returned an error from
+      // snd_pcm_set_params). Surface it in the log instead of letting
+      // it land as an unhandled async error, and clear the sink so
+      // subsequent writes don't drop silently against a stale handle.
+      Log.e('Sendspin', 'Audio sink init failed: $e');
+      sink.dispose();
+      if (epoch == _outputEpoch) _sink = null;
+    });
+  }
+
+  /// Keeps [_targetQueueUs] of audio queued in [sink].
+  ///
+  /// Each tick asks the player for exactly the audio the output is short of,
+  /// and tells it when the first of those samples will be heard. Pulling to
+  /// a fill level, rather than at the nominal rate, is what makes the kiosk
+  /// follow the output device's real clock.
+  void _startPump(
+      SendspinPlayer player, AudioSink sink, OutputQueue queue, int epoch) {
+    final sampleRate = _sinkRate;
+    final channels = _sinkChannels;
+    _pump = Timer.periodic(_pumpInterval, (_) {
+      final now = player.nowUs();
+      final frames =
+          (_targetQueueUs - queue.queuedUs(now)) * sampleRate ~/ 1000000;
+      if (frames < sampleRate ~/ 200) return; // under 5 ms: wait for more
+      final samples = player.pullSamples(
+        frames * channels,
+        outputTimeUs: now + queue.outputDelayUs(now),
+      );
+      // The pull can report a format change, which reopens the output.
+      if (epoch != _outputEpoch) return;
+      queue.sent(frames, now);
+      // Int16List's backing buffer is already little-endian 16-bit PCM on
+      // little-endian hosts (ARM, x86). Reinterpret directly as bytes.
+      sink.writeSamples(Uint8List.view(
+          samples.buffer, samples.offsetInBytes, samples.lengthInBytes));
+    });
+  }
+
+  /// Drops audio already queued in the device, keeping the output open.
+  void _flushOutput() {
+    final sink = _sink;
+    if (sink is AlsaAudioSink) sink.flush();
+  }
+
+  /// Stops feeding the output and closes it, discarding anything queued.
+  void _closeOutput() {
+    _outputEpoch++;
+    _pump?.cancel();
+    _pump = null;
+    _sink?.dispose();
+    _sink = null;
   }
 
   // ---------------------------------------------------------------------------
@@ -354,32 +703,9 @@ class SendspinService {
     return null;
   }
 
-  /// Periodically pulls samples from the jitter buffer and pushes them to
-  /// the native audio sink. Runs every 20ms (~50Hz), feeding enough frames
-  /// to cover the interval at the stream's sample rate.
-  void _startAudioFeed(int sampleRate) {
-    _stopAudioFeed();
-    // 20ms worth of frames at the stream's sample rate.
-    final framesPerTick = sampleRate ~/ 50;
-    _audioFeedTimer = Timer.periodic(const Duration(milliseconds: 20), (_) {
-      if (_client == null || _audioSink == null) return;
-      final sampleCount = framesPerTick * _channels;
-      final samples = _client!.pullSamples(sampleCount);
-      // Int16List's backing buffer is already little-endian 16-bit PCM on
-      // little-endian hosts (ARM, x86). Reinterpret directly as bytes.
-      final bytes = Uint8List.view(samples.buffer,
-          samples.offsetInBytes, samples.lengthInBytes);
-      _audioSink!.writeSamples(bytes);
-    });
-  }
-
-  void _stopAudioFeed() {
-    _audioFeedTimer?.cancel();
-    _audioFeedTimer = null;
-  }
-
   void _scheduleReconnect() {
     if (_serverUrl.isEmpty) return;
+    Log.w('Sendspin', 'Reconnecting in ${_reconnectDelay}s');
     _reconnectTimer?.cancel();
     _reconnectTimer = Timer(Duration(seconds: _reconnectDelay), () {
       _connectToServer(_serverUrl);
@@ -388,24 +714,22 @@ class SendspinService {
   }
 
   Future<void> _stop() async {
-    _stopAudioFeed();
+    _generation++;
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
     _serverUrl = '';
-    if (_client != null && _state.isActive) {
-      try {
-        _client!.sendGoodbye(SendspinGoodbyeReason.shutdown);
-      } catch (_) {}
+    _listening = false;
+    _closeOutput();
+    _admitted = null;
+    for (final session in _sessions.toList()) {
+      // The service stops when a setting changes and comes straight back
+      // with the new one, so tell the server to expect the player again.
+      session.player.sendGoodbye(SendspinGoodbyeReason.restart);
+      session.stateSub?.cancel();
+      session.socket.close();
+      session.player.dispose();
     }
-    _client?.dispose();
-    _client = null;
-    _stateSubscription?.cancel();
-    _stateSubscription = null;
-    await _audioSink?.stop();
-    await _audioSink?.dispose();
-    _audioSink = null;
-    _webSocket?.close();
-    _webSocket = null;
+    _sessions.clear();
     await _bonsoirBroadcast?.stop();
     _bonsoirBroadcast = null;
     await _httpServer?.close();
@@ -436,12 +760,16 @@ final sendspinServiceProvider = Provider<SendspinService>((ref) {
       ref.watch(hubConfigProvider.select((c) => c.sendspinPlayerName));
   final bufferSeconds =
       ref.watch(hubConfigProvider.select((c) => c.sendspinBufferSeconds));
-  final clientId =
-      ref.watch(hubConfigProvider.select((c) => c.sendspinClientId));
   final serverUrl =
       ref.watch(hubConfigProvider.select((c) => c.sendspinServerUrl));
-  final staticDelayMs =
-      ref.read(hubConfigProvider.select((c) => c.sendspinStaticDelayMs));
+  final unpairedAccess =
+      ref.watch(hubConfigProvider.select((c) => c.sendspinUnpairedAccess));
+  // Read, not watched: the service itself writes these two back, and a watch
+  // would rebuild it (dropping the connection) every time it did.
+  final outputDelayMs =
+      ref.read(hubConfigProvider.select((c) => c.sendspinOutputDelayMs));
+  final lastPlaybackServerId = ref
+      .read(hubConfigProvider.select((c) => c.sendspinLastPlaybackServerId));
 
   final service = SendspinService();
   ref.onDispose(() => service.dispose());
@@ -452,13 +780,18 @@ final sendspinServiceProvider = Provider<SendspinService>((ref) {
           enabled: enabled,
           playerName: playerName,
           bufferSeconds: bufferSeconds,
-          clientId: clientId,
           serverUrl: serverUrl,
-          initialStaticDelayMs: staticDelayMs,
-          onStaticDelayPersist: (delayMs) {
+          unpairedAccess: unpairedAccess,
+          initialOutputDelayMs: outputDelayMs,
+          onOutputDelayPersist: (delayMs) {
             ref
                 .read(hubConfigProvider.notifier)
-                .update((c) => c.copyWith(sendspinStaticDelayMs: delayMs));
+                .update((c) => c.copyWith(sendspinOutputDelayMs: delayMs));
+          },
+          lastPlaybackServerId: lastPlaybackServerId,
+          onLastPlaybackServer: (serverId) {
+            ref.read(hubConfigProvider.notifier).update(
+                (c) => c.copyWith(sendspinLastPlaybackServerId: serverId));
           },
         )
         .catchError((e) => Log.e('Sendspin', 'Configure failed: $e'));

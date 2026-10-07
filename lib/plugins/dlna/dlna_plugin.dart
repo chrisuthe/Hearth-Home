@@ -24,8 +24,7 @@ import '../hearth_plugin.dart';
 ///
 /// `dlnaUuid` is internal — not surfaced as a field; written by the enable
 /// toggle's [BoolSettingField.writeOverride] when the user first flips the
-/// toggle on with an empty uuid. It mirrors how [SendspinPlugin] seeds
-/// `sendspinClientId`.
+/// toggle on with an empty uuid.
 ///
 /// Web caveat (matches Sendspin): the web portal's enable checkbox posts
 /// `dlnaEnabled` directly and does NOT seed `dlnaUuid` — users must toggle once

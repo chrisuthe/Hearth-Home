@@ -1,6 +1,28 @@
+import 'dart:typed_data';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hearth/services/sendspin/sendspin_service.dart';
 import 'package:sendspin_dart/sendspin_dart.dart';
+
+class _MemoryIdentityStore implements SendspinIdentityStore {
+  Uint8List? privateKey;
+
+  @override
+  Future<Uint8List?> loadPrivateKey() async => privateKey;
+
+  @override
+  Future<void> savePrivateKey(Uint8List key) async => privateKey = key;
+}
+
+class _MemoryPairingStore implements SendspinPairingStore {
+  SendspinPairingData? data;
+
+  @override
+  Future<SendspinPairingData?> load() async => data;
+
+  @override
+  Future<void> save(SendspinPairingData d) async => data = d;
+}
 
 void main() {
   group('SendspinService', () {
@@ -16,7 +38,6 @@ void main() {
         enabled: true,
         playerName: '',
         bufferSeconds: 5,
-        clientId: 'test-id',
         serverUrl: '',
       );
       expect(service.state.connectionState, SendspinConnectionState.disabled);
@@ -29,11 +50,74 @@ void main() {
         enabled: false,
         playerName: 'Test',
         bufferSeconds: 5,
-        clientId: 'test-id',
         serverUrl: '',
       );
       expect(service.state.connectionState, SendspinConnectionState.disabled);
       service.dispose();
+    });
+
+    test('loads the identity and publishes the pairing token', () async {
+      final service = SendspinService();
+      final identityStore = _MemoryIdentityStore();
+      expect(service.pairingInfo.value, isNull);
+
+      // An encrypted URL is refused before any socket is opened, which keeps
+      // this test off the network.
+      await service.configure(
+        enabled: true,
+        playerName: 'Test',
+        bufferSeconds: 5,
+        serverUrl: 'wss://example.invalid:8927',
+        identityStore: identityStore,
+        pairingStore: _MemoryPairingStore(),
+      );
+
+      final info = service.pairingInfo.value!;
+      // A Curve25519 public key, base64url without padding.
+      expect(info.clientId, hasLength(43));
+      expect(info.pairingToken, startsWith('SP:0'));
+      expect(info.pairedServers, 0);
+      expect(identityStore.privateKey, hasLength(32));
+      await service.dispose();
+    });
+
+    test('keeps the same identity across restarts', () async {
+      final identityStore = _MemoryIdentityStore();
+      final pairingStore = _MemoryPairingStore();
+      Future<SendspinPairingInfo> start() async {
+        final service = SendspinService();
+        await service.configure(
+          enabled: true,
+          playerName: 'Test',
+          bufferSeconds: 5,
+          serverUrl: 'wss://example.invalid:8927',
+          identityStore: identityStore,
+          pairingStore: pairingStore,
+        );
+        final info = service.pairingInfo.value!;
+        await service.dispose();
+        return info;
+      }
+
+      final first = await start();
+      final second = await start();
+      expect(second.clientId, first.clientId);
+      expect(second.pairingToken, first.pairingToken);
+    });
+
+    test('refuses a server URL that is not plain ws://', () async {
+      final service = SendspinService();
+      await service.configure(
+        enabled: true,
+        playerName: 'Test',
+        bufferSeconds: 5,
+        serverUrl: 'wss://example.invalid:8927',
+        identityStore: _MemoryIdentityStore(),
+        pairingStore: _MemoryPairingStore(),
+      );
+      expect(
+          service.state.connectionState, SendspinConnectionState.disconnected);
+      await service.dispose();
     });
   });
 

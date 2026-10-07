@@ -263,16 +263,23 @@ class HubConfig {
   final bool sendspinEnabled;
   final String sendspinPlayerName;
   final int sendspinBufferSeconds;
-  final String sendspinClientId;
   final String sendspinServerUrl;
-  final int sendspinStaticDelayMs;
+  /// Delay after the audio port (an external amplifier or speaker), in
+  /// milliseconds. Set by the Sendspin server; the kiosk only has to keep it.
+  final int sendspinOutputDelayMs;
+  /// Whether a Sendspin server the kiosk is not paired with may play to it,
+  /// once that server's operator approves the device. Off means pair first.
+  final bool sendspinUnpairedAccess;
+  /// The Sendspin server that last played here. With several servers on the
+  /// network, it is the one that gets the kiosk back after a restart.
+  final String sendspinLastPlaybackServerId;
   /// DLNA/UPnP MediaRenderer: advertise Hearth on the LAN so phones/apps can
   /// cast video to the kiosk. Off by default (no SSDP traffic, no port bound).
   final bool dlnaEnabled;
   /// friendlyName shown to control points (e.g. "Hearth").
   final String dlnaRendererName;
-  /// Stable per-device UPnP UDN. App-seeded on first enable (like
-  /// [sendspinClientId]); web read-only so it can't be overwritten.
+  /// Stable per-device UPnP UDN. App-seeded on first enable; web read-only
+  /// so it can't be overwritten.
   final String dlnaUuid;
   /// Plex Companion: advertise Hearth as a Plex player so Plex apps can cast
   /// video to the kiosk. Off by default (no GDM traffic, no port bound).
@@ -363,9 +370,10 @@ class HubConfig {
     this.sendspinEnabled = false,
     this.sendspinPlayerName = '',
     this.sendspinBufferSeconds = 5,
-    this.sendspinClientId = '',
     this.sendspinServerUrl = '',
-    this.sendspinStaticDelayMs = 0,
+    this.sendspinOutputDelayMs = 0,
+    this.sendspinUnpairedAccess = true,
+    this.sendspinLastPlaybackServerId = '',
     this.dlnaEnabled = false,
     this.dlnaRendererName = '',
     this.dlnaUuid = '',
@@ -452,9 +460,10 @@ class HubConfig {
     bool? sendspinEnabled,
     String? sendspinPlayerName,
     int? sendspinBufferSeconds,
-    String? sendspinClientId,
     String? sendspinServerUrl,
-    int? sendspinStaticDelayMs,
+    int? sendspinOutputDelayMs,
+    bool? sendspinUnpairedAccess,
+    String? sendspinLastPlaybackServerId,
     bool? dlnaEnabled,
     String? dlnaRendererName,
     String? dlnaUuid,
@@ -521,9 +530,12 @@ class HubConfig {
       sendspinEnabled: sendspinEnabled ?? this.sendspinEnabled,
       sendspinPlayerName: sendspinPlayerName ?? this.sendspinPlayerName,
       sendspinBufferSeconds: sendspinBufferSeconds ?? this.sendspinBufferSeconds,
-      sendspinClientId: sendspinClientId ?? this.sendspinClientId,
       sendspinServerUrl: sendspinServerUrl ?? this.sendspinServerUrl,
-      sendspinStaticDelayMs: sendspinStaticDelayMs ?? this.sendspinStaticDelayMs,
+      sendspinOutputDelayMs: sendspinOutputDelayMs ?? this.sendspinOutputDelayMs,
+      sendspinUnpairedAccess:
+          sendspinUnpairedAccess ?? this.sendspinUnpairedAccess,
+      sendspinLastPlaybackServerId:
+          sendspinLastPlaybackServerId ?? this.sendspinLastPlaybackServerId,
       dlnaEnabled: dlnaEnabled ?? this.dlnaEnabled,
       dlnaRendererName: dlnaRendererName ?? this.dlnaRendererName,
       dlnaUuid: dlnaUuid ?? this.dlnaUuid,
@@ -592,9 +604,10 @@ class HubConfig {
         'sendspinEnabled': sendspinEnabled,
         'sendspinPlayerName': sendspinPlayerName,
         'sendspinBufferSeconds': sendspinBufferSeconds,
-        'sendspinClientId': sendspinClientId,
         'sendspinServerUrl': sendspinServerUrl,
-        'sendspinStaticDelayMs': sendspinStaticDelayMs,
+        'sendspinOutputDelayMs': sendspinOutputDelayMs,
+        'sendspinUnpairedAccess': sendspinUnpairedAccess,
+        'sendspinLastPlaybackServerId': sendspinLastPlaybackServerId,
         'dlnaEnabled': dlnaEnabled,
         'dlnaRendererName': dlnaRendererName,
         'dlnaUuid': dlnaUuid,
@@ -662,9 +675,14 @@ class HubConfig {
         sendspinEnabled: json['sendspinEnabled'] as bool? ?? false,
         sendspinPlayerName: json['sendspinPlayerName'] as String? ?? '',
         sendspinBufferSeconds: json['sendspinBufferSeconds'] as int? ?? 5,
-        sendspinClientId: json['sendspinClientId'] as String? ?? '',
         sendspinServerUrl: json['sendspinServerUrl'] as String? ?? '',
-        sendspinStaticDelayMs: json['sendspinStaticDelayMs'] as int? ?? 0,
+        // Stored as sendspinStaticDelayMs before Sendspin 1.0 renamed it.
+        sendspinOutputDelayMs: json['sendspinOutputDelayMs'] as int? ??
+            json['sendspinStaticDelayMs'] as int? ??
+            0,
+        sendspinUnpairedAccess: json['sendspinUnpairedAccess'] as bool? ?? true,
+        sendspinLastPlaybackServerId:
+            json['sendspinLastPlaybackServerId'] as String? ?? '',
         dlnaEnabled: json['dlnaEnabled'] as bool? ?? false,
         dlnaRendererName: json['dlnaRendererName'] as String? ?? '',
         dlnaUuid: json['dlnaUuid'] as String? ?? '',
