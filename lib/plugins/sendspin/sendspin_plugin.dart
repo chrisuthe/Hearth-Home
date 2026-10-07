@@ -78,7 +78,7 @@ class SendspinPlugin extends HearthPlugin {
         const TextSettingField(
           configPath: 'sendspinServerUrl',
           label: 'Server URL',
-          hint: 'ws://192.168.1.x:8095 (blank for mDNS auto-discover)',
+          hint: 'ws://192.168.1.x:8927 (blank to let servers find this player)',
         ).buildWidget(ref),
         SelectSettingField(
           label: 'Buffer Size',
@@ -126,7 +126,7 @@ class SendspinPlugin extends HearthPlugin {
     const serverUrl = TextSettingField(
       configPath: 'sendspinServerUrl',
       label: 'Server URL',
-      hint: 'ws://192.168.1.x:8095 (blank for mDNS auto-discover)',
+      hint: 'ws://192.168.1.x:8927 (blank to let servers find this player)',
     );
     // Buffer size now works on the web: the auto-save helper posts the select
     // value as a string and `/api/config` coerces it to the int field. The
