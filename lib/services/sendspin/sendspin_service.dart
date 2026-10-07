@@ -76,6 +76,12 @@ class SendspinService {
   static const int _targetQueueUs = 120000;
   static const Duration _pumpInterval = Duration(milliseconds: 10);
 
+  /// How long a freshly opened output is fed silence before real audio.
+  /// The device's delay is not measurable until it is running, and it moves
+  /// around while the queue first fills. Audio scheduled against those early
+  /// figures has to be re-aligned several times in its first second.
+  static const int _primeUs = 150000;
+
   /// Latency assumed for an output that cannot report its own (the desktop
   /// method-channel sink).
   static const int _assumedSinkLatencyUs = 100000;
@@ -215,7 +221,7 @@ class SendspinService {
       bufferSeconds: _bufferSeconds,
       initialOutputDelayMs: _outputDelayMs,
       // From stream/start to the first audible sample: the output has to be
-      // opened and the queue the pump keeps has to fill.
+      // opened, primed with silence, and the queue the pump keeps filled.
       requiredLeadTimeMs: 500,
       deviceInfo: const DeviceInfo(
         productName: 'Hearth',
@@ -623,6 +629,9 @@ class SendspinService {
     final sampleRate = _sinkRate;
     final channels = _sinkChannels;
     var ticks = 0;
+    // Only an output that measures its own delay has anything to settle.
+    var priming = sink is AlsaAudioSink;
+    final primedAtUs = player.nowUs() + _primeUs;
     _pump = Timer.periodic(_pumpInterval, (_) {
       final now = player.nowUs();
       // A running view of the figures the end-of-stream line reports: once
@@ -641,6 +650,17 @@ class SendspinService {
       final frames =
           (_targetQueueUs - queue.queuedUs(now)) * sampleRate ~/ 1000000;
       if (frames < sampleRate ~/ 200) return; // under 5 ms: wait for more
+      if (priming) {
+        if (queue.hasReport && now >= primedAtUs) {
+          priming = false;
+          // The first real pull is taken at the measured delay as it is.
+          player.resetOutputClock();
+        } else {
+          queue.sent(frames, now);
+          sink.writeSamples(Uint8List(frames * channels * 2));
+          return;
+        }
+      }
       final samples = player.pullSamples(
         frames * channels,
         outputTimeUs: now + queue.outputDelayUs(now),
