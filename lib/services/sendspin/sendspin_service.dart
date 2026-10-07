@@ -119,6 +119,8 @@ class SendspinService {
   int _sinkChannels = 0;
   int _outputEpoch = 0;
   double _duckFactor = 1.0;
+  int diagChunks = 0;
+  int diagLastAheadMs = 0;
 
   final _stateController = StreamController<SendspinPlayerState>.broadcast();
 
@@ -393,12 +395,19 @@ class SendspinService {
           '${player.lateChunksDropped} late chunks');
       if (identical(_admitted, session)) _closeOutput();
     };
+    final diagAudio = player.protocol.onAudioFrame;
+    player.protocol.onAudioFrame = (frame) {
+      diagChunks++;
+      diagLastAheadMs = (player.protocol.clock.computeClientTime(frame.timestampUs) - player.nowUs()) ~/ 1000;
+      diagAudio?.call(frame);
+    };
     player.onStreamError =
         (error) => Log.e('Sendspin', 'Stream cannot be played: $error');
     // A seek or track jump: the player has dropped its buffer, so drop what
     // is already queued in the device too instead of letting it play out.
     final clearBuffer = player.protocol.onStreamClear;
     player.protocol.onStreamClear = () {
+      Log.i('Sendspin', 'DIAG stream/clear buf=${player.state.bufferDepthMs}ms late=${player.lateChunksDropped}');
       clearBuffer?.call();
       if (identical(_admitted, session)) _flushOutput();
     };
@@ -637,6 +646,7 @@ class SendspinService {
       // A running view of the figures the end-of-stream line reports: once
       // at 30 seconds for every stream, then every 30 seconds in debug
       // builds only, to keep a long listen out of the journal.
+      if (ticks % 500 == 499) { Log.i('Sendspin', 'DIAG err=${player.syncErrorUs}us queued=${queue.queuedUs(now) ~/ 1000}ms resyncs=${player.resyncCount} dropped=${player.framesDropped} inserted=${player.framesInserted} late=${player.lateChunksDropped} buf=${player.state.bufferDepthMs}ms chunks=$diagChunks lastTsAhead=${diagLastAheadMs}ms'); }
       if (++ticks % 3000 == 0) {
         final line = 'sync error ${player.syncErrorUs}us, '
             'queued ${queue.queuedUs(now) ~/ 1000}ms, '
