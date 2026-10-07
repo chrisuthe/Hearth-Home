@@ -353,6 +353,68 @@ void main() {
     );
   });
 
+  // MA 2.11 gives every image a proxy_id and serves it at
+  // /imageproxy/<proxy_id>. The provider+path form answers 400 there, and so
+  // does any size outside 80/160/256/512/1024. Both shapes below are as
+  // captured from a 2.11.0b4 server.
+  group('image proxy URLs on MA 2.11', () {
+    const proxyId =
+        'a4368a3d077e119e890e2ac6d0d6a4318c29892879a01361288301250a9ad46c';
+
+    test('a queue item with a proxy_id uses the proxy-id URL', () {
+      final item = MaQueueItem.fromMaJson({
+        'queue_item_id': 'qi-1',
+        'name': 'Green Day - Holiday',
+        'duration': 232,
+        'image': {
+          'type': 'thumb',
+          'path': 'Green Day/American Idiot/folder.jpg',
+          'provider': 'filesystem_local--SBNTaFUX',
+          'remotely_accessible': false,
+          'proxy_id': proxyId,
+        },
+      }, imageBaseUrl: 'https://ma.local');
+      expect(item.imageUrl,
+          'https://ma.local/imageproxy/$proxyId?size=512&fmt=jpg');
+    });
+
+    test('a library item with a proxy_id uses the proxy-id URL', () {
+      final item = MaMediaItem.fromMaJson({
+        'item_id': '12',
+        'provider': 'library',
+        'name': 'American Idiot',
+        'media_type': 'album',
+        'metadata': {
+          'images': [
+            {
+              'type': 'thumb',
+              'path': 'Green Day/American Idiot/folder.jpg',
+              'provider': 'filesystem_local--SBNTaFUX',
+              'proxy_id': proxyId,
+            },
+          ],
+        },
+      }, imageBaseUrl: 'https://ma.local/');
+      expect(item.imageUrl,
+          'https://ma.local/imageproxy/$proxyId?size=512&fmt=jpg');
+    });
+
+    test('an image without a proxy_id keeps the older URL form', () {
+      final item = MaMediaItem.fromMaJson({
+        'item_id': '4485',
+        'provider': 'library',
+        'name': 'Chiquitita',
+        'media_type': 'track',
+        'metadata': {
+          'images': [
+            {'path': 'ABBA/Folder.jpg', 'provider': 'filesystem_local--SBNTaFUX'},
+          ],
+        },
+      }, imageBaseUrl: 'https://ma.local');
+      expect(item.imageUrl, startsWith('https://ma.local/imageproxy?provider='));
+    });
+  });
+
   group('MaMediaItem.fromMaJson (library/search results)', () {
     test(
       'constructs an imageproxy URL for raw {path, provider} library items',

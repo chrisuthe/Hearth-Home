@@ -83,15 +83,25 @@ String? _extractImageUrl(
 ///
 /// `size=500&fmt=jpeg` matches MA's defaults for player current_media,
 /// which gives a reasonable thumbnail without over-fetching.
+///
+/// MA 2.11 replaced that form: each image carries a `proxy_id` and is served
+/// at `{base}/imageproxy/{proxy_id}?size=512&fmt=jpg`, the URL MA itself
+/// puts in a player's `image_url`. There the provider+path form answers 400,
+/// and so does a size other than 80, 160, 256, 512 or 1024. An image with a
+/// `proxy_id` uses the new form; one without is from an older server.
 String? _buildImageProxyUrl(Map<String, dynamic> image, String baseUrl) {
+  final base = baseUrl.endsWith('/')
+      ? baseUrl.substring(0, baseUrl.length - 1)
+      : baseUrl;
+  final proxyId = image['proxy_id'] as String?;
+  if (proxyId != null && proxyId.isNotEmpty) {
+    return '$base/imageproxy/$proxyId?size=512&fmt=jpg';
+  }
   final path = image['path'] as String?;
   final provider = image['provider'] as String?;
   if (path == null || path.isEmpty) return null;
   if (provider == null || provider.isEmpty) return null;
   final encoded = Uri.encodeQueryComponent(Uri.encodeQueryComponent(path));
-  final base = baseUrl.endsWith('/')
-      ? baseUrl.substring(0, baseUrl.length - 1)
-      : baseUrl;
   return '$base/imageproxy?provider=$provider&size=500&fmt=jpeg&path=$encoded';
 }
 
