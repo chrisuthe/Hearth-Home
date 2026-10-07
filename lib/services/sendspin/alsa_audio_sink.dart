@@ -312,6 +312,8 @@ void _alsaIsolateEntry(SendPort mainPort) {
         if (msg is _InitMsg) {
           mainPort.send(const _InitAck(
               error: 'libasound.so.2 / libasound.so not available'));
+        } else if (msg == _Cmd.dispose) {
+          cmdPort.close();
         }
       });
       return;
