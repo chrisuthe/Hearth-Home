@@ -23,6 +23,11 @@ class MusicAssistantService {
   final _zonesController = StreamController<List<MusicZone>>.broadcast();
   final Map<String, MusicPlayerState> _playerStates = {};
 
+  /// Ids MA has reported a queue for. Their track position is the queue's:
+  /// a player's own `elapsed_time` counts from the start of its stream, and
+  /// a stream that runs on across tracks never resets it.
+  final Set<String> _queueIds = {};
+
   /// Synchronous callbacks keyed by message_id. Using callbacks (not
   /// Completers) ensures they run inline when the stream delivers a message,
   /// which matters for tests that drive the fake channel synchronously.
@@ -356,6 +361,7 @@ class MusicAssistantService {
           );
           final id = queueState.activeZoneId;
           if (id != null && id.isNotEmpty) {
+            _queueIds.add(id);
             final existing = _playerStates[id];
             _playerStates[id] = existing == null
                 ? queueState
@@ -431,6 +437,7 @@ class MusicAssistantService {
       // MusicPlayerState.correctedPosition()).
       final existing = _playerStates[objectId];
       if (existing == null) return;
+      _queueIds.add(objectId);
       final updated = existing.copyWith(
         position: Duration(milliseconds: (elapsed * 1000).round()),
         positionAsOf: DateTime.now(),
@@ -453,14 +460,16 @@ class MusicAssistantService {
         imageBaseUrl: _url,
       );
       final existing = _playerStates[objectId];
+      final hasQueue = _queueIds.contains(objectId);
       updated = existing == null
           ? playerState
           : existing.copyWith(
               playbackState: playerState.playbackState,
               volume: playerState.volume,
               muted: playerState.muted,
-              position: playerState.position,
-              positionAsOf: playerState.positionAsOf,
+              position: hasQueue ? existing.position : playerState.position,
+              positionAsOf:
+                  hasQueue ? existing.positionAsOf : playerState.positionAsOf,
               activeZoneId: playerState.activeZoneId,
               activeZoneName: playerState.activeZoneName,
               available: playerState.available,
@@ -477,6 +486,7 @@ class MusicAssistantService {
         data,
         imageBaseUrl: _url,
       );
+      _queueIds.add(objectId);
       final existing = _playerStates[objectId];
       updated = existing == null
           ? queueState
