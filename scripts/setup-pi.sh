@@ -180,7 +180,9 @@ LAUNCH_TMP=$(mktemp)
 if [ -s /opt/hearth/bundle/hearth-launch.sh ]; then
     cp /opt/hearth/bundle/hearth-launch.sh "$LAUNCH_TMP"
 else
-    wget -qO "$LAUNCH_TMP" https://raw.githubusercontent.com/chrisuthe/Hearth-Home/main/scripts/hearth-launch.sh
+    # || true: under set -e a failed fetch would exit here, before the check
+    # below can say what went wrong.
+    wget -qO "$LAUNCH_TMP" https://raw.githubusercontent.com/chrisuthe/Hearth-Home/main/scripts/hearth-launch.sh || true
 fi
 if [ ! -s "$LAUNCH_TMP" ]; then
     echo "ERROR: could not fetch hearth-launch.sh"
