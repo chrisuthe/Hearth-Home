@@ -133,17 +133,18 @@ Declared in `android/app/src/main/AndroidManifest.xml`:
 - `WAKE_LOCK` — keep-awake while playing; `wakelock_plus` arrives with `media_kit_video`.
 - `android:usesCleartextTraffic="true"` — Home Assistant, Immich, Frigate and Plex are usually plain-HTTP LAN hosts. Cleartext requests to a LAN host were not exercised (**assumed**).
 - `android:screenOrientation="sensorLandscape"`.
+- A second intent filter with `category.HOME` and `category.DEFAULT`, so Hearth can be chosen as the home app.
 
 All four permissions are also contributed by plugins through manifest merging; they are declared explicitly so the app does not depend on that (**verified** in the merged APK, before and after).
 
 ## Kiosk requirements
 
-Apart from immersive fullscreen, none of this is implemented. Everything in this section is **assumed** from Android platform behaviour unless marked.
+Apart from immersive fullscreen and the HOME category, none of this is implemented. Everything in this section is **assumed** from Android platform behaviour unless marked.
 
 - **Immersive fullscreen.** Done: `main.dart` sets `SystemUiMode.immersiveSticky` on Android (**verified** on the Apolosign tablet). An edge swipe still reveals the bars briefly; only lock task removes that.
 - **Keep awake.** `FLAG_KEEP_SCREEN_ON` on the activity for as long as Hearth is foreground. The Pi never sleeps its panel; a tablet will, at its screen timeout.
 - **Launcher vs. lock task.** Two tiers:
-  - *HOME launcher* — add `category.HOME` + `category.DEFAULT` to the activity so the tablet boots into Hearth. No provisioning; the user can still reach the system via gestures and the notification shade.
+  - *HOME launcher* — done: the activity declares `category.HOME` + `category.DEFAULT`, so Android lists Hearth as a home-app candidate (**verified** on the Apolosign tablet, alongside its stock launchers). It is offered, not forced: the user picks it under Settings → Apps → Default apps → Home app, or `adb shell cmd package set-home-activity com.hearth.hearth/.MainActivity`. Choosing it, booting into it, and how an OEM launcher's own mode switching reacts were not exercised (**assumed**). No provisioning; the user can still reach the system via gestures and the notification shade.
   - *Lock task / device owner* — `adb shell dpm set-device-owner` on a factory-reset tablet with a `DeviceAdminReceiver`, then `startLockTask()` with Hearth allow-listed. Blocks the shade, recents and other apps, and unlocks silent updates and network provisioning. Needs a documented escape hatch.
 - **Start at boot.** The HOME role covers it. Otherwise a `RECEIVE_BOOT_COMPLETED` receiver, which cannot start an activity from the background on Android 10+ without the overlay permission or device owner.
 - **Long-lived sockets.** LocalApiServer, SSDP, GDM, MQTT and the HA and Music Assistant websockets all live in the Flutter isolate. They hold while the activity is foreground with the screen on. If the screen is ever allowed to turn off, Doze will suspend them: request a battery-optimisation exemption (`REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`) and consider a foreground service.
@@ -184,7 +185,7 @@ Extends `docs/specs/2026-08-12-dependency-maintenance-process-design.md`.
 
 Ordered so that each step leaves something usable on a wall. Each is sized as its own task.
 
-1. **Kiosk shell** — keep-screen-on and the HOME launcher category. Immersive fullscreen is in place.
+1. **Kiosk shell** — keep-screen-on. Immersive fullscreen and the HOME launcher category are in place.
 2. **Hardware pass** — on a real arm64 tablet (install and launch are already confirmed), connect Home Assistant, Immich, Music Assistant and Frigate; play an RTSP camera, an HLS stream and a 1080p h264 file through libmpv. Converts the *untested* and *assumed* rows above into facts and reorders the rest of this list.
 3. **Multicast lock** — platform channel holding `MulticastLock` while DLNA or Plex is enabled; then test DLNA and Plex casting end to end.
 4. **Alarm, timer and notification audio** — an in-process player for the bundled tones.
