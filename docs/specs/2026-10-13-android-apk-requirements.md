@@ -92,7 +92,7 @@ All **verified** on the emulator, from an APK built from a fresh clone and insta
 - `adb logcat` shows no `FATAL EXCEPTION`, no `E/flutter`, and no unhandled Dart exception across that run.
 - `hub_config.json` lands in `/data/user/0/com.hearth.hearth/files/`.
 - The in-app on-screen keyboard appears on text-field focus; the system IME does not.
-- The status bar and the tablet taskbar stay visible and the app draws underneath the status bar: the top of the Settings sidebar and the mic indicator are overlapped. Hearth has no immersive mode and no top inset handling yet.
+- On the emulator, before immersive mode was added, the status bar and the tablet taskbar stayed visible and the app drew underneath the status bar. `main.dart` now sets `SystemUiMode.immersiveSticky` on Android; on the Apolosign tablet (Android 16) the status bar and navigation pill are hidden on Home and Settings (**verified**). Whether they stay hidden across every dialog, the keyboard and a return from another app was not exercised (**assumed**).
 
 ## Subsystems
 
@@ -138,9 +138,9 @@ All four permissions are also contributed by plugins through manifest merging; t
 
 ## Kiosk requirements
 
-None of this is implemented. Everything in this section is **assumed** from Android platform behaviour unless marked.
+Apart from immersive fullscreen, none of this is implemented. Everything in this section is **assumed** from Android platform behaviour unless marked.
 
-- **Immersive fullscreen.** Hide the status and navigation bars (`SystemUiMode.immersiveSticky`) and handle insets. Today the system bars cover the top edge of the UI (**verified**).
+- **Immersive fullscreen.** Done: `main.dart` sets `SystemUiMode.immersiveSticky` on Android (**verified** on the Apolosign tablet). An edge swipe still reveals the bars briefly; only lock task removes that.
 - **Keep awake.** `FLAG_KEEP_SCREEN_ON` on the activity for as long as Hearth is foreground. The Pi never sleeps its panel; a tablet will, at its screen timeout.
 - **Launcher vs. lock task.** Two tiers:
   - *HOME launcher* — add `category.HOME` + `category.DEFAULT` to the activity so the tablet boots into Hearth. No provisioning; the user can still reach the system via gestures and the notification shade.
@@ -184,7 +184,7 @@ Extends `docs/specs/2026-08-12-dependency-maintenance-process-design.md`.
 
 Ordered so that each step leaves something usable on a wall. Each is sized as its own task.
 
-1. **Kiosk shell** — immersive fullscreen with inset handling, keep-screen-on, HOME launcher category. Without it the APK is not usable as a kiosk.
+1. **Kiosk shell** — keep-screen-on and the HOME launcher category. Immersive fullscreen is in place.
 2. **Hardware pass** — on a real arm64 tablet (install and launch are already confirmed), connect Home Assistant, Immich, Music Assistant and Frigate; play an RTSP camera, an HLS stream and a 1080p h264 file through libmpv. Converts the *untested* and *assumed* rows above into facts and reorders the rest of this list.
 3. **Multicast lock** — platform channel holding `MulticastLock` while DLNA or Plex is enabled; then test DLNA and Plex casting end to end.
 4. **Alarm, timer and notification audio** — an in-process player for the bundled tones.

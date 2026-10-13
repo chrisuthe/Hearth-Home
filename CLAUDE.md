@@ -20,7 +20,7 @@ flutter build apk --debug  # experimental Android target (needs JDK 17 + Android
 
 For Raspberry Pi deployment, the app runs via flutter-pi (not `flutter run`). On Pi, swap `media_kit` for `flutterpi_gstreamer_video_player` (same video_player API, GStreamer instead of libmpv).
 
-**Android is experimental.** `android/` builds an APK that launches to Home, but webviews, Sendspin, alarm/timer audio, WiFi management, the updater and capture are inert there, and no CI job builds it. Android takes the `media_kit` path. `docs/specs/2026-10-13-android-apk-requirements.md` is the per-subsystem status and the follow-up list — update it when an Android gap is closed.
+**Android is experimental.** `android/` builds an APK that launches to Home and runs immersive fullscreen, but webviews, Sendspin, alarm/timer audio, WiFi management, the updater and capture are inert there, and no CI job builds it. Android takes the `media_kit` path. `docs/specs/2026-10-13-android-apk-requirements.md` is the per-subsystem status and the follow-up list — update it when an Android gap is closed.
 
 ## Architecture
 
