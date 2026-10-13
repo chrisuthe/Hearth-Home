@@ -585,6 +585,9 @@ void main() {
           metadataFetcher: (url) async => url.contains('plex.tv')
               ? Completer<String?>().future // never completes
               : metadataXml,
+          // The default spawns amixer on Linux; a real process never
+          // completes under fakeAsync.
+          volumeReader: () async => null,
         );
         s.debugSetIdentity(clientId: 'hearth', authToken: 'acct');
 
