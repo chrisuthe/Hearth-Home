@@ -1,7 +1,7 @@
 # Screen Orientation — Design
 
 **Date:** 2026-10-13
-**Status:** Implemented; not yet run on a Pi or an Android device (see [Hardware check](#hardware-check)).
+**Status:** Implemented; run on an Android tablet, not yet on a Pi (see [Hardware check](#hardware-check)).
 **Goal:** Let a panel mounted portrait or upside-down render the right way up, and make every screen lay out without overflow in portrait.
 
 ## How to read this
@@ -106,9 +106,9 @@ A second run changes nothing and reloads nothing; a missing bundled launcher or 
 ## Android
 
 - `androidOrientationProvider` listens to `displayOrientation` and calls `SystemChrome.setPreferredOrientations`, immediately when first read in `main()` after config loads, and again on each change — no restart (**verified**: `test/services/display_rotation_service_test.dart` captures the platform-channel calls; unrelated config changes do not re-send it).
-- The manifest's `android:screenOrientation` is `fullUser` instead of `sensorLandscape`; `configChanges` is unchanged, so a rotation does not recreate the activity (**assumed**).
+- The manifest's `android:screenOrientation` is `fullUser` instead of `sensorLandscape`; `configChanges` is unchanged, so a rotation does not recreate the activity (**verified** on the tablet: same process through every rotation, no relaunch logged).
 - `flutter build apk --debug` succeeds (**verified**, see [Verification](#verification)); the APK was not installed or run.
-- Behaviour change: an existing Android install has `auto`, which previously meant landscape-only and now follows the sensor (**assumed** on a device).
+- Behaviour change: an existing Android install has `auto`, which previously meant landscape-only and now follows the sensor (**verified**: the test tablet, landscape under the old build, came up in portrait on first launch because its accelerometer reports portrait). Whether that matches how the tablet is mounted was not observed.
 
 ## Portrait layout
 
@@ -191,11 +191,11 @@ Run on the development host (Fedora x86_64, Flutter 3.47.6) on 2026-10-13:
 | `flutter test test/portrait` | 270 pass. |
 | `sh -n` and `shellcheck` on `hearth-launch.sh` | Clean. |
 | `shellcheck` on `hearth-updater.sh` | One pre-existing SC2015 info on the checksum line; nothing from the migration. |
-| `flutter build apk --debug` | Builds with the JDK 17.0.20.1 that `flutter config --jdk-dir` points at. Not installed or run. |
+| `flutter build apk --debug` | Builds with the JDK 17.0.20.1 that `flutter config --jdk-dir` points at. Installed and run on the tablet below. |
 
 ## Hardware check
 
-Not run. The Builder had no Pi or Android device, so none of the following is claimed:
+The Pi rows are not run — no Pi was available, so none of them is claimed. The Android row was run over adb on an Apolosign FA2169T (Android 16, 1080x1920 panel, 1280x720 logical in landscape).
 
 | Check | Result |
 |---|---|
@@ -209,6 +209,7 @@ Not run. The Builder had no Pi or Android device, so none of the following is cl
 | What the HDMI mirror shows | not run |
 | What a kmsgrab capture shows | not run |
 | Updater migration on an existing install (drop-in loads, restart rule works) | not run |
-| Android: all five values on a tablet | not run |
+| Android: all five values on a tablet | pass — each value set through `POST /api/config` produced the matching rotation (`landscape` 90, `portrait` 0, `landscapeFlipped` 270, `portraitFlipped` 180, `auto` sensor); `portrait` and `landscape` also picked from the on-device select, which exercises touch in both |
+| Android: screens in portrait (720x1280) | pass — Media, Home, Controls, Cameras, Recipes, Settings and the Display panel swiped through with no overflow or exception logged. Casts, Live TV, webviews, alarm alert and the setup wizard were not opened |
 
 If 90/270 turn out not to rotate video or webview textures, stop and report — the fix belongs in the flutter-pi fork, which this task does not change.
