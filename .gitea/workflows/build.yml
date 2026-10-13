@@ -39,10 +39,11 @@ jobs:
           # 3.38.0 played it, 720p was unaffected). 3.47.6 was accepted after
           # it booted on the Pi and direct-played a generated 1080p h264 clip
           # for 60s — but 3.44.9 played that clip too, so the original crash
-          # was not reproduced and is not proven fixed. Flutter bumps stay
-          # review-gated: cast a 1080p direct-play title on a real Pi first.
+          # was not reproduced and is not proven fixed. The pin is now 3.47.7.
+          # Flutter bumps stay review-gated: cast a 1080p direct-play title on
+          # a real Pi first.
           # See docs/specs/2026-08-12-dependency-maintenance-process-design.md.
-          flutter-version: '3.47.6'
+          flutter-version: '3.47.7'
       - run: flutter pub get
       - run: flutter analyze --no-fatal-infos
       - run: flutter test
