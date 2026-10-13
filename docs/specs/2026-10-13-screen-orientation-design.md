@@ -209,7 +209,8 @@ The Pi rows are not run — no Pi was available, so none of them is claimed. The
 | What the HDMI mirror shows | not run |
 | What a kmsgrab capture shows | not run |
 | Updater migration on an existing install (drop-in loads, restart rule works) | not run |
-| Android: all five values on a tablet | pass — each value set through `POST /api/config` produced the matching rotation (`landscape` 90, `portrait` 0, `landscapeFlipped` 270, `portraitFlipped` 180, `auto` sensor); `portrait` and `landscape` also picked from the on-device select, which exercises touch in both |
+| Android: all five values on a tablet | pass — each value set through `POST /api/config` produced the matching rotation (`landscape` 90, `portrait` 0, `landscapeFlipped` 270, `portraitFlipped` 180, `auto` sensor); `portrait` and `landscape` also picked from the on-device select, which exercises touch in both. Repeated on a build of `daa74bf` with the same result, plus `auto` under the system rotation lock: it follows the user rotation (90 with `user_rotation` 1, 0 with 0) |
+| Android: a DLNA cast in portrait | pass with a caveat — a 1080p clip plays, and `BoxFit.cover` crops it to a centre strip as the portrait follow-ups predict |
 | Android: screens in portrait (720x1280) | pass — Media, Home, Controls, Cameras, Recipes, Settings and the Display panel swiped through with no overflow or exception logged. Casts, Live TV, webviews, alarm alert and the setup wizard were not opened |
 
 If 90/270 turn out not to rotate video or webview textures, stop and report — the fix belongs in the flutter-pi fork, which this task does not change.
