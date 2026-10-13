@@ -57,10 +57,15 @@ class _LiveTvOverlayState extends ConsumerState<LiveTvOverlay> {
               )
             else if (state.phase == LiveTvPhase.error)
               Center(
-                child: Text(
-                  state.error.isEmpty ? 'Playback error' : state.error,
-                  style: const TextStyle(
-                      color: Colors.white70, fontSize: HearthFont.body),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: HearthSpacing.x6),
+                  child: Text(
+                    state.error.isEmpty ? 'Playback error' : state.error,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                        color: Colors.white70, fontSize: HearthFont.body),
+                  ),
                 ),
               ),
 
@@ -68,6 +73,7 @@ class _LiveTvOverlayState extends ConsumerState<LiveTvOverlay> {
             Positioned(
               top: HearthSpacing.x4,
               left: HearthSpacing.x6,
+              right: HearthSpacing.x6,
               child: Row(
                 children: [
                   Container(
@@ -84,9 +90,13 @@ class _LiveTvOverlayState extends ConsumerState<LiveTvOverlay> {
                             fontWeight: FontWeight.bold)),
                   ),
                   const SizedBox(width: HearthSpacing.x3),
-                  Text(label,
-                      style: const TextStyle(
-                          color: Colors.white, fontSize: HearthFont.label)),
+                  Flexible(
+                    child: Text(label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            color: Colors.white, fontSize: HearthFont.label)),
+                  ),
                 ],
               ),
             ),

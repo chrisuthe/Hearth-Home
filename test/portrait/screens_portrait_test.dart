@@ -1,0 +1,167 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:hearth/config/hub_config.dart';
+import 'package:hearth/screens/home/home_screen.dart';
+import 'package:hearth/screens/timer/timer_screen.dart';
+import 'package:hearth/screens/weather/day_detail_screen.dart';
+import 'package:hearth/screens/weather/weather_screen.dart';
+import 'package:hearth/services/music_assistant_service.dart';
+import 'package:hearth/services/notification_service.dart';
+import 'package:hearth/services/timer_service.dart';
+import 'package:hearth/services/weather_service.dart';
+
+import 'portrait_fixtures.dart';
+import 'portrait_harness.dart';
+
+void main() {
+  group('Home', () {
+    Future<void> pumpHome(
+      WidgetTester tester, {
+      required bool populated,
+      bool use24h = false,
+    }) async {
+      final timers = TimerService();
+      if (populated) {
+        timers
+          ..startTimer(const Duration(hours: 11, minutes: 59, seconds: 59))
+          ..startTimer(const Duration(minutes: 45));
+      }
+      await tester.pumpWidget(ProviderScope(
+        overrides: [
+          hubConfigProvider.overrideWith(
+              (ref) => MemoryConfigNotifier(HubConfig(use24HourClock: use24h))),
+          timerServiceProvider.overrideWith((ref) => timers),
+          weatherStateProvider.overrideWith((ref) => populated
+              ? Stream.value(sampleWeather('lightning-rainy'))
+              : const Stream.empty()),
+          maAllPlayersProvider.overrideWith((ref) =>
+              Stream.value(populated ? samplePlayers() : const {})),
+        ],
+        child: hostScreen(HomeScreen(
+          dateLabel: populated
+              ? '12 years ago today · Wednesday, September 30, 2014'
+              : null,
+        )),
+      ));
+      // Past the 3s delay that reveals the photo chevrons.
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 4));
+    }
+
+    testLayouts('with weather, timers, a memory label and now playing',
+        (tester, canvas) async {
+      await pumpHome(tester, populated: true);
+      expect(find.text(longTitle), findsOneWidget);
+      expect(find.byIcon(Icons.chevron_right), findsWidgets);
+      await unmount(tester);
+    });
+
+    testLayouts('with nothing configured', (tester, canvas) async {
+      await pumpHome(tester, populated: false, use24h: true);
+      expect(find.text('Set a timer'), findsOneWidget);
+      await unmount(tester);
+    });
+  });
+
+  group('Weather', () {
+    for (final cond in const [
+      'sunny',
+      'clear-night',
+      'partlycloudy',
+      'lightning-rainy',
+      'snowy',
+      'fog',
+    ]) {
+      testLayouts('forecast for $cond', (tester, canvas) async {
+        await tester.pumpWidget(ProviderScope(
+          child: MaterialApp(
+            home: WeatherScreen(weather: sampleWeather(cond)),
+          ),
+        ));
+        await tester.pump(const Duration(milliseconds: 120));
+        await unmount(tester);
+      });
+    }
+
+    testLayouts('day detail opened from a forecast card',
+        (tester, canvas) async {
+      final weather = sampleWeather('pouring');
+      await tester.pumpWidget(ProviderScope(
+        child: MaterialApp(home: WeatherScreen(weather: weather)),
+      ));
+      await tester.pump(const Duration(milliseconds: 120));
+      await tester.tap(find.text('TODAY'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.byType(DayDetailScreen), findsOneWidget);
+      await unmount(tester);
+    });
+
+    testLayouts('day detail for a day with no hourly data',
+        (tester, canvas) async {
+      final weather = sampleWeather('windy');
+      await tester.pumpWidget(MaterialApp(
+        home: DayDetailScreen(
+          day: weather.dailyForecast.last,
+          allHours: weather.hourlyForecast,
+          use24h: true,
+        ),
+      ));
+      await tester.pump(const Duration(milliseconds: 120));
+      await unmount(tester);
+    });
+  });
+
+  group('Timer', () {
+    Future<TimerService> pumpTimers(
+      WidgetTester tester,
+      List<Duration> durations,
+    ) async {
+      final notifications = silentNotifications();
+      final timers = TimerService()..attachNotificationService(notifications);
+      for (final d in durations) {
+        timers.startTimer(d);
+      }
+      await tester.pumpWidget(ProviderScope(
+        overrides: [
+          notificationServiceProvider.overrideWith((ref) => notifications),
+          timerServiceProvider.overrideWith((ref) => timers),
+        ],
+        child: const MaterialApp(home: TimerScreen()),
+      ));
+      await tester.pump(const Duration(milliseconds: 300));
+      return timers;
+    }
+
+    testLayouts('duration picker', (tester, canvas) async {
+      await pumpTimers(tester, const []);
+      expect(find.text('Start'), findsOneWidget);
+      expect(find.text('15 min'), findsOneWidget);
+      await unmount(tester);
+    });
+
+    testLayouts('one running timer', (tester, canvas) async {
+      await pumpTimers(
+          tester, const [Duration(hours: 10, minutes: 30, seconds: 15)]);
+      expect(find.byType(TimerDisplay), findsOneWidget);
+      await unmount(tester);
+    });
+
+    testLayouts('five running timers', (tester, canvas) async {
+      await pumpTimers(tester, [
+        for (var i = 1; i <= 5; i++) Duration(hours: i, minutes: 7 * i),
+      ]);
+      expect(find.byType(TimerDisplay), findsWidgets);
+      await unmount(tester);
+    });
+
+    testLayouts('picker reopened over running timers', (tester, canvas) async {
+      await pumpTimers(tester, const [Duration(minutes: 5)]);
+      await tester.tap(find.byIcon(Icons.add_circle_outline));
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.text('Start'), findsOneWidget);
+      await unmount(tester);
+    });
+  });
+}

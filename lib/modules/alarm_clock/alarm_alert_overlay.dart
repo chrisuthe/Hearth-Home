@@ -57,12 +57,19 @@ class AlarmAlertOverlay extends ConsumerWidget {
                   const SizedBox(height: HearthSpacing.x3),
                   // Alarm label
                   if (firedAlarm.label.isNotEmpty)
-                    Text(
-                      firedAlarm.label,
-                      style: const TextStyle(
-                        fontSize: HearthFont.headline,
-                        fontWeight: FontWeight.w300,
-                        color: Colors.white70,
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: HearthSpacing.x6),
+                      child: Text(
+                        firedAlarm.label,
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: HearthFont.headline,
+                          fontWeight: FontWeight.w300,
+                          color: Colors.white70,
+                        ),
                       ),
                     ),
                 ],
