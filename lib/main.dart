@@ -1,6 +1,7 @@
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'utils/logger.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'app/app.dart';
@@ -29,6 +30,12 @@ const double kWindowHeight = 864;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Kiosk tablets: hide Android's status and navigation bars. Sticky, so an
+  // edge swipe only reveals them briefly and still reaches the edge menus.
+  if (!kIsWeb && Platform.isAndroid) {
+    await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+  }
 
   // Initialize media_kit (libmpv) on desktop platforms only.
   // On Pi with flutter-pi, video is handled by GStreamer — libmpv is not available.

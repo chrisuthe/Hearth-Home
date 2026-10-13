@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What is Hearth?
 
-Hearth is an open-source Flutter smart home kiosk that replaces a Google Nest Hub. It runs on a Raspberry Pi 5 with an 11" AMOLED display via flutter-pi, with a Windows desktop build for development. It integrates Immich photo memories, Home Assistant controls, Music Assistant playback, and Frigate camera streams.
+Hearth is an open-source Flutter smart home kiosk that replaces a Google Nest Hub. It runs on a Raspberry Pi 5 with an 11" AMOLED display via flutter-pi, with a Windows desktop build for development. An Android APK target for kiosk tablets is experimental (see `docs/specs/2026-10-13-android-apk-requirements.md`). It integrates Immich photo memories, Home Assistant controls, Music Assistant playback, and Frigate camera streams.
 
 ## Build & Development Commands
 
@@ -15,9 +15,12 @@ flutter test             # run all tests
 flutter test test/services/display_mode_service_test.dart  # run a single test
 flutter run -d windows   # run on Windows (dev)
 flutter run -d linux     # run on Linux desktop
+flutter build apk --debug  # experimental Android target (needs JDK 17 + Android SDK)
 ```
 
 For Raspberry Pi deployment, the app runs via flutter-pi (not `flutter run`). On Pi, swap `media_kit` for `flutterpi_gstreamer_video_player` (same video_player API, GStreamer instead of libmpv).
+
+**Android is experimental.** `android/` builds an APK that launches to Home and runs immersive fullscreen, but webviews, Sendspin, alarm/timer audio, WiFi management, the updater and capture are inert there, and no CI job builds it. Android takes the `media_kit` path. `docs/specs/2026-10-13-android-apk-requirements.md` is the per-subsystem status and the follow-up list — update it when an Android gap is closed.
 
 ## Architecture
 
