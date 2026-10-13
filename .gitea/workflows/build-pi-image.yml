@@ -18,7 +18,7 @@ jobs:
 
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.47.6'
+          flutter-version: '3.47.7'
 
       - name: Install flutterpi_tool
         # Installed from an unreleased upstream commit: the latest pub.dev
