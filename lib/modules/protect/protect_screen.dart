@@ -8,6 +8,7 @@ import '../../models/protect_camera.dart';
 import '../../services/toast_service.dart';
 import '../../services/video/hearth_video_player.dart';
 import '../../utils/logger.dart';
+import '../cameras/cameras_screen.dart' show cameraGridColumns;
 import 'protect_service.dart';
 
 /// UniFi Protect camera grid with live video expansion.
@@ -197,10 +198,10 @@ class _ProtectScreenState extends ConsumerState<ProtectScreen> {
     // --- Grid view: auto-refreshing snapshot tiles ---
     return Container(
       color: Colors.black.withValues(alpha: 0.7),
-      child: GridView.builder(
+      child: LayoutBuilder(builder: (context, constraints) => GridView.builder(
         padding: const EdgeInsets.all(HearthSpacing.x4),
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: cameras.length <= 4 ? 2 : 3,
+          crossAxisCount: cameraGridColumns(cameras.length, constraints.biggest),
           crossAxisSpacing: HearthSpacing.x3,
           mainAxisSpacing: HearthSpacing.x3,
           childAspectRatio: 16 / 9,
@@ -255,7 +256,7 @@ class _ProtectScreenState extends ConsumerState<ProtectScreen> {
             ),
           );
         },
-      ),
+      )),
     );
   }
 }

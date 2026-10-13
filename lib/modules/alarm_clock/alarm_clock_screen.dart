@@ -192,13 +192,17 @@ class _AlarmCard extends StatelessWidget {
                     Row(
                       children: [
                         if (alarm.label.isNotEmpty) ...[
-                          Text(
-                            alarm.label,
-                            style: TextStyle(
-                              fontSize: HearthFont.label,
-                              color: alarm.enabled
-                                  ? Colors.white70
-                                  : Colors.white30,
+                          Flexible(
+                            child: Text(
+                              alarm.label,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: HearthFont.label,
+                                color: alarm.enabled
+                                    ? Colors.white70
+                                    : Colors.white30,
+                              ),
                             ),
                           ),
                           const SizedBox(width: HearthSpacing.x2),

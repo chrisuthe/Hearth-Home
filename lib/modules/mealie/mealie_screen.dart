@@ -288,7 +288,10 @@ class _MealieScreenState extends ConsumerState<MealieScreen>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SizedBox(
+            // Flexible: a two-line title needs a few pixels the fixed card
+            // height doesn't have, so the image gives them up.
+            Flexible(
+              child: SizedBox(
               height: 90,
               width: double.infinity,
               child: recipe != null
@@ -311,6 +314,7 @@ class _MealieScreenState extends ConsumerState<MealieScreen>
                         size: HearthIcon.lg,
                       ),
                     ),
+              ),
             ),
             Padding(
               padding: const EdgeInsets.all(HearthSpacing.x2),
@@ -409,7 +413,11 @@ class _MealieScreenState extends ConsumerState<MealieScreen>
     final recipe = _selectedRecipe!;
     final token = ref.read(hubConfigProvider).mealieToken;
 
-    return ListView(
+    // The ingredient tiles ink onto the nearest Material; without one of
+    // their own they would paint under the screen's scrim.
+    return Material(
+      type: MaterialType.transparency,
+      child: ListView(
       padding: const EdgeInsets.all(HearthSpacing.x4),
       children: [
         // Back button
@@ -582,6 +590,7 @@ class _MealieScreenState extends ConsumerState<MealieScreen>
           }),
         ],
       ],
+      ),
     );
   }
 }
