@@ -71,9 +71,10 @@ re-check the HA URL/token and that the dashboard URL belongs to that HA instance
 
 ## Sendspin / DLNA doesn't appear on the network
 
-Both must be **enabled once on the kiosk** (that generates their device ID — the web checkbox
-alone won't). Then confirm your other device is on the same subnet. See
-**[[Multi-Room Audio (Sendspin)]]** and **[[Cast to Hearth (DLNA)]]**.
+DLNA must be **enabled once on the kiosk** (that generates its device ID — the web checkbox
+alone won't). Sendspin can be enabled from either surface, but needs a server on Sendspin 1.0
+and may be waiting for approval there. Then confirm your other device is on the same subnet.
+See **[[Multi-Room Audio (Sendspin)]]** and **[[Cast to Hearth (DLNA)]]**.
 
 ## Something is scaled wrong / too small
 

@@ -416,8 +416,6 @@ class LocalApiServer {
   /// of what a client posts:
   ///   * [apiKey] \u2014 the bearer token itself; overwriting it would brick web
   ///     and API access (and it's redacted on GET).
-  ///   * [sendspinClientId] \u2014 internal device identity, app-seeded when the
-  ///     Sendspin player is first enabled.
   ///   * [dlnaUuid] \u2014 internal UPnP device identity, app-seeded when the
   ///     DLNA renderer is first enabled.
   ///   * [plexClientId] \u2014 internal Plex device identity, app-seeded when the
@@ -427,7 +425,6 @@ class LocalApiServer {
   ///   * [setupComplete] \u2014 first-run flow state.
   static const _webReadOnlyConfigKeys = {
     'apiKey',
-    'sendspinClientId',
     'dlnaUuid',
     'plexClientId',
     'plexAuthToken',

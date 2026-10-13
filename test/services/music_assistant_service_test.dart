@@ -97,6 +97,79 @@ void main() {
       expect(state.activeZoneId, 'player_kitchen');
     });
 
+    // Seen live against MA with a Sendspin 1.0 player: the stream runs on
+    // across tracks, so the player's elapsed_time was 562 s while the queue
+    // had the track at 201 s of 229. Taking the player's figure pinned the
+    // progress bar at the end of every track.
+    group('track position comes from the queue, not the player', () {
+      void auth() {
+        service.connect('test-token');
+        final authMsgId = channel.sentMessages[0]['message_id'] as String;
+        channel.simulateServerMessage({'message_id': authMsgId, 'result': true});
+      }
+
+      void queueUpdated(num elapsed) => channel.simulateServerMessage({
+            'event': 'queue_updated',
+            'object_id': 'player_kitchen',
+            'data': {
+              'queue_id': 'player_kitchen',
+              'state': 'playing',
+              'elapsed_time': elapsed,
+              'items': 3,
+              'current_item': {
+                'queue_item_id': 'item-2',
+                'name': 'Artist - Second Song',
+                'duration': 229,
+              },
+            },
+          });
+
+      void playerUpdated(num elapsed) => channel.simulateServerMessage({
+            'event': 'player_updated',
+            'object_id': 'player_kitchen',
+            'data': {
+              'player_id': 'player_kitchen',
+              'display_name': 'Kitchen',
+              'state': 'playing',
+              'volume_level': 60,
+              'elapsed_time': elapsed,
+              'current_media': {'title': 'Second Song', 'duration': 229},
+            },
+          });
+
+      test('a player update does not replace the queue position', () async {
+        auth();
+        queueUpdated(12);
+        final next = service.playerStateStream.first;
+        playerUpdated(562.6);
+        final state = await next;
+        expect(state.position, const Duration(seconds: 12));
+        // The rest of the player update still lands.
+        expect(state.volume, closeTo(0.6, 0.001));
+      });
+
+      test('also when the queue was only seen through its time updates',
+          () async {
+        auth();
+        playerUpdated(5);
+        channel.simulateServerMessage({
+          'event': 'queue_time_updated',
+          'object_id': 'player_kitchen',
+          'data': 40,
+        });
+        final next = service.playerStateStream.first;
+        playerUpdated(562.6);
+        expect((await next).position, const Duration(seconds: 40));
+      });
+
+      test('a player with no queue still reports its own position', () async {
+        auth();
+        final next = service.playerStateStream.first;
+        playerUpdated(33);
+        expect((await next).position, const Duration(seconds: 33));
+      });
+    });
+
     test('emits player state on queue_updated event', () async {
       service.connect('test-token');
       final authMsgId = channel.sentMessages[0]['message_id'] as String;
