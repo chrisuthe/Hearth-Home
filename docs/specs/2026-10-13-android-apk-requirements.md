@@ -13,7 +13,7 @@ Every claim carries one of two labels:
 - **verified** — observed on 2026-10-13, either in the trial build or on the emulator run described under [Verification environment](#verification-environment).
 - **assumed** — reasoned from the code or from Android platform behaviour, not observed. Treat as a hypothesis to test.
 
-Nothing was run on physical hardware or on an arm64 system image. Anything that depends on a real tablet (GPU, hardware decode, Wi-Fi multicast, audio, Doze) is **assumed** even where the emulator behaved.
+Unless a claim says otherwise, **verified** means the emulator. One real device has had a smoke test only: the release APK installs and launches on an Apolosign 21.5" calendar tablet (RK3576, arm64-v8a, Android 16 / API 36, 1080x1920 panel at 240 dpi), where Impeller selects Vulkan and LocalApiServer starts (**verified**). Nothing else was exercised there, so anything that depends on a real tablet (hardware decode, Wi-Fi multicast, audio, Doze) is still **assumed**.
 
 ## Verification environment
 
@@ -59,10 +59,12 @@ adb shell am start -n com.hearth.hearth/.MainActivity
 For a device build, once signing is set up (see [Release signing](#release-signing)):
 
 ```bash
-flutter build apk --release --target-platform android-arm64
+flutter build apk --release --target-platform android-arm64 --no-tree-shake-icons
 ```
 
-The debug APK is 228 MB because it carries three ABIs plus the Vulkan validation layer (**verified**). A release arm64 build has not been produced (**assumed** to be far smaller).
+`--no-tree-shake-icons` is required: `WebviewConfig.icon` builds `IconData` from a code point stored in config, and the release build fails without the flag (**verified**).
+
+The debug APK is 228 MB because it carries three ABIs plus the Vulkan validation layer (**verified**). The release arm64 APK is 66 MB (**verified**).
 
 To reach the web portal on an emulator: `adb forward tcp:8090 tcp:8090` (**verified**).
 
@@ -163,7 +165,7 @@ Not added here: the self-hosted runner has no Android toolchain, and Renovate au
 - JDK 17; Android cmdline-tools with licenses accepted; platforms 34, 35, 36; build-tools 36; NDK 28.2.13676358; CMake 3.22.1. Roughly 3 GB on top of the Flutter SDK.
 - Outbound access to `dl.google.com`, Maven Central, the Gradle plugin portal, and GitHub releases (libmpv jars).
 - A Gradle cache: the cold build took about 220 s here, most of it downloads; a build from a fresh clone with warm caches about 40 s (**verified**).
-- For releases: the keystore as a base64 secret plus its three passwords, written to `key.properties` at job time; `flutter build apk --release --target-platform android-arm64`; the APK attached next to `hearth-bundle-*.tar.gz`.
+- For releases: the keystore as a base64 secret plus its three passwords, written to `key.properties` at job time; `flutter build apk --release --target-platform android-arm64 --no-tree-shake-icons`; the APK attached next to `hearth-bundle-*.tar.gz`.
 - A build-only job (`flutter build apk --debug`) is the minimum useful guard: `flutter analyze` and `flutter test` never run Gradle.
 
 ## Dependency-maintenance impact
@@ -183,7 +185,7 @@ Extends `docs/specs/2026-08-12-dependency-maintenance-process-design.md`.
 Ordered so that each step leaves something usable on a wall. Each is sized as its own task.
 
 1. **Kiosk shell** — immersive fullscreen with inset handling, keep-screen-on, HOME launcher category. Without it the APK is not usable as a kiosk.
-2. **Hardware pass** — install on a real arm64 Android 10+ tablet; connect Home Assistant, Immich, Music Assistant and Frigate; play an RTSP camera, an HLS stream and a 1080p h264 file through libmpv. Converts the *untested* and *assumed* rows above into facts and reorders the rest of this list.
+2. **Hardware pass** — on a real arm64 tablet (install and launch are already confirmed), connect Home Assistant, Immich, Music Assistant and Frigate; play an RTSP camera, an HLS stream and a 1080p h264 file through libmpv. Converts the *untested* and *assumed* rows above into facts and reorders the rest of this list.
 3. **Multicast lock** — platform channel holding `MulticastLock` while DLNA or Plex is enabled; then test DLNA and Plex casting end to end.
 4. **Alarm, timer and notification audio** — an in-process player for the bundled tones.
 5. **Hide what cannot work** — Wi-Fi wizard step and connect UI, timezone, capture, updater controls; make `isVisible` / the wizard platform-aware instead of showing dead controls.
