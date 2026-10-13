@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hearth/config/hub_config.dart';
@@ -399,12 +401,46 @@ void main() {
       expect(config.modulePlacements.containsKey('cameras'), false);
     });
 
-    test('modulePlacements defaults to empty when no config', () {
+    test('modulePlacements falls back to the defaults for an empty JSON', () {
       final config = HubConfig.fromJson({});
-      // Migration from default enabledModules
-      expect(config.modulePlacements['media'], ['swipe']);
-      expect(config.modulePlacements['controls'], ['swipe']);
-      expect(config.modulePlacements['cameras'], ['swipe']);
+      expect(config.modulePlacements, HubConfig.defaultModulePlacements);
+    });
+
+    test('default-constructed config places the default modules in swipe', () {
+      const config = HubConfig();
+      expect(config.modulePlacements, {
+        'media': ['swipe'],
+        'controls': ['swipe'],
+        'cameras': ['swipe'],
+      });
+    });
+
+    test('default modulePlacements agree with default enabledModules', () {
+      const config = HubConfig();
+      expect(config.modulePlacements.keys, config.enabledModules);
+    });
+
+    test('default modulePlacements round-trip through JSON', () {
+      const config = HubConfig();
+      final json = config.toJson();
+      expect(json['modulePlacements'], HubConfig.defaultModulePlacements);
+      final restored =
+          HubConfig.fromJson(jsonDecode(jsonEncode(json)) as Map<String, dynamic>);
+      expect(restored.modulePlacements, HubConfig.defaultModulePlacements);
+    });
+
+    test('explicit empty modulePlacements stays empty', () {
+      final config = HubConfig.fromJson({
+        'enabledModules': ['media', 'controls', 'cameras'],
+        'modulePlacements': <String, dynamic>{},
+      });
+      expect(config.modulePlacements, isEmpty);
+    });
+
+    test('copyWith can clear modulePlacements', () {
+      final cleared = const HubConfig().copyWith(modulePlacements: {});
+      expect(cleared.modulePlacements, isEmpty);
+      expect(HubConfig.fromJson(cleared.toJson()).modulePlacements, isEmpty);
     });
 
     test('modulePlacements copyWith preserves unchanged fields', () {
