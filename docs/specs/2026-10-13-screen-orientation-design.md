@@ -1,7 +1,7 @@
 # Screen Orientation — Design
 
 **Date:** 2026-10-13
-**Status:** Implemented; run on an Android tablet, not yet on a Pi (see [Hardware check](#hardware-check)).
+**Status:** Implemented; run on an Android tablet and on a Pi 5 (see [Hardware check](#hardware-check)).
 **Goal:** Let a panel mounted portrait or upside-down render the right way up, and make every screen lay out without overflow in portrait.
 
 ## How to read this
@@ -11,7 +11,7 @@ Every claim carries one of two labels:
 - **verified** — observed on 2026-10-13: read from source at the pinned version, or exercised by a test in this repo that is named alongside the claim.
 - **assumed** — reasoned from the code or from platform behaviour, not observed. Treat as a hypothesis to test.
 
-Nothing here was observed on hardware. Where a claim needs a device to settle it, it says so.
+Outside the [Hardware check](#hardware-check) table, nothing here was observed on hardware. Where a claim needs a device to settle it, it says so.
 
 ## Decisions
 
@@ -97,7 +97,7 @@ Everything else arrives through `scripts/hearth-updater.sh`, whose `migrate_laun
 2. If — and only if — an executable launcher is now in place and the unit does not already exec it, write the drop-in `/etc/systemd/system/hearth.service.d/10-launcher.conf` and `daemon-reload`. A drop-in rather than a rewrite: the unit `setup-pi.sh` wrote is never edited, and deleting the drop-in is a complete undo.
 3. Write the sudoers rule to a dot-prefixed temp name (which sudo ignores), validate it with `visudo -cf`, then move it into place.
 
-A second run changes nothing and reloads nothing; a missing bundled launcher or a rejected sudoers file leaves the unit as it was (**verified**: `test/scripts/pi_scripts_test.dart`, against a scratch root with `systemctl`, `visudo` and `logger` stubbed; **assumed** on a real systemd — the drop-in syntax is standard but was not loaded by one).
+A second run changes nothing and reloads nothing; a missing bundled launcher or a rejected sudoers file leaves the unit as it was (**verified**: `test/scripts/pi_scripts_test.dart`, against a scratch root with `systemctl`, `visudo` and `logger` stubbed; and **verified** on the dev Pi's systemd during the v1.21.0 readiness run: `--migrate-only` installed the launcher, the drop-in loaded, `visudo` accepted the rule, and the restart route used it).
 
 **Known lag.** The updater refreshes itself for its *next* run. A device updating to the first release with this feature runs the *old* updater, which installs the bundle and the new updater but migrates nothing. The migration happens on the update after that. Until then the app shows the `launcherMissing` note. `sudo hearth-updater --migrate-only && sudo systemctl restart hearth.service` applies it immediately; so does re-running `setup-pi.sh`. This is documented in the wiki (`Updating.md`, `Display-&-Night-Mode.md`).
 
@@ -175,8 +175,8 @@ Not overflowing is the bar this task set. These are where portrait works but was
 
 ## Known limitations
 
-- **HDMI mirror and kmsgrab captures are not rotated.** Both read the scanout framebuffer, which flutter-pi keeps in panel orientation and renders the rotated view into. With a portrait setting the mirror and any capture show the picture on its side (**assumed** from how `--rotation` composes the view; not observed). Out of scope here.
-- **Video and webview under rotation** — GStreamer video and WPE webview textures are composited into the Flutter view, so they are expected to rotate with it (**assumed**; this is the main thing the hardware check is for).
+- **HDMI mirror and kmsgrab captures are not rotated.** Both read the scanout framebuffer, which flutter-pi keeps in panel orientation and renders the rotated view into. With a portrait setting a capture shows the picture on its side, and upside down at 180 (**verified** on the Pi). The mirror is **assumed** to match; no second display was connected. Out of scope here.
+- **Video and webview under rotation** — GStreamer video and WPE webview textures are composited into the Flutter view, so they are expected to rotate with it. GStreamer video does (**verified** on the Pi with a DLNA cast at 90). Webviews and camera streams are still **assumed**.
 - **No auto-rotation on the Pi**, and no per-screen orientation.
 - **Desktop** stores the setting and ignores it.
 
@@ -195,20 +195,20 @@ Run on the development host (Fedora x86_64, Flutter 3.47.6) on 2026-10-13:
 
 ## Hardware check
 
-The Pi rows are not run — no Pi was available, so none of them is claimed. The Android row was run over adb on an Apolosign FA2169T (Android 16, 1080x1920 panel, 1280x720 logical in landscape).
+The Pi rows were run over ssh and the `:8090` API on the dev Pi 5 (1920x1200 panel) during the v1.21.0 readiness run (`2026-10-13-v1.21.0-release-readiness.md`), with a CI bundle of `daa74bf`; nobody was at the panel, so anything needing eyes or a finger is still not run. The Android rows were run over adb on an Apolosign FA2169T (Android 16, 1080x1920 panel, 1280x720 logical in landscape).
 
 | Check | Result |
 |---|---|
-| `portrait` (90) renders upright | not run |
-| `landscapeFlipped` (180) renders upright | not run |
-| Touch lands where it is drawn, at 90 and 180 | not run |
-| Frigate camera stream displays correctly rotated | not run |
-| A cast (DLNA or Plex) displays correctly rotated | not run |
-| A webview displays correctly rotated and takes touch | not run |
-| On-screen keyboard usable in portrait | not run |
-| What the HDMI mirror shows | not run |
-| What a kmsgrab capture shows | not run |
-| Updater migration on an existing install (drop-in loads, restart rule works) | not run |
+| `portrait` (90) renders rotated | pass — `flutter-pi --rotation 90`, `HEARTH_APPLIED_ROTATION=90`; a kmsgrab capture shows the portrait layout turned a quarter. Upright to a person at the panel: not run |
+| `landscapeFlipped` (180) renders rotated | pass — `--rotation 180`; the capture shows Home upside down. `portraitFlipped` (270) likewise. Upright to a person: not run |
+| Touch lands where it is drawn, at 90 and 180 | not run — needs a person |
+| Frigate camera stream displays correctly rotated | not run — the Cameras screen cannot be opened without touch |
+| A cast (DLNA or Plex) displays correctly rotated | pass — a DLNA cast at 90: in the capture the picture and the close button sit where a quarter turn of the upright picture puts them |
+| A webview displays correctly rotated and takes touch | not run — needs touch |
+| On-screen keyboard usable in portrait | not run on the Pi — needs touch (pass on the Android tablet) |
+| What the HDMI mirror shows | not run — nothing on HDMI-A-2 (`Mirror connector 'HDMI-A-2' is not connected`) |
+| What a kmsgrab capture shows | the scanout: unrotated panel orientation, so the picture is on its side at 90/270 and upside down at 180 |
+| Updater migration on an existing install (drop-in loads, restart rule works) | pass — bundled `hearth-updater.sh --migrate-only` on a unit that exec'd `flutter-pi` directly: launcher installed, `10-launcher.conf` written and loaded, `hearth-restart` sudoers rule validated; `POST /api/plugin/hearth.display/restart` then restarted the service four times, and answered 409 when nothing was pending |
 | Android: all five values on a tablet | pass — each value set through `POST /api/config` produced the matching rotation (`landscape` 90, `portrait` 0, `landscapeFlipped` 270, `portraitFlipped` 180, `auto` sensor); `portrait` and `landscape` also picked from the on-device select, which exercises touch in both. Repeated on a build of `daa74bf` with the same result, plus `auto` under the system rotation lock: it follows the user rotation (90 with `user_rotation` 1, 0 with 0) |
 | Android: a DLNA cast in portrait | pass with a caveat — a 1080p clip plays, and `BoxFit.cover` crops it to a centre strip as the portrait follow-ups predict |
 | Android: screens in portrait (720x1280) | pass — Media, Home, Controls, Cameras, Recipes, Settings and the Display panel swiped through with no overflow or exception logged. Casts, Live TV, webviews, alarm alert and the setup wizard were not opened |
