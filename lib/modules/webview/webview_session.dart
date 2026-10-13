@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 
 import 'package:flutter/widgets.dart';
 import 'package:flutterpi_gstreamer_video_player/flutterpi_gstreamer_video_player.dart';
@@ -133,6 +134,14 @@ class WebviewSession extends ChangeNotifier {
   }
 
   Future<void> _initController() async {
+    // No WPE/GStreamer backend on Android. Park in ERROR without arming the
+    // restart timer, which would otherwise retry the missing backend forever.
+    if (Platform.isAndroid) {
+      _state = WebviewSessionState.error;
+      _lastError = 'Webviews are not supported on Android yet';
+      notifyListeners();
+      return;
+    }
     Log.i('Webview', 'init starting for $url (caps=$_capsActive '
         '${_capsActive ? "$renderWidth x $renderHeight" : "default"})');
     var initErrored = false;

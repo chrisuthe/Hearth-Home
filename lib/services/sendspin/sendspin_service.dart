@@ -446,7 +446,9 @@ final sendspinServiceProvider = Provider<SendspinService>((ref) {
   final service = SendspinService();
   ref.onDispose(() => service.dispose());
 
-  if (enabled && playerName.isNotEmpty) {
+  // Android has neither the FLAC library nor an audio sink, so don't
+  // advertise a player that Music Assistant could select but never hear.
+  if (enabled && playerName.isNotEmpty && !Platform.isAndroid) {
     service
         .configure(
           enabled: enabled,
