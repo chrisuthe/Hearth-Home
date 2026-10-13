@@ -378,7 +378,7 @@ class HubConfig {
     this.displayWidth = 0,
     this.displayHeight = 0,
     this.enabledModules = const ['media', 'controls', 'cameras'],
-    this.modulePlacements = const {},
+    this.modulePlacements = defaultModulePlacements,
     this.mealieUrl = '',
     this.mealieToken = '',
     this.mqttBrokerUrl = '',
@@ -721,9 +721,18 @@ class HubConfig {
             const [],
       );
 
+  /// Where modules sit before the user has arranged anything. A fresh install
+  /// must start from this rather than an empty map: `load()` saves straight
+  /// away, and once the key is on disk [fromJson] never migrates again.
+  static const defaultModulePlacements = <String, List<String>>{
+    'media': ['swipe'],
+    'controls': ['swipe'],
+    'cameras': ['swipe'],
+  };
+
   static Map<String, List<String>> _migrateEnabledModules(Map<String, dynamic> json) {
-    final enabled = (json['enabledModules'] as List<dynamic>?)?.cast<String>()
-        ?? const ['media', 'controls', 'cameras'];
+    final enabled = (json['enabledModules'] as List<dynamic>?)?.cast<String>();
+    if (enabled == null) return defaultModulePlacements;
     return {for (final id in enabled) id: ['swipe']};
   }
 }
