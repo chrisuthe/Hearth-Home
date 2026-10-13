@@ -50,6 +50,9 @@ The script does everything automatically:
 - **Installs systemd services** — the kiosk (`hearth.service`), a daily/boot
   **updater**, and a **rollback** service that reverts to the previous bundle if the app
   fails to start repeatedly.
+- **Installs the launcher** (`/usr/local/bin/hearth-launch`) that `hearth.service` starts
+  flutter-pi through, so the [[screen orientation|Display & Night Mode]] you pick is applied
+  at startup.
 
 When it finishes, the kiosk starts on its own.
 

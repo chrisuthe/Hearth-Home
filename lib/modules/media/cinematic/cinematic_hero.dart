@@ -11,9 +11,19 @@ import 'mini_stats_row.dart';
 /// directly off [DrawerMetrics] so the hero tracks the drawer drag
 /// frame-by-frame; no implicit animations involved (those would lag
 /// the finger).
+///
+/// On a canvas too narrow to give the meta column a readable width beside
+/// the art (a portrait panel), the two stack instead — provided the hero is
+/// tall enough to hold both.
 class CinematicHero extends StatelessWidget {
   final MusicTrack? track;
   final DrawerMetrics metrics;
+
+  /// Narrowest meta column worth setting a 48–64 px title in.
+  static const double _minMetaWidth = 400;
+
+  /// Gap + the meta column at its tallest (two title lines, stats row).
+  static const double _stackedMetaHeight = 24 + 270;
 
   const CinematicHero({
     super.key,
@@ -25,24 +35,38 @@ class CinematicHero extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = track;
     if (t == null) return const SizedBox.shrink();
+    final art = _HeroArt(imageUrl: t.imageUrl, size: metrics.heroArtSize);
+    final meta = ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 620),
+      child: _HeroMeta(track: t, titleSize: metrics.heroTitleSize),
+    );
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: HearthSpacing.x16),
-      child: Center(
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            _HeroArt(imageUrl: t.imageUrl, size: metrics.heroArtSize),
-            const SizedBox(width: HearthSpacing.x12),
-            Flexible(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 620),
-                child: _HeroMeta(track: t, titleSize: metrics.heroTitleSize),
-              ),
+      child: LayoutBuilder(builder: (context, constraints) {
+        final besideArt =
+            constraints.maxWidth - metrics.heroArtSize - HearthSpacing.x12;
+        final stack = besideArt < _minMetaWidth &&
+            constraints.maxHeight >= metrics.heroArtSize + _stackedMetaHeight;
+        if (stack) {
+          return Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [art, const SizedBox(height: HearthSpacing.x6), meta],
             ),
-          ],
-        ),
-      ),
+          );
+        }
+        return Center(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              art,
+              const SizedBox(width: HearthSpacing.x12),
+              Flexible(child: meta),
+            ],
+          ),
+        );
+      }),
     );
   }
 }

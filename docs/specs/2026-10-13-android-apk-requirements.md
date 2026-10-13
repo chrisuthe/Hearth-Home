@@ -122,7 +122,7 @@ State is the state on Android **after this change**: *works* (behaves as on the 
 | Voice satellite | The Pi runs Linux Voice Assistant as a separate service (`docs/specs/2026-04-26-linux-voice-assistant-migration-design.md`); Hearth only mirrors the `assist_satellite` entity's state. `_readPiMacAddress()` auto-matches the entity by MAC on Linux. | **Inert** (**verified**: "No available assist_satellite entity yet" at boot). Auto-detect cannot match on Android; pinning an entity by hand is **assumed** to work. | A satellite process on the tablet (a companion app, or an in-app ESPHome-protocol satellite with `RECORD_AUDIO`), plus a replacement for MAC matching. The voice ducker depends on Sendspin. |
 | Display brightness / night mode | `lib/services/display_mode_service.dart` is pure Dart, and nothing in `lib/` writes to a backlight (**verified** by search). | **Untested** — nothing platform-specific (**assumed** to work). | For real dimming, drive window brightness (`screen_brightness` is already a transitive dependency). An AMOLED tablet benefits from the true-black theme as the Pi panel does. |
 | Render resolution | flutter-pi renders at 1184x864 and the panel upscales. `kWindowWidth` / `kWindowHeight` in `main.dart` are not referenced elsewhere in `lib/`. | **Works at 1280x800 @ 1.0 dpr** (**verified**: layouts fit). Android renders at the panel's native resolution. | Check a high-density tablet for layout and frame rate; `uiScale` is the existing knob. A render-scale reduction would need a platform-side surface size override. |
-| Screen orientation | Fixed by the panel. | **Works** — the activity is `sensorLandscape` (**verified** landscape on the emulator; rotation between the two landscape orientations not tested). | — |
+| Screen orientation | `displayOrientation` → flutter-pi `--rotation` at launch. | **Works** — `displayOrientation` drives `SystemChrome.setPreferredOrientations` at startup and on every change; `auto` allows all four and follows the sensor (**verified** by unit test against the platform channel; **assumed** on a device — not run on the emulator or a tablet). The activity is `fullUser`, so the manifest no longer restricts it. Portrait layouts are a no-overflow pass, not a redesign: see `2026-10-13-screen-orientation-design.md`. | Run all five values on a real tablet, including `auto` with the system rotation lock on and off. |
 
 ## Manifest
 
@@ -132,7 +132,7 @@ Declared in `android/app/src/main/AndroidManifest.xml`:
 - `CHANGE_WIFI_MULTICAST_STATE` — mDNS, SSDP, GDM.
 - `WAKE_LOCK` — keep-awake while playing; `wakelock_plus` arrives with `media_kit_video`.
 - `android:usesCleartextTraffic="true"` — Home Assistant, Immich, Frigate and Plex are usually plain-HTTP LAN hosts. Cleartext requests to a LAN host were not exercised (**assumed**).
-- `android:screenOrientation="sensorLandscape"`.
+- `android:screenOrientation="fullUser"` — every orientation the user's rotation lock allows. The app narrows it at runtime from `displayOrientation`; the manifest value only governs the moment before Dart runs (**assumed**: a tablet held portrait may show the launch theme in portrait before a landscape lock applies).
 - A second intent filter with `category.HOME` and `category.DEFAULT`, so Hearth can be chosen as the home app.
 
 All four permissions are also contributed by plugins through manifest merging; they are declared explicitly so the app does not depend on that (**verified** in the merged APK, before and after).

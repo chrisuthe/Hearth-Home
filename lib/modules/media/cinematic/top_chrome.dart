@@ -47,9 +47,13 @@ class TopChrome extends StatelessWidget {
             ],
           ),
           const SizedBox(width: HearthSpacing.x2),
-          _PlayersChip(
-            activePlayer: activePlayer,
-            onTap: onPlayersTap,
+          // The only chip with unbounded text: a long player name gives way
+          // rather than pushing the row off a narrow canvas.
+          Flexible(
+            child: _PlayersChip(
+              activePlayer: activePlayer,
+              onTap: onPlayersTap,
+            ),
           ),
         ],
       ),
@@ -107,7 +111,14 @@ class _PlayersChip extends StatelessWidget {
       children: [
         const Icon(Icons.speaker_group, size: HearthIcon.xs, color: Colors.white),
         const SizedBox(width: 6),
-        Text(name, style: _chipTextStyle),
+        Flexible(
+          child: Text(
+            name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: _chipTextStyle,
+          ),
+        ),
         if (extras > 0) ...[
           const SizedBox(width: 6),
           Text(

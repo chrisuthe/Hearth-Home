@@ -1,8 +1,37 @@
+import 'dart:io';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hearth/config/display_orientation.dart';
 import 'package:hearth/config/hub_config.dart';
 import 'package:hearth/plugins/display/display_plugin.dart';
 import 'package:hearth/plugins/framework/web_context.dart';
 import 'package:hearth/plugins/hearth_plugin.dart';
+import 'package:hearth/services/display_rotation_service.dart';
+
+class _MemoryConfigNotifier extends HubConfigNotifier {
+  _MemoryConfigNotifier(HubConfig config) {
+    state = config;
+  }
+
+  @override
+  Future<void> update(HubConfig Function(HubConfig) updater) async {
+    state = updater(state);
+  }
+}
+
+/// A Pi launched at [applied] degrees (null: started without the launcher).
+/// Records restart attempts instead of running sudo.
+DisplayRotationService _piService(int? applied, List<List<String>> calls) =>
+    DisplayRotationService(
+      environment: {if (applied != null) kAppliedRotationEnv: '$applied'},
+      isLinux: true,
+      runProcess: (exe, args) async {
+        calls.add([exe, ...args]);
+        return ProcessResult(0, 0, '', '');
+      },
+    );
 
 void main() {
   group('DisplayPlugin', () {
@@ -160,6 +189,91 @@ void main() {
         RegExp(r'value="clock"\s+selected').hasMatch(html),
         isTrue,
       );
+    });
+  });
+  group('DisplayPlugin screen orientation', () {
+    test('web renders the orientation select with all five values', () {
+      final html = DisplayPlugin().buildSettingsHtml(const WebContext(
+        config: HubConfig(displayOrientation: 'portrait'),
+        apiBearerToken: 'auth',
+        pluginActionPrefix: '/api/plugin/hearth.display',
+      ));
+      expect(html, contains('data-config-path="displayOrientation"'));
+      for (final o in DisplayOrientation.values) {
+        expect(html, contains('value="${o.wire}"'));
+      }
+      expect(RegExp(r'value="portrait"\s+selected').hasMatch(html), isTrue);
+      // Status + restart are driven by the plugin's own routes.
+      expect(html, contains("hearth.action('rotation')"));
+      expect(html, contains("hearth.action('restart', {})"));
+      expect(html, contains('Restart to apply'));
+    });
+
+    Future<void> pumpPanel(
+      WidgetTester tester, {
+      required String orientation,
+      required DisplayRotationService service,
+    }) async {
+      await tester.pumpWidget(ProviderScope(
+        overrides: [
+          hubConfigProvider.overrideWith((ref) => _MemoryConfigNotifier(
+              HubConfig(displayOrientation: orientation))),
+          displayRotationServiceProvider.overrideWithValue(service),
+        ],
+        child: MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: Consumer(
+                builder: (context, ref, _) =>
+                    DisplayPlugin().buildSettingsWidget(ref),
+              ),
+            ),
+          ),
+        ),
+      ));
+    }
+
+    testWidgets('on-device shows the orientation select', (tester) async {
+      await pumpPanel(tester,
+          orientation: 'portrait', service: _piService(90, []));
+      expect(find.text('Screen Orientation'), findsOneWidget);
+      expect(find.text('Portrait'), findsOneWidget);
+      expect(find.text('Restart to apply'), findsNothing);
+    });
+
+    testWidgets('on-device offers a restart when the Pi runs another rotation',
+        (tester) async {
+      final calls = <List<String>>[];
+      await pumpPanel(tester,
+          orientation: 'portrait', service: _piService(0, calls));
+
+      final button = find.text('Restart to apply');
+      expect(button, findsOneWidget);
+      await tester.ensureVisible(button);
+      await tester.tap(button);
+      await tester.pump();
+
+      expect(calls, [
+        ['sudo', '-n', 'systemctl', 'restart', 'hearth.service']
+      ]);
+    });
+
+    testWidgets('on-device explains a missing launcher instead of a restart',
+        (tester) async {
+      await pumpPanel(tester,
+          orientation: 'portrait', service: _piService(null, []));
+      expect(find.text('Restart to apply'), findsNothing);
+      expect(find.textContaining('next update'), findsOneWidget);
+    });
+
+    testWidgets('on-device shows nothing extra off the Pi', (tester) async {
+      await pumpPanel(
+        tester,
+        orientation: 'portrait',
+        service: DisplayRotationService(environment: const {}, isLinux: false),
+      );
+      expect(find.text('Restart to apply'), findsNothing);
+      expect(find.textContaining('next update'), findsNothing);
     });
   });
 }

@@ -129,7 +129,9 @@ class _SetupWizardState extends ConsumerState<SetupWizard> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    // Material, not a coloured Container, so the network tiles' ink is not
+    // painted underneath the background.
+    return Material(
       color: Colors.black,
       child: SafeArea(
         child: Padding(

@@ -54,8 +54,9 @@ class _ToastOverlayState extends ConsumerState<ToastOverlay>
 
     return Positioned(
       bottom: HearthSpacing.x12,
-      left: 0,
-      right: 0,
+      // Keeps the 800px-max pill off the bezel on a canvas that narrow.
+      left: HearthSpacing.x6,
+      right: HearthSpacing.x6,
       child: Center(
         child: IgnorePointer(
           child: AnimatedBuilder(

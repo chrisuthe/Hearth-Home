@@ -1,0 +1,177 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:hearth/app/hub_shell.dart';
+import 'package:hearth/app/page_indicator.dart';
+import 'package:hearth/config/hub_config.dart';
+import 'package:hearth/config/webview_config.dart';
+import 'package:hearth/models/hearth_notification.dart';
+import 'package:hearth/screens/home/home_screen.dart';
+import 'package:hearth/services/music_assistant_service.dart';
+import 'package:hearth/services/notification_service.dart';
+import 'package:hearth/services/timer_service.dart';
+import 'package:hearth/services/voice_assistant_service.dart';
+import 'package:hearth/services/weather_service.dart';
+
+import 'portrait_fixtures.dart';
+import 'portrait_harness.dart';
+
+const _staticModuleIds = [
+  'alarm_clock',
+  'media',
+  'controls',
+  'cameras',
+  'protect',
+  'mealie',
+  'livetv',
+];
+
+final _webviews = [
+  for (var i = 0; i < 4; i++)
+    WebviewConfig(
+      id: 'webview:custom:$i',
+      url: 'https://example.com/$i',
+      name: 'Energy Dashboard $i',
+      iconCodePoint: Icons.dashboard.codePoint,
+      source: WebviewSource.customUrl,
+      order: i,
+    ),
+];
+
+/// Every module in both trays: eleven tiles, more than one row holds on any
+/// of the canvases. Nothing sits in the swipe row, so the PageView is just
+/// Home and Settings and no module screen is built.
+HubConfig _crowdedConfig({bool swapEdges = false}) => HubConfig(
+      setupComplete: true,
+      webviews: _webviews,
+      modulePlacements: {
+        for (final id in [..._staticModuleIds, ..._webviews.map((w) => w.id)])
+          id: const ['menu1', 'menu2'],
+      },
+      topSwipeAction: swapEdges ? 'menu1' : 'menu2',
+      bottomSwipeAction: swapEdges ? 'menu2' : 'menu1',
+    );
+
+/// The real HubShell over unconfigured services — none of them open a socket
+/// without a URL — with Home populated and a voice response on screen.
+Future<void> _pumpShell(
+  WidgetTester tester, {
+  HubConfig? config,
+  NotificationService? notifications,
+  VoiceAssistantState voice = const VoiceAssistantState(),
+}) async {
+  final deck = notifications ?? silentNotifications();
+  final timers = TimerService()
+    ..attachNotificationService(deck)
+    ..startTimer(const Duration(hours: 2, minutes: 15));
+  await tester.pumpWidget(ProviderScope(
+    overrides: [
+      hubConfigProvider.overrideWith(
+          (ref) => MemoryConfigNotifier(config ?? _crowdedConfig())),
+      notificationServiceProvider.overrideWith((ref) => deck),
+      timerServiceProvider.overrideWith((ref) => timers),
+      weatherStateProvider
+          .overrideWith((ref) => Stream.value(sampleWeather())),
+      maAllPlayersProvider
+          .overrideWith((ref) => Stream.value(samplePlayers())),
+      voiceAssistantStateProvider.overrideWith((ref) => Stream.value(voice)),
+    ],
+    child: hostScreen(const HubShell()),
+  ));
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 400));
+}
+
+Future<void> _swipeFromEdge(
+  WidgetTester tester,
+  Size canvas, {
+  required bool top,
+}) async {
+  await tester.flingFrom(
+    Offset(canvas.width / 2, top ? 20 : canvas.height - 20),
+    Offset(0, top ? 200 : -200),
+    1500,
+  );
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 400));
+}
+
+void main() {
+  testLayouts('HubShell on Home with the page indicator',
+      (tester, canvas) async {
+    await _pumpShell(tester, config: const HubConfig(setupComplete: true));
+    await tester.tapAt(canvas.center(Offset.zero));
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.byType(HomeScreen), findsOneWidget);
+    expect(find.byType(PageIndicator), findsOneWidget);
+    expect(find.byIcon(Icons.mic), findsOneWidget);
+    await unmount(tester);
+  });
+
+  testLayouts('HubShell bottom tray with eleven modules',
+      (tester, canvas) async {
+    await _pumpShell(tester);
+    await _swipeFromEdge(tester, canvas, top: false);
+    expect(find.text('Settings'), findsOneWidget);
+    expect(find.text('Energy Dashboard 3'), findsOneWidget);
+    // Every tile stays on screen where it can be tapped.
+    for (final label in ['Settings', 'Energy Dashboard 3']) {
+      final rect = tester.getRect(find.text(label));
+      expect((Offset.zero & canvas).contains(rect.topLeft), isTrue);
+      expect((Offset.zero & canvas).contains(rect.bottomRight), isTrue);
+    }
+    await unmount(tester);
+  });
+
+  testLayouts('HubShell top tray with volume and eleven modules',
+      (tester, canvas) async {
+    await _pumpShell(tester);
+    await _swipeFromEdge(tester, canvas, top: true);
+    expect(find.text('Volume'), findsOneWidget);
+    expect(find.byType(Slider), findsOneWidget);
+    final rect = tester.getRect(find.text('Energy Dashboard 3'));
+    expect((Offset.zero & canvas).contains(rect.topLeft), isTrue);
+    expect((Offset.zero & canvas).contains(rect.bottomRight), isTrue);
+    await unmount(tester);
+  });
+
+  testLayouts('HubShell trays on swapped edges', (tester, canvas) async {
+    await _pumpShell(tester, config: _crowdedConfig(swapEdges: true));
+    await _swipeFromEdge(tester, canvas, top: true);
+    expect(find.text('Settings'), findsOneWidget);
+    // Tapping outside the tray closes it.
+    await tester.tapAt(Offset(canvas.width / 2, canvas.height - 10));
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('Settings'), findsNothing);
+    await _swipeFromEdge(tester, canvas, top: false);
+    expect(find.text('Volume'), findsOneWidget);
+    await unmount(tester);
+  });
+
+  testLayouts('HubShell with a toast, a voice response and notifications',
+      (tester, canvas) async {
+    final deck = silentNotifications()
+      ..ingest(sampleNotification(0))
+      ..ingest(sampleNotification(1, priority: NotificationPriority.alert));
+    await _pumpShell(
+      tester,
+      config: const HubConfig(setupComplete: true),
+      notifications: deck,
+      voice: const VoiceAssistantState(
+        state: VoiceState.responding,
+        responseText: 'The garage door has been open for forty five minutes '
+            'and the temperature outside is twenty eight degrees, so I have '
+            'closed it and turned the porch light on for you.',
+      ),
+    );
+    // The mic toggle raises a toast.
+    await tester.tap(find.byIcon(Icons.mic));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('Microphone muted'), findsOneWidget);
+    expect(find.byType(Dismissible), findsNWidgets(2));
+    await unmount(tester);
+    // Past the toast's own dismiss timer.
+    await tester.pump(const Duration(seconds: 4));
+  });
+}

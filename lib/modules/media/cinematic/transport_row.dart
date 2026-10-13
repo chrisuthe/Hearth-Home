@@ -16,7 +16,15 @@ import 'drawer_state.dart';
 ///
 /// Every icon button is 44×44 minimum (per the design's CIconBtn). The
 /// play/pause is 56×56 with its own drop shadow.
+///
+/// Below [_compactBelow] the cluster would squeeze the progress bar to
+/// nothing, so the bar takes the full width on its own line and the times
+/// sit beside the controls. That fits the same height as the single row, so
+/// the drawer detents hold on a portrait canvas.
 class TransportRow extends StatelessWidget {
+  /// Controls cluster (~650) plus a progress bar still worth reading.
+  static const double _compactBelow = 900;
+
   final MusicPlayerState state;
   final DrawerMetrics metrics;
   final VoidCallback? onPlayPause;
@@ -42,27 +50,39 @@ class TransportRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final track = state.currentTrack;
     final duration = track?.duration ?? Duration.zero;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Expanded(
-          child: _LiveProgressAndTimes(
-            state: state,
-            duration: duration,
-          ),
-        ),
-        const SizedBox(width: 18),
-        _Controls(
+    return LayoutBuilder(builder: (context, constraints) {
+      final compact = constraints.maxWidth < _compactBelow;
+      final controls = _Controls(
+        state: state,
+        compact: compact,
+        onPlayPause: onPlayPause,
+        onNext: onNext,
+        onPrev: onPrev,
+        onShuffle: onShuffle,
+        onRepeatCycle: onRepeatCycle,
+        onVolumeChanged: onVolumeChanged,
+      );
+      if (compact) {
+        return _LiveProgressAndTimes(
           state: state,
-          onPlayPause: onPlayPause,
-          onNext: onNext,
-          onPrev: onPrev,
-          onShuffle: onShuffle,
-          onRepeatCycle: onRepeatCycle,
-          onVolumeChanged: onVolumeChanged,
-        ),
-      ],
-    );
+          duration: duration,
+          controls: controls,
+        );
+      }
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: _LiveProgressAndTimes(
+              state: state,
+              duration: duration,
+            ),
+          ),
+          const SizedBox(width: 18),
+          controls,
+        ],
+      );
+    });
   }
 }
 
@@ -77,9 +97,13 @@ class _LiveProgressAndTimes extends StatefulWidget {
   final MusicPlayerState state;
   final Duration duration;
 
+  /// Compact layout only: the cluster to seat under the bar, beside the times.
+  final Widget? controls;
+
   const _LiveProgressAndTimes({
     required this.state,
     required this.duration,
+    this.controls,
   });
 
   @override
@@ -133,6 +157,7 @@ class _LiveProgressAndTimesState extends State<_LiveProgressAndTimes> {
       progress: progress,
       position: position,
       duration: widget.duration,
+      controls: widget.controls,
     );
   }
 }
@@ -141,15 +166,43 @@ class _ProgressAndTimes extends StatelessWidget {
   final double progress;
   final Duration position;
   final Duration duration;
+  final Widget? controls;
 
   const _ProgressAndTimes({
     required this.progress,
     required this.position,
     required this.duration,
+    this.controls,
   });
 
   @override
   Widget build(BuildContext context) {
+    final controls = this.controls;
+    if (controls != null) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _ProgressBar(progress: progress),
+          const SizedBox(height: HearthSpacing.x1),
+          Row(
+            children: [
+              Expanded(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    '${_formatDur(position)} / ${_formatDur(duration)}',
+                    style: _timeStyle,
+                  ),
+                ),
+              ),
+              controls,
+            ],
+          ),
+        ],
+      );
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
@@ -243,8 +296,13 @@ class _Controls extends StatelessWidget {
   final VoidCallback? onRepeatCycle;
   final ValueChanged<double>? onVolumeChanged;
 
+  /// Leaves out the two buttons that are not wired to anything yet (favourite,
+  /// lyrics) so the working ones keep their full tap targets.
+  final bool compact;
+
   const _Controls({
     required this.state,
+    this.compact = false,
     this.onPlayPause,
     this.onNext,
     this.onPrev,
@@ -260,7 +318,8 @@ class _Controls extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        const _CIconBtn(icon: Icons.favorite_border, size: 44, dim: true),
+        if (!compact)
+          const _CIconBtn(icon: Icons.favorite_border, size: 44, dim: true),
         _CIconBtn(
           icon: Icons.shuffle,
           size: 44,
@@ -279,7 +338,8 @@ class _Controls extends StatelessWidget {
           dim: !repeatActive,
           onTap: onRepeatCycle,
         ),
-        const _CIconBtn(icon: Icons.lyrics_outlined, size: 44, dim: true),
+        if (!compact)
+          const _CIconBtn(icon: Icons.lyrics_outlined, size: 44, dim: true),
         const SizedBox(width: HearthSpacing.x3),
         Container(
           width: 1,

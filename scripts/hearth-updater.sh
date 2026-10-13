@@ -6,7 +6,7 @@
 
 set -e
 
-BUNDLE_DIR="/opt/hearth/bundle"
+BUNDLE_DIR="${HEARTH_BUNDLE_DIR:-/opt/hearth/bundle}"
 STAGING_DIR="/opt/hearth/bundle.staging"
 PREV_DIR="/opt/hearth/bundle.prev"
 VERSION_FILE="/etc/hearth-version"
@@ -15,9 +15,6 @@ LOG_TAG="hearth-updater"
 # Release API endpoints, mirroring lib/services/update_service.dart.
 GITHUB_RELEASE_URL="https://api.github.com/repos/chrisuthe/Hearth-Home/releases/latest"
 GITEA_RELEASE_URL="https://registry.home.chrisuthe.com/api/v1/repos/chris/Hearth/releases?limit=1"
-
-# hub_config.json drives both the auto-update gate and the update source.
-CONFIG_FILE=$(find /root /home -name hub_config.json -type f 2>/dev/null | head -1)
 
 log() {
     logger -t "$LOG_TAG" "$1"
@@ -56,6 +53,79 @@ fetch() {
         wget -q "$@"
     fi
 }
+
+# Root-side install paths. HEARTH_SYSROOT is empty on a device; tests point it
+# at a scratch directory.
+SYSROOT="${HEARTH_SYSROOT:-}"
+LAUNCHER="$SYSROOT/usr/local/bin/hearth-launch"
+UNIT_FILE="$SYSROOT/etc/systemd/system/hearth.service"
+LAUNCHER_DROPIN="$SYSROOT/etc/systemd/system/hearth.service.d/10-launcher.conf"
+RESTART_SUDOERS="$SYSROOT/etc/sudoers.d/hearth-restart"
+
+# Install $1 (already written) over $2 only when the content differs, via an
+# atomic mv so a reader never sees a partial file. Returns 1 if nothing changed.
+install_if_changed() {
+    if cmp -s "$1" "$2"; then
+        rm -f "$1"
+        return 1
+    fi
+    chmod "$3" "$1" && mv -f "$1" "$2"
+}
+
+# Move an install onto the launcher that applies the screen orientation
+# (scripts/hearth-launch.sh). Idempotent, and ordered so each step only runs
+# once the one it depends on is in place: the unit is never pointed at a
+# launcher that is not there. Any failure leaves the unit as it was.
+migrate_launcher() {
+    bundled="$BUNDLE_DIR/hearth-launch.sh"
+    if [ -s "$bundled" ]; then
+        mkdir -p "$(dirname "$LAUNCHER")" || return 1
+        cp "$bundled" "$LAUNCHER.new.$$" || { rm -f "$LAUNCHER.new.$$"; return 1; }
+        if install_if_changed "$LAUNCHER.new.$$" "$LAUNCHER" 755; then
+            log "Installed launcher $LAUNCHER"
+        fi
+    fi
+    [ -x "$LAUNCHER" ] || { rm -f "$LAUNCHER.new.$$"; return 1; }
+
+    # A drop-in rather than a rewrite: the unit setup-pi.sh wrote stays intact,
+    # and deleting the drop-in is a complete undo. Units that already exec the
+    # launcher (fresh installs) need nothing.
+    if ! grep -q "^ExecStart=/usr/local/bin/hearth-launch\$" "$UNIT_FILE" 2>/dev/null; then
+        mkdir -p "$(dirname "$LAUNCHER_DROPIN")" || return 1
+        printf '[Service]\nExecStart=\nExecStart=/usr/local/bin/hearth-launch\n' \
+            > "$LAUNCHER_DROPIN.new.$$" || return 1
+        if install_if_changed "$LAUNCHER_DROPIN.new.$$" "$LAUNCHER_DROPIN" 644; then
+            systemctl daemon-reload
+            log "hearth.service now starts through the launcher"
+        fi
+    fi
+
+    # Lets the app restart itself to apply a new orientation. The temp name
+    # starts with a dot so sudo ignores it until visudo has passed it.
+    tmp="$(dirname "$RESTART_SUDOERS")/.hearth-restart.new.$$"
+    echo "hearth ALL=(root) NOPASSWD: /usr/bin/systemctl restart hearth.service" \
+        > "$tmp" || return 1
+    if cmp -s "$tmp" "$RESTART_SUDOERS"; then
+        rm -f "$tmp"
+    elif visudo -cf "$tmp" >/dev/null 2>&1; then
+        install_if_changed "$tmp" "$RESTART_SUDOERS" 440 \
+            && log "Installed sudoers rule for hearth.service restart"
+    else
+        rm -f "$tmp"
+        log "Sudoers rule failed validation, not installed"
+        return 1
+    fi
+    return 0
+}
+
+# Manual recovery / repair: sudo hearth-updater --migrate-only
+if [ "$1" = "--migrate-only" ]; then
+    migrate_launcher || { log "Launcher migration incomplete"; exit 1; }
+    exit 0
+fi
+
+# hub_config.json drives both the auto-update gate and the update source.
+CONFIG_FILE=$(find /root /home -name hub_config.json -type f 2>/dev/null | head -1)
 
 if ! auto_update_enabled; then
     log "Auto-update disabled in config, skipping"
@@ -201,6 +271,10 @@ if [ -s "$BUNDLED_UPDATER" ] && ! cmp -s "$BUNDLED_UPDATER" "$SELF"; then
         log "Updater self-update failed, kept existing $SELF: $err"
     fi
 fi
+
+# Runs from the updater installed by the previous release, so an existing
+# install gains screen rotation one update after the release that ships it.
+migrate_launcher || log "Launcher migration incomplete, hearth.service unchanged"
 
 log "Updated to $LATEST_VERSION, restarting hearth.service"
 systemctl restart hearth.service

@@ -392,12 +392,16 @@ class _GroupChip extends StatelessWidget {
                 color: Colors.white,
               ),
               const SizedBox(width: 6),
-              Text(
-                group.name,
-                style: const TextStyle(
-                  fontSize: HearthFont.caption,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
+              Flexible(
+                child: Text(
+                  group.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: HearthFont.caption,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
                 ),
               ),
               if (isGroup) ...[

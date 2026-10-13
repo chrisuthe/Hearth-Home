@@ -20,28 +20,33 @@ class WebviewSettingsSection extends ConsumerWidget {
         borderRadius: BorderRadius.circular(12),
       ),
       padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (haConfigured) ...[
-            const HaDashboardPicker(),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Dark mode for HA dashboards'),
-              subtitle: const Text(
-                'Signal prefers-color-scheme: dark to Home Assistant',
-                style: TextStyle(color: Colors.white54, fontSize: 12),
+      // The tiles below paint ink on the nearest Material; without one of
+      // their own it would land underneath this card's tint.
+      child: Material(
+        type: MaterialType.transparency,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (haConfigured) ...[
+              const HaDashboardPicker(),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Dark mode for HA dashboards'),
+                subtitle: const Text(
+                  'Signal prefers-color-scheme: dark to Home Assistant',
+                  style: TextStyle(color: Colors.white54, fontSize: 12),
+                ),
+                value: config.haDashboardDarkMode,
+                onChanged: (v) => ref
+                    .read(hubConfigProvider.notifier)
+                    .update((c) => c.copyWith(haDashboardDarkMode: v)),
               ),
-              value: config.haDashboardDarkMode,
-              onChanged: (v) => ref
-                  .read(hubConfigProvider.notifier)
-                  .update((c) => c.copyWith(haDashboardDarkMode: v)),
-            ),
-          ] else
-            const _HaConfigPrompt(),
-          const SizedBox(height: 24),
-          const CustomUrlList(),
-        ],
+            ] else
+              const _HaConfigPrompt(),
+            const SizedBox(height: 24),
+            const CustomUrlList(),
+          ],
+        ),
       ),
     );
   }

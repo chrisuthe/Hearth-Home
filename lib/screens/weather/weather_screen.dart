@@ -111,9 +111,7 @@ class WeatherScreen extends ConsumerWidget {
     const dayCodes = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
     final today = DateTime.now();
     final take = days.take(8).toList();
-    return Row(children: [
-      for (int i = 0; i < take.length; i++) ...[
-        Expanded(child: ForecastCard(
+    Widget card(int i) => ForecastCard(
           day: take[i],
           dayCode: i == 0 ? 'TODAY' : dayCodes[take[i].date.weekday - 1],
           isToday: i == 0 ||
@@ -125,10 +123,41 @@ class WeatherScreen extends ConsumerWidget {
               use24h: use24h,
             ),
           )),
-        )),
-        if (i != take.length - 1) const SizedBox(width: HearthSpacing.x3),
-      ],
-    ]);
+        );
+    // [slots] cards wide; indexes past the end leave an empty slot so a short
+    // last row keeps the same card width as the rows above it.
+    Widget row(int start, int slots) => Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (int i = start; i < start + slots; i++) ...[
+              Expanded(child: i < take.length ? card(i) : const SizedBox.shrink()),
+              if (i != start + slots - 1) const SizedBox(width: HearthSpacing.x3),
+            ],
+          ],
+        );
+    return LayoutBuilder(builder: (context, constraints) {
+      final gaps = HearthSpacing.x3 * (take.length - 1);
+      final cardWidth = (constraints.maxWidth - gaps) / take.length;
+      // A portrait panel leaves each of eight cards under 90px — too narrow
+      // for the metric rows — so split the week over two rows there.
+      if (cardWidth >= _minForecastCardWidth || take.length < 2) {
+        return Row(children: [
+          for (int i = 0; i < take.length; i++) ...[
+            Expanded(child: card(i)),
+            if (i != take.length - 1) const SizedBox(width: HearthSpacing.x3),
+          ],
+        ]);
+      }
+      final perRow = (take.length / 2).ceil();
+      return Column(children: [
+        row(0, perRow),
+        const SizedBox(height: HearthSpacing.x3),
+        row(perRow, perRow),
+      ]);
+    });
   }
+
+  /// The landscape canvas gives each card ~127px; below this they wrap.
+  static const double _minForecastCardWidth = 120;
 
 }

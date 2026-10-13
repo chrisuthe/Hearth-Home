@@ -9,6 +9,16 @@ import '../../services/video/hearth_video_player.dart';
 import '../../utils/logger.dart';
 import 'frigate_service.dart';
 
+/// Columns for a grid of 16:9 camera tiles in a [box]-sized area.
+///
+/// Landscape keeps the layout the screen was designed around. A portrait box
+/// is too narrow for three tiles to stay legible, so it drops a column — and
+/// one or two cameras stack rather than leave most of the height empty.
+int cameraGridColumns(int cameraCount, Size box) {
+  if (box.width < box.height) return cameraCount <= 2 ? 1 : 2;
+  return cameraCount <= 4 ? 2 : 3;
+}
+
 /// Camera grid screen with live video expansion.
 ///
 /// Two viewing modes:
@@ -244,10 +254,10 @@ class _CamerasScreenState extends ConsumerState<CamerasScreen> {
     // --- Grid view: auto-refreshing snapshot tiles ---
     return Container(
       color: Colors.black.withValues(alpha: 0.7),
-      child: GridView.builder(
+      child: LayoutBuilder(builder: (context, constraints) => GridView.builder(
         padding: const EdgeInsets.all(HearthSpacing.x4),
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: cameras.length <= 4 ? 2 : 3,
+          crossAxisCount: cameraGridColumns(cameras.length, constraints.biggest),
           crossAxisSpacing: HearthSpacing.x3,
           mainAxisSpacing: HearthSpacing.x3,
           childAspectRatio: 16 / 9,
@@ -305,7 +315,7 @@ class _CamerasScreenState extends ConsumerState<CamerasScreen> {
             ),
           );
         },
-      ),
+      )),
     );
   }
 }

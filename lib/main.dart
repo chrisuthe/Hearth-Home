@@ -8,6 +8,7 @@ import 'app/app.dart';
 import 'config/hub_config.dart';
 import 'packages/hearth_osk/hearth_osk.dart';
 import 'services/capture_service.dart';
+import 'services/display_rotation_service.dart';
 import 'services/local_api_server.dart';
 import 'services/osk_integration.dart';
 import 'services/timezone_service.dart';
@@ -67,6 +68,11 @@ Future<void> main() async {
     ],
   );
   await container.read(hubConfigProvider.notifier).load();
+
+  // Android only: lock (or free) the activity's orientation now that config is
+  // loaded, and keep following the setting. Reading the provider is what
+  // starts its listener.
+  container.read(androidOrientationProvider);
 
   // Install the on-screen keyboard control before any UI is mounted so that
   // the very first TextField focus can surface the OSK. The control starts

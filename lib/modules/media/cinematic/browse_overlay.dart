@@ -82,7 +82,9 @@ class _BrowseOverlayState extends ConsumerState<BrowseOverlay> {
     _debounce = Timer(const Duration(milliseconds: 400), () {
       if (!mounted) return;
       final music = ref.read(musicAssistantServiceProvider);
-      setState(() => _searchFuture = music.searchLibrary(q));
+      setState(() {
+        _searchFuture = music.searchLibrary(q);
+      });
     });
   }
 
@@ -599,23 +601,32 @@ class _Grid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cols = isCircle ? 7 : 5;
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: cols,
-        crossAxisSpacing: HearthSpacing.x4,
-        mainAxisSpacing: 18,
-        childAspectRatio: isCircle ? 0.75 : 0.78,
-      ),
-      itemCount: items.length,
-      itemBuilder: (_, i) => BrowseTile(
-        item: items[i],
-        isCircle: isCircle,
-        onTap: () => onTileTap(items[i]),
-      ),
-    );
+    return LayoutBuilder(builder: (context, constraints) {
+      // The tile's two text lines take a fixed height out of a box whose
+      // height scales with its width, so a tile narrower than this clips
+      // them. Drop columns on a narrow canvas instead of shrinking tiles.
+      final minTile = isCircle ? 135.0 : 180.0;
+      final fit = ((constraints.maxWidth + HearthSpacing.x4) /
+              (minTile + HearthSpacing.x4))
+          .floor();
+      final cols = fit.clamp(2, isCircle ? 7 : 5);
+      return GridView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: cols,
+          crossAxisSpacing: HearthSpacing.x4,
+          mainAxisSpacing: 18,
+          childAspectRatio: isCircle ? 0.75 : 0.78,
+        ),
+        itemCount: items.length,
+        itemBuilder: (_, i) => BrowseTile(
+          item: items[i],
+          isCircle: isCircle,
+          onTap: () => onTileTap(items[i]),
+        ),
+      );
+    });
   }
 }
 
