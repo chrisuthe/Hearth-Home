@@ -108,7 +108,7 @@ A second run changes nothing and reloads nothing; a missing bundled launcher or 
 - `androidOrientationProvider` listens to `displayOrientation` and calls `SystemChrome.setPreferredOrientations`, immediately when first read in `main()` after config loads, and again on each change — no restart (**verified**: `test/services/display_rotation_service_test.dart` captures the platform-channel calls; unrelated config changes do not re-send it).
 - The manifest's `android:screenOrientation` is `fullUser` instead of `sensorLandscape`; `configChanges` is unchanged, so a rotation does not recreate the activity (**verified** on the tablet: same process through every rotation, no relaunch logged).
 - `flutter build apk --debug` succeeds (**verified**, see [Verification](#verification)); the APK was not installed or run.
-- Behaviour change: an existing Android install has `auto`, which previously meant landscape-only and now follows the sensor (**verified**: the test tablet, landscape under the old build, came up in portrait on first launch because its accelerometer reports portrait). Whether that matches how the tablet is mounted was not observed.
+- Behaviour change: an existing Android install has `auto`, which previously meant landscape-only and now follows the sensor (**verified**: the test tablet, landscape under the old build, came up in portrait on first launch because its accelerometer reports portrait). The tablet is a 1080p panel mounted on its side, so portrait is the correct result.
 
 ## Portrait layout
 
