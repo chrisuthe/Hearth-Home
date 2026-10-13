@@ -142,8 +142,9 @@ GStreamer error, no Dart exception — so it will not show up in CI, only on a
 device. 3.47.6 was accepted after it booted on the Pi and direct-played a
 generated 1080p h264 clip for 60s. That clip also played on 3.44.9, so the
 original crash was not reproduced and is **not proven fixed**. Flutter is now
-pinned at 3.47.7. Before accepting any Flutter bump, cast a 1080p direct-play
-title on a real Pi.
+pinned at 3.47.7, which passed the same check on the same kind of clip (see
+`docs/specs/2026-10-13-v1.21.0-release-readiness.md`). Before accepting any
+Flutter bump, cast a 1080p direct-play title on a real Pi.
 
 **`flutterpi_tool` is temporarily installed from an unreleased upstream commit.**
 The latest pub.dev release (0.12.0) does not compile against Flutter 3.47, so

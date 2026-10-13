@@ -13,7 +13,7 @@ Every claim carries one of two labels:
 - **verified** — observed on 2026-10-13, either in the trial build or on the emulator run described under [Verification environment](#verification-environment).
 - **assumed** — reasoned from the code or from Android platform behaviour, not observed. Treat as a hypothesis to test.
 
-Unless a claim says otherwise, **verified** means the emulator. One real device has had a smoke test only: the release APK installs and launches on an Apolosign 21.5" calendar tablet (RK3576, arm64-v8a, Android 16 / API 36, 1080x1920 panel at 240 dpi), where Impeller selects Vulkan and LocalApiServer starts (**verified**). A second pass on that tablet, for the v1.21.0 readiness run (`2026-10-13-v1.21.0-release-readiness.md`), drove a debug APK of `daa74bf` over adb and the `:8090` API; rows it settled say **verified on the tablet**. Anything else that depends on a real tablet (Wi-Fi multicast, audio, Doze, RTSP and HLS playback) is still **assumed**.
+Unless a claim says otherwise, **verified** means the emulator. One real device had a smoke test when the scaffold landed: the release APK installs and launches on an Apolosign 21.5" calendar tablet (RK3576, arm64-v8a, Android 16 / API 36, 1080x1920 panel at 240 dpi), where Impeller selects Vulkan and LocalApiServer starts (**verified**). A second pass on that tablet, for the v1.21.0 readiness run (`2026-10-13-v1.21.0-release-readiness.md`), drove a debug APK of `daa74bf` over adb and the `:8090` API; rows it settled say **verified on the tablet**. Anything else that depends on a real tablet (Wi-Fi multicast, audio, Doze, RTSP and HLS playback) is still **assumed**.
 
 ## Verification environment
 
@@ -187,7 +187,7 @@ Extends `docs/specs/2026-08-12-dependency-maintenance-process-design.md`.
 Ordered so that each step leaves something usable on a wall. Each is sized as its own task.
 
 1. **Kiosk shell** — keep-screen-on. Immersive fullscreen and the HOME launcher category are in place.
-2. **Hardware pass** — on a real arm64 tablet (install and launch are already confirmed), connect Home Assistant, Immich, Music Assistant and Frigate; play an RTSP camera, an HLS stream and a 1080p h264 file through libmpv. Converts the *untested* and *assumed* rows above into facts and reorders the rest of this list.
+2. **Hardware pass** — on a real arm64 tablet (install and launch are already confirmed), play an RTSP camera and an HLS stream through libmpv, and exercise Frigate. Home Assistant, Immich and Music Assistant connect and a 1080p h264 file plays (see the readiness run). Converts the *untested* and *assumed* rows above into facts and reorders the rest of this list.
 3. **Multicast lock** — platform channel holding `MulticastLock` while DLNA or Plex is enabled; then test DLNA and Plex casting end to end.
 4. **Alarm, timer and notification audio** — an in-process player for the bundled tones.
 5. **Hide what cannot work** — Wi-Fi wizard step and connect UI, timezone, capture, updater controls; make `isVisible` / the wizard platform-aware instead of showing dead controls.
