@@ -259,11 +259,15 @@ class _PlexPairingSectionState extends ConsumerState<PlexPairingSection> {
           Text(_error!, style: const TextStyle(color: Color(0xFFE57373))),
           const SizedBox(height: 8),
         ],
-        Row(
+        // Wrap, not Row: on a narrow panel the button drops under the text
+        // instead of squeezing it to nothing.
+        Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 12,
+          runSpacing: 8,
           children: [
-            const Expanded(
-              child: Text('Pair with your Plex account to cast beyond the LAN.'),
-            ),
+            const Text('Pair with your Plex account to cast beyond the LAN.'),
             FilledButton.icon(
               onPressed: config.plexPlayerName.isEmpty || _pairing
                   ? null

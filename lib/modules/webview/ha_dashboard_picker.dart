@@ -84,10 +84,12 @@ class _HaDashboardPickerState extends ConsumerState<HaDashboardPicker> {
           children: [
             const Icon(Icons.dashboard, color: Color(0xFF03A9F4), size: 18),
             const SizedBox(width: 8),
-            const Text('Home Assistant dashboards',
-                style: TextStyle(
-                    color: Colors.white, fontWeight: FontWeight.w600)),
-            const Spacer(),
+            const Expanded(
+              child: Text('Home Assistant dashboards',
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                      color: Colors.white, fontWeight: FontWeight.w600)),
+            ),
             TextButton(
               onPressed: () => setState(_refresh),
               child: const Text('Refresh'),

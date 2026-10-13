@@ -23,12 +23,15 @@ class PluginPanel extends ConsumerWidget {
             children: [
               Icon(plugin.icon, color: Colors.white70, size: 28),
               const SizedBox(width: 12),
-              Text(
-                plugin.name,
-                style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w300),
+              Flexible(
+                child: Text(
+                  plugin.name,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w300),
+                ),
               ),
             ],
           ),
