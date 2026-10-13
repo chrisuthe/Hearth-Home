@@ -50,7 +50,7 @@ The parity target, all **verified** in LVA unless marked:
 - Reports the default-route interface's MAC from `getmac` and exits if there is none (`__main__.py:301-304`).
 - Entities: a media player, a `Mute` switch (object_id `mute`), a `Thinking Sound` switch, wake/stop-word sensitivity numbers, mic gain, mic volume and a noise-suppression select (`satellite.py:113-314`).
 - Announce with pre-announce sound, start-conversation and continue-conversation (`satellite.py:604-605`, `694-704`, `1016`).
-- Timers: ring on `TIMER_FINISHED`, looped until the stop word or a wake word (`satellite.py:652-674`, `894-895`).
+- Timers: ring on `TIMER_FINISHED`, looped until the stop word or a wake word (`satellite.py:652-674`, `880-896`).
 - Wake word: microWakeWord and openWakeWord; `okay_nabu` and `stop` are bundled; two active wake words; HA can push external microWakeWord models (`__main__.py:18-19`, `satellite.py:770`, `789-793`).
 - No echo cancellation of its own. The docs delegate it to PulseAudio or PipeWire `module-echo-cancel` (`docs/enabling_aec.md:9-46`).
 - 5,083 lines of Python in the package, about 4,300 without the LED/button peripheral API. This is the size reference for an in-app implementation.
@@ -71,6 +71,9 @@ The parity target, all **verified** in LVA unless marked:
 | Echo handling | None of its own; selectable audio source and `MODE_IN_COMMUNICATION` (**verified**) | Ours to choose | App-side AGC and spectral noise suppression; no AEC found (**verified**) | PulseAudio module (**assumed**) |
 | Start at boot | No boot receiver; `autoStart` only fires when its activity is opened (**verified**) | Hearth is the HOME app; starts with it | Boot receiver launches its own activity (**verified**) | Termux:Boot (**assumed**) |
 | Fights Hearth for the screen | No: a foreground service plus a settings activity (**verified**) | No | Yes: declares `category.HOME`, shows over the lock screen, drives brightness and a WebView (**verified**) | No |
+| Lock task / device owner | Second package to allow-list so its settings activity can open; its service running under lock task is **assumed** | Nothing extra | Second package that is itself a HOME activity and ships a device-admin receiver (**verified**) | Three extra packages |
+| Doze | Holds a partial wake lock and a Wi-Fi lock; requests no battery exemption (**verified**). Not in play while Hearth keeps the screen on (**assumed**). | Same exposure as the rest of Hearth | Foreground service; keeps the screen on by default (**verified** defaults in the integration) | Termux wake lock (**assumed**) |
+| Audio focus against Hearth media | Requests transient may-duck focus for speech and never yields its own (**verified**). Hearth requests no focus today, so media_kit ducking is **assumed** not to happen. | One process owns both; ducking is ours to write | Separate music, voice and alarm players with a `ducking_volume` setting (**verified** in the integration); interaction with Hearth **assumed** as Ava | None; mpv ducks only its own players (**verified** for LVA) |
 | Install and update | Second APK from GitHub releases, updated by hand | One APK | Second APK plus a HACS integration, version-locked to each other (**verified**) | Termux, Termux:API, Termux:Boot, a Python build chain |
 | Licence | Apache-2.0 (**verified**) | Hearth is MIT; reused code stays Apache-2.0 | Apache-2.0, both repos (**verified**) | Apache-2.0 |
 | Maintenance risk | One maintainer, self-described experimental, last commit 2026-06-15, 9 releases between 2025-12-14 and 2026-06-15 (**verified** via the GitHub API) | Ours forever | One maintainer, active, 5 releases between 2026-08-29 and 2026-10-10, coupled to HA Wyoming internals (**verified**) | Unsupported platform |
