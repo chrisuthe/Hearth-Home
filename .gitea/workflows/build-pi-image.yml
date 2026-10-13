@@ -61,6 +61,9 @@ jobs:
           # Ship the OTA updater inside the bundle so devices self-refresh
           # /usr/bin/hearth-updater on the next run (see scripts/hearth-updater.sh).
           cp scripts/hearth-updater.sh "$SRC_DIR/hearth-updater.sh"
+          # The updater installs this to /usr/local/bin/hearth-launch; the unit
+          # execs that copy, never the one in the bundle.
+          cp scripts/hearth-launch.sh "$SRC_DIR/hearth-launch.sh"
           tar czf "hearth-bundle-${VERSION}.tar.gz" -C "$SRC_DIR" .
 
       - name: Generate checksum

@@ -171,6 +171,24 @@ else
     echo "No bundle found. Copy the bundle manually to /opt/hearth/bundle/"
 fi
 
+# --- Launcher ---
+# hearth.service starts flutter-pi through this so the screen orientation set
+# in Settings is applied at launch. Root-owned and outside the bundle: an OTA
+# rollback swaps the bundle, and must not take the unit's ExecStart with it.
+echo "Installing launcher..."
+LAUNCH_TMP=$(mktemp)
+if [ -s /opt/hearth/bundle/hearth-launch.sh ]; then
+    cp /opt/hearth/bundle/hearth-launch.sh "$LAUNCH_TMP"
+else
+    wget -qO "$LAUNCH_TMP" https://raw.githubusercontent.com/chrisuthe/Hearth-Home/main/scripts/hearth-launch.sh
+fi
+if [ ! -s "$LAUNCH_TMP" ]; then
+    echo "ERROR: could not fetch hearth-launch.sh"
+    exit 1
+fi
+sudo install -o root -g root -m 755 "$LAUNCH_TMP" /usr/local/bin/hearth-launch
+rm -f "$LAUNCH_TMP"
+
 # --- Systemd services ---
 
 # Main Hearth service (runs as hearth user)
@@ -197,7 +215,7 @@ Environment=XDG_RUNTIME_DIR=/run/hearth
 # which doesn't exist, and the connection silently fails — clients open
 # default, get no errors, but never register with the daemon.
 Environment=PIPEWIRE_RUNTIME_DIR=/run/user/999
-ExecStart=/usr/local/bin/flutter-pi --release --mirror-connector HDMI-A-2 /opt/hearth/bundle
+ExecStart=/usr/local/bin/hearth-launch
 Environment=LD_LIBRARY_PATH=/opt/hearth/bundle
 Environment=HEARTH_NO_MEDIAKIT=1
 # Never autoplug GStreamer's AV1 parser/decoder: gstav1parse has an assertion
@@ -332,7 +350,10 @@ echo "hearth ALL=(root) NOPASSWD: /usr/bin/ffmpeg" | sudo tee /etc/sudoers.d/hea
 # Timezone changes from Settings require writing /etc/localtime — gate the
 # exact timedatectl invocation so Hearth can apply the configured zone.
 echo "hearth ALL=(root) NOPASSWD: /usr/bin/timedatectl set-timezone *" | sudo tee /etc/sudoers.d/hearth-timezone > /dev/null
-sudo chmod 440 /etc/sudoers.d/hearth-updater /etc/sudoers.d/hearth-gstreamer /etc/sudoers.d/hearth-ffmpeg /etc/sudoers.d/hearth-timezone
+# Changing the screen orientation needs flutter-pi relaunched — allow exactly
+# that restart, nothing else under systemctl.
+echo "hearth ALL=(root) NOPASSWD: /usr/bin/systemctl restart hearth.service" | sudo tee /etc/sudoers.d/hearth-restart > /dev/null
+sudo chmod 440 /etc/sudoers.d/hearth-updater /etc/sudoers.d/hearth-gstreamer /etc/sudoers.d/hearth-ffmpeg /etc/sudoers.d/hearth-timezone /etc/sudoers.d/hearth-restart
 
 # Allow hearth user (netdev group) to manage WiFi via nmcli
 sudo mkdir -p /etc/polkit-1/rules.d
