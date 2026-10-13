@@ -15,13 +15,15 @@ dependencies:
   cached_network_image: 4.0.4
   path_provider: ^2.1.4
   # Video playback for live camera streams via RTSP.
-  # media_kit wraps libmpv — works on Windows, Linux x64, and Linux ARM64.
+  # media_kit wraps libmpv — works on Windows, Linux x64, Linux ARM64, and Android.
   # On Raspberry Pi with flutter-pi, swap to flutterpi_gstreamer_video_player
   # (same video_player API, uses GStreamer instead of mpv).
   media_kit: ^1.1.11
   media_kit_video: ^1.2.5
   media_kit_libs_windows_video: ^1.0.10
   media_kit_libs_linux: ^1.1.3
+  # Experimental Android target — see docs/specs/2026-10-13-android-apk-requirements.md
+  media_kit_libs_android_video: ^1.3.8
   video_player: ^2.9.1
   bonsoir: 7.1.5
   ffi: ^2.2.0
