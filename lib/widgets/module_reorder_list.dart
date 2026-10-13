@@ -84,15 +84,17 @@ class _ModuleReorderListState extends State<ModuleReorderList> {
               left: HearthSpacing.x2, bottom: HearthSpacing.x1),
           child: Row(
             children: [
-              Text(
-                'Screen Order',
-                style: TextStyle(
-                  fontSize: HearthFont.caption,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.white.withValues(alpha: 0.5),
+              Expanded(
+                child: Text(
+                  'Screen Order',
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: HearthFont.caption,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.white.withValues(alpha: 0.5),
+                  ),
                 ),
               ),
-              const Spacer(),
               if (hasCustomOrder)
                 GestureDetector(
                   onTap: widget.onReset,

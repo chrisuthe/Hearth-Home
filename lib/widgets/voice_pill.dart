@@ -79,8 +79,8 @@ class _VoicePillOverlayState extends ConsumerState<VoicePillOverlay>
 
     return Positioned(
       bottom: HearthSpacing.x20,
-      left: 0,
-      right: 0,
+      left: HearthSpacing.x6,
+      right: HearthSpacing.x6,
       child: Center(
         child: IgnorePointer(
           ignoring: isIdle || !_visible,

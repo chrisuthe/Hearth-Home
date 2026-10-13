@@ -1,12 +1,14 @@
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'utils/logger.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'app/app.dart';
 import 'config/hub_config.dart';
 import 'packages/hearth_osk/hearth_osk.dart';
 import 'services/capture_service.dart';
+import 'services/display_rotation_service.dart';
 import 'services/local_api_server.dart';
 import 'services/osk_integration.dart';
 import 'services/timezone_service.dart';
@@ -29,6 +31,12 @@ const double kWindowHeight = 864;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Kiosk tablets: hide Android's status and navigation bars. Sticky, so an
+  // edge swipe only reveals them briefly and still reaches the edge menus.
+  if (!kIsWeb && Platform.isAndroid) {
+    await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+  }
 
   // Initialize media_kit (libmpv) on desktop platforms only.
   // On Pi with flutter-pi, video is handled by GStreamer — libmpv is not available.
@@ -60,6 +68,11 @@ Future<void> main() async {
     ],
   );
   await container.read(hubConfigProvider.notifier).load();
+
+  // Android only: lock (or free) the activity's orientation now that config is
+  // loaded, and keep following the setting. Reading the provider is what
+  // starts its listener.
+  container.read(androidOrientationProvider);
 
   // Install the on-screen keyboard control before any UI is mounted so that
   // the very first TextField focus can surface the OSK. The control starts

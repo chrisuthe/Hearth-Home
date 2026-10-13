@@ -187,6 +187,14 @@ flutter pub get
 flutter run -d windows   # or -d linux
 ```
 
+### Android (experimental)
+
+```bash
+flutter build apk --debug
+```
+
+The APK builds and launches on Android 10+, but most Pi-only subsystems are inert and there is no kiosk mode yet. See [`docs/specs/2026-10-13-android-apk-requirements.md`](docs/specs/2026-10-13-android-apk-requirements.md) for what works and what is still required.
+
 ### Run Tests
 
 ```bash

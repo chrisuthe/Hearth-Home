@@ -42,6 +42,19 @@ Or re-run the setup script, which updates everything:
 curl -sL https://raw.githubusercontent.com/chrisuthe/Hearth-Home/main/scripts/setup-pi.sh | sudo bash
 ```
 
+## What an update can change outside the app
+
+Besides swapping the app bundle, the updater keeps three root-owned pieces current from
+files shipped inside the bundle: itself (`/usr/bin/hearth-updater`), the launcher that starts
+flutter-pi (`/usr/local/bin/hearth-launch`), and the rule that lets Hearth restart its own
+service. A new version of the updater only *runs* on the following update, so a change of
+this kind — screen rotation was the first — reaches an existing install **one update after**
+the release that ships it. To apply it straight away:
+
+```bash
+sudo hearth-updater --migrate-only && sudo systemctl restart hearth.service
+```
+
 ## Rollback
 
 Each successful update keeps the **previous** bundle as a fallback. If the kiosk fails to

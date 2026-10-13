@@ -196,8 +196,12 @@ class _HubShellState extends ConsumerState<HubShell> {
     return _MenuTray(
       fromTop: fromTop,
       onDismiss: () => setState(() => _menu1Open = false),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
+      // Wrap, not Row: a portrait panel fits seven tiles across and a tray
+      // can hold more than that.
+      child: Wrap(
+        alignment: WrapAlignment.center,
+        spacing: HearthSpacing.x3,
+        runSpacing: HearthSpacing.x3,
         children: [
           _Menu1TimerAction(
             onTap: () {
@@ -207,7 +211,6 @@ class _HubShellState extends ConsumerState<HubShell> {
               );
             },
           ),
-          const SizedBox(width: HearthSpacing.x3),
           _QuickAction(
             icon: Icons.settings,
             label: 'Settings',
@@ -220,21 +223,18 @@ class _HubShellState extends ConsumerState<HubShell> {
               );
             },
           ),
-          ...menuModules(ref, 'menu1').map((m) => Padding(
-            padding: const EdgeInsets.only(left: HearthSpacing.x3),
-            child: _QuickAction(
-              icon: m.icon,
-              label: m.name,
-              onTap: () {
-                setState(() => _menu1Open = false);
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => _MenuScreenWrapper(
-                    title: m.name,
-                    child: m.buildScreen(isActive: true),
-                  )),
-                );
-              },
-            ),
+          ...menuModules(ref, 'menu1').map((m) => _QuickAction(
+            icon: m.icon,
+            label: m.name,
+            onTap: () {
+              setState(() => _menu1Open = false);
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => _MenuScreenWrapper(
+                  title: m.name,
+                  child: m.buildScreen(isActive: true),
+                )),
+              );
+            },
           )),
         ],
       ),
@@ -254,23 +254,22 @@ class _HubShellState extends ConsumerState<HubShell> {
           const _SystemVolumeSlider(),
           if (menu2Items.isNotEmpty) ...[
             const SizedBox(height: HearthSpacing.x3),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: menu2Items.map((m) => Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 6),
-                child: _QuickAction(
-                  icon: m.icon,
-                  label: m.name,
-                  onTap: () {
-                    setState(() => _menu2Open = false);
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => _MenuScreenWrapper(
-                        title: m.name,
-                        child: m.buildScreen(isActive: true),
-                      )),
-                    );
-                  },
-                ),
+            Wrap(
+              alignment: WrapAlignment.center,
+              spacing: HearthSpacing.x3,
+              runSpacing: HearthSpacing.x3,
+              children: menu2Items.map((m) => _QuickAction(
+                icon: m.icon,
+                label: m.name,
+                onTap: () {
+                  setState(() => _menu2Open = false);
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => _MenuScreenWrapper(
+                      title: m.name,
+                      child: m.buildScreen(isActive: true),
+                    )),
+                  );
+                },
               )).toList(),
             ),
           ],

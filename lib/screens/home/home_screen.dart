@@ -70,14 +70,23 @@ class HomeScreen extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: HearthSpacing.x4),
-              // Clock + date + memory label | Weather
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Expanded(child: _ClockDisplay(dateLabel: dateLabel)),
-                  _WeatherDisplay(weather: weather),
-                ],
-              ),
+              // Clock + date + memory label | Weather. Side by side they
+              // need more width than a portrait panel has, so stack them.
+              if (MediaQuery.orientationOf(context) == Orientation.portrait) ...[
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: _WeatherDisplay(weather: weather),
+                ),
+                const SizedBox(height: HearthSpacing.x4),
+                _ClockDisplay(dateLabel: dateLabel),
+              ] else
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Expanded(child: _ClockDisplay(dateLabel: dateLabel)),
+                    _WeatherDisplay(weather: weather),
+                  ],
+                ),
             ],
           ),
         ),

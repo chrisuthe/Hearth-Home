@@ -28,7 +28,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final selectedId = (_selectedId != null && plugins.any((p) => p.id == _selectedId))
         ? _selectedId!
         : fallbackId;
-    return Container(
+    // Material rather than a coloured Container: the panels' ListTiles paint
+    // their ink on the nearest Material, which a ColoredBox would cover.
+    return Material(
       color: Colors.black.withValues(alpha: 0.7),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,

@@ -60,7 +60,12 @@ class _QueueLaneState extends ConsumerState<QueueLane> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    // Fixed-height content in a shelf whose height follows the finger: while
+    // the drawer is partway open the lane is taller than its slot, so let the
+    // viewport clip it instead of the column overflowing.
+    return SingleChildScrollView(
+      physics: const NeverScrollableScrollPhysics(),
+      child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -109,6 +114,7 @@ class _QueueLaneState extends ConsumerState<QueueLane> {
           ),
         ),
       ],
+      ),
     );
   }
 

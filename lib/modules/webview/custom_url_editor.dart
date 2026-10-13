@@ -65,9 +65,12 @@ class CustomUrlList extends ConsumerWidget {
           children: [
             const Icon(Icons.link, color: Colors.white70, size: 18),
             const SizedBox(width: 8),
-            const Text('Custom URLs',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-            const Spacer(),
+            const Expanded(
+              child: Text('Custom URLs',
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                      color: Colors.white, fontWeight: FontWeight.w600)),
+            ),
             TextButton.icon(
               icon: const Icon(Icons.add, color: Color(0xFF646CFF)),
               label: const Text('Add', style: TextStyle(color: Color(0xFF646CFF))),

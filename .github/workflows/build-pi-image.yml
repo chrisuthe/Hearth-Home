@@ -27,7 +27,7 @@ jobs:
 
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.47.6'
+          flutter-version: '3.47.7'
 
       - name: Install flutterpi_tool
         # Installed from an unreleased upstream commit: the latest pub.dev
@@ -69,6 +69,9 @@ jobs:
           # Ship the OTA updater inside the bundle so devices self-refresh
           # /usr/bin/hearth-updater on the next run (see scripts/hearth-updater.sh).
           cp scripts/hearth-updater.sh "$SRC_DIR/hearth-updater.sh"
+          # The updater installs this to /usr/local/bin/hearth-launch; the unit
+          # execs that copy, never the one in the bundle.
+          cp scripts/hearth-launch.sh "$SRC_DIR/hearth-launch.sh"
           # Package the full flutterpi_tool output as-is (default layout).
           # Includes flutter-pi binary, libflutter_engine.so, app.so, and assets.
           tar czf "hearth-bundle-${VERSION}.tar.gz" -C "$SRC_DIR" .

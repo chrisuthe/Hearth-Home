@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What is Hearth?
 
-Hearth is an open-source Flutter smart home kiosk that replaces a Google Nest Hub. It runs on a Raspberry Pi 5 with an 11" AMOLED display via flutter-pi, with a Windows desktop build for development. It integrates Immich photo memories, Home Assistant controls, Music Assistant playback, and Frigate camera streams.
+Hearth is an open-source Flutter smart home kiosk that replaces a Google Nest Hub. It runs on a Raspberry Pi 5 with an 11" AMOLED display via flutter-pi, with a Windows desktop build for development. An Android APK target for kiosk tablets is experimental (see `docs/specs/2026-10-13-android-apk-requirements.md`). It integrates Immich photo memories, Home Assistant controls, Music Assistant playback, and Frigate camera streams.
 
 ## Build & Development Commands
 
@@ -13,11 +13,15 @@ flutter pub get          # install dependencies
 flutter analyze          # lint (uses flutter_lints + 3 custom rules)
 flutter test             # run all tests
 flutter test test/services/display_mode_service_test.dart  # run a single test
+flutter test test/portrait   # every surface at landscape + portrait canvases
 flutter run -d windows   # run on Windows (dev)
 flutter run -d linux     # run on Linux desktop
+flutter build apk --debug  # experimental Android target (needs JDK 17 + Android SDK)
 ```
 
 For Raspberry Pi deployment, the app runs via flutter-pi (not `flutter run`). On Pi, swap `media_kit` for `flutterpi_gstreamer_video_player` (same video_player API, GStreamer instead of libmpv).
+
+**Android is experimental.** `android/` builds an APK that launches to Home and runs immersive fullscreen, but webviews, Sendspin, alarm/timer audio, WiFi management, the updater and capture are inert there, and no CI job builds it. Android takes the `media_kit` path. `docs/specs/2026-10-13-android-apk-requirements.md` is the per-subsystem status and the follow-up list — update it when an Android gap is closed.
 
 ## Architecture
 
@@ -74,9 +78,17 @@ No backend or database. Config is a single `hub_config.json` in the OS app-suppo
 
 Night mode has four mutually exclusive sources: `none`, `clock`, `ha_entity`, `api`. Only one is active — no fallback chain.
 
-### Display Constants
+### Display Canvas & Orientation
 
-Render resolution is 1184x864 (half the panel's native 2368x1728). The Pi upscales for performance. These constants are in `main.dart` as `kWindowWidth`/`kWindowHeight`.
+Screens are tuned for a 1184x864 landscape canvas — the 11" panel's 2368x1728 at 2x. `kWindowWidth`/`kWindowHeight` in `main.dart` record that reference and are read by nothing: the canvas is whatever `MediaQuery` reports (flutter-pi derives it from the panel mode), divided by `uiScale` in `HearthScaleScope`.
+
+`config.displayOrientation` (`auto | landscape | portrait | landscapeFlipped | portraitFlipped`, see `lib/config/display_orientation.dart`) turns the screen:
+
+- **Pi** — `hearth.service` execs `/usr/local/bin/hearth-launch` (`scripts/hearth-launch.sh`), which reads the value from `hub_config.json` and passes flutter-pi `--rotation`. It is fixed for the life of the process, so a change needs `systemctl restart hearth.service`; the Display plugin offers that when the setting differs from `HEARTH_APPLIED_ROTATION`, the env var the launcher exports. The degree table lives twice (shell + Dart) and `test/scripts/pi_scripts_test.dart` holds them together.
+- **Android** — `androidOrientationProvider` calls `setPreferredOrientations`, live.
+- **Desktop** — stored, no effect.
+
+Layouts must hold at 864x1184 and 800x1280 as well as 1184x864. Branch on `MediaQuery`/`LayoutBuilder`, never on `displayOrientation`, so a resized desktop window behaves like a rotated panel. `test/portrait/` pumps every surface at all three sizes via `testLayouts` — add a new screen there.
 
 ### Module System
 
@@ -127,10 +139,11 @@ segfaulted flutter-pi a few seconds into a **1080p h264 direct-play** stream on
 the Pi. Bisected on hardware: 3.44.9 crashed 2/2 on the same file; 3.41.6 and
 3.38.0 played it fine; 720p was unaffected on all three. The crash is silent — no
 GStreamer error, no Dart exception — so it will not show up in CI, only on a
-device. Flutter is now at 3.47.6, accepted after it booted on the Pi and
-direct-played a generated 1080p h264 clip for 60s. That clip also played on
-3.44.9, so the original crash was not reproduced and is **not proven fixed**.
-Before accepting any Flutter bump, cast a 1080p direct-play title on a real Pi.
+device. 3.47.6 was accepted after it booted on the Pi and direct-played a
+generated 1080p h264 clip for 60s. That clip also played on 3.44.9, so the
+original crash was not reproduced and is **not proven fixed**. Flutter is now
+pinned at 3.47.7. Before accepting any Flutter bump, cast a 1080p direct-play
+title on a real Pi.
 
 **`flutterpi_tool` is temporarily installed from an unreleased upstream commit.**
 The latest pub.dev release (0.12.0) does not compile against Flutter 3.47, so

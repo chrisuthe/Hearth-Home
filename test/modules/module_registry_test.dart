@@ -30,6 +30,20 @@ void main() {
     return container;
   }
 
+  group('swipeModulesProvider default placements', () {
+    test('default config puts the default modules in the swipe row', () {
+      final container = containerFor(const HubConfig());
+      final ids =
+          container.read(swipeModulesProvider).map((m) => m.id).toList();
+      expect(ids, ['media', 'controls', 'cameras']);
+    });
+
+    test('explicit empty placements leave the swipe row empty', () {
+      final container = containerFor(const HubConfig(modulePlacements: {}));
+      expect(container.read(swipeModulesProvider), isEmpty);
+    });
+  });
+
   group('swipeModulesProvider honors webview placement', () {
     test('webview appears in swipe when its placement contains "swipe"', () {
       final container = containerFor(HubConfig(

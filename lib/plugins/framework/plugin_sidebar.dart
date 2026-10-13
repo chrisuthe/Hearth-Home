@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -27,8 +29,13 @@ class PluginSidebar extends ConsumerWidget {
     final features = plugins.where((p) => p.category == PluginCategory.feature).toList();
     final devices = plugins.where((p) => p.category == PluginCategory.device).toList();
 
+    // 240 on every canvas the panel ships at; only a portrait panel at a large
+    // UI scale is narrow enough for the cap to bite and hand width back to the
+    // settings panel.
+    final width = math.min(240.0, MediaQuery.sizeOf(context).width * 0.36);
+
     return Container(
-      width: 240,
+      width: width,
       color: const Color(0xFF080808),
       child: ListView(
         padding: const EdgeInsets.symmetric(vertical: 16),
@@ -100,6 +107,7 @@ class _Row extends ConsumerWidget {
             Expanded(
               child: Text(
                 plugin.name,
+                overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   color: selected ? const Color(0xFF99EEBB) : Colors.white,
                   fontSize: 13,

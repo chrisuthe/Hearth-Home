@@ -33,33 +33,42 @@ class NotificationDeckOverlay extends ConsumerWidget {
 
     return Padding(
       padding: const EdgeInsets.all(HearthSpacing.x6),
-      child: Column(
-        // Anchor to the bottom; newest card (appended last) sits lowest.
-        mainAxisAlignment: MainAxisAlignment.end,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          for (final n in notifications)
-            Padding(
-              key: ValueKey(n.id),
-              padding: const EdgeInsets.only(top: HearthSpacing.x4),
-              child: _RiseUp(
-                child: Dismissible(
-                  key: ValueKey('dismiss-${n.id}'),
-                  // Dismiss upward only — a horizontal direction would compete
-                  // with the HubShell PageView's paging gesture in the card's
-                  // (full-width) region. Swiping the card up matches its
-                  // bottom-anchored riseUp entrance; the ✕ is the primary
-                  // affordance regardless.
-                  direction: DismissDirection.up,
-                  onDismissed: (_) => service.dismiss(n.id),
-                  child: NotificationCard(
-                    notification: n,
-                    onDismiss: () => service.dismiss(n.id),
+      // Anchor to the bottom; newest card (appended last) sits lowest. The
+      // scroll view shrink-wraps the cards, so the empty area above still
+      // passes touches through; it only scrolls once the deck is taller than
+      // the screen, and then opens on the newest card.
+      child: Align(
+        alignment: Alignment.bottomCenter,
+        child: SingleChildScrollView(
+          reverse: true,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (final n in notifications)
+                Padding(
+                  key: ValueKey(n.id),
+                  padding: const EdgeInsets.only(top: HearthSpacing.x4),
+                  child: _RiseUp(
+                    child: Dismissible(
+                      key: ValueKey('dismiss-${n.id}'),
+                      // Dismiss upward only — a horizontal direction would compete
+                      // with the HubShell PageView's paging gesture in the card's
+                      // (full-width) region. Swiping the card up matches its
+                      // bottom-anchored riseUp entrance; the ✕ is the primary
+                      // affordance regardless.
+                      direction: DismissDirection.up,
+                      onDismissed: (_) => service.dismiss(n.id),
+                      child: NotificationCard(
+                        notification: n,
+                        onDismiss: () => service.dismiss(n.id),
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            ),
-        ],
+            ],
+          ),
+        ),
       ),
     );
   }
