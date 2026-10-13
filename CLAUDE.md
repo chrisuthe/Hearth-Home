@@ -13,6 +13,7 @@ flutter pub get          # install dependencies
 flutter analyze          # lint (uses flutter_lints + 3 custom rules)
 flutter test             # run all tests
 flutter test test/services/display_mode_service_test.dart  # run a single test
+flutter test test/portrait   # every surface at landscape + portrait canvases
 flutter run -d windows   # run on Windows (dev)
 flutter run -d linux     # run on Linux desktop
 flutter build apk --debug  # experimental Android target (needs JDK 17 + Android SDK)
@@ -77,9 +78,17 @@ No backend or database. Config is a single `hub_config.json` in the OS app-suppo
 
 Night mode has four mutually exclusive sources: `none`, `clock`, `ha_entity`, `api`. Only one is active — no fallback chain.
 
-### Display Constants
+### Display Canvas & Orientation
 
-Render resolution is 1184x864 (half the panel's native 2368x1728). The Pi upscales for performance. These constants are in `main.dart` as `kWindowWidth`/`kWindowHeight`.
+Screens are tuned for a 1184x864 landscape canvas — the 11" panel's 2368x1728 at 2x. `kWindowWidth`/`kWindowHeight` in `main.dart` record that reference and are read by nothing: the canvas is whatever `MediaQuery` reports (flutter-pi derives it from the panel mode), divided by `uiScale` in `HearthScaleScope`.
+
+`config.displayOrientation` (`auto | landscape | portrait | landscapeFlipped | portraitFlipped`, see `lib/config/display_orientation.dart`) turns the screen:
+
+- **Pi** — `hearth.service` execs `/usr/local/bin/hearth-launch` (`scripts/hearth-launch.sh`), which reads the value from `hub_config.json` and passes flutter-pi `--rotation`. It is fixed for the life of the process, so a change needs `systemctl restart hearth.service`; the Display plugin offers that when the setting differs from `HEARTH_APPLIED_ROTATION`, the env var the launcher exports. The degree table lives twice (shell + Dart) and `test/scripts/pi_scripts_test.dart` holds them together.
+- **Android** — `androidOrientationProvider` calls `setPreferredOrientations`, live.
+- **Desktop** — stored, no effect.
+
+Layouts must hold at 864x1184 and 800x1280 as well as 1184x864. Branch on `MediaQuery`/`LayoutBuilder`, never on `displayOrientation`, so a resized desktop window behaves like a rotated panel. `test/portrait/` pumps every surface at all three sizes via `testLayouts` — add a new screen there.
 
 ### Module System
 
