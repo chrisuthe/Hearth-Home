@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../utils/logger.dart';
+import 'display_orientation.dart';
 import 'webview_config.dart';
 
 // dart:io and path_provider compile to stubs on web — guarded by kIsWeb at runtime.
@@ -288,6 +289,10 @@ class HubConfig {
   /// Wire value for [OnScreenKeyboardMode]: 'auto', 'always', or 'never'.
   final String onScreenKeyboardMode;
   final String displayProfile; // "auto" | "amoled-11" | "rpi-7" | "hdmi"
+
+  /// Wire value for [DisplayOrientation]. Applied by flutter-pi's `--rotation`
+  /// at launch on the Pi and by `setPreferredOrientations` on Android.
+  final String displayOrientation;
   final int displayWidth;      // 0 = use profile default
   final int displayHeight;     // 0 = use profile default
   final List<String> enabledModules;
@@ -375,6 +380,7 @@ class HubConfig {
     this.plexAuthToken = '',
     this.onScreenKeyboardMode = 'auto',
     this.displayProfile = 'auto',
+    this.displayOrientation = 'auto',
     this.displayWidth = 0,
     this.displayHeight = 0,
     this.enabledModules = const ['media', 'controls', 'cameras'],
@@ -464,6 +470,7 @@ class HubConfig {
     String? plexAuthToken,
     String? onScreenKeyboardMode,
     String? displayProfile,
+    String? displayOrientation,
     int? displayWidth,
     int? displayHeight,
     List<String>? enabledModules,
@@ -534,6 +541,7 @@ class HubConfig {
       onScreenKeyboardMode:
           onScreenKeyboardMode ?? this.onScreenKeyboardMode,
       displayProfile: displayProfile ?? this.displayProfile,
+      displayOrientation: displayOrientation ?? this.displayOrientation,
       displayWidth: displayWidth ?? this.displayWidth,
       displayHeight: displayHeight ?? this.displayHeight,
       enabledModules: enabledModules ?? this.enabledModules,
@@ -604,6 +612,7 @@ class HubConfig {
         'plexAuthToken': plexAuthToken,
         'onScreenKeyboardMode': onScreenKeyboardMode,
         'displayProfile': displayProfile,
+        'displayOrientation': displayOrientation,
         'displayWidth': displayWidth,
         'displayHeight': displayHeight,
         'enabledModules': enabledModules,
@@ -675,6 +684,11 @@ class HubConfig {
         onScreenKeyboardMode:
             json['onScreenKeyboardMode'] as String? ?? 'auto',
         displayProfile: json['displayProfile'] as String? ?? 'auto',
+        displayOrientation: DisplayOrientation.fromWire(
+                json['displayOrientation'] is String
+                    ? json['displayOrientation'] as String
+                    : null)
+            .wire,
         displayWidth: json['displayWidth'] as int? ?? 0,
         displayHeight: json['displayHeight'] as int? ?? 0,
         enabledModules: (json['enabledModules'] as List<dynamic>?)?.cast<String>() ?? const ['media', 'controls', 'cameras'],

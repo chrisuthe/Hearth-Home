@@ -2,16 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/app.dart' show kDialogBackground;
+import '../../config/display_orientation.dart';
 import '../../config/hub_config.dart';
 import '../../screens/settings/display_settings.dart';
+import '../../services/display_rotation_service.dart';
 import '../../services/osk_integration.dart';
 import '../../services/timezone_service.dart';
+import '../../services/toast_service.dart';
 import '../../widgets/timezone_picker_dialog.dart';
 import '../framework/fields/bool_setting_field.dart';
 import '../framework/fields/ha_entity_picker_field.dart';
 import '../framework/fields/select_setting_field.dart';
 import '../framework/fields/slider_setting_field.dart';
 import '../framework/fields/text_setting_field.dart';
+import '../framework/plugin_router.dart';
 import '../framework/web_context.dart';
 import '../hearth_plugin.dart';
 
@@ -23,6 +27,8 @@ import '../hearth_plugin.dart';
 ///   * `uiScale` (via [UiScaleSection] bespoke widget)
 ///   * `displayProfile` (via [DisplaySettingsSection] bespoke widget — on
 ///     device only; web omits this entirely)
+///   * `displayOrientation` — plus a "Restart to apply" action on the Pi,
+///     where flutter-pi only reads the rotation at launch
 ///   * `onScreenKeyboardMode`
 ///   * `nightModeSource` + conditional sub-fields (`nightModeHaEntity`,
 ///     `nightModeClockStart`, `nightModeClockEnd`)
@@ -73,6 +79,38 @@ class DisplayPlugin extends HearthPlugin {
   }
 
   @override
+  void registerHttpRoutes(PluginRouter router) {
+    router.get('rotation', _rotationStatus);
+    router.post('restart', _rotationRestart);
+  }
+
+  Future<void> _rotationStatus(PluginRequest req) async {
+    final service = req.readProvider(displayRotationServiceProvider);
+    final configured =
+        DisplayOrientation.fromWire(req.config.displayOrientation);
+    await req.respondJson({
+      'status': service.statusFor(configured).name,
+      'configuredDegrees': configured.piRotationDegrees,
+      'appliedDegrees': service.appliedDegrees,
+    });
+  }
+
+  /// Gated on a pending rotation: the portal can bounce the kiosk only when
+  /// doing so would actually change something.
+  Future<void> _rotationRestart(PluginRequest req) async {
+    final service = req.readProvider(displayRotationServiceProvider);
+    final configured =
+        DisplayOrientation.fromWire(req.config.displayOrientation);
+    if (service.statusFor(configured) != RotationStatus.restartNeeded) {
+      await req.respondError(409, 'no orientation change to apply');
+      return;
+    }
+    // Answer first: a successful restart kills this process mid-response.
+    await req.respondJson({'status': 'restarting'});
+    await service.restart();
+  }
+
+  @override
   String buildSettingsHtml(WebContext ctx) {
     final clockHtml = const BoolSettingField(
       label: 'Use 24-Hour Clock',
@@ -115,6 +153,13 @@ class DisplayPlugin extends HearthPlugin {
         '<div class="hint" style="font-size:12px;color:#888;">'
         'Configure display profile and connector from the on-device Settings.'
         '</div></div>';
+
+    final orientationHtml = SelectSettingField(
+          configPath: 'displayOrientation',
+          label: 'Screen Orientation',
+          options: _orientationOptions,
+        ).buildHtml(ctx) +
+        _rotationStatusHtml;
 
     final oskHtml = SelectSettingField(
       configPath: 'onScreenKeyboardMode',
@@ -191,6 +236,7 @@ class DisplayPlugin extends HearthPlugin {
         idleHtml +
         uiScaleHtml +
         displayProfileNote +
+        orientationHtml +
         oskHtml +
         nightSourceHtml +
         nightEntityHtml +
@@ -228,6 +274,59 @@ class DisplayPlugin extends HearthPlugin {
 ''';
   }
 }
+
+final _orientationOptions = {
+  for (final o in DisplayOrientation.values) o.wire: o.label,
+};
+
+const _launcherMissingNote =
+    'Rotation on the Pi needs the Hearth launcher, which the next update '
+    'installs. Until then the screen stays as it is.';
+
+/// Status line under the orientation select. Server-rendered HTML cannot know
+/// what flutter-pi was launched with, so it asks the `rotation` route — on
+/// load and again after each change, once the debounced save has landed.
+const _rotationStatusHtml = '''
+<div class="field" id="rotation-status" style="display:none">
+  <div class="hint" id="rotation-note" style="font-size:12px;color:#888;"></div>
+  <button type="button" id="rotation-restart-btn" style="display:none;width:100%;margin-top:8px;padding:10px;background:#333;color:#e0e0e0;border:1px solid #444;border-radius:6px;cursor:pointer;font-size:13px">Restart to apply</button>
+</div>
+<script>
+(function () {
+  const box = document.getElementById('rotation-status');
+  const note = document.getElementById('rotation-note');
+  const btn = document.getElementById('rotation-restart-btn');
+  async function refresh() {
+    let s;
+    try { s = await hearth.action('rotation'); } catch (e) { return; }
+    btn.disabled = false;
+    if (s.status === 'restartNeeded') {
+      note.textContent = 'Hearth must restart to turn the screen.';
+      btn.style.display = '';
+      box.style.display = '';
+    } else if (s.status === 'launcherMissing') {
+      note.textContent = '$_launcherMissingNote';
+      btn.style.display = 'none';
+      box.style.display = '';
+    } else {
+      box.style.display = 'none';
+    }
+  }
+  btn.addEventListener('click', async () => {
+    btn.disabled = true;
+    note.textContent = 'Restarting Hearth…';
+    try { await hearth.action('restart', {}); } catch (e) {}
+    // Either the kiosk is back at the new rotation or the restart never ran.
+    setTimeout(refresh, 10000);
+  });
+  document.addEventListener('DOMContentLoaded', () => {
+    const select = document.querySelector('select[data-config-path="displayOrientation"]');
+    if (select) select.addEventListener('change', () => setTimeout(refresh, 800));
+    refresh();
+  });
+})();
+</script>
+''';
 
 String _escapeHtml(String value) {
   return value
@@ -269,6 +368,14 @@ class _DisplayPanel extends ConsumerWidget {
         ).buildWidget(ref),
         const UiScaleSection(),
         const DisplaySettingsSection(),
+        SelectSettingField(
+          configPath: 'displayOrientation',
+          label: 'Screen Orientation',
+          options: _orientationOptions,
+        ).buildWidget(ref),
+        _RotationStatusTile(
+          orientation: DisplayOrientation.fromWire(config.displayOrientation),
+        ),
         SelectSettingField(
           configPath: 'onScreenKeyboardMode',
           label: 'On-Screen Keyboard',
@@ -338,6 +445,71 @@ class _DisplayPanel extends ConsumerWidget {
         ).buildWidget(ref),
       ],
     );
+  }
+}
+
+/// Shown under the orientation select on the Pi: either the restart that
+/// applies a pending rotation, or why rotation cannot be applied yet.
+class _RotationStatusTile extends ConsumerStatefulWidget {
+  final DisplayOrientation orientation;
+  const _RotationStatusTile({required this.orientation});
+
+  @override
+  ConsumerState<_RotationStatusTile> createState() =>
+      _RotationStatusTileState();
+}
+
+class _RotationStatusTileState extends ConsumerState<_RotationStatusTile> {
+  bool _restarting = false;
+
+  Future<void> _restart() async {
+    if (_restarting) return;
+    setState(() => _restarting = true);
+    final ok = await ref.read(displayRotationServiceProvider).restart();
+    if (!mounted) return;
+    setState(() => _restarting = false);
+    if (!ok) {
+      ref.read(toastProvider.notifier).show(
+            'Could not restart Hearth',
+            icon: Icons.error_outline,
+            type: ToastType.error,
+          );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final status = ref
+        .watch(displayRotationServiceProvider)
+        .statusFor(widget.orientation);
+    final hintStyle =
+        TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.5));
+    switch (status) {
+      case RotationStatus.inEffect:
+        return const SizedBox.shrink();
+      case RotationStatus.launcherMissing:
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Text(_launcherMissingNote, style: hintStyle),
+        );
+      case RotationStatus.restartNeeded:
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 12,
+            runSpacing: 4,
+            children: [
+              Text('Hearth must restart to turn the screen.',
+                  style: hintStyle),
+              FilledButton.tonal(
+                onPressed: _restarting ? null : _restart,
+                child: const Text('Restart to apply'),
+              ),
+            ],
+          ),
+        );
+    }
   }
 }
 
