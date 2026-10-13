@@ -20,7 +20,7 @@ void main() {
     DisplayRotationService pi(String? applied) => DisplayRotationService(
           environment: {if (applied != null) kAppliedRotationEnv: applied},
           isLinux: true,
-          runProcess: (_, __) async => ProcessResult(0, 0, '', ''),
+          runProcess: (_, _) async => ProcessResult(0, 0, '', ''),
         );
 
     test('in effect when the launch rotation matches the setting', () {
@@ -87,7 +87,7 @@ void main() {
       final denied = DisplayRotationService(
         environment: const {},
         isLinux: true,
-        runProcess: (_, __) async =>
+        runProcess: (_, _) async =>
             ProcessResult(0, 1, '', 'sudo: a password is required'),
       );
       expect(await denied.restart(), isFalse);
@@ -95,7 +95,7 @@ void main() {
       final missing = DisplayRotationService(
         environment: const {},
         isLinux: true,
-        runProcess: (_, __) async =>
+        runProcess: (_, _) async =>
             throw const ProcessException('sudo', [], 'not found'),
       );
       expect(await missing.restart(), isFalse);
@@ -106,7 +106,7 @@ void main() {
       final service = DisplayRotationService(
         environment: const {},
         isLinux: false,
-        runProcess: (_, __) async {
+        runProcess: (_, _) async {
           spawned = true;
           return ProcessResult(0, 0, '', '');
         },
