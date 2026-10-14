@@ -113,7 +113,9 @@ class AndroidWebviewSession extends WebviewSession {
   void detach(PlatformInAppWebViewController controller) {
     if (!identical(_controller, controller)) return;
     _controller = null;
-    if (!isTesting) _call(controller.pause);
+    if (isTesting) return;
+    Log.i('Webview', 'detach $url');
+    _call(controller.pause);
   }
 
   void onLoadStop() => notifyFirstFrame();
@@ -163,13 +165,12 @@ class AndroidWebviewSession extends WebviewSession {
   }
 
   Future<void> _apply(PlatformInAppWebViewController c, bool paused) async {
-    if (paused) {
-      await _call(c.pause);
-      await _call(c.pauseTimers);
-    } else {
-      await _call(c.resume);
-      await _call(c.resumeTimers);
-    }
+    Log.i('Webview', '${paused ? 'pause' : 'resume'} $url');
+    // Both calls start now: the view may be disposed before the first
+    // completes, and a disposed controller refuses further calls.
+    await Future.wait(paused
+        ? [_call(c.pause), _call(c.pauseTimers)]
+        : [_call(c.resume), _call(c.resumeTimers)]);
   }
 
   @override
