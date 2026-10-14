@@ -113,14 +113,19 @@ class HearthAudioService : LifecycleService() {
             VoiceEvents.health(VoiceEvents.PERMISSION_MISSING, "RECORD_AUDIO is not granted")
             wantedVoice = null
         }
+        var rebuildVoice = voiceChange != null
         if (!goForeground()) {
-            wantedVoice = null
-            wantedSendspin = null
+            // Without the microphone type Sendspin can still play.
+            if (wantedVoice != null) {
+                wantedVoice = null
+                rebuildVoice = true
+            }
+            if (wantedSendspin != null && !goForeground()) wantedSendspin = null
         }
 
         lifecycleScope.launch {
             lifecycleMutex.withLock {
-                if (voiceChange != null) {
+                if (rebuildVoice) {
                     tearDownVoice()
                     wantedVoice?.let(::bringUpVoice)
                 }
