@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hearth/config/hub_config.dart';
 import 'package:hearth/config/webview_config.dart';
+import 'package:hearth/modules/calendar/models.dart';
 
 void main() {
   _weightTests();
@@ -914,6 +915,83 @@ void main() {
         ),
       ]);
       expect(copy.webviews.length, 1);
+    });
+  });
+
+  group('HubConfig calendar fields', () {
+    test('defaults', () {
+      const config = HubConfig();
+      expect(config.calendarSources, isEmpty);
+      expect(config.calendarIcsPollMinutes, 30);
+      expect(config.calendarAmbientGlance, isTrue);
+      expect(config.calendarDefaultView, 'week');
+      final fromEmpty = HubConfig.fromJson(const {});
+      expect(fromEmpty.calendarSources, isEmpty);
+      expect(fromEmpty.calendarIcsPollMinutes, 30);
+      expect(fromEmpty.calendarAmbientGlance, isTrue);
+      expect(fromEmpty.calendarDefaultView, 'week');
+    });
+
+    test('round-trip through JSON text', () {
+      const config = HubConfig(
+        calendarSources: [
+          CalendarSource(
+            id: 'ha:calendar.family',
+            kind: CalendarSourceKind.ha,
+            entityId: 'calendar.family',
+            name: 'Family',
+            color: 0xFF22AA66,
+          ),
+          CalendarSource(
+            id: 'ics:0b7e',
+            kind: CalendarSourceKind.ics,
+            url: 'webcal://example.com/holidays.ics',
+            name: 'Holidays',
+            enabled: false,
+          ),
+        ],
+        calendarIcsPollMinutes: 60,
+        calendarAmbientGlance: false,
+        calendarDefaultView: 'month',
+      );
+      final restored = HubConfig.fromJson(
+          jsonDecode(jsonEncode(config.toJson())) as Map<String, dynamic>);
+      expect(restored.calendarSources, config.calendarSources);
+      expect(restored.calendarIcsPollMinutes, 60);
+      expect(restored.calendarAmbientGlance, isFalse);
+      expect(restored.calendarDefaultView, 'month');
+    });
+
+    test('copyWith replaces only what it is given', () {
+      const config = HubConfig(calendarDefaultView: 'day');
+      final updated = config.copyWith(calendarSources: const [
+        CalendarSource(id: 'ha:calendar.a', kind: CalendarSourceKind.ha),
+      ]);
+      expect(updated.calendarSources.single.id, 'ha:calendar.a');
+      expect(updated.calendarDefaultView, 'day');
+      expect(updated.copyWith(calendarAmbientGlance: false).calendarSources,
+          updated.calendarSources);
+    });
+
+    test('poll interval is clamped and an unknown view falls back to week',
+        () {
+      expect(HubConfig.fromJson(const {'calendarIcsPollMinutes': 1})
+          .calendarIcsPollMinutes, 5);
+      expect(HubConfig.fromJson(const {'calendarIcsPollMinutes': 99999})
+          .calendarIcsPollMinutes, 1440);
+      expect(HubConfig.fromJson(const {'calendarDefaultView': 'year'})
+          .calendarDefaultView, 'week');
+    });
+
+    test('a malformed source entry is skipped', () {
+      final config = HubConfig.fromJson(const {
+        'calendarSources': [
+          'garbage',
+          {'id': 'ha:calendar.a', 'kind': 'ha', 'entityId': 'calendar.a'},
+        ],
+      });
+      expect(config.calendarSources.single.entityId, 'calendar.a');
+      expect(config.calendarSources.single.enabled, isTrue);
     });
   });
 }

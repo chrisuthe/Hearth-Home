@@ -142,8 +142,12 @@ void main() {
     'displayHeight': 'device-only: part of the display-profile override',
 
     // --- Deferred: parity gaps to close in a later phase ---
-    // (none currently — webviews, screens & order, and update-source have all
-    // landed on the web portal)
+    'calendarSources':
+        'deferred: the Calendar settings plugin (calendar epic, task 3) adds '
+            'the source list on device and web together',
+    'calendarIcsPollMinutes': 'deferred: Calendar settings plugin, task 3',
+    'calendarAmbientGlance': 'deferred: Calendar settings plugin, task 3',
+    'calendarDefaultView': 'deferred: Calendar settings plugin, task 3',
   };
 
   /// Fields that ARE web-editable but with a degraded affordance — a plain text

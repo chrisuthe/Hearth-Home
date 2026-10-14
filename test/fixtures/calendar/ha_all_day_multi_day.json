@@ -1,0 +1,11 @@
+{
+  "_comment": "All-day ends are exclusive: 10-16..10-19 covers Fri, Sat, Sun.",
+  "websocket": [
+    {"start": "2026-10-16", "end": "2026-10-19", "summary": "Grandma visit", "description": "Bring the photos", "uid": "visit", "all_day": true},
+    {"start": "2026-10-14", "end": "2026-10-15", "summary": "Birthday", "uid": "bday", "all_day": true}
+  ],
+  "rest": [
+    {"start": {"date": "2026-10-16"}, "end": {"date": "2026-10-19"}, "summary": "Grandma visit", "description": "Bring the photos", "location": null, "uid": "visit", "recurrence_id": null, "rrule": null},
+    {"start": {"date": "2026-10-14"}, "end": {"date": "2026-10-15"}, "summary": "Birthday", "description": null, "location": null, "uid": "bday", "recurrence_id": null, "rrule": null}
+  ]
+}

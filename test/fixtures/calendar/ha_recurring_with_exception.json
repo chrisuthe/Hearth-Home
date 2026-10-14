@@ -1,0 +1,13 @@
+{
+  "_comment": "Window 2026-10-05..2026-10-27, HA in America/Chicago. Weekly Monday 09:00 series: 10-12 moved to Tue 10-13 10:00, 10-19 deleted.",
+  "websocket": [
+    {"start": "2026-10-05T09:00:00-05:00", "end": "2026-10-05T09:30:00-05:00", "summary": "Standup", "uid": "standup@hearth", "recurrence_id": "20261005T090000", "rrule": "FREQ=WEEKLY;BYDAY=MO", "status": "confirmed", "all_day": false},
+    {"start": "2026-10-13T10:00:00-05:00", "end": "2026-10-13T10:30:00-05:00", "summary": "Standup (moved)", "location": "Kitchen", "uid": "standup@hearth", "recurrence_id": "20261012T090000", "rrule": "FREQ=WEEKLY;BYDAY=MO", "status": "confirmed", "all_day": false},
+    {"start": "2026-10-26T09:00:00-05:00", "end": "2026-10-26T09:30:00-05:00", "summary": "Standup", "uid": "standup@hearth", "recurrence_id": "20261026T090000", "rrule": "FREQ=WEEKLY;BYDAY=MO", "status": "tentative", "all_day": false}
+  ],
+  "rest": [
+    {"start": {"dateTime": "2026-10-05T09:00:00-05:00"}, "end": {"dateTime": "2026-10-05T09:30:00-05:00"}, "summary": "Standup", "description": null, "location": null, "uid": "standup@hearth", "recurrence_id": "20261005T090000", "rrule": "FREQ=WEEKLY;BYDAY=MO", "status": "confirmed"},
+    {"start": {"dateTime": "2026-10-13T10:00:00-05:00"}, "end": {"dateTime": "2026-10-13T10:30:00-05:00"}, "summary": "Standup (moved)", "description": null, "location": "Kitchen", "uid": "standup@hearth", "recurrence_id": "20261012T090000", "rrule": "FREQ=WEEKLY;BYDAY=MO", "status": "confirmed"},
+    {"start": {"dateTime": "2026-10-26T09:00:00-05:00"}, "end": {"dateTime": "2026-10-26T09:30:00-05:00"}, "summary": "Standup", "description": null, "location": null, "uid": "standup@hearth", "recurrence_id": "20261026T090000", "rrule": "FREQ=WEEKLY;BYDAY=MO", "status": "tentative"}
+  ]
+}

@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../utils/logger.dart';
+import '../modules/calendar/models.dart';
 import 'display_orientation.dart';
 import 'webview_config.dart';
 
@@ -372,6 +373,18 @@ class HubConfig {
   /// as additional pages in HubShell's PageView via the webview module.
   final List<WebviewConfig> webviews;
 
+  /// Calendars, in display order (legend and tie-break order).
+  final List<CalendarSource> calendarSources;
+
+  /// How often each ICS URL is fetched, clamped to 5–1440 on load.
+  final int calendarIcsPollMinutes;
+
+  /// Show the upcoming-events glance on the idle Home screen.
+  final bool calendarAmbientGlance;
+
+  /// `day`, `3day`, `week` or `month`; the view the Calendar screen opens in.
+  final String calendarDefaultView;
+
   const HubConfig({
     this.apiKey = '',
     this.immichUrl = '',
@@ -451,6 +464,10 @@ class HubConfig {
     this.photoSources = const PhotoSourcesConfig(),
     this.uiScale = 1.0,
     this.webviews = const [],
+    this.calendarSources = const [],
+    this.calendarIcsPollMinutes = 30,
+    this.calendarAmbientGlance = true,
+    this.calendarDefaultView = 'week',
   });
 
   static String generateApiKey() {
@@ -552,6 +569,10 @@ class HubConfig {
     PhotoSourcesConfig? photoSources,
     double? uiScale,
     List<WebviewConfig>? webviews,
+    List<CalendarSource>? calendarSources,
+    int? calendarIcsPollMinutes,
+    bool? calendarAmbientGlance,
+    String? calendarDefaultView,
   }) {
     return HubConfig(
       apiKey: apiKey ?? this.apiKey,
@@ -637,6 +658,12 @@ class HubConfig {
       photoSources: photoSources ?? this.photoSources,
       uiScale: uiScale ?? this.uiScale,
       webviews: webviews ?? this.webviews,
+      calendarSources: calendarSources ?? this.calendarSources,
+      calendarIcsPollMinutes:
+          calendarIcsPollMinutes ?? this.calendarIcsPollMinutes,
+      calendarAmbientGlance:
+          calendarAmbientGlance ?? this.calendarAmbientGlance,
+      calendarDefaultView: calendarDefaultView ?? this.calendarDefaultView,
     );
   }
 
@@ -719,6 +746,10 @@ class HubConfig {
         'photoSources': photoSources.toJson(),
         'uiScale': uiScale,
         'webviews': webviews.map((w) => w.toJson()).toList(),
+        'calendarSources': calendarSources.map((s) => s.toJson()).toList(),
+        'calendarIcsPollMinutes': calendarIcsPollMinutes,
+        'calendarAmbientGlance': calendarAmbientGlance,
+        'calendarDefaultView': calendarDefaultView,
       };
 
   factory HubConfig.fromJson(Map<String, dynamic> json) => HubConfig(
@@ -831,7 +862,20 @@ class HubConfig {
                     WebviewConfig.fromJson(j as Map<String, dynamic>))
                 .toList() ??
             const [],
+        calendarSources: (json['calendarSources'] as List<dynamic>?)
+                ?.whereType<Map<String, dynamic>>()
+                .map(CalendarSource.fromJson)
+                .toList() ??
+            const [],
+        calendarIcsPollMinutes:
+            ((json['calendarIcsPollMinutes'] as int?) ?? 30).clamp(5, 1440),
+        calendarAmbientGlance: json['calendarAmbientGlance'] as bool? ?? true,
+        calendarDefaultView: calendarViews.contains(json['calendarDefaultView'])
+            ? json['calendarDefaultView'] as String
+            : 'week',
       );
+
+  static const calendarViews = ['day', '3day', 'week', 'month'];
 
   /// Matches the Pi's Linux Voice Assistant default.
   static const defaultVoiceWakeWords = ['okay_nabu'];
