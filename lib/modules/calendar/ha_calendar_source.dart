@@ -91,6 +91,7 @@ class HaCalendarSource {
       _emit(_current.stale('Home Assistant could not read the calendar'));
       return;
     }
+    Log.i('Calendar', '${source.entityId}: ${events.length} events pushed');
     _ok(parseEvents(source.id, events));
   }
 
