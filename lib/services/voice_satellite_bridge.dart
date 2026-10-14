@@ -185,10 +185,13 @@ class VoiceSatelliteBridge {
   }
 
   /// [sync] after a short pause, so typing a name restarts the service once.
-  void scheduleSync(HubConfig config) {
+  /// Reads the config when the pause ends, not when it starts: a write-back
+  /// may land in between.
+  void scheduleSync() {
     if (!_supported || _disposed) return;
     _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 800), () => sync(config));
+    _debounce =
+        Timer(const Duration(milliseconds: 800), () => sync(_config.current));
   }
 
   Future<void> _sync(HubConfig config) async {
@@ -259,7 +262,16 @@ class VoiceSatelliteBridge {
     if (event is! Map) return;
     switch (event['event']) {
       case 'state':
+        final running = event['running'] as bool? ?? true;
+        if (!running) {
+          // The service is gone, by request or after a failure. Forget what
+          // it was running with so the next sync starts it again.
+          _applied = null;
+          _appliedMuted = null;
+        }
+        // Only a live service sends state, so the flag is authoritative.
         _emit(_status.copyWith(
+          running: running,
           state: event['state'] as String? ?? 'idle',
           connected: event['connected'] as bool? ?? false,
         ));
@@ -321,7 +333,7 @@ final voiceSatelliteBridgeProvider = Provider<VoiceSatelliteBridge>((ref) {
   final bridge = VoiceSatelliteBridge(ref.read(hubConfigProvider.notifier));
   unawaited(bridge.attach());
   unawaited(bridge.sync(ref.read(hubConfigProvider)));
-  ref.listen<HubConfig>(hubConfigProvider, (_, c) => bridge.scheduleSync(c));
+  ref.listen<HubConfig>(hubConfigProvider, (_, _) => bridge.scheduleSync());
   ref.onDispose(bridge.dispose);
   return bridge;
 });

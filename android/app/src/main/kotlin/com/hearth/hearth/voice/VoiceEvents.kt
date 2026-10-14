@@ -34,8 +34,10 @@ object VoiceEvents {
         lastState?.let { sink?.invoke(it) }
     }
 
-    fun state(state: String, connected: Boolean) =
-        emit(mapOf("event" to STATE, "state" to state, "connected" to connected))
+    /** [running] is false only in the service's last event before it is gone. */
+    fun state(state: String, connected: Boolean, running: Boolean = true) = emit(
+        mapOf("event" to STATE, "state" to state, "connected" to connected, "running" to running),
+    )
 
     fun health(code: String, message: String) =
         emit(mapOf("event" to HEALTH, "code" to code, "message" to message))

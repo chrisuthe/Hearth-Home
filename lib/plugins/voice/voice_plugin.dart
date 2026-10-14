@@ -237,8 +237,11 @@ class VoicePlugin extends HearthPlugin {
       fill(second, s.wakeWords, 1);
     }
   }
-  refresh();
-  setInterval(refresh, 5000);
+  // hearth.js loads after the panel markup.
+  document.addEventListener('DOMContentLoaded', () => {
+    refresh();
+    setInterval(refresh, 5000);
+  });
 })();
 </script>
 ''',

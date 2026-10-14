@@ -91,7 +91,7 @@ void main() {
 
       await bridge.attach();
       await bridge.sync(notifier.state);
-      bridge.scheduleSync(notifier.state);
+      bridge.scheduleSync();
       await bridge.wake();
       await Future<void>.delayed(const Duration(milliseconds: 900));
 
@@ -266,7 +266,8 @@ void main() {
       calls.clear();
 
       for (final name in ['H', 'Ha', 'Hal', 'Hall']) {
-        bridge.scheduleSync(notifier.state.copyWith(voiceSatelliteName: name));
+        await notifier.update((c) => c.copyWith(voiceSatelliteName: name));
+        bridge.scheduleSync();
       }
       await Future<void>.delayed(const Duration(milliseconds: 900));
       await pumpEventQueue();
@@ -321,6 +322,25 @@ void main() {
       // A later state event does not clear it.
       await emit({'event': 'state', 'state': 'idle', 'connected': false});
       expect(bridge.status.health!.code, 'portInUse');
+    });
+
+    test('a service that stopped itself is shown stopped and started again '
+        'by the next sync', () async {
+      await emit({'event': 'state', 'state': 'listening', 'connected': true});
+      expect(bridge.status.running, true);
+
+      await emit({
+        'event': 'state',
+        'state': 'idle',
+        'connected': false,
+        'running': false,
+      });
+      expect(bridge.status.running, false);
+      expect(bridge.status.connectionLabel, 'Stopped');
+
+      await bridge.sync(notifier.state);
+      expect(methods(), ['setMuted', 'start']);
+      expect(bridge.status.running, true);
     });
 
     test('settingChanged mute is written back without echoing to native',

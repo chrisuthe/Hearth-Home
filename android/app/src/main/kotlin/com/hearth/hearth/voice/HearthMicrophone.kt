@@ -10,7 +10,8 @@ import com.example.ava.esphome.microphone.Microphone
 import timber.log.Timber
 import java.nio.ByteBuffer
 
-class MicOpenException(message: String, cause: Throwable? = null) : Exception(message, cause)
+/** The microphone could not be opened, or stopped delivering audio. */
+class MicException(message: String, cause: Throwable? = null) : Exception(message, cause)
 
 /**
  * 16 kHz mono capture for the wake word and the pipeline. Differs from the
@@ -27,22 +28,22 @@ class HearthMicrophone(private val audioSource: Int) : Microphone {
     // The service only builds a device once RECORD_AUDIO is granted.
     @SuppressLint("MissingPermission")
     override fun start() {
-        if (bufferSize <= 0) throw MicOpenException("16 kHz mono capture is not supported")
+        if (bufferSize <= 0) throw MicException("16 kHz mono capture is not supported")
         val record = try {
             AudioRecord(audioSource, SAMPLE_RATE, CHANNEL, ENCODING, bufferSize * 2)
         } catch (e: Exception) {
-            throw MicOpenException(e.message ?: "AudioRecord could not be created", e)
+            throw MicException(e.message ?: "AudioRecord could not be created", e)
         }
         if (record.state != AudioRecord.STATE_INITIALIZED) {
             record.release()
-            throw MicOpenException("AudioRecord failed to initialize")
+            throw MicException("AudioRecord failed to initialize")
         }
         effects = attachEffects(record.audioSessionId)
         try {
             record.startRecording()
         } catch (e: Exception) {
             release(record)
-            throw MicOpenException(e.message ?: "Recording could not start", e)
+            throw MicException(e.message ?: "Recording could not start", e)
         }
         audioRecord = record
     }
@@ -63,7 +64,7 @@ class HearthMicrophone(private val audioSource: Int) : Microphone {
     override fun read(): ByteBuffer {
         val record = audioRecord ?: error("Microphone not started")
         val read = record.read(buffer, bufferSize)
-        check(read >= 0) { "error reading audio, read: $read" }
+        if (read < 0) throw MicException("Reading audio failed ($read)")
         // AudioRecord.read ignores the buffer's position and limit.
         buffer.position(0)
         buffer.limit(read)

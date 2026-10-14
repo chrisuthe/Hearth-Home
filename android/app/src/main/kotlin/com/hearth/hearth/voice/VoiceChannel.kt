@@ -34,7 +34,6 @@ class VoiceChannel(
     private val events = EventChannel(messenger, "$NAME/events")
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
-    private var muted = false
     private var pendingStart: Pair<VoiceConfig, MethodChannel.Result>? = null
 
     init {
@@ -44,14 +43,19 @@ class VoiceChannel(
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
-            "start" -> start(VoiceConfig.fromArguments(call.arguments as? Map<*, *> ?: emptyMap<Any, Any>(), muted), result)
+            "start" -> start(
+                VoiceConfig.fromArguments(
+                    call.arguments as? Map<*, *> ?: emptyMap<Any, Any>(),
+                    HearthAudioService.muted,
+                ),
+                result,
+            )
             "stop" -> {
                 activity.stopService(Intent(activity, HearthAudioService::class.java))
                 result.success(null)
             }
             "setMuted" -> {
-                muted = call.arguments as? Boolean ?: false
-                HearthAudioService.instance?.setMuted(muted)
+                HearthAudioService.setMuted(call.arguments as? Boolean ?: false)
                 result.success(null)
             }
             "wake" -> {

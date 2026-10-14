@@ -111,8 +111,8 @@ class HearthAudioService : LifecycleService() {
                 bringUp(config)
             }
         }
-        // A restart without the activity could not open the microphone, and
-        // Dart starts the service again whenever Hearth comes back.
+        // A restart without the activity could not open the microphone. The
+        // bridge starts the service again the next time Hearth launches.
         return START_NOT_STICKY
     }
 
@@ -142,10 +142,12 @@ class HearthAudioService : LifecycleService() {
     }
 
     private fun report(server: EspHomeState, voice: EspHomeState, muted: Boolean) {
+        // Outlives the device, so a rebuild keeps a mute made from Home Assistant.
+        Companion.muted = muted
         if (server is ServerError) {
+            // Nothing can connect, so do not keep the locks and the mDNS record.
             VoiceEvents.health(VoiceEvents.PORT_IN_USE, server.message)
-            VoiceEvents.state("error", connected = false)
-            notify("Could not start")
+            stopAfterFailure()
             return
         }
         val (state, connected) = when (voice) {
@@ -169,12 +171,15 @@ class HearthAudioService : LifecycleService() {
 
     private fun onDeviceFailed(error: Throwable) {
         Timber.e(error, "Voice satellite failed")
-        if (error is MicOpenException) {
+        if (error is MicException) {
             VoiceEvents.health(VoiceEvents.MIC_OPEN_FAILED, error.message.orEmpty())
         }
+        stopAfterFailure()
+    }
+
+    private fun stopAfterFailure() {
         lifecycleScope.launch {
             lifecycleMutex.withLock { tearDown() }
-            VoiceEvents.state("error", connected = false)
             shutDown()
         }
     }
@@ -195,7 +200,7 @@ class HearthAudioService : LifecycleService() {
         stopSelf()
     }
 
-    fun setMuted(muted: Boolean) {
+    private fun applyMuted(muted: Boolean) {
         settings?.muted?.value = muted
     }
 
@@ -205,7 +210,7 @@ class HearthAudioService : LifecycleService() {
 
     override fun onDestroy() {
         tearDown()
-        VoiceEvents.state("idle", connected = false)
+        VoiceEvents.state("idle", connected = false, running = false)
         if (instance === this) instance = null
         super.onDestroy()
     }
@@ -273,6 +278,19 @@ class HearthAudioService : LifecycleService() {
         @Volatile
         var instance: HearthAudioService? = null
             private set
+
+        /**
+         * The microphone mute, whoever set it last: Dart or the Home Assistant
+         * switch. Kept for the life of the process so each start applies it.
+         */
+        @Volatile
+        var muted = false
+            private set
+
+        fun setMuted(muted: Boolean) {
+            this.muted = muted
+            instance?.applyMuted(muted)
+        }
 
         fun intent(context: Context, config: VoiceConfig): Intent =
             config.putInto(Intent(context, HearthAudioService::class.java))
