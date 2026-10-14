@@ -129,7 +129,7 @@ What follows from the table:
 
 - **`hey_luna` is not bundled.** It comes from `adamlonsdale/microwakeword-custom-words`, which has no licence, so we have no right to redistribute it (**verified**, no licence on the repo). Ava's other models (`alexa`, `hey_mycroft`, `hey_home_assistant`, `okay_computer`, `choo_choo_homie`, `hey_peppa_pig`) are Apache-2.0 in the same models repo, but we ship only the three above. Hearth's build therefore lists model files one by one rather than taking Ava's whole assets folder.
 - **The APK carries the licence texts and credits** for everything in the table: `assets/licenses/`, shown under Settings → System → Open-source licences (`2026-10-14-third-party-notices-design.md`).
-- **The fork must state what it changed.** Apache-2.0 §4(b) asks for a notice on modified files. The fork's `UPSTREAM_PIN` describes the move; its README lists the moved files from `chrisuthe/Ava-hearth` pull request 2.
+- **The fork must state what it changed.** Apache-2.0 §4(b) asks for a notice on modified files. The fork's `UPSTREAM_PIN` describes the move; `chrisuthe/Ava-hearth` pull request 2 adds a README section listing the moved files.
 - **No use of the Ava name as Hearth's.** Apache-2.0 grants no trademark rights.
 
 ## Protocol surface
