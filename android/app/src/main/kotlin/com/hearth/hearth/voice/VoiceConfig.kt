@@ -15,6 +15,8 @@ data class VoiceConfig(
     val sensitivity: String,
     val audioSource: String,
     val wakeSound: Boolean,
+    /** Media player volume, 0.0–1.0, as Home Assistant last set it. */
+    val volume: Float,
     // Not part of the `start` payload: the last `setMuted` value.
     val muted: Boolean,
 ) {
@@ -50,6 +52,7 @@ data class VoiceConfig(
         .putExtra("sensitivity", sensitivity)
         .putExtra("audioSource", audioSource)
         .putExtra("wakeSound", wakeSound)
+        .putExtra("volume", volume)
         .putExtra("muted", muted)
 
     companion object {
@@ -63,6 +66,7 @@ data class VoiceConfig(
             sensitivity = args["sensitivity"] as? String ?: "",
             audioSource = args["audioSource"] as? String ?: "",
             wakeSound = args["wakeSound"] as? Boolean ?: true,
+            volume = ((args["volume"] as? Number)?.toFloat() ?: 1.0f).coerceIn(0f, 1f),
             muted = muted,
         )
 
@@ -76,6 +80,7 @@ data class VoiceConfig(
                 sensitivity = intent.getStringExtra("sensitivity") ?: "",
                 audioSource = intent.getStringExtra("audioSource") ?: "",
                 wakeSound = intent.getBooleanExtra("wakeSound", true),
+                volume = intent.getFloatExtra("volume", 1.0f),
                 muted = intent.getBooleanExtra("muted", false),
             )
         }

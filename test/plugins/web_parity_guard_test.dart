@@ -127,6 +127,9 @@ void main() {
     'voiceSatelliteMac':
         'internal: app-seeded satellite identity in Home Assistant, web '
             'read-only',
+    'voiceSatelliteVolume':
+        'internal: set by Home Assistant on the satellite media player, not '
+            'surfaced in any settings panel',
 
     // --- Permanent: device-only (browser cannot drive) ---
     'displayProfile':

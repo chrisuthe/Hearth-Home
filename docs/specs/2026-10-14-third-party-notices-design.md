@@ -74,15 +74,13 @@ The Android list is `:app:dependencies --configuration releaseRuntimeClasspath` 
 **Models, checked by bytes.** The `stop` model was the open item in the voice satellite design: its metadata names Kevin Ahrendt, but it is not in `esphome/micro-wake-word-models`. It is byte-identical to the `stop.tflite` asset of release `stop-20241016.2` of `kahrendt/microWakeWord`, an Apache-2.0 repository. `okay_nabu` is byte-identical to release `okay_nabu_20241226.3` there (the copy in the models repo is a later retrain), and `hey_jarvis` to `models/v2/hey_jarvis.tflite` in `esphome/micro-wake-word-models`. All three are now **verified**.
 
 **Not shipped, so not credited.**
-- `hey_luna` and the other six Ava models. See the fix below.
+- `hey_luna` and the other six Ava models. See [below](#the-apk-shipped-unlicensed-models).
 - GStreamer and ALSA on the Pi, and libmpv on Linux desktop: installed by the OS package manager, not distributed by us.
 - SendspinDroid (MIT): not in the APK yet. Add an entry when #248 lands; the Gradle dependency check in [Limits](#limits) will not catch it.
 
-## Fix: the APK shipped unlicensed models
+## The APK shipped unlicensed models
 
-Building the APK showed all nine of Ava's wake-word models in it, `hey_luna` among them. `android/ava/satellite/build.gradle.kts` took Ava's whole `assets` folder, while the voice satellite design says to bundle three. `hey_luna` comes from a repository with no licence, so we had no right to ship it.
-
-The satellite now copies an allowlist into a generated asset directory: the three sounds, `stop`, `okay_nabu` and `hey_jarvis`. An allowlist means a fork bump that adds a model cannot ship it unnoticed, and the notices test checks the allowlist's models against the credited ones. Ava's `sounds/LICENSE.md` no longer ships; the credit is in our notices instead.
+Building the APK showed all nine of Ava's wake-word models in it, `hey_luna` among them: `android/ava/satellite/build.gradle.kts` took Ava's whole `assets` folder, while the voice satellite design says to bundle three. #252 fixed it the same way this work first did, with an allowlist of files staged into a generated asset directory: `stop`, `okay_nabu`, `hey_jarvis`, the three sounds and their `LICENSE.md`. A fork bump that adds a model cannot ship it unnoticed, and the notices test checks the allowlist's models against the credited ones.
 
 ## The fork's README
 

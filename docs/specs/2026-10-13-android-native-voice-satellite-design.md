@@ -218,7 +218,7 @@ One `MethodChannel` and one `EventChannel` named `com.hearth/voice`. Dart is the
 
 | Direction | Name | Payload |
 |---|---|---|
-| Dart → native | `start` | name, MAC, port, wake words, sensitivity, audio source, wake sound on/off |
+| Dart → native | `start` | name, MAC, port, wake words, sensitivity, audio source, wake sound on/off, media player volume |
 | Dart → native | `stop` | — |
 | Dart → native | `setMuted` | bool. Local shortcut; the HA switch still works. |
 | Dart → native | `wake` | — (on-screen mic button) |
@@ -229,7 +229,7 @@ One `MethodChannel` and one `EventChannel` named `com.hearth/voice`. Dart is the
 | native → Dart | `timer` | event type, id, name, total, left, active |
 | native → Dart | `duck` | bool |
 | native → Dart | `ringStopped` | — |
-| native → Dart | `settingChanged` | mute, wake sound, or active wake words changed from Home Assistant |
+| native → Dart | `settingChanged` | mute, wake sound, active wake words or media player volume changed from Home Assistant |
 | native → Dart | `health` | permission missing, port in use, mic open failed, model load failed |
 
 `VoiceSatelliteBridge` in Dart owns the channel. On non-Android platforms it is a no-op, so the Pi and desktop paths do not change. The `state` event is not wired to the pill in the first version; it exists for diagnostics, and it is the hook if we later want the pill to react without the HA round trip.
@@ -256,7 +256,7 @@ A plugin renders twice, so each of these exists in the on-device panel and the `
 - Read-only: MAC, connected to Home Assistant, last health event.
 - First-run note: add the discovered ESPHome device in Home Assistant.
 
-New `HubConfig` fields: `voiceSatelliteEnabled`, `voiceSatelliteName`, `voiceSatelliteMac`, `voiceWakeWords`, `voiceWakeSensitivity`, `voiceWakeSound`, `voiceAudioSource`. `voiceAssistantEntityId` stays as the manual pin.
+New `HubConfig` fields: `voiceSatelliteEnabled`, `voiceSatelliteName`, `voiceSatelliteMac`, `voiceWakeWords`, `voiceWakeSensitivity`, `voiceWakeSound`, `voiceAudioSource`, `voiceSatelliteVolume`. `voiceAssistantEntityId` stays as the manual pin.
 
 ## Sendspin
 

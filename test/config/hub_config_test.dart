@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -173,6 +174,7 @@ void main() {
       expect(config.voiceWakeSensitivity, 'slightly');
       expect(config.voiceWakeSound, true);
       expect(config.voiceAudioSource, 'voiceRecognition');
+      expect(config.voiceSatelliteVolume, 1.0);
     });
 
     test('voice satellite fields round-trip through JSON', () {
@@ -184,6 +186,7 @@ void main() {
         voiceWakeSensitivity: 'very',
         voiceWakeSound: false,
         voiceAudioSource: 'mic',
+        voiceSatelliteVolume: 0.4,
       );
       final restored = HubConfig.fromJson(config.toJson());
       expect(restored.voiceSatelliteEnabled, true);
@@ -193,6 +196,7 @@ void main() {
       expect(restored.voiceWakeSensitivity, 'very');
       expect(restored.voiceWakeSound, false);
       expect(restored.voiceAudioSource, 'mic');
+      expect(restored.voiceSatelliteVolume, 0.4);
     });
 
     test('voice satellite fields missing from JSON fall back to defaults', () {
@@ -203,16 +207,46 @@ void main() {
       expect(config.voiceWakeSensitivity, 'slightly');
       expect(config.voiceWakeSound, true);
       expect(config.voiceAudioSource, 'voiceRecognition');
+      expect(config.voiceSatelliteVolume, 1.0);
     });
 
-    test('voiceWakeWords keeps one to two non-empty strings', () {
+    test('voiceWakeWords keeps one to two shipped models', () {
       List<String> load(dynamic value) =>
           HubConfig.fromJson({'voiceWakeWords': value}).voiceWakeWords;
-      expect(load(['a', 'b', 'c']), ['a', 'b']);
-      expect(load(['', 'b']), ['b']);
+      expect(load(['hey_jarvis', 'okay_nabu', 'hey_jarvis']),
+          ['hey_jarvis', 'okay_nabu']);
+      expect(load(['', 'hey_jarvis']), ['hey_jarvis']);
       expect(load([]), ['okay_nabu']);
       expect(load([1, null]), ['okay_nabu']);
       expect(load('okay_nabu'), ['okay_nabu']);
+    });
+
+    test('voiceWakeWords drops models the APK no longer ships', () {
+      List<String> load(dynamic value) =>
+          HubConfig.fromJson({'voiceWakeWords': value}).voiceWakeWords;
+      expect(load(['hey_luna']), HubConfig.defaultVoiceWakeWords);
+      expect(load(['hey_luna', 'alexa']), HubConfig.defaultVoiceWakeWords);
+      expect(load(['hey_luna', 'hey_jarvis']), ['hey_jarvis']);
+    });
+
+    test('shipped wake words match the models the APK packages', () {
+      final gradle =
+          File('android/ava/satellite/build.gradle.kts').readAsStringSync();
+      final packaged = RegExp(r'"wakeWords/(\w+)\.json"')
+          .allMatches(gradle)
+          .map((m) => m.group(1))
+          .toSet();
+      expect(packaged, HubConfig.shippedVoiceWakeWords.toSet());
+    });
+
+    test('voiceSatelliteVolume is clamped to 0.0-1.0', () {
+      double load(dynamic value) =>
+          HubConfig.fromJson({'voiceSatelliteVolume': value})
+              .voiceSatelliteVolume;
+      expect(load(0.25), 0.25);
+      expect(load(1), 1.0);
+      expect(load(-0.5), 0.0);
+      expect(load(3), 1.0);
     });
 
     test('copyWith changes voice satellite fields and keeps the rest', () {
@@ -226,12 +260,14 @@ void main() {
         voiceWakeSensitivity: 'moderately',
         voiceWakeSound: false,
         voiceAudioSource: 'unprocessed',
+        voiceSatelliteVolume: 0.6,
       );
       expect(updated.voiceSatelliteEnabled, true);
       expect(updated.voiceSatelliteName, 'Hall');
       expect(updated.voiceWakeSensitivity, 'moderately');
       expect(updated.voiceWakeSound, false);
       expect(updated.voiceAudioSource, 'unprocessed');
+      expect(updated.voiceSatelliteVolume, 0.6);
       expect(updated.voiceSatelliteMac, '0a:1b:2c:3d:4e:5f');
       expect(updated.voiceWakeWords, ['hey_jarvis']);
       expect(updated.copyWith(voiceWakeWords: ['alexa']).voiceWakeWords,

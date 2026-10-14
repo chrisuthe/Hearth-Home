@@ -1,5 +1,4 @@
 import com.android.build.api.dsl.ApplicationExtension
-import javax.inject.Inject
 
 // Hearth's build of the fork's :satellite. Sources and assets are in the
 // submodule; the dependency list mirrors the fork's satellite/build.gradle.kts.
@@ -10,6 +9,38 @@ plugins {
 }
 
 val avaSrc = rootDir.resolve("third_party/ava/satellite/src/main")
+
+// The assets the APK carries, named one by one so a model the fork adds stays
+// out until we choose it. hey_luna and the other community models have no
+// licence that lets us redistribute them. The wake words must match
+// HubConfig.shippedVoiceWakeWords.
+val avaAssets = listOf(
+    "wakeWords/okay_nabu.json",
+    "wakeWords/okay_nabu.tflite",
+    "wakeWords/hey_jarvis.json",
+    "wakeWords/hey_jarvis.tflite",
+    "stopWords/stop.json",
+    "stopWords/stop.tflite",
+    "sounds/wake_word_triggered.flac",
+    "sounds/timer_finished.flac",
+    "sounds/error.flac",
+    "sounds/LICENSE.md",
+)
+
+abstract class StageAvaAssets : Sync() {
+    @get:OutputDirectory
+    abstract val outputDir: DirectoryProperty
+}
+
+val stageAvaAssets = tasks.register<StageAvaAssets>("stageAvaAssets") {
+    from(avaSrc.resolve("assets")) { include(avaAssets) }
+    into(outputDir)
+    // A missing file means the fork moved it; fail rather than ship without it.
+    doLast {
+        val missing = avaAssets.filterNot { outputDir.get().file(it).asFile.isFile }
+        check(missing.isEmpty()) { "Ava assets not found in the submodule: $missing" }
+    }
+}
 
 // SDK levels follow the app, which takes them from the Flutter pin.
 val app = project(":app").extensions.getByName("android") as ApplicationExtension
@@ -33,49 +64,9 @@ android {
     }
 }
 
-// Only assets we hold a licence for reach the APK. Ava also ships hey_luna,
-// which has no licence, and models we do not credit. An allowlist, so a fork
-// bump that adds a model cannot ship it unnoticed. Credits:
-// assets/licenses/notices.json (`microwakeword-models`, `voice-pe-sounds`).
-abstract class SatelliteAssets : DefaultTask() {
-    @get:InputDirectory
-    abstract val source: DirectoryProperty
-
-    @get:OutputDirectory
-    abstract val output: DirectoryProperty
-
-    @get:Inject
-    abstract val fs: FileSystemOperations
-
-    @TaskAction
-    fun copy() {
-        fs.sync {
-            from(source) {
-                include(
-                    "sounds/*.flac",
-                    "stopWords/stop.json",
-                    "stopWords/stop.tflite",
-                    "wakeWords/okay_nabu.json",
-                    "wakeWords/okay_nabu.tflite",
-                    "wakeWords/hey_jarvis.json",
-                    "wakeWords/hey_jarvis.tflite",
-                )
-            }
-            into(output)
-        }
-    }
-}
-
-val satelliteAssets = tasks.register<SatelliteAssets>("satelliteAssets") {
-    source.set(avaSrc.resolve("assets"))
-    output.set(layout.buildDirectory.dir("generated/satelliteAssets"))
-}
-
 androidComponents {
     onVariants { variant ->
-        variant.sources.assets?.addGeneratedSourceDirectory(
-            satelliteAssets, SatelliteAssets::output,
-        )
+        variant.sources.assets?.addGeneratedSourceDirectory(stageAvaAssets, StageAvaAssets::outputDir)
     }
 }
 

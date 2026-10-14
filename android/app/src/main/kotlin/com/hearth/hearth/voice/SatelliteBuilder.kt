@@ -35,7 +35,7 @@ class SatelliteSettings(config: VoiceConfig) {
     val wakeSound = MutableStateFlow(config.wakeSound)
     val wakeWords = MutableStateFlow(config.wakeWords)
     val stopWords = MutableStateFlow(listOf("stop"))
-    val playerVolume = MutableStateFlow(1.0f)
+    val playerVolume = MutableStateFlow(config.volume)
     val playerMuted = MutableStateFlow(false)
 }
 
@@ -68,6 +68,7 @@ class SatelliteBuilder(private val context: Context) {
             repeatTimerFinishedSound = { true },
             enableErrorSound = { false },
             errorSound = { ERROR_SOUND },
+            volume = config.volume,
         )
         val voiceInput = VoiceInputImpl(
             microphone = flowOf(HearthMicrophone(config.audioSourceId)),
@@ -112,7 +113,10 @@ class SatelliteBuilder(private val context: Context) {
                     objectId = "media_player",
                     mediaPlayer = voiceOutput,
                     getVolumeState = settings.playerVolume,
-                    setVolume = { settings.playerVolume.value = it },
+                    setVolume = {
+                        settings.playerVolume.value = it
+                        VoiceEvents.settingChanged("volume", it)
+                    },
                     getMutedState = settings.playerMuted,
                     setMuted = { settings.playerMuted.value = it },
                 ),
