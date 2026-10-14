@@ -149,6 +149,8 @@ class ScreenCaptureService : Service() {
     }
 
     override fun onDestroy() {
+        // Unpublish now: calls posted after quitSafely would never reply.
+        if (instance === this) instance = null
         handler.post { end(null) }
         thread.quitSafely()
         encoder.shutdown()
@@ -173,7 +175,11 @@ class ScreenCaptureService : Service() {
         }
         waiter = { img ->
             handler.removeCallbacks(timeout)
-            if (img == null) reply(ERROR_NO_FRAME, "Screen capture ended") else write(img, path, reply)
+            if (img == null) {
+                reply(CaptureState.CONSENT_REVOKED, "Screen capture ended")
+            } else {
+                write(img, path, reply)
+            }
         }
         frameWaiters += waiter
         handler.postDelayed(timeout, FRAME_TIMEOUT_MS)
