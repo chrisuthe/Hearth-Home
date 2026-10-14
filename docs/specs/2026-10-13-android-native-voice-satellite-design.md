@@ -221,6 +221,17 @@ In Hearth:
 - The ring is played by the service, so it works when the Flutter side is busy and follows the ducking table above. `TimerService` can start the same ring for a local timer, which gives Android the timer chime it lacks today (requirements spec, follow-up 4).
 - The MQTT `timer` sensor already reads `TimerService`, so it includes voice timers with no change.
 
+### As built (phase 6)
+
+The fork is unchanged; Hearth wraps what Ava already exposes.
+
+- **Events in.** `TimerEventTap` wraps Ava's `Server` and copies each `VoiceAssistantTimerEventResponse` to the channel as a `timer` event (`type` started, updated, cancelled or finished; `id`, `name`, `total` and `left` in seconds, `active`) before Ava handles it. `VoiceEvents` keeps the live ones and replays them, with `left` counted down, to a listener that attaches later, so a recreated engine does not lose its timers. A stopped service clears them.
+- **One ring, Ava's.** Ava's ring stays the only one: it already ducks, stops on the stop word and on a wake word, and pauses for one second after each play (`onTimerSoundFinished`, `delay(1000)`), which is the gap the stop word lands in. Hearth plays nothing for a voice timer, so it cannot ring twice. `startTimerRing` hands Ava a finished timer of Hearth's own (id `hearth-local`) through `VoiceAssistant.handleMessage`, so a local timer rings and stops the same way; it answers false when no device is running, and Dart falls back to its own beep, which is inert on Android. `stopTimerRing` is Ava's `stopTimer()`.
+- **`ringStopped`** is sent when Ava's ringing timer clears, whatever cleared it, read from `VoiceAssistant.allTimers`, and when the device closes while ringing. Dart dismisses every fired timer on it, since they share the one ring. Dart calls `stopTimerRing` only when the last fired timer is dismissed, as the Pi's beep stops.
+- **In `TimerService`** a voice timer is a `HubTimer` with a `remoteId`, a name and a paused flag. It is done only on `finished`, never by its own countdown. One that sits at zero for 60 s without `finished`, as across a lost connection, is dropped. It cannot be dismissed while it runs, from the timer screen or the MQTT cancel command. The timer screen shows its name and "Paused"; the alert card's body is its name, or the duration when it has none.
+- **Cancelling from Hearth is not built.** Home Assistant does offer a way: `POST /api/intent/handle` with `HassCancelTimer` and the satellite's `device_id` (**verified**, HA core `intent/__init__.py` `IntentHandleView`, `intent/timers.py` `CancelTimerIntentHandler` and `_find_timer`). It matches by name, area or starting duration, not by timer id, so it cannot reliably cancel one timer of two that share a name or a duration. Left as a follow-up.
+- **Not verified on the tablet.** Everything above is tested on the Dart side against a fake channel (`test/services/voice_timers_test.dart`) and compiles into the APK; no timer has been set by voice on a build with it.
+
 The Pi does not get this. LVA has no hand-off, and Home Assistant does not expose voice timers as entities (**assumed**; we did not find one in the `esphome` or `assist_satellite` components, and did not search the rest of HA). Voice timers on the Pi keep ringing from LVA alone.
 
 ## Platform channel
@@ -314,7 +325,7 @@ Each line is one task. Sizes are relative.
 | 3 | Identity: `voiceSatelliteMac`, Android MAC source in `VoiceAssistantService`, device info | Small | 2 |
 | 4 | Hardware pass 1: HA discovery, the four states, mute, announce, wake word at distance, wake word over playback. Done 2026-10-14 except the release install. | Small | 3 |
 | 5 | Voice plugin settings on both surfaces, health reporting, `settingChanged` | Small-medium | 4 |
-| 6 | Timers: remote timers in `TimerService`, alert overlay, ring with gaps, `startTimerRing` and `stopTimerRing` | Medium | 4, 7 |
+| 6 | Timers: remote timers in `TimerService`, alert overlay, ring with gaps, `startTimerRing` and `stopTimerRing`. Built; see "As built" under [Timers](#timers). Not yet run on the tablet | Medium | 4, 7 |
 | 7 | `AudioCoordinator` and the media_kit duck request. Built; see "As built" under [Echo and ducking](#echo-and-ducking). Ducked a cast on the tablet | Small | 4 |
 | 8 | Sendspin on Android through SendspinDroid's player: `2026-10-14-android-sendspin-design.md`, phases 1 to 6. Its phase 7, the Sendspin mute, needs task 7 | Large | — |
 | 9 | Echo-cancellation spike with a playback reference | Medium, may end in "no" | 8 |
