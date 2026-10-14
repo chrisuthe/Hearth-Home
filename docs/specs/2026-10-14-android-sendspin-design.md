@@ -1,7 +1,7 @@
 # Sendspin on Android — Design
 
 **Date:** 2026-10-14
-**Status:** Design. The SendspinDroid library extraction (phase 1) is open as a pull request; nothing in Hearth is implemented.
+**Status:** Design. In SendspinDroid, phase 1 (the `:player` library) is merged and phase 2 (the engine) is open as a pull request. Nothing in Hearth is implemented.
 **Goal:** Specify how the Android build plays Sendspin through SendspinDroid's native player inside `HearthAudioService`, and break the Hearth integration into tasks.
 **Tracking:** issue 248.
 
@@ -34,7 +34,7 @@ Re-read at `3af5666`; everything in the earlier spec still holds. What this desi
 
 ## Packaging
 
-### Phase 1: the `:player` library (done, pull request open)
+### Phase 1: the `:player` library (merged)
 
 SendspinDroid gains a third Gradle module, `:player` (namespace `com.sendspindroid.player`), beside `:app`, `:shared` and `:conformance-client`. It holds:
 
@@ -49,21 +49,26 @@ Three classes in the `sendspin` package stay in `:app` because they are the app'
 
 Behaviour is meant to be unchanged; the pull request lists the checks. The unit tests stay in `:app` for now, so the same suite runs before and after the move. As a result, two test seams that were `internal` (`SendSpin.handshakeTimeoutMs`, `SendSpinProtocolHandler.installEncryptedChannel`) are now public.
 
-Link: https://github.com/chrisuthe/SendspinDroid/pull/326 (branch `refactor/player-library`, commit `dcc9faa4`)
+Link: https://github.com/chrisuthe/SendspinDroid/pull/326, merged as `92fdc211` after a rebase onto #324. Not tagged: nothing pins it, and Hearth pins after phase 2.
 
-### Phase 2: the engine
+### Phase 2: the engine (pull request open)
 
-Before Hearth can host the player, the pipeline in `PlaybackService` moves into `:player` as one class, written here as `SendspinEngine`. It owns:
+The pipeline in `PlaybackService` moves into `:player` as `SendSpinEngine` (`P/playback/SendSpinEngine.kt`). It owns (**verified**, by the pull request below):
 
-- the listener, `InboundConnections` and the advertiser, or one dialled client;
-- the decode pipeline and its generations, the `SyncAudioPlayer`, and format changes;
-- the sync-error mute;
-- volume, through an interface the host implements (`STREAM_MUSIC` in both apps);
-- a `StateFlow` of what a UI needs: connection state, server name, volume, mute, codec and format, buffer depth, clock offset, output delay, metadata and artwork.
+- the decode worker, its channel, the stream generations, and the stream/start handling (`StreamStartAction`);
+- creating, reusing and replacing the `SyncAudioPlayer`, including a format change that plays out the old format first;
+- the mutes: `INTERRUPTION` and `VOICE` are held and applied to every later player, `PLAYER` is read from the host when a player is created, `SYNC` stays with its player;
+- the server's stopped, paused and playing states as applied to the player.
 
-`PlaybackService` keeps what only an app needs: the Media3 session, the notification, Android Auto, the server list, discovery and audio focus. It becomes the engine's first host, and Hearth's service the second. That is a behaviour-sensitive refactor of SendspinDroid and is its own pull request there, with SendspinDroid's tests carried across.
+The host passes on the client's stream callbacks (`onStreamStart`, `onAudioChunk`, `onStreamClear`, `onStreamEnd`, `onSyncMuteChanged`, `onNetworkChanged`), sets `engine.client` to the client being played from, calls `endStream()` whenever that client is not Ready and `releasePlayer()` when it goes Idle, and hears back through `SendSpinEngine.Listener` (stream started, player changed, player state). The stream callbacks are thread-safe; every other engine method is main-thread only.
 
-The alternative is for Hearth to write its own copy of the pipeline against `:player`. It is about 400 lines of subtle threading that SendspinDroid has already debugged (the comments at `PlaybackService.kt:242-262` record two races), and two copies would drift. We do not take it.
+The connection side stays with each host: the listener, `InboundConnections`, the advertiser, choosing which client to play from, the reconnect loop. So do device volume and audio focus. In SendspinDroid those are entangled with its connection modes, reconnect coordinator and notification, and are app policy rather than shared machinery. Hearth needs only the server-initiated half, about 100 lines of glue over classes already in `:player` (**verified**, `A/playback/PlaybackService.kt`, `startAdvertising`, `stopAdvertising`, `newInboundClient`, `onServerAdmitted`, `useClient`), and about 70 lines for `STREAM_MUSIC` (`initializeVolumeControl`, `setVolume`). See [The service](#the-service).
+
+`PlaybackService` is the engine's first host, and Hearth's service the second. The pull request also adds the `VOICE` mute reason and moves the player's R8 rules into `player/consumer-rules.pro`. It moves the pipeline tests to `:player`, where `DecoderPipelineIntegrationTest` now drives the real engine instead of a copy of the service's callbacks. 860 `:app`, 40 `:player` and 611 `:shared` tests pass, debug and release build, and it has not been run on a device.
+
+Link: https://github.com/chrisuthe/SendspinDroid/pull/329 (branch `refactor/sendspin-engine`). Tag after merge, which Hearth then pins in phase 3.
+
+The alternative was for Hearth to write its own copy of the pipeline against `:player`. That is about 400 lines of subtle threading that SendspinDroid has already debugged (the comments at `PlaybackService.kt:242-262` record two races), and two copies would drift. We did not take it.
 
 ### Phase 3: pinning it in Hearth
 
@@ -78,16 +83,17 @@ Differences from Ava:
 - **`:shared` is Kotlin Multiplatform with `expect`/`actual` declarations** (**verified**, `Platform.kt` in `commonMain` against `Platform.android.kt` in `androidMain`, and others). It cannot be compiled as a plain Android library. Hearth's script applies `org.jetbrains.kotlin.multiplatform` and `com.android.kotlin.multiplatform.library` with only the `androidLibrary` target, and points `commonMain`, the intermediate `jvmShared` and `androidMain` at the submodule. That this builds under Hearth's AGP 9.1.0 and Kotlin 2.4.0 (SendspinDroid uses 9.0.1 and 2.3.0, **verified**, `android/build.gradle.kts` in both) is **assumed** until phase 3 builds it.
 - **No version catalog.** SendspinDroid writes dependency versions inline in each `build.gradle.kts` (**verified**). Hearth's scripts copy them by hand, and a tag bump means diffing those files. Hearth's `CLAUDE.md` gets the same note it has for Ava.
 - **No `UPSTREAM_PIN` and no drift check.** SendspinDroid is not a fork; we own it. The submodule is bumped by hand when SendspinDroid tags, like the Ava pin, and Renovate does not see it.
-- **R8.** SendspinDroid's keep and `-dontwarn` rules for Ktor, OkHttp, BouncyCastle and kotlinx are in `app/proguard-rules.pro` (**verified**). The engine pull request moves the ones the player needs into `:player`'s `consumer-rules.pro`, so Hearth's release build inherits them. Until then Hearth's script lists them. That they are sufficient is **assumed** until a release APK plays.
+- **R8.** SendspinDroid's keep and `-dontwarn` rules for Ktor, OkHttp, BouncyCastle and kotlinx are in `app/proguard-rules.pro` (**verified**). The engine pull request moves the ones the player needs into `:player`'s `consumer-rules.pro` (OkHttp, coroutines, serialization, Ktor), so Hearth's release build inherits them. SendspinDroid's release build still keeps OkHttp's class names with the rules moved (**verified**, `assembleRelease` and the dex). That they are sufficient for Hearth is **assumed** until a release APK plays.
 - **Size.** Ktor's server and client, BouncyCastle and OkHttp join the APK. SendspinDroid already strips BouncyCastle's unused resources (about 1.2 MB) and Ktor's `kotlin-reflect` and `jansi` (about 590 KB) (**verified**, `app/build.gradle.kts`, `shared/build.gradle.kts`); Hearth's scripts and packaging options do the same. The growth is unmeasured.
 
-**Licences.** SendspinDroid is MIT (**verified**, `LICENSE`). Ktor, OkHttp and kotlinx are Apache-2.0, BouncyCastle is MIT-style (**assumed**, from the publishers, not opened). All go into the credits list that issue 250 creates.
+**Licences.** SendspinDroid is MIT (**verified**, `LICENSE`). Ktor, OkHttp and kotlinx are Apache-2.0, BouncyCastle is MIT-style (**assumed**, from the publishers, not opened). Phase 3 adds an entry for each to `assets/licenses/notices.json` (platform `android`) and regenerates `THIRD_PARTY_NOTICES.md` (`2026-10-14-third-party-notices-design.md`). `third_party_notices_test.dart` catches a missing entry for the submodule. It does not catch the Maven libraries, so they are checked against `:app:dependencies` by hand.
 
 ## The service
 
 `HearthAudioService` hosts the engine beside the voice satellite. Today it shuts down when the voice config is missing or `RECORD_AUDIO` is not granted (**verified**, `android/app/src/main/kotlin/com/hearth/hearth/voice/HearthAudioService.kt:74-112`). That changes:
 
 - The service runs when `voiceSatelliteEnabled` or `sendspinEnabled` is set, and stops when neither is.
+- **What the service writes itself**, after `PlaybackService`: the `SendspinWebSocketServer` listener, `InboundConnections`, the `NsdAdvertiser`, a new `SendSpin` per inbound connection with the current volume and mute, and switching `engine.client` to the admitted one. Then the volume mapping onto `STREAM_MUSIC`, both ways. The engine does none of these.
 - Foreground type: `mediaPlayback` always, plus `microphone` only when voice is on and the permission is granted. Sendspin alone needs no microphone and no prompt.
 - Start stays Dart-driven, from the visible activity. Each feature configures itself over its own channel: `start` on `com.hearth/voice`, `configure` on `com.hearth/sendspin`. Whichever arrives first starts the service, and the service stops when both are off. A Sendspin `configure` rebuilds only the engine, not the satellite, so a playing stream survives a wake-word change and the other way round.
 - The partial wake lock and the Wi-Fi lock the satellite takes cover Sendspin too. SendspinDroid holds a 30-minute playback wake lock and refreshes it (**verified**, `PlaybackService.kt:2370-2385`); Hearth's service-lifetime lock replaces it.
@@ -100,7 +106,7 @@ Differences from Ava:
 
 - On Android the engine advertises, not Dart: `NsdAdvertiser` registers `_sendspin._tcp` through `NsdManager` with the port the listener actually bound, `path=/sendspin` and `name=<player name>`, and holds a `WifiManager.MulticastLock` while it does (**verified**, `P/discovery/NsdAdvertiser.kt:12-48`, `141-155`). `bonsoir` stays the Pi and desktop path. The multicast permission is already in Hearth's manifest.
 - It runs inside the foreground service, beside the satellite's `_esphomelib._tcp` registration, so both live as long as the service does.
-- When the network changes, SendspinDroid re-registers, or re-binds the listener if that failed (**verified**, `A/playback/PlaybackService.kt`, `advertiseAgainAfterNetworkChange`). That trigger is in `PlaybackService`, so it moves with the engine in phase 2.
+- When the network changes, SendspinDroid re-registers, or re-binds the listener if that failed (**verified**, `A/playback/PlaybackService.kt`, `advertiseAgainAfterNetworkChange`). That trigger stays in `PlaybackService`, so Hearth's service registers its own network callback and does the same.
 - A bind or registration failure is reported as a `health` event, which the Sendspin plugin shows, as SendspinDroid shows "waiting" only over a working advertisement.
 - Advertising and dialling are exclusive, as the spec requires ("Clients MUST NOT manually connect to servers while advertising", quoted at `P/discovery/NsdAdvertiser.kt:20-21`). With `sendspinServerUrl` set the engine does not advertise; that is phase 8.
 
@@ -137,15 +143,15 @@ Not on the channel, on purpose:
 
 The voice design's `AudioCoordinator` table says Sendspin is "muted at once" when the wake word fires (`2026-10-13-android-native-voice-satellite-design.md`, "Echo and ducking"). Concretely:
 
-- SendspinDroid adds a fourth mute reason, `VOICE`, in the engine pull request. Like `SYNC` and `INTERRUPTION` it is local: only `PLAYER` is reported in `client/state` (**verified**, `SyncAudioPlayer.kt:686-694`), so other rooms in the group are unaffected.
-- The coordinator calls `engine.setVoiceMuted(true)` from the detector's callback. `SyncAudioPlayer.setMuted` is main-thread only (**verified**, `SyncAudioPlayer.kt:697-702`), so the engine posts it to the main looper. The cost is at most one turn of the main loop, not a channel round trip.
+- SendspinDroid adds a fourth mute reason, `VOICE`, in the engine pull request (**verified**, pull request 329). Like `SYNC` and `INTERRUPTION` it is local: only `PLAYER` is reported in `client/state` (**verified**, `SyncAudioPlayer.kt:686-694`), so other rooms in the group are unaffected.
+- The coordinator calls `engine.setMuted(VOICE, true)` from the detector's callback. Engine methods are main-thread only, as `SyncAudioPlayer.setMuted` is (**verified**, `SyncAudioPlayer.kt:697-702`), so the coordinator posts the call to the main looper. A mute set between streams is held and applied to the next player (**verified**, `SendSpinEngineTest`). The cost is at most one turn of the main loop, not a channel round trip.
 - The gain change applies to audio the mixer has not yet taken. Audio already in the `AudioTrack` buffer still plays, so the mute lands within one track buffer (**assumed**, from `AudioTrack.setVolume`'s documentation; to be measured on the tablet).
 - The player keeps draining in sync while muted, so the unmute at idle is exactly in time (**verified**, the comment at `SyncAudioPlayer.kt:697-702`, and `SyncAudioPlayerMuteTest`).
-- **Later, the echo reference:** the engine takes a `sinkFactory` from its host and Hearth wraps `AudioTrackSink` to copy what it writes. That is phase 9 of the voice design and needs nothing more from SendspinDroid.
+- **Later, the echo reference:** the engine takes a player factory from its host (`newPlayer`), and Hearth's builds the `SyncAudioPlayer` with a `sinkFactory` that wraps `AudioTrackSink` to copy what it writes. That is phase 9 of the voice design and needs nothing more from SendspinDroid.
 
 ## Testing
 
-- **SendspinDroid**: its own JVM suite, run on every pull request there (`testDebugUnitTest`, `:shared:testAndroidHostTest`, **verified**, `.github/workflows/pr-tests.yml`). The engine pull request carries the `playback/` pipeline tests (`DecoderPipelineIntegrationTest`, `StreamStartDecoderPipelineTest`, `PauseFlushTest` and others) with the code.
+- **SendspinDroid**: its own JVM suite, run on every pull request there (`testDebugUnitTest`, `:shared:testAndroidHostTest`, **verified**, `.github/workflows/pr-tests.yml`). The engine pull request moves the pipeline tests to `:player` (`DecoderPipelineIntegrationTest`, now against the real engine, `StreamStartDecoderPipelineTest`, `PauseFlushTest` and others) and adds `SendSpinEngineTest`. CI's `testDebugUnitTest` runs them there.
 - **Hearth, Dart**: the Android backend against a fake channel — `state` decoding into `SendspinPlayerState`, the `outputDelay` and `lastPlaybackServer` write-backs, `setLocalDuckFactor` ignored, and the provider choosing a backend by platform.
 - **Hearth, build**: `flutter build apk --debug` and `scripts/build-android-apk.sh` with the submodule, checked with `dexdump` for the player's classes as the satellite was.
 - **Hardware**: the items under [Open questions](#open-questions--needs-hardware).
@@ -156,10 +162,10 @@ Each line is one task. Sizes are relative. Phases 1 and 2 are pull requests in S
 
 | # | Task | Where | Size | Depends on |
 |---|---|---|---|---|
-| 1 | Extract `:player` from `:app`, behaviour unchanged. SendspinDroid pull request 326, open; tag after merge. | SendspinDroid | Medium | — |
-| 2 | Move the pipeline into a `SendspinEngine` in `:player`, with the volume interface, the `VOICE` mute reason, `consumer-rules.pro`, and the pipeline tests. `PlaybackService` becomes its host. Tag. | SendspinDroid | Large | 1 |
-| 3 | Pin SendspinDroid as a submodule; Hearth-owned scripts for `:sendspin-shared` and `:sendspin-player`; the APK builds with the classes in it; `CLAUDE.md` maintenance note | Hearth | Small-medium | 2 |
-| 4 | `HearthAudioService` hosts the engine: start with voice and Sendspin as independent sections, foreground type by feature, `SendSpinHost` with private-file storage, `com.hearth/sendspin` | Hearth | Medium | 3 |
+| 1 | Extract `:player` from `:app`, behaviour unchanged. SendspinDroid pull request 326, merged. | SendspinDroid | Medium | — |
+| 2 | Move the pipeline into `SendSpinEngine` in `:player`, with the `VOICE` mute reason, `consumer-rules.pro`, and the pipeline tests. `PlaybackService` becomes its host. SendspinDroid pull request 329, open. Tag after merge. | SendspinDroid | Large | 1 |
+| 3 | Pin SendspinDroid as a submodule; Hearth-owned scripts for `:sendspin-shared` and `:sendspin-player`; the APK builds with the classes in it; third-party notices; `CLAUDE.md` maintenance note | Hearth | Small-medium | 2 |
+| 4 | `HearthAudioService` hosts the engine: Sendspin configured on its own channel beside voice, foreground type by feature, `SendSpinHost` with private-file storage, the listener and advertiser glue, `STREAM_MUSIC` volume, `com.hearth/sendspin` | Hearth | Medium | 3 |
 | 5 | Dart: Android backend for `SendspinService`, remove the provider guard, hide buffer length on Android, the system slider on `STREAM_MUSIC`, and the requirements spec rows | Hearth | Medium | 4 |
 | 6 | Hardware pass: Music Assistant finds the tablet, pairing, playback in a group with the Pi, volume from both sides, output-delay persistence across a restart, and a release APK | Hearth | Small | 5 |
 | 7 | The audio coordinator's Sendspin mute (voice design, task 7) | Hearth | Small | 6, voice task 7 |
@@ -185,3 +191,4 @@ Made on 2026-10-14:
 3. **The engine lives in SendspinDroid**, not in Hearth. Both apps host it.
 4. **Secrets in private files**, not in `hub_config.json`; everything else in `HubConfig`.
 5. **Server-initiated first.** Dialled mode is phase 8.
+6. **The engine is the pipeline only.** Connections, volume and focus stay with each host, because in SendspinDroid they are app policy tied to its connection modes and reconnect loop. Hearth writes its own small version of each.
