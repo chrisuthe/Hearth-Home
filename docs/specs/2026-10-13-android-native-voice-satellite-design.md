@@ -102,7 +102,7 @@ What we take from Ava, all Apache-2.0 (**verified**, `LICENSE.md`):
 | Protocol: `api.proto`, plaintext codec, message table | `:esphomeproto`, a pure-JVM library (**verified**, `esphomeproto/build.gradle.kts`) | Use as is |
 | Wake-word feature frontend | `:microfeatures`, an Android library with a CMake build over TensorFlow's microfrontend (**verified**, `microfeatures/src/main/cpp/CMakeLists.txt`) | Use as is |
 | Device server, pipeline, entities, wake-word detector, mDNS registration | `A/esphome/`, `A/server/`, `A/wakewords/`, `A/nsd/`: 2,453 lines of Kotlin (**verified** by count) | Lives in `:app`; needs extracting |
-| Wake-word models | `app/src/main/assets/wakeWords/` (nine, `okay_nabu` among them) and `stopWords/stop.tflite` (**verified**) | Bundle `okay_nabu`, `hey_jarvis`, `stop`; licence of the model files **assumed** Apache-2.0, to confirm |
+| Wake-word models | `app/src/main/assets/wakeWords/` (nine, `okay_nabu` among them) and `stopWords/stop.tflite` (**verified**) | Bundle `okay_nabu`, `hey_jarvis`, `stop` only. See Licences below |
 
 The extraction turned out to be a pure move. The four packages reach the rest of Ava through three small helpers only (`SettingState`, `BufferUtils`, `AsyncUtils`) and import no Hilt, DataStore or Compose; those live in Ava's settings stores, its service and `DeviceBuilder`, which stay in `:app` (**verified** by doing it: `chrisuthe/Ava-hearth` pull request 1, 80 renames, the same 47 unit tests passing before and after). The library keeps Media3 for playback, LiteRT for inference and Timber for logging. What Hearth still has to write is its own equivalent of `DeviceBuilder`, wiring the device from Hearth's configuration.
 
@@ -110,7 +110,27 @@ The extraction turned out to be a pure move. The four packages reach the rest of
 
 The alternative is to copy the code into `android/` directly. It is simpler on day one and loses the upstream diff. We chose the fork; see [Decisions](#decisions).
 
-Apache-2.0 code inside MIT-licensed Hearth needs the licence text, notices and file headers kept (**assumed**; not legal advice).
+### Licences
+
+Hearth is MIT. Shipping Apache-2.0 code inside it is allowed; the APK carries both licences and Hearth's own code stays MIT. This is our reading of the licence terms, not legal advice.
+
+| What ships | Licence | Source checked |
+|---|---|---|
+| Ava's Kotlin (`:satellite`) | Apache-2.0 | `LICENSE.md` (**verified**) |
+| TensorFlow microfrontend (C, `:microfeatures`) | Apache-2.0 | File headers (**verified**) |
+| KissFFT (`:microfeatures`) | BSD-3 | `kissfft/kiss_fft.c` header (**verified**) |
+| `api.proto` (`:esphomeproto`) | MIT. ESPHome's licence is GPLv3 for C/C++ files only and MIT for everything else | `esphome/home-assistant-voice-pe` `LICENSE`, the ESPHome licence (**verified**) |
+| LiteRT, Media3, Timber; protobuf | Apache-2.0; BSD-3 | Publisher licences (**assumed**, not opened) |
+| `okay_nabu`, `hey_jarvis` models | Apache-2.0 | `esphome/micro-wake-word-models`, which holds both (**verified**) |
+| `stop` model | Apache-2.0 | Its metadata names Kevin Ahrendt, author of the Apache-2.0 `kahrendt/microWakeWord`; we did not find the file in a licensed repo (**assumed**) |
+| Wake, timer and error sounds | CC-BY 4.0, Clayton Charles Tapp | `assets/sounds/LICENSE.md` in Ava (**verified**) |
+
+What follows from the table:
+
+- **`hey_luna` is not bundled.** It comes from `adamlonsdale/microwakeword-custom-words`, which has no licence, so we have no right to redistribute it (**verified**, no licence on the repo). Ava's other models (`alexa`, `hey_mycroft`, `hey_home_assistant`, `okay_computer`, `choo_choo_homie`, `hey_peppa_pig`) are Apache-2.0 in the same models repo, but we ship only the three above. Hearth's build therefore lists model files one by one rather than taking Ava's whole assets folder.
+- **The APK carries the licence texts and credits** for everything in the table. Hearth has no place for that yet; issue 250 decides where and how.
+- **The fork must state what it changed.** Apache-2.0 §4(b) asks for a notice on modified files. The fork's `UPSTREAM_PIN` describes the move, but its README does not yet; adding that is part of issue 250.
+- **No use of the Ava name as Hearth's.** Apache-2.0 grants no trademark rights.
 
 ## Protocol surface
 

@@ -152,7 +152,7 @@ Taken together this is several tasks and comparable in scope to the Sendspin por
 - Ava's device behaviour lives in `:app`, written against interfaces with JVM unit tests, but it is not a separable module: its core files import Media3 and Ava's own settings types (**verified**, `A/esphome/voiceassistant/VoicePipeline.kt:3-4`, `VoiceInput.kt:5`). Lifting it means a fork we keep in sync.
 - The HA companion ships a second, independent microWakeWord implementation on TFLite Micro as its own Gradle module, also Apache-2.0, with `okay_nabu` bundled (**verified**, `microwakeword/src/main/cpp/CMakeLists.txt`, `app/src/main/assets/wakeword/`).
 
-Apache-2.0 code can ship inside MIT-licensed Hearth provided the licence text, notices and file headers are kept (**assumed**; not legal advice). A pure-Dart rewrite of the protocol is possible but reuses nothing and still needs native code for the wake word.
+Apache-2.0 code can ship inside MIT-licensed Hearth provided the licence text, notices and file headers are kept. The design spec's Licences section checks each bundled piece; one of Ava's wake-word models, `hey_luna`, has no licence and is not bundled. Credits are issue 250. Not legal advice. A pure-Dart rewrite of the protocol is possible but reuses nothing and still needs native code for the wake word.
 
 **What it buys over a companion app:**
 
