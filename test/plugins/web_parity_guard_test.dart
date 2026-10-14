@@ -140,14 +140,6 @@ void main() {
             'enumerate (web shows a hand-off note)',
     'displayWidth': 'device-only: part of the display-profile override',
     'displayHeight': 'device-only: part of the display-profile override',
-
-    // --- Deferred: parity gaps to close in a later phase ---
-    'calendarSources':
-        'deferred: the Calendar settings plugin (calendar epic, task 3) adds '
-            'the source list on device and web together',
-    'calendarIcsPollMinutes': 'deferred: Calendar settings plugin, task 3',
-    'calendarAmbientGlance': 'deferred: Calendar settings plugin, task 3',
-    'calendarDefaultView': 'deferred: Calendar settings plugin, task 3',
   };
 
   /// Fields that ARE web-editable but with a degraded affordance — a plain text

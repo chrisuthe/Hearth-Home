@@ -229,8 +229,8 @@ class LocalApiServer {
         } else {
           if (!_checkAuth(request)) return;
         }
-        final handler = _pluginRouter.resolve(request.method, path);
-        if (handler == null) {
+        final match = _pluginRouter.match(request.method, path);
+        if (match == null) {
           request.response.statusCode = 404;
           request.response.headers.contentType = ContentType.json;
           request.response.write(jsonEncode({'error': 'plugin route not found'}));
@@ -238,16 +238,26 @@ class LocalApiServer {
           return;
         }
         Map<String, dynamic> body = {};
-        if (request.method == 'POST' && request.contentLength > 0) {
+        if ((request.method == 'POST' || request.method == 'PUT') &&
+            request.contentLength > 0) {
           try {
             body = await _readJsonBody(request);
           } catch (e) {
-            return; // _readJsonBody already wrote a 413
+            // _readJsonBody already wrote a 413 for an oversized body.
+            if (e is! FormatException ||
+                e.message != 'Request body too large') {
+              request.response.statusCode = 400;
+              request.response.headers.contentType = ContentType.json;
+              request.response.write(jsonEncode({'error': 'invalid JSON body'}));
+              await request.response.close();
+            }
+            return;
           }
         }
-        await handler(PluginRequest(
+        await match.handler(PluginRequest(
           raw: request,
           body: body,
+          pathParams: match.params,
           config: _configNotifier.current,
           configNotifier: _configNotifier,
           readProvider: _readProvider,
@@ -431,10 +441,37 @@ class LocalApiServer {
       final value = json[field] as String? ?? '';
       json[field] = value.isEmpty ? '' : '••••••••';
     }
+    // An ICS URL can carry a secret (e.g. Google's private iCal address).
+    json['calendarSources'] = [
+      for (final s in _configNotifier.current.calendarSources)
+        {
+          ...s.toJson(),
+          if (s.url.isNotEmpty) 'url': _redactedMarker,
+        },
+    ];
     request.response.statusCode = 200;
     request.response.headers.contentType = ContentType.json;
     request.response.write(jsonEncode(json));
     await request.response.close();
+  }
+
+  /// Puts back each stored ICS URL that a client echoed as the redaction
+  /// marker, matched by source id. An entry whose marker matches no stored
+  /// source is dropped: the marker is never a real URL.
+  static List<dynamic> _restoreCalendarUrls(List<dynamic> sources, HubConfig c) {
+    final stored = {for (final s in c.calendarSources) s.id: s.url};
+    final restored = <dynamic>[];
+    for (final entry in sources) {
+      if (entry is Map && entry['url'] == _redactedMarker) {
+        final url = stored[entry['id']];
+        if (url == null || url.isEmpty) continue;
+        restored
+            .add(<String, dynamic>{...entry.cast<String, dynamic>(), 'url': url});
+      } else {
+        restored.add(entry);
+      }
+    }
+    return restored;
   }
 
   static const _redactedMarker = '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022';
@@ -516,6 +553,10 @@ class LocalApiServer {
     await _configNotifier.update((c) {
       final current = c.toJson();
       final merged = Map<String, dynamic>.from(current);
+      final sources = json['calendarSources'];
+      if (sources is List) {
+        json['calendarSources'] = _restoreCalendarUrls(sources, c);
+      }
       for (final entry in json.entries) {
         final key = entry.key;
         if (!current.containsKey(key)) continue;

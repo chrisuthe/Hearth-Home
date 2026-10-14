@@ -304,6 +304,57 @@ void main() {
     }).timeout(const Duration(seconds: 10));
     expect(adapter.requests, hasLength(1));
   });
+
+  group('probe', () {
+    const feed = 'BEGIN:VCALENDAR\r\nVERSION:2.0\r\n'
+        'X-WR-CALNAME:School\r\nX-APPLE-CALENDAR-COLOR:#1BADF8FF\r\n'
+        'BEGIN:VEVENT\r\nUID:a\r\nSUMMARY:One\r\n'
+        'DTSTART;VALUE=DATE:20261012\r\nEND:VEVENT\r\n'
+        'BEGIN:VEVENT\r\nUID:b\r\nSUMMARY:Two\r\n'
+        'DTSTART;VALUE=DATE:20261013\r\nEND:VEVENT\r\n'
+        'END:VCALENDAR\r\n';
+
+    Future<IcsProbe> probe(List<Object> replies) {
+      adapter = _FakeAdapter(replies);
+      return IcsCalendarSource.probe(
+        'webcal://example.com/school.ics',
+        dio: Dio()..httpClientAdapter = adapter,
+        worker: _inline,
+      );
+    }
+
+    test('reports the name, colour and event count from one fetch', () async {
+      final result = await probe([_ok(feed)]);
+      expect(result.name, 'School');
+      expect(result.color, '#1BADF8FF');
+      expect(result.eventCount, 2);
+      expect(adapter.requests, hasLength(1));
+      expect(adapter.requests.single.uri.toString(),
+          'https://example.com/school.ics');
+    });
+
+    test('a 404 gives the same message a source shows', () async {
+      expect(
+        probe([
+          DioException(
+            requestOptions: RequestOptions(),
+            response: Response(requestOptions: RequestOptions(), statusCode: 404),
+            type: DioExceptionType.badResponse,
+          ),
+        ]),
+        throwsA(isA<IcsProbeException>().having(
+            (e) => e.message, 'message', 'Calendar not found at this URL')),
+      );
+    });
+
+    test('a page that is not iCalendar is refused', () async {
+      expect(
+        probe([_ok('<html>Sign in</html>')]),
+        throwsA(isA<IcsProbeException>().having((e) => e.message, 'message',
+            'This URL is not an iCalendar feed')),
+      );
+    });
+  });
 }
 
 class _MemoryConfigNotifier extends HubConfigNotifier {
