@@ -159,4 +159,23 @@ void main() {
       expect(platform.lastPipelineState, isNull);
     });
   });
+
+  group('videoSize', () {
+    test('follows the controller once it is initialized', () {
+      expect(player.videoSize.value, isNull);
+      controller.value = controller.value.copyWith(
+          isInitialized: true, size: const Size(1920, 1080));
+      expect(player.videoSize.value, const Size(1920, 1080));
+      controller.value =
+          controller.value.copyWith(size: const Size(1280, 536));
+      expect(player.videoSize.value, const Size(1280, 536));
+    });
+
+    test('clears on stop', () async {
+      controller.value = controller.value.copyWith(
+          isInitialized: true, size: const Size(1920, 1080));
+      await player.stop();
+      expect(player.videoSize.value, isNull);
+    });
+  });
 }

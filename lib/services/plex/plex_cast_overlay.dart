@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/tokens/tokens.dart';
 import 'plex_player_state.dart';
 import 'plex_service.dart';
+import '../video/video_fit.dart';
 
 /// Full-screen overlay shown while a Plex cast is active.
 ///
@@ -66,15 +67,12 @@ class _PlexCastOverlayState extends ConsumerState<PlexCastOverlay> {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              // The player's video surface, scaled to fill the screen.
-              // No Center wrapper: StackFit.expand hands a non-positioned child
-              // tight full-screen constraints, so buildView's FittedBox(cover)
-              // scales the video up until it fills both axes (cropping the
-              // overflow, aspect preserved). A Center here would give loose
-              // constraints, so the FittedBox would take the video's own aspect
-              // ratio and letterbox instead — cover would have no effect.
+              // The player's video surface: fills the screen when that crops little,
+              // letterboxes when it would crop a lot (wide film, portrait).
+              // No Center wrapper: the tight StackFit.expand constraints are
+              // what scale the video up to the screen in either fit.
               if (player != null)
-                player.buildView(fit: BoxFit.cover)
+                AspectAwareVideoView(player: player)
               else
                 const Center(
                   child: CircularProgressIndicator(color: Color(0xFF646CFF)),

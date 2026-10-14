@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
@@ -11,6 +12,7 @@ class MediaKitVideoPlayer implements HearthVideoPlayer {
   Player? _player;
   VideoController? _controller;
   bool _playing = false;
+  final _videoSize = ValueNotifier<Size?>(null);
 
   /// The level callers asked for; [playbackDuck] scales it on the way to mpv.
   double _volume = 1.0;
@@ -41,6 +43,7 @@ class MediaKitVideoPlayer implements HearthVideoPlayer {
       _player?.dispose();
       _player = null;
       _controller = null;
+      _videoSize.value = null;
       return false;
     }
   }
@@ -57,13 +60,23 @@ class MediaKitVideoPlayer implements HearthVideoPlayer {
       player.stream.error.listen((text) => _write(filter.error(text))),
       // Tells a black screen that never decoded a frame from one that did.
       // media_kit sets state.width before it emits the height.
+      player.stream.width.listen((_) => _updateSize(player)),
       player.stream.height.listen((height) {
+        _updateSize(player);
         final width = player.state.width;
         if (started || width == null || height == null) return;
         started = true;
         Log.i('Video', 'Video started: ${width}x$height');
       }),
     ]);
+  }
+
+  void _updateSize(Player player) {
+    final width = player.state.width;
+    final height = player.state.height;
+    _videoSize.value = width == null || height == null || width == 0 || height == 0
+        ? null
+        : Size(width.toDouble(), height.toDouble());
   }
 
   void _write(MpvLogLine? line) {
@@ -95,6 +108,7 @@ class MediaKitVideoPlayer implements HearthVideoPlayer {
     _player?.dispose();
     _player = null;
     _controller = null;
+    _videoSize.value = null;
   }
 
   @override
@@ -136,6 +150,9 @@ class MediaKitVideoPlayer implements HearthVideoPlayer {
 
   @override
   Duration get duration => _player?.state.duration ?? Duration.zero;
+
+  @override
+  ValueListenable<Size?> get videoSize => _videoSize;
 
   @override
   Widget buildView({BoxFit fit = BoxFit.contain}) {

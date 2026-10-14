@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hearth/services/dlna/dlna_renderer_state.dart';
@@ -61,6 +62,9 @@ class FakeVideoPlayer implements HearthVideoPlayer {
 
   @override
   Duration get duration => const Duration(minutes: 5);
+
+  @override
+  ValueListenable<Size?> get videoSize => ValueNotifier<Size?>(null);
 
   @override
   Widget buildView({BoxFit fit = BoxFit.contain}) => const SizedBox.shrink();
