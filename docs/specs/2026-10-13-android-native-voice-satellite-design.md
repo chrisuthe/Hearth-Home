@@ -21,15 +21,15 @@ Ava's `A/` stands for `app/src/main/java/com/example/ava/`. SendspinDroid's `S/`
 | SendspinDroid | `chrisuthe/SendspinDroid` | `3af5666` (`2.0.0-Beta20`) | 2026-10-11 |
 | HA core, aioesphomeapi | as listed in the options spec | | |
 
-Tablet: Apolosign Calendar, product `DigitalSignageFA2169T`, Rockchip RK3576, Android 16 (API 36), production build, no root.
+Tablet: Apolosign Calendar, product `DigitalSignageFA2169T`, Rockchip RK3576, Android 16 (API 36), production build, no root (read with `getprop`).
 
 ## Why native
 
-Three things changed after the options spec was written.
+Three things settled it after the options spec was written. The first was already in that spec; what is new is the conclusion that it has no clean fix.
 
 1. **Ava cannot be started without showing its activity.** Its service is `exported="false"` and is only started from `MainActivity` (**verified**, Ava `app/src/main/AndroidManifest.xml`, `A/ui/services/ServiceViewModel.kt:73-81`). Android 14+ requires the app to be visible when a `microphone` foreground service starts, and Android 15 blocks starting one from `BOOT_COMPLETED` (**assumed**, from platform documentation), so an upstream boot receiver would not fix it. Hearth is always visible, so a service inside Hearth has no such problem.
-2. **We want voice timers in Hearth's own timer UI.** Home Assistant sends timer events only to the satellite (**verified**, `VoiceAssistantTimerEventResponse`, Ava `esphomeproto/src/main/proto/api.proto:1945-1963`). With a companion app that means a cross-app hand-off and a fork of Ava to add it.
-3. **The tablet does not cancel its own speaker.** See the next section. Voice therefore has to control what Hearth is playing at the moment of wake, and one process has to own both.
+2. **We want voice timers in Hearth's own timer UI.** Home Assistant delivers timer events to the satellite device through a per-device handler (**verified**, HA core `esphome/assist_satellite.py:291-299`, `643-659`), and we found no entity that exposes them (**assumed**). With a companion app that means a cross-app hand-off and a fork of Ava to add it.
+3. **The tablet's own speaker stays in its microphone.** The vendor echo canceller is switched on, and a loud residual still reaches apps. See the next section. Voice therefore has to control what Hearth is playing at the moment of wake, and one process has to own both.
 
 The cost is the one the options spec named: we own the protocol upkeep.
 
@@ -41,22 +41,23 @@ Measured on 2026-10-13 with a throwaway recording app (twelve 4-second `AudioRec
 |---|---|
 | Apps receive one processed channel. A stereo capture has bit-identical left and right. | Recorded WAVs |
 | The audio HAL opens the capture device with 6 channels at 48 kHz and runs Rockchip's voice library (`SKV`) on every stream, whatever the requested source. | HAL log: `in->Channels : 6`, `rkaudio_preprocess_init` on all twelve captures |
-| `MIC`, `VOICE_RECOGNITION`, `VOICE_COMMUNICATION` and `UNPROCESSED` behave the same. There is no raw path. | Same levels and same HAL path on all four; `PROPERTY_SUPPORT_AUDIO_SOURCE_UNPROCESSED` is false |
+| `MIC`, `VOICE_RECOGNITION`, `VOICE_COMMUNICATION` and `UNPROCESSED` take the same path. There is no raw one. | Same HAL path on all four, and the same level on all eight captures under playback (−29.6 to −30.6 dBFS); `PROPERTY_SUPPORT_AUDIO_SOURCE_UNPROCESSED` is false |
 | 16 kHz mono works. The HAL refuses a mono mask, opens stereo, resamples 48 kHz to 16 kHz, and the framework downmixes. | HAL log: `channel is not support`, `create resampler ... 48000 => 16000` |
-| Quiet-room floor is about −67 dBFS with vendor gain control and noise reduction active. | Recorded WAVs |
-| Speaker echo arrives at about −28 to −31 dBFS RMS, peaking near −11 dBFS, on every source, with media volume at 80 of 100 and the test signal at 0.3 of full scale. | Recorded WAVs |
-| The platform echo canceller, noise suppressor and gain control cannot be attached. | `AcousticEchoCanceler.isAvailable()`, `NoiseSuppressor`, `AutomaticGainControl` all false; `create()` returns null |
+| Quiet-room floor is about −67 dBFS with vendor gain control and noise reduction active. | Two of the four quiet captures (−67.9 and −67.4 dBFS). The other two were louder (−46.1 and −36.7 dBFS, peaks to −11.6) for a reason we did not identify: room sound or the vendor gain control. |
+| Speaker echo arrives at about −30 dBFS RMS over a capture (−26 to −33 dBFS second by second), peaking near −11 dBFS, on every source, with media volume at 80 of 100 and the test signal at 0.3 of full scale. | Recorded WAVs |
+| The vendor library has echo cancellation, beamforming, noise reduction and gain control switched on. | `rkaudio_effect_preprocess.json`; the HAL's config dump in the log |
+| The platform echo canceller, noise suppressor and gain control cannot be attached. | `isAvailable()` is false for `AcousticEchoCanceler`, `NoiseSuppressor` and `AutomaticGainControl`; `create()` returned null for the first two (the third was not tried) |
 | Android cannot report the microphone count or geometry. | `getActiveMicrophones()` returns one entry with no position; HAL logs `actual_mic_count =0` |
-| The ambient light sensor does not follow room lighting. In nine hours it reported only 10 and 160 lux, and it did not change when the room lights were switched off and on. | `dumpsys sensorservice`, raw events on `lightsensor-level` |
+| The ambient light sensor does not follow room lighting. Its last 50 events, from 11:30 to 16:03, are all 10 or 160 lux. It then logged nothing until at least 19:28, a span that includes the room lights being switched off and on by the person in the room. | `dumpsys sensorservice` at 19:20 and 19:28; no events on `lightsensor-level` during 210 s of watching |
 
 Limits of these measurements:
 
-- We had no unprocessed capture to compare against, so the amount of echo the vendor library removes is unknown. What is known is that roughly 38 dB of it remains above the noise floor.
+- We had no unprocessed capture to compare against, so the amount of echo the vendor library removes is unknown. What is known is that the residual of this test signal sits roughly 38 dB above the noise floor.
 - The test signal was chirps, not speech. Nobody spoke a known phrase at a known distance. Wake-word accuracy, with or without playback, is untested.
-- The six raw channels are most likely four microphones plus two speaker-reference channels (the vendor config sets `num_ref_channel = 2`). The split is **assumed**.
-- One tablet. Other Android tablets will have working platform effects and a different echo picture; the design must not depend on this one's quirks.
+- The six raw channels are most likely four microphones plus two speaker-reference channels: the vendor library logs `num_ref_channel = 2` and "This AEC version is used for 4 microphones!". We did not confirm it on the hardware, so the split is **assumed**.
+- One tablet. Other Android tablets are **assumed** to differ, some with working platform effects; the design must not depend on this one's quirks.
 
-**Consequences for the design:** the choice of `AudioSource` is irrelevant on this device, echo has to be handled by silencing playback, and the light sensor is not used for anything.
+**Consequences for the design:** the choice of `AudioSource` is irrelevant on this device, we do not rely on echo cancellation and silence playback instead, and the light sensor is not used for anything.
 
 ## Goals
 
@@ -71,7 +72,7 @@ Limits of these measurements:
 - Replacing LVA on the Pi. The Pi keeps its separate service.
 - The Android assistant role, a `VoiceInteractionService`, or lock-screen entry points. The options spec covers why a kiosk does not need them.
 - Software echo cancellation in the first version. It is a later phase with its own open question.
-- Wake words pushed from Home Assistant. Ava ignores them and so will we, at first.
+- External wake-word models pushed from Home Assistant. Ava applies HA's choice among its own models (**verified**, `A/esphome/voiceassistant/VoiceAssistant.kt:124-136`) but has no handling for external ones, and neither will we at first.
 
 ## Architecture
 
@@ -87,7 +88,7 @@ media_kit players      ◄── duck request ────────    ├─
                                                     └─ Sendspin player     (later; see Sendspin)
 ```
 
-- **`HearthAudioService`** is one foreground service in the Hearth APK. It is thin glue: lifecycle, the notification, the platform channel, and the `AudioCoordinator`. Dart starts it after `HubConfig` loads and passes it the voice configuration; it holds no settings of its own.
+- **`HearthAudioService`** is one foreground service in the Hearth APK. It is thin glue: lifecycle, the notification, the platform channel, and the `AudioCoordinator`. Dart starts it after `HubConfig` loads and passes it the voice configuration. It persists nothing: when Home Assistant changes a setting through an entity, the service applies it and reports it to Dart, which writes `HubConfig`.
 - **Satellite core** is Ava's device code, lifted as a library.
 - **`AudioCoordinator`** is the new piece. It is the single place that decides which outputs are muted or ducked for each satellite state. Native outputs are silenced directly; Dart-owned players (media_kit) are told over the channel.
 - **The HA entity stays the source of truth for the pill.** Home Assistant discovers the satellite like any ESPHome device, and `VoiceAssistantService` mirrors the entity exactly as it does for LVA. The platform channel carries only what HA cannot: identity, timers, duck requests and health.
@@ -105,7 +106,7 @@ What we take from Ava, all Apache-2.0 (**verified**, `LICENSE.md`):
 
 The extraction is the real work. Ava's core is written against interfaces (`Microphone`, `MediaPlayer`, `WakeWord`, `Logger`) with JVM tests, but the files import Media3, Timber and Ava's settings types, and the wiring is Hilt (**verified**, `A/services/DeviceBuilder.kt`, `gradle/libs.versions.toml`). We keep Media3 for playback and LiteRT for inference, and drop Hilt, DataStore, Compose and the Tasker plugin.
 
-**Packaging.** Fork Ava, move the four packages above into a new `:satellite` library module in the fork, and leave `:esphomeproto` and `:microfeatures` untouched so upstream merges stay cheap. Hearth pins the fork by tag as a git submodule under `android/third_party/` and includes its three modules from `android/settings.gradle.kts`. The fork carries an `UPSTREAM_PIN` so the existing upstream-drift check covers it, and its tag never automerges, like the other forks.
+**Packaging.** Fork Ava, move the four packages above into a new `:satellite` library module in the fork, and leave `:esphomeproto` and `:microfeatures` untouched so upstream merges stay cheap. Hearth pins the fork by tag as a git submodule under `android/third_party/` and includes its three modules from `android/settings.gradle.kts`. The fork carries an `UPSTREAM_PIN`, gets a third `check_fork` entry in `scripts/check-upstream-drift.sh`, and its tag never automerges, like the other forks.
 
 The alternative is to copy the code into `android/` directly. It is simpler on day one and loses the upstream diff. We prefer the fork; this is a [decision to confirm](#decisions-to-confirm).
 
@@ -117,7 +118,7 @@ We advertise what Ava and LVA advertise, so Home Assistant sees the same device 
 
 - Plaintext ESPHome native API on port 6053, API version 1.10, one client at a time (**verified** as Ava's behaviour, `A/esphome/EspHomeDevice.kt:138-139`, `A/server/Server.kt:90`).
 - Feature flags `VOICE_ASSISTANT | API_AUDIO | TIMERS | ANNOUNCE | START_CONVERSATION` (**verified**, `A/services/DeviceBuilder.kt:51-55`).
-- Device info adds what Ava leaves out: a friendly name from a new `voiceSatelliteName` setting (default: the hostname, like the Sendspin, DLNA and Plex names), manufacturer `Hearth`, model from `Build.MODEL`, and Hearth's version as the firmware version.
+- Device info adds what Ava leaves out: a friendly name from a new `voiceSatelliteName` setting (default: the hostname, which the MQTT client id already uses), manufacturer `Hearth`, model from `Build.MODEL`, and Hearth's version as the firmware version.
 
 Entities:
 
@@ -126,7 +127,7 @@ Entities:
 | Media Player | media player | Ava's; plays a URL from HA, volume and mute |
 | Mute Microphone | switch | Ava's name. Hearth's mute lookup needs `mute` in the entity ID. |
 | Enable Wake Sound | switch | Ava's |
-| Repeat Timer Sound | switch | Dropped. Hearth's alert overlay owns ringing. |
+| Repeat Timer Sound | switch | Dropped. The ring always repeats until Hearth's alert overlay, the stop word or a wake word ends it. |
 
 Home Assistant adds the `assist_satellite` entity itself from the feature flags (**verified**, HA core `esphome/assist_satellite.py:138-141`).
 
@@ -139,7 +140,7 @@ Moving Hearth's MQTT entities (Current Screen, Now Playing, Timer, Next Alarm, V
 - Hearth generates six random bytes once, formats them as a MAC, and stores the string in `hub_config.json` as `voiceSatelliteMac`. Storing it in Hearth's config, not in the service, means a config backup or restore keeps the HA device identity.
 - The service reports that string as `mac_address` and publishes it as the `mac` TXT record of an `_esphomelib._tcp` service through `NsdManager`, as Ava does (**verified**, `A/nsd/VoiceSatelliteNsd.kt:15-22`). Home Assistant requires that record for discovery (**verified**, HA core `esphome/config_flow.py:343-351`).
 - HA's unique_id for the satellite is `<mac>-assist_satellite` (**verified**, HA core `esphome/entity.py:672-674`). `VoiceAssistantService._autoDetectByMac` already matches that. The only Dart change is the MAC source: `_readPiMacAddress()` on Linux, `config.voiceSatelliteMac` on Android. No mDNS browse is needed.
-- Clearing Hearth's data creates a new MAC and HA raises a device conflict for the old one (**verified** as HA's behaviour, `esphome/manager.py:668-716`). The Voice plugin shows the MAC so it can be re-entered.
+- Clearing Hearth's data creates a new MAC and HA raises a device conflict for the old one (**verified** as HA's behaviour, `esphome/manager.py:668-716`). Restoring a config backup restores the MAC; the Voice plugin shows it for reference.
 
 ## Capture and wake word
 
@@ -172,13 +173,13 @@ Rules:
 - **Mute, not duck, for Sendspin.** With no echo cancellation, music at 20% is still in the microphone while the user is speaking. SendspinDroid's mute is a gain of zero that keeps draining in sync, so restoring is instant and in time (**verified**, `S/sendspin/SyncAudioPlayer.kt:686-707`). The mute is local and is not reported to the server, for the reason `voice_ducker.dart` already gives: other rooms must not dim.
 - **media_kit is asked, not forced.** The coordinator sends a duck request over the channel and Dart lowers the players it owns. This is the only output with a round trip, and it is in-process.
 - **The ring leaves gaps.** A timer ring has to be stopped by voice, so the tone asset has at least one second of silence per cycle for the stop word to land in. Whether that is enough is an open question; the on-screen dismiss is always available.
-- **Wake word during playback is not solved.** At 80% volume the speaker is roughly 38 dB above the microphone floor. Whether `okay_nabu` still triggers over music is the first hardware test. If it does not, the options are a lower default media volume on this tablet, the on-screen mic button, or the software echo canceller below.
+- **Wake word during playback is not solved.** At 80% media volume our test signal, itself at 0.3 of full scale, sat roughly 38 dB above the microphone floor. Whether `okay_nabu` still triggers over music is the first hardware test. If it does not, the options are a lower default media volume on this tablet, the on-screen mic button, or the software echo canceller below.
 
 **Later: software echo cancellation.** An in-process satellite can do what no companion app can: it has the playback signal. Sendspin PCM and the voice output could feed a reference into WebRTC AEC3 or speexdsp ahead of the wake word. Two things are unknown: whether a linear canceller works after the vendor's non-linear processing, and whether the playback delay is stable enough to align. Both need a spike on hardware before any design.
 
 ## Timers
 
-Home Assistant owns the countdown. The satellite receives four events (started, updated, cancelled, finished), each with an id, a name, total seconds, seconds left and an active flag (**verified**, `api.proto:1945-1963`). Ava keeps a pending map and one ringing timer, and rings until the stop word, a wake word, or a stop call (**verified**, `A/esphome/voiceassistant/VoiceAssistant.kt:60-68`, `151-178`, `212-228`).
+Home Assistant owns the countdown. The satellite receives four events (started, updated, cancelled, finished), each with an id, a name, total seconds, seconds left and an active flag (**verified**, `api.proto:1945-1963`). Ava keeps a pending map and one ringing timer, and with Repeat Timer Sound on it rings until the stop word, a wake word, or a stop call; with it off it plays once (**verified**, `A/esphome/voiceassistant/VoiceAssistant.kt:60-68`, `151-178`, `212-228`, `296-305`).
 
 In Hearth:
 
@@ -186,10 +187,10 @@ In Hearth:
 - `TimerService` gains a second kind of timer: remote, keyed by HA's string id, carrying a name and a paused flag, with remaining time taken from the event and counted down locally between events. Local timers (`startTimer(Duration)`) are untouched.
 - Remote timers show in the timer screen and on the home screen beside local ones. They are cancelled by voice or from HA, not from the timer screen, since the protocol has no cancel message from the device.
 - On `finished`, `TimerService` raises the existing full-screen alert, which also wakes the kiosk. Dismissing it calls `stopTimerRing` on the service. The stop word and the wake word stop it too, and the service tells Dart so the overlay closes.
-- The ring is played by the service, so it works when the Flutter side is busy and follows the ducking table above. This also gives Android the timer chime it lacks today (requirements spec, follow-up 4), for local timers as well.
+- The ring is played by the service, so it works when the Flutter side is busy and follows the ducking table above. `TimerService` can start the same ring for a local timer, which gives Android the timer chime it lacks today (requirements spec, follow-up 4).
 - The MQTT `timer` sensor already reads `TimerService`, so it includes voice timers with no change.
 
-The Pi does not get this. LVA has no hand-off, and Home Assistant does not expose voice timers as entities (**assumed**; we did not find one in the `esphome` or `assist_satellite` components). Voice timers on the Pi keep ringing from LVA alone.
+The Pi does not get this. LVA has no hand-off, and Home Assistant does not expose voice timers as entities (**assumed**; we did not find one in the `esphome` or `assist_satellite` components, and did not search the rest of HA). Voice timers on the Pi keep ringing from LVA alone.
 
 ## Platform channel
 
@@ -201,15 +202,17 @@ One `MethodChannel` and one `EventChannel` named `com.hearth/voice`. Dart is the
 | Dart → native | `stop` | — |
 | Dart → native | `setMuted` | bool. Local shortcut; the HA switch still works. |
 | Dart → native | `wake` | — (on-screen mic button) |
+| Dart → native | `startTimerRing` | — (a local timer fired) |
 | Dart → native | `stopTimerRing` | — |
 | Dart → native | `listWakeWords` | → ids and display names |
 | native → Dart | `state` | idle, listening, processing, responding, error; connected to HA or not |
 | native → Dart | `timer` | event type, id, name, total, left, active |
 | native → Dart | `duck` | bool |
 | native → Dart | `ringStopped` | — |
+| native → Dart | `settingChanged` | mute, wake sound, or active wake words changed from Home Assistant |
 | native → Dart | `health` | permission missing, port in use, mic open failed, model load failed |
 
-`VoiceSatelliteBridge` in Dart owns the channel. On non-Android platforms it is a no-op, so the Pi and desktop paths do not change. The `state` event is not wired to the pill in the first version; it exists for the ducking of media_kit and for diagnostics, and it is the hook if we later want the pill to react without the HA round trip.
+`VoiceSatelliteBridge` in Dart owns the channel. On non-Android platforms it is a no-op, so the Pi and desktop paths do not change. The `state` event is not wired to the pill in the first version; it exists for diagnostics, and it is the hook if we later want the pill to react without the HA round trip.
 
 ## Android changes
 
@@ -230,7 +233,7 @@ A plugin renders twice, so each of these exists in the on-device panel and the `
 - Wake word, second wake word, sensitivity.
 - Wake sound on/off.
 - Audio source (advanced).
-- Read-only: satellite name, MAC, connected to Home Assistant, last health event.
+- Read-only: MAC, connected to Home Assistant, last health event.
 - First-run note: add the discovered ESPHome device in Home Assistant.
 
 New `HubConfig` fields: `voiceSatelliteEnabled`, `voiceSatelliteName`, `voiceSatelliteMac`, `voiceWakeWords`, `voiceWakeSensitivity`, `voiceWakeSound`, `voiceAudioSource`. `voiceAssistantEntityId` stays as the manual pin.
@@ -245,9 +248,9 @@ SendspinDroid is a second route. All **verified** at `3af5666`:
 - Protocol, Noise encryption, pairing, transports and the clock filter are already a Kotlin Multiplatform library, `:shared` (`android/shared/build.gradle.kts`).
 - The player itself is in `:app`, not in a library: `SyncAudioPlayer` (2,023 lines), the `SendSpin` client, `SendSpinProtocolHandler` (2,240 lines) and the decoders. `SyncAudioPlayer` and `SendSpin` take no `Context` in their constructors, and the audio output is injected through an `AudioSink` interface (`S/sendspin/SyncAudioPlayer.kt:214-227`, `S/sendspin/SendSpin.kt:83-86`, `S/sendspin/audio/AudioSink.kt`).
 - FLAC and Opus decode through `MediaCodec`, so there is no native library to build (`S/sendspin/decoder/`).
-- Output is a low-latency `AudioTrack` with DAC-timestamp start gating and sample insert/drop correction (`S/sendspin/SyncAudioPlayer.kt:147-161`).
+- Output is a low-latency `AudioTrack` with DAC-position-aware start alignment and sample insert/drop correction (`S/sendspin/SyncAudioPlayer.kt:145-162`, `260-264`, `422-425`).
 - Mute is per reason (`PLAYER`, `SYNC`, `INTERRUPTION`) and is a gain of 0 or 1; there is no partial duck (`SyncAudioPlayer.kt:686-707`).
-- On transient audio-focus loss it mutes locally and keeps sync (`S/playback/AudioInterruptionPolicy.kt:76-83`).
+- On transient audio-focus loss it mutes locally and keeps sync, except during a call, when it pauses the group on the server (`S/playback/AudioInterruptionPolicy.kt:76-83`).
 - `PlaybackService` (3,748 lines) is the Media3 session, notification and Android Auto layer. Hearth needs none of it.
 
 **What the satellite needs from an Android Sendspin player**, whichever route is taken:
@@ -258,7 +261,7 @@ SendspinDroid is a second route. All **verified** at `3af5666`:
 
 The Dart route can meet the first two through the existing `setMuted` on its sink. The third means sending the reference back across the channel.
 
-**Recommendation.** Use SendspinDroid's player on Android, inside `HearthAudioService`, and keep the Dart `SendspinService` as the settings and state facade over a channel. It is proven on Android hardware, it needs no NDK FLAC build, it meets all three needs natively, and adding a `VOICE` mute reason is a one-line change in a repository we own. The cost is extracting the player from `:app` into a library module in SendspinDroid, and two Sendspin implementations in Hearth (Dart on the Pi and desktop, Kotlin on Android).
+**Recommendation.** Use SendspinDroid's player on Android, inside `HearthAudioService`, and keep the Dart `SendspinService` as the settings and state facade over a channel. It is a released beta that we have not yet run on this tablet, it needs no NDK FLAC build, it meets all three needs natively, and adding a `VOICE` mute reason is a one-line change in a repository we own. The cost is extracting the player from `:app` into a library module in SendspinDroid, and two Sendspin implementations in Hearth (Dart on the Pi and desktop, Kotlin on Android).
 
 This changes follow-up 10 and deserves its own spec; it is a [decision to confirm](#decisions-to-confirm). The satellite does not wait for it: with Sendspin off on Android there is nothing to mute, and the `AudioCoordinator` is written against an interface.
 
@@ -279,14 +282,14 @@ Each line is one task. Sizes are relative.
 | 2 | `HearthAudioService`, manifest, permissions, `com.hearth/voice` channel, `VoiceSatelliteBridge`, start from Dart | Medium | 1 |
 | 3 | Identity: `voiceSatelliteMac`, Android MAC source in `VoiceAssistantService`, device info | Small | 2 |
 | 4 | Hardware pass 1: HA discovery, the four states, mute, announce, wake word at distance, wake word over playback | Small | 3 |
-| 5 | Voice plugin settings on both surfaces, health reporting | Small-medium | 2 |
-| 6 | Timers: remote timers in `TimerService`, alert overlay, ring with gaps, `stopTimerRing` | Medium | 2 |
-| 7 | `AudioCoordinator` and the media_kit duck request | Small | 2 |
+| 5 | Voice plugin settings on both surfaces, health reporting, `settingChanged` | Small-medium | 4 |
+| 6 | Timers: remote timers in `TimerService`, alert overlay, ring with gaps, `startTimerRing` and `stopTimerRing` | Medium | 4, 7 |
+| 7 | `AudioCoordinator` and the media_kit duck request | Small | 4 |
 | 8 | Sendspin on Android through SendspinDroid's player (own spec) | Large | 7 |
 | 9 | Echo-cancellation spike with a playback reference | Medium, may end in "no" | 8 |
 | 10 | Move Hearth's MQTT entities onto the ESPHome device | Small-medium | 3 |
 
-Tasks 1 to 4 are the minimum that answers whether this works on the tablet. Task 4 gates the rest.
+Tasks 1 to 4 are the minimum that answers whether this works on the tablet. Task 4 gates everything after it.
 
 ## Open questions / needs hardware
 

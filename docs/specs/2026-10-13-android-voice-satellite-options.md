@@ -243,11 +243,11 @@ Later the same day we chose the runner-up: **the in-app satellite**. Its design 
 
 What changed:
 
-- **Boot start has no clean answer for Ava.** Its service is not exported and only its activity starts it (**verified** above). Android 14+ wants the app visible when a `microphone` foreground service starts, and Android 15 blocks starting one from `BOOT_COMPLETED` (**assumed**, from platform documentation), so even an upstream boot receiver would not do. This is the first flip condition below.
-- **We want voice timers in Hearth's timer UI.** Home Assistant sends timer events only to the satellite, so a companion app would need a fork of Ava and a cross-app hand-off.
-- **The tablet does not cancel its own speaker.** Recordings on the Apolosign tablet show one vendor-processed microphone channel that is identical for every `AudioSource`, speaker echo about 38 dB above the noise floor, and no attachable platform echo canceller (**verified**; details in the design spec). Voice has to mute what Hearth is playing at the moment of wake, which needs one process to own both. This is the third flip condition, met before Sendspin lands.
+- **Boot start has no clean answer for Ava.** Its service is not exported and only its activity starts it (**verified** above). Android 14+ wants the app visible when a `microphone` foreground service starts, and Android 15 blocks starting one from `BOOT_COMPLETED` (**assumed**, from platform documentation), so even an upstream boot receiver would not do. This is the concern behind the first flip condition below, reached by reasoning from the platform rules and not by the hardware trial that condition names.
+- **We want voice timers in Hearth's timer UI.** Home Assistant delivers timer events to the satellite device (**verified**, HA core `esphome/assist_satellite.py:291-299`, `643-659`) and we found no entity exposing them (**assumed**), so a companion app would need a fork of Ava and a cross-app hand-off.
+- **The tablet's own speaker stays in its microphone.** Recordings on the Apolosign tablet show one vendor-processed microphone channel that takes the same path for every `AudioSource`, a test signal's echo about 38 dB above the noise floor despite the vendor echo canceller being on, and no attachable platform echo canceller (**verified**; details and limits in the design spec). Voice has to mute what Hearth is playing at the moment of wake, which needs one process to own both. This is the third flip condition, met before Sendspin lands.
 
-Two open questions below are now answered for this tablet: the `AudioSource` makes no difference, and there is no echo cancellation to rely on.
+Two open questions below are now partly answered for this tablet: the `AudioSource` makes no difference, and echo cancellation cannot be relied on. Wake-word accuracy is still untested.
 
 ## Original recommendation (superseded)
 
