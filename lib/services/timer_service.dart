@@ -221,7 +221,7 @@ class TimerService extends ChangeNotifier {
     final timer = match.first;
     if (timer.isRemote && !timer.isDone) {
       // Home Assistant owns it, and the device cannot cancel a timer.
-      Log.i('Timer', 'Voice timer ${timer.remoteId} is cancelled by voice');
+      Log.i('Timer', 'Voice timer ${timer.remoteId} is cancelled from Home Assistant, not here');
       return;
     }
     _remove(timer);
