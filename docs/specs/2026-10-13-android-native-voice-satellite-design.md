@@ -311,6 +311,4 @@ Made on 2026-10-13:
 1. **Packaging**: a fork of Ava, pinned as a submodule. Copying the code into `android/` was the alternative.
 2. **Sendspin on Android**: SendspinDroid's native player. The Dart client with a native sink, as follow-up 10 of the requirements spec used to describe, was the alternative.
 
-Still open:
-
-3. **Auto-brightness on the Apolosign**: the light sensor does not work, so system auto-brightness holds the panel near minimum. Turning it off and driving brightness from Hearth's night-mode sources is a separate small task for the requirements spec, not part of voice.
+3. **Auto-brightness on the Apolosign**: left alone. The light sensor does not work, so system auto-brightness holds the panel near minimum; we are not changing that for now.
