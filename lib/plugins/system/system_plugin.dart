@@ -20,7 +20,8 @@ import '../hearth_plugin.dart';
 ///     (screenshots + recording)
 ///   * `devBundleEnabled` / `devBundleUrl` — developer OTA override. The URL is
 ///     web-only (OSK-hostile); the toggle is on both surfaces. The updater
-///     honors these in scripts/hearth-updater.sh.
+///     honors these in scripts/hearth-updater.sh, and `AppUpdater` on Android
+///     when the URL is an `.apk`.
 ///   * Update check / install actions — reuse the existing
 ///     `/api/update/check` and `/api/update/apply` HTTP routes
 ///
@@ -140,6 +141,10 @@ class SystemPlugin extends HearthPlugin {
   const forceBtn = document.getElementById('force-update-btn');
   const status = document.getElementById('update-status');
 
+  async function updateMessage(res) {
+    try { return (await res.json()).message || ''; } catch (_) { return ''; }
+  }
+
   checkBtn.addEventListener('click', async () => {
     status.textContent = 'Checking...';
     checkBtn.disabled = true;
@@ -172,10 +177,12 @@ class SystemPlugin extends HearthPlugin {
         method: 'POST',
         headers: { 'Authorization': 'Bearer ' + TOKEN }
       });
+      // Android reports where it stopped in `message`; the Pi does not.
+      const msg = await updateMessage(res);
       if (res.ok) {
-        status.textContent = 'Update started. Kiosk will restart shortly.';
+        status.textContent = msg || 'Update started. Kiosk will restart shortly.';
       } else {
-        status.textContent = 'Install failed: ' + res.status;
+        status.textContent = msg || ('Install failed: ' + res.status);
         applyBtn.disabled = false;
       }
     } catch (e) {
@@ -196,10 +203,11 @@ class SystemPlugin extends HearthPlugin {
         method: 'POST',
         headers: { 'Authorization': 'Bearer ' + TOKEN }
       });
+      const msg = await updateMessage(res);
       if (res.ok) {
-        status.textContent = 'Update started. Kiosk will restart shortly.';
+        status.textContent = msg || 'Update started. Kiosk will restart shortly.';
       } else {
-        status.textContent = 'Force update failed: ' + res.status;
+        status.textContent = msg || ('Force update failed: ' + res.status);
         forceBtn.disabled = false;
       }
     } catch (e) {
