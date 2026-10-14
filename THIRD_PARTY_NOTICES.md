@@ -14,9 +14,15 @@ Full licence texts are in `assets/licenses/`. **Verified** means we read the lic
 | [ESPHome native API protocol (api.proto)](#esphome-api-proto) | MIT | android | verified |
 | [microWakeWord models: okay_nabu, hey_jarvis, stop](#microwakeword-models) | Apache-2.0 | android | verified |
 | [Home Assistant Voice Preview Edition sounds](#voice-pe-sounds) | CC-BY-4.0 | android | verified |
+| [SendspinDroid (Android Sendspin player)](#sendspindroid) | MIT | android | verified |
+| [Ktor](#ktor) | Apache-2.0 | android | verified |
+| [OkHttp and Okio](#okhttp) | Apache-2.0 | android | verified |
+| [Bouncy Castle Crypto (bcprov)](#bouncycastle) | MIT | android | verified |
+| [SLF4J API](#slf4j) | MIT | android | verified |
+| [Typesafe Config](#typesafe-config) | Apache-2.0 | android | verified |
 | [LiteRT](#litert) | Apache-2.0 | android | verified |
 | [AndroidX libraries, including Media3](#androidx) | Apache-2.0 | android | verified |
-| [Kotlin standard library, kotlinx.coroutines, kotlinx.serialization, JetBrains annotations](#kotlin) | Apache-2.0 | android | verified |
+| [Kotlin standard library, kotlinx.coroutines, kotlinx.serialization, kotlinx-io, JetBrains annotations](#kotlin) | Apache-2.0 | android | verified |
 | [Guava](#guava) | Apache-2.0 | android | verified |
 | [ReLinker](#relinker) | Apache-2.0 | android | verified |
 | [JSpecify annotations](#jspecify) | Apache-2.0 | android | verified |
@@ -99,6 +105,72 @@ The wake, timer-finished and error sounds, as distributed with Ava.
 - Platforms: android
 - Status: **verified**. satellite/src/main/assets/sounds/LICENSE.md in Ava.
 
+<a id="sendspindroid"></a>
+## SendspinDroid (Android Sendspin player)
+
+Copyright (c) 2024-2026 Chris Uthe.
+
+Hearth builds SendspinDroid's :shared and :player modules, the protocol client and synchronized audio player.
+
+- Licence: MIT (`assets/licenses/sendspindroid-mit.txt`)
+- Source: <https://github.com/chrisuthe/SendspinDroid>
+- Platforms: android
+- Status: **verified**. LICENSE in the submodule at 0e6c67c5.
+
+<a id="ktor"></a>
+## Ktor
+
+Copyright JetBrains s.r.o. and Ktor contributors.
+
+The Sendspin player's WebSocket client and the listener for server-initiated connections.
+
+- Licence: Apache-2.0 (`assets/licenses/apache-2.0.txt`)
+- Source: <https://github.com/ktorio/ktor>
+- Platforms: android
+- Status: **verified**. Maven POM licence of every io.ktor artifact on the release runtime classpath (3.1.1).
+
+<a id="okhttp"></a>
+## OkHttp and Okio
+
+Copyright Square, Inc.
+
+- Licence: Apache-2.0 (`assets/licenses/apache-2.0.txt`)
+- Source: <https://github.com/square/okhttp>
+- Platforms: android
+- Status: **verified**. Maven POM licences of okhttp and okhttp-sse 4.12.0 and okio 3.10.2.
+
+<a id="bouncycastle"></a>
+## Bouncy Castle Crypto (bcprov)
+
+The Noise encryption layer of the Sendspin player.
+
+- Licence: MIT (`assets/licenses/bouncycastle.txt`)
+- Source: <https://github.com/bcgit/bc-java>
+- Platforms: android
+- Status: **verified**. Maven POM licence (Bouncy Castle Licence) and org.bouncycastle.LICENSE in bcprov-jdk18on 1.80.
+
+<a id="slf4j"></a>
+## SLF4J API
+
+Pulled in by Ktor's server.
+
+- Licence: MIT (`assets/licenses/slf4j.txt`)
+- Source: <https://github.com/qos-ch/slf4j>
+- Platforms: android
+- Status: **verified**. META-INF/LICENSE.txt in slf4j-api 2.0.16.
+
+<a id="typesafe-config"></a>
+## Typesafe Config
+
+Copyright Lightbend, Inc.
+
+Pulled in by Ktor's server.
+
+- Licence: Apache-2.0 (`assets/licenses/apache-2.0.txt`)
+- Source: <https://github.com/lightbend/config>
+- Platforms: android
+- Status: **verified**. Maven POM licence of config 1.4.3.
+
 <a id="litert"></a>
 ## LiteRT
 
@@ -122,7 +194,7 @@ Copyright The Android Open Source Project.
 - Status: **verified**. Maven POM licence of every androidx artifact on the release runtime classpath.
 
 <a id="kotlin"></a>
-## Kotlin standard library, kotlinx.coroutines, kotlinx.serialization, JetBrains annotations
+## Kotlin standard library, kotlinx.coroutines, kotlinx.serialization, kotlinx-io, JetBrains annotations
 
 Copyright JetBrains s.r.o. and Kotlin Programming Language contributors.
 

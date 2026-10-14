@@ -88,6 +88,93 @@
       "checked": "satellite/src/main/assets/sounds/LICENSE.md in Ava"
     },
     {
+      "id": "sendspindroid",
+      "name": "SendspinDroid (Android Sendspin player)",
+      "license": "MIT",
+      "licenseFile": "sendspindroid-mit.txt",
+      "attribution": [
+        "Copyright (c) 2024-2026 Chris Uthe.",
+        "Hearth builds SendspinDroid's :shared and :player modules, the protocol client and synchronized audio player."
+      ],
+      "platforms": ["android"],
+      "source": "https://github.com/chrisuthe/SendspinDroid",
+      "covers": ["android/third_party/sendspindroid", "android/sendspin/shared", "android/sendspin/player"],
+      "status": "verified",
+      "checked": "LICENSE in the submodule at 0e6c67c5"
+    },
+    {
+      "id": "ktor",
+      "name": "Ktor",
+      "license": "Apache-2.0",
+      "licenseFile": "apache-2.0.txt",
+      "attribution": [
+        "Copyright JetBrains s.r.o. and Ktor contributors.",
+        "The Sendspin player's WebSocket client and the listener for server-initiated connections."
+      ],
+      "platforms": ["android"],
+      "source": "https://github.com/ktorio/ktor",
+      "covers": [],
+      "status": "verified",
+      "checked": "Maven POM licence of every io.ktor artifact on the release runtime classpath (3.1.1)"
+    },
+    {
+      "id": "okhttp",
+      "name": "OkHttp and Okio",
+      "license": "Apache-2.0",
+      "licenseFile": "apache-2.0.txt",
+      "attribution": [
+        "Copyright Square, Inc."
+      ],
+      "platforms": ["android"],
+      "source": "https://github.com/square/okhttp",
+      "covers": [],
+      "status": "verified",
+      "checked": "Maven POM licences of okhttp and okhttp-sse 4.12.0 and okio 3.10.2"
+    },
+    {
+      "id": "bouncycastle",
+      "name": "Bouncy Castle Crypto (bcprov)",
+      "license": "MIT",
+      "licenseFile": "bouncycastle.txt",
+      "attribution": [
+        "The Noise encryption layer of the Sendspin player."
+      ],
+      "platforms": ["android"],
+      "source": "https://github.com/bcgit/bc-java",
+      "covers": [],
+      "status": "verified",
+      "checked": "Maven POM licence (Bouncy Castle Licence) and org.bouncycastle.LICENSE in bcprov-jdk18on 1.80"
+    },
+    {
+      "id": "slf4j",
+      "name": "SLF4J API",
+      "license": "MIT",
+      "licenseFile": "slf4j.txt",
+      "attribution": [
+        "Pulled in by Ktor's server."
+      ],
+      "platforms": ["android"],
+      "source": "https://github.com/qos-ch/slf4j",
+      "covers": [],
+      "status": "verified",
+      "checked": "META-INF/LICENSE.txt in slf4j-api 2.0.16"
+    },
+    {
+      "id": "typesafe-config",
+      "name": "Typesafe Config",
+      "license": "Apache-2.0",
+      "licenseFile": "apache-2.0.txt",
+      "attribution": [
+        "Copyright Lightbend, Inc.",
+        "Pulled in by Ktor's server."
+      ],
+      "platforms": ["android"],
+      "source": "https://github.com/lightbend/config",
+      "covers": [],
+      "status": "verified",
+      "checked": "Maven POM licence of config 1.4.3"
+    },
+    {
       "id": "litert",
       "name": "LiteRT",
       "license": "Apache-2.0",
@@ -113,7 +200,7 @@
     },
     {
       "id": "kotlin",
-      "name": "Kotlin standard library, kotlinx.coroutines, kotlinx.serialization, JetBrains annotations",
+      "name": "Kotlin standard library, kotlinx.coroutines, kotlinx.serialization, kotlinx-io, JetBrains annotations",
       "license": "Apache-2.0",
       "licenseFile": "apache-2.0.txt",
       "attribution": ["Copyright JetBrains s.r.o. and Kotlin Programming Language contributors."],
