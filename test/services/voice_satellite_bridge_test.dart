@@ -155,6 +155,7 @@ void main() {
         voiceWakeSensitivity: 'very',
         voiceWakeSound: false,
         voiceAudioSource: 'mic',
+        voiceSatelliteVolume: 0.35,
         micMuted: true,
       ));
       final bridge = android(notifier);
@@ -173,6 +174,7 @@ void main() {
         'sensitivity': 'very',
         'audioSource': 'mic',
         'wakeSound': false,
+        'volume': 0.35,
       });
       expect(bridge.status.running, true);
     });
@@ -368,10 +370,27 @@ void main() {
       expect(calls, isEmpty);
     });
 
+    test('settingChanged volume is written back without a restart and passed '
+        'on the next start', () async {
+      await emit(
+          {'event': 'settingChanged', 'setting': 'volume', 'value': 0.42});
+      expect(notifier.state.voiceSatelliteVolume, 0.42);
+
+      await bridge.sync(notifier.state);
+      expect(calls, isEmpty);
+
+      // A later user edit restarts the service with the saved volume.
+      await notifier.update((c) => c.copyWith(voiceWakeSound: false));
+      await bridge.sync(notifier.state);
+      expect(methods(), ['start']);
+      expect(startArgs()['volume'], 0.42);
+    });
+
     test('malformed and later-phase events are ignored', () async {
       final before = notifier.state;
       await emit({'event': 'settingChanged', 'setting': 'mute', 'value': 'x'});
       await emit({'event': 'settingChanged', 'setting': 'wakeWords', 'value': []});
+      await emit({'event': 'settingChanged', 'setting': 'volume', 'value': 'x'});
       await emit({'event': 'timer', 'id': 't1'});
       await emit({'event': 'duck', 'value': true});
       await emit({'event': 'ringStopped'});

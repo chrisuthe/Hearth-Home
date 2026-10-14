@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/tokens/tokens.dart';
 import '../../config/hub_config.dart';
 import '../../screens/settings/update_settings.dart';
 import '../framework/fields/bool_setting_field.dart';
@@ -24,6 +25,9 @@ import '../hearth_plugin.dart';
 ///     when the URL is an `.apk`.
 ///   * Update check / install actions — reuse the existing
 ///     `/api/update/check` and `/api/update/apply` HTTP routes
+///   * Open-source licences — Flutter's licence page on-device, `/licenses`
+///     in the portal. Both list [LicenseRegistry], which holds the Dart
+///     packages and the notices in `assets/licenses/`.
 ///
 /// Surface differences:
 ///   * On-device: full version display + auto-update toggle + force-update
@@ -79,6 +83,8 @@ class SystemPlugin extends HearthPlugin {
         ).buildWidget(ref),
         // Gitea API token and the dev bundle URL are NOT shown on-device —
         // typing long strings via OSK is painful. Set them from the web portal.
+        const SizedBox(height: 16),
+        const _LicensesTile(),
       ],
     );
   }
@@ -118,8 +124,16 @@ class SystemPlugin extends HearthPlugin {
           configPath: 'devBundleEnabled',
           subtitle: 'Install from the URL above on the next update (skips release check)',
         ).buildHtml(ctx) +
-        _updateButtonsHtml();
+        _updateButtonsHtml() +
+        _licensesHtml;
   }
+
+  static const _licensesHtml = '''
+<div class="field">
+  <label>Open-source licences</label>
+  <div class="hint"><a href="/licenses" target="_blank" style="color:#646CFF">View the licences for the code and content Hearth ships</a></div>
+</div>
+''';
 
   String _updateButtonsHtml() {
     return '''
@@ -218,5 +232,28 @@ class SystemPlugin extends HearthPlugin {
 })();
 </script>
 ''';
+  }
+}
+
+class _LicensesTile extends ConsumerWidget {
+  const _LicensesTile();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final version = ref.watch(installedVersionProvider).valueOrNull ?? '';
+    return ListTile(
+      leading: const Icon(Icons.gavel_outlined,
+          color: Colors.white54, size: HearthIcon.md),
+      title: const Text('Open-source licences',
+          style: TextStyle(fontSize: HearthFont.body)),
+      trailing: const Icon(Icons.chevron_right, color: Colors.white54),
+      contentPadding: const EdgeInsets.symmetric(horizontal: HearthSpacing.x2),
+      onTap: () => showLicensePage(
+        context: context,
+        applicationName: 'Hearth',
+        applicationVersion: version,
+        applicationLegalese: 'MIT License',
+      ),
+    );
   }
 }

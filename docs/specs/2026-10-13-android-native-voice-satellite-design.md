@@ -122,14 +122,14 @@ Hearth is MIT. Shipping Apache-2.0 code inside it is allowed; the APK carries bo
 | `api.proto` (`:esphomeproto`) | MIT. ESPHome's licence is GPLv3 for C/C++ files only and MIT for everything else | `esphome/home-assistant-voice-pe` `LICENSE`, the ESPHome licence (**verified**) |
 | LiteRT, Media3, Timber; protobuf | Apache-2.0; BSD-3 | Publisher licences (**assumed**, not opened) |
 | `okay_nabu`, `hey_jarvis` models | Apache-2.0 | `esphome/micro-wake-word-models`, which holds both (**verified**) |
-| `stop` model | Apache-2.0 | Its metadata names Kevin Ahrendt, author of the Apache-2.0 `kahrendt/microWakeWord`; we did not find the file in a licensed repo (**assumed**) |
+| `stop` model | Apache-2.0 | Byte-identical to release `stop-20241016.2` of the Apache-2.0 `kahrendt/microWakeWord` (**verified**, `2026-10-14-third-party-notices-design.md`) |
 | Wake, timer and error sounds | CC-BY 4.0, Clayton Charles Tapp | `assets/sounds/LICENSE.md` in Ava (**verified**) |
 
 What follows from the table:
 
 - **`hey_luna` is not bundled.** It comes from `adamlonsdale/microwakeword-custom-words`, which has no licence, so we have no right to redistribute it (**verified**, no licence on the repo). Ava's other models (`alexa`, `hey_mycroft`, `hey_home_assistant`, `okay_computer`, `choo_choo_homie`, `hey_peppa_pig`) are Apache-2.0 in the same models repo, but we ship only the three above. Hearth's build therefore lists model files one by one rather than taking Ava's whole assets folder.
-- **The APK carries the licence texts and credits** for everything in the table. Hearth has no place for that yet; issue 250 decides where and how.
-- **The fork must state what it changed.** Apache-2.0 §4(b) asks for a notice on modified files. The fork's `UPSTREAM_PIN` describes the move, but its README does not yet; adding that is part of issue 250.
+- **The APK carries the licence texts and credits** for everything in the table: `assets/licenses/`, shown under Settings → System → Open-source licences (`2026-10-14-third-party-notices-design.md`).
+- **The fork must state what it changed.** Apache-2.0 §4(b) asks for a notice on modified files. The fork's `UPSTREAM_PIN` describes the move; `chrisuthe/Ava-hearth` pull request 2 adds a README section listing the moved files.
 - **No use of the Ava name as Hearth's.** Apache-2.0 grants no trademark rights.
 
 ## Protocol surface
@@ -218,7 +218,7 @@ One `MethodChannel` and one `EventChannel` named `com.hearth/voice`. Dart is the
 
 | Direction | Name | Payload |
 |---|---|---|
-| Dart → native | `start` | name, MAC, port, wake words, sensitivity, audio source, wake sound on/off |
+| Dart → native | `start` | name, MAC, port, wake words, sensitivity, audio source, wake sound on/off, media player volume |
 | Dart → native | `stop` | — |
 | Dart → native | `setMuted` | bool. Local shortcut; the HA switch still works. |
 | Dart → native | `wake` | — (on-screen mic button) |
@@ -229,7 +229,7 @@ One `MethodChannel` and one `EventChannel` named `com.hearth/voice`. Dart is the
 | native → Dart | `timer` | event type, id, name, total, left, active |
 | native → Dart | `duck` | bool |
 | native → Dart | `ringStopped` | — |
-| native → Dart | `settingChanged` | mute, wake sound, or active wake words changed from Home Assistant |
+| native → Dart | `settingChanged` | mute, wake sound, active wake words or media player volume changed from Home Assistant |
 | native → Dart | `health` | permission missing, port in use, mic open failed, model load failed |
 
 `VoiceSatelliteBridge` in Dart owns the channel. On non-Android platforms it is a no-op, so the Pi and desktop paths do not change. The `state` event is not wired to the pill in the first version; it exists for diagnostics, and it is the hook if we later want the pill to react without the HA round trip.
@@ -256,7 +256,7 @@ A plugin renders twice, so each of these exists in the on-device panel and the `
 - Read-only: MAC, connected to Home Assistant, last health event.
 - First-run note: add the discovered ESPHome device in Home Assistant.
 
-New `HubConfig` fields: `voiceSatelliteEnabled`, `voiceSatelliteName`, `voiceSatelliteMac`, `voiceWakeWords`, `voiceWakeSensitivity`, `voiceWakeSound`, `voiceAudioSource`. `voiceAssistantEntityId` stays as the manual pin.
+New `HubConfig` fields: `voiceSatelliteEnabled`, `voiceSatelliteName`, `voiceSatelliteMac`, `voiceWakeWords`, `voiceWakeSensitivity`, `voiceWakeSound`, `voiceAudioSource`, `voiceSatelliteVolume`. `voiceAssistantEntityId` stays as the manual pin.
 
 ## Sendspin
 

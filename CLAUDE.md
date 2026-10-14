@@ -172,3 +172,13 @@ Two checks cover what Renovate cannot see:
   for arm64 and builds the Android APK. Desktop CI does neither.
 
 Design rationale: `docs/specs/2026-08-12-dependency-maintenance-process-design.md`
+
+**Third-party notices.** Anything shipped that is not a Dart package needs an
+entry in `assets/licenses/notices.json`: a bundled asset, a fork, a submodule,
+a module under `android/ava/` or `native/`, an Android library. Then run
+`dart run tool/gen_third_party_notices.dart` to regenerate
+`THIRD_PARTY_NOTICES.md`. `test/services/third_party_notices_test.dart` catches
+all of these except new Android libraries, which need a manual check of
+`:app:dependencies`. The satellite's wake-word models are an allowlist in
+`android/ava/satellite/build.gradle.kts`; never ship a model without a licence.
+Design: `docs/specs/2026-10-14-third-party-notices-design.md`
