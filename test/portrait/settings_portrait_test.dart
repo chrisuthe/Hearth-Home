@@ -218,7 +218,7 @@ List<Override> _overrides({HubConfig? config}) => [
       alarmServiceProvider.overrideWith((ref) => _alarms()),
       deviceIpProvider.overrideWith((ref) async => '192.168.100.250'),
       webPinProvider.overrideWithValue('1234'),
-      installedVersionProvider.overrideWithValue('1.42.17-a-long-dev-suffix'),
+      installedVersionProvider.overrideWith((ref) => '1.42.17-a-long-dev-suffix'),
       latestUpdateProvider.overrideWith((ref) async => const UpdateInfo(
             version: '1.43.0',
             bundleUrl: '$_longUrl/hearth-bundle-1.43.0.tar.gz',

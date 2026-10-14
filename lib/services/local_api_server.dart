@@ -17,6 +17,8 @@ import '../plugins/framework/web_renderer.dart';
 import 'display_mode_service.dart';
 import 'timezone_service.dart';
 import 'wifi_service.dart';
+import 'app_updater.dart';
+import 'installed_version.dart';
 import 'update_service.dart';
 
 /// Minimal HTTP server for external device control and configuration.
@@ -36,6 +38,7 @@ import 'update_service.dart';
 ///   GET  /api/wifi/scan    — scan for WiFi networks
 ///   POST /api/wifi/connect — connect to a WiFi network
 ///   GET  /api/update/status — current version and auto-update setting
+///                             (Android adds the latest release and updater state)
 ///   GET  /api/alarms        — list all alarms
 ///   POST /api/alarms        — create or update an alarm
 ///   DELETE /api/alarms?id=x — delete an alarm
@@ -47,6 +50,13 @@ class LocalApiServer {
   final UpdateService _updateService;
   final AlarmService? _alarmService;
   final NotificationService? _notificationService;
+
+  /// Android routes the update endpoints to [_appUpdater] instead of
+  /// `hearth-updater.service`.
+  final bool _android;
+  final AppUpdater? _appUpdater;
+  final Future<String> Function() _installedVersion;
+  final Future<ProcessResult> Function(String, List<String>) _runProcess;
 
   /// Reads service providers for plugin routes. Production wires `ref.read`
   /// (see [localApiServerProvider]); null in constructions made without a
@@ -91,6 +101,10 @@ class LocalApiServer {
     UpdateService? updateService,
     AlarmService? alarmService,
     NotificationService? notificationService,
+    bool? android,
+    AppUpdater? appUpdater,
+    Future<String> Function()? installedVersion,
+    Future<ProcessResult> Function(String, List<String>)? runProcess,
     ProviderReader? readProvider,
     List<HearthPlugin>? plugins,
     String? webPin,
@@ -102,6 +116,11 @@ class LocalApiServer {
         _updateService = updateService ?? UpdateService(),
         _alarmService = alarmService,
         _notificationService = notificationService,
+        _android = android ?? Platform.isAndroid,
+        _appUpdater = appUpdater,
+        _installedVersion = installedVersion ??
+            (() => readInstalledVersion(android: android)),
+        _runProcess = runProcess ?? Process.run,
         _readProvider = readProvider,
         _plugins = plugins ?? firstPartyPlugins,
         _loadIconFont = loadIconFont ?? _loadBundledIconFont,
@@ -603,29 +622,28 @@ class LocalApiServer {
     await request.response.close();
   }
 
-  /// Reads the installed version from /etc/hearth-version (written by the updater).
-  String _readInstalledVersion() {
-    try {
-      return File('/etc/hearth-version').readAsStringSync().trim();
-    } catch (_) {
-      return '';
-    }
-  }
-
   Future<void> _handleUpdateStatus(HttpRequest request) async {
     final config = _configNotifier.current;
+    final status = <String, dynamic>{
+      'currentVersion': await _installedVersion(),
+      'autoUpdate': config.autoUpdate,
+    };
+    if (_android) {
+      final latest = await _updateService.checkForUpdate();
+      status['latestVersion'] = latest?.version;
+      status['updateAvailable'] =
+          latest != null && latest.isNewerThan(status['currentVersion']);
+      status['state'] = _appUpdater?.current.toJson();
+    }
     request.response
       ..statusCode = 200
       ..headers.contentType = ContentType.json
-      ..write(jsonEncode({
-        'currentVersion': _readInstalledVersion(),
-        'autoUpdate': config.autoUpdate,
-      }));
+      ..write(jsonEncode(status));
     await request.response.close();
   }
 
   Future<void> _handleUpdateCheck(HttpRequest request) async {
-    final currentVersion = _readInstalledVersion();
+    final currentVersion = await _installedVersion();
     final latest = await _updateService.checkForUpdate();
     final available = latest != null && latest.isNewerThan(currentVersion);
     request.response
@@ -641,9 +659,10 @@ class LocalApiServer {
   }
 
   Future<void> _handleUpdateApply(HttpRequest request) async {
+    if (_android) return _handleAndroidUpdateApply(request);
     try {
       // Trigger the updater via systemd (runs as root with proper privileges)
-      final result = await Process.run('sudo', [
+      final result = await _runProcess('sudo', [
         'systemctl', 'start', 'hearth-updater.service',
       ]).timeout(const Duration(seconds: 30));
       request.response
@@ -660,6 +679,36 @@ class LocalApiServer {
         ..headers.contentType = ContentType.json
         ..write(jsonEncode({'success': false, 'error': e.toString()}));
     }
+    await request.response.close();
+  }
+
+  /// Runs the update as far as the system install prompt and reports where
+  /// it stopped. The download happens inside the request, so the portal
+  /// gets the outcome (or the reason it failed) in the response.
+  Future<void> _handleAndroidUpdateApply(HttpRequest request) async {
+    final updater = _appUpdater;
+    final AppUpdateState state;
+    if (updater == null) {
+      state = const AppUpdateState(
+          AppUpdatePhase.failed, 'Updater is not available on this build');
+    } else if (updater.current.busy) {
+      state = updater.current;
+    } else {
+      state = await updater.apply();
+    }
+    final statusCode = switch (state.phase) {
+      AppUpdatePhase.waitingForConfirmation || AppUpdatePhase.upToDate => 200,
+      AppUpdatePhase.failed => 500,
+      _ => 409,
+    };
+    request.response
+      ..statusCode = statusCode
+      ..headers.contentType = ContentType.json
+      ..write(jsonEncode({
+        'success': statusCode == 200,
+        'state': state.phase.name,
+        'message': state.message,
+      }));
     await request.response.close();
   }
 
@@ -970,6 +1019,7 @@ final localApiServerProvider = Provider<LocalApiServer>((ref) {
   final updateService = ref.read(updateServiceProvider);
   final alarmService = ref.read(alarmServiceProvider);
   final notificationService = ref.read(notificationServiceProvider);
+  final android = Platform.isAndroid;
   final server = LocalApiServer(
     displayModeService: displayService,
     configNotifier: configNotifier,
@@ -978,6 +1028,8 @@ final localApiServerProvider = Provider<LocalApiServer>((ref) {
     updateService: updateService,
     alarmService: alarmService,
     notificationService: notificationService,
+    android: android,
+    appUpdater: android ? ref.read(appUpdaterProvider.notifier) : null,
     // Generic tearoff: lets plugin routes reach any service provider
     // (HA, Immich, AlarmService, CaptureService, WifiService, ...) via
     // readProvider<T> — the Capture plugin reads captureServiceProvider this way.

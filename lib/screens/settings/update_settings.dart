@@ -3,19 +3,16 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../config/hub_config.dart';
+import '../../services/app_updater.dart';
+import '../../services/installed_version.dart';
 import '../../services/toast_service.dart';
 import '../../services/update_service.dart';
 import '../../app/tokens/tokens.dart';
 
-/// Reads installed version from /etc/hearth-version (written by the OTA updater).
-final installedVersionProvider = Provider<String>((ref) {
-  if (kIsWeb) return '';
-  try {
-    return File('/etc/hearth-version').readAsStringSync().trim();
-  } catch (_) {
-    return '';
-  }
-});
+/// The installed version: `/etc/hearth-version` on the Pi, the package
+/// version on Android.
+final installedVersionProvider =
+    FutureProvider<String>((ref) => readInstalledVersion());
 
 /// Shows current version, latest available version, and the auto-update toggle.
 class UpdateSettingsSection extends ConsumerWidget {
@@ -24,7 +21,8 @@ class UpdateSettingsSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final config = ref.watch(hubConfigProvider);
-    final installedVersion = ref.watch(installedVersionProvider);
+    final installedVersion =
+        ref.watch(installedVersionProvider).valueOrNull ?? '';
     final latestAsync = ref.watch(latestUpdateProvider);
 
     return Column(
@@ -200,6 +198,7 @@ class _ForceUpdateTileState extends ConsumerState<_ForceUpdateTile> {
 
   Future<void> _triggerUpdate() async {
     if (_updating || kIsWeb) return;
+    if (Platform.isAndroid) return _triggerAndroidUpdate();
     setState(() => _updating = true);
     ref.read(toastProvider.notifier).show(
       'Checking for updates...',
@@ -229,8 +228,21 @@ class _ForceUpdateTileState extends ConsumerState<_ForceUpdateTile> {
     }
   }
 
+  Future<void> _triggerAndroidUpdate() async {
+    final s = await ref.read(appUpdaterProvider.notifier).apply();
+    if (!mounted) return;
+    final failed = s.phase == AppUpdatePhase.failed ||
+        s.phase == AppUpdatePhase.needsPermission;
+    ref.read(toastProvider.notifier).show(
+          s.message,
+          icon: failed ? Icons.error_outline : Icons.system_update_alt,
+          type: failed ? ToastType.error : ToastType.info,
+        );
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (!kIsWeb && Platform.isAndroid) return _buildAndroid();
     return ListTile(
       leading: _updating
           ? const SizedBox(
@@ -247,6 +259,36 @@ class _ForceUpdateTileState extends ConsumerState<_ForceUpdateTile> {
         ),
       ),
       onTap: _updating ? null : _triggerUpdate,
+      contentPadding: const EdgeInsets.symmetric(horizontal: HearthSpacing.x2),
+    );
+  }
+
+  Widget _buildAndroid() {
+    final s = ref.watch(appUpdaterProvider);
+    final busy = s.busy;
+    final failed = s.phase == AppUpdatePhase.failed ||
+        s.phase == AppUpdatePhase.needsPermission;
+    return ListTile(
+      leading: busy
+          ? SizedBox(
+              width: HearthSpacing.x6, height: HearthSpacing.x6,
+              child: CircularProgressIndicator(
+                  strokeWidth: 2, value: s.progress),
+            )
+          : Icon(failed ? Icons.error_outline : Icons.download,
+              color: failed ? Colors.amber : Colors.white54,
+              size: HearthIcon.md),
+      title: const Text('Install Update', style: TextStyle(fontSize: HearthFont.body)),
+      subtitle: Text(
+        s.message.isEmpty
+            ? 'Download the latest APK and confirm the install'
+            : s.message,
+        style: TextStyle(
+          fontSize: HearthFont.label,
+          color: failed ? Colors.amber : Colors.white.withValues(alpha: 0.5),
+        ),
+      ),
+      onTap: busy ? null : _triggerAndroidUpdate,
       contentPadding: const EdgeInsets.symmetric(horizontal: HearthSpacing.x2),
     );
   }
