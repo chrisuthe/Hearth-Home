@@ -29,6 +29,9 @@ class PluginRequest {
   /// [updateConfig] convenience over poking the notifier directly.
   final HubConfigNotifier configNotifier;
 
+  /// Values of the route's `:name` path segments.
+  final Map<String, String> pathParams;
+
   /// Scoped provider reader (production wires `ref.read`). Null when no
   /// reader was supplied, in which case [readProvider] throws.
   final ProviderReader? _readProvider;
@@ -38,6 +41,7 @@ class PluginRequest {
     required this.body,
     required this.config,
     required this.configNotifier,
+    this.pathParams = const {},
     ProviderReader? readProvider,
   }) : _readProvider = readProvider;
 
@@ -105,36 +109,65 @@ class PluginRouter {
     _currentPluginId = pluginId;
   }
 
-  /// Register a GET handler at `/api/plugin/<current-id>/<path>`.
-  void get(String path, PluginRouteHandler handler) {
-    final id = _currentPluginId;
-    if (id == null) {
-      throw StateError('Call register(pluginId) before adding routes');
-    }
-    _routes[_RouteKey('GET', '/api/plugin/$id/$path')] = handler;
-  }
+  /// Register a GET handler at `/api/plugin/<current-id>/<path>`. A path
+  /// segment written `:name` matches any one segment, handed to the handler
+  /// as `pathParams['name']`.
+  void get(String path, PluginRouteHandler handler) =>
+      _add('GET', path, handler);
 
   /// Register a POST handler at `/api/plugin/<current-id>/<path>`.
-  void post(String path, PluginRouteHandler handler) {
-    final id = _currentPluginId;
-    if (id == null) {
-      throw StateError('Call register(pluginId) before adding routes');
-    }
-    _routes[_RouteKey('POST', '/api/plugin/$id/$path')] = handler;
-  }
+  void post(String path, PluginRouteHandler handler) =>
+      _add('POST', path, handler);
+
+  /// Register a PUT handler at `/api/plugin/<current-id>/<path>`.
+  void put(String path, PluginRouteHandler handler) =>
+      _add('PUT', path, handler);
 
   /// Register a DELETE handler at `/api/plugin/<current-id>/<path>`.
-  void delete(String path, PluginRouteHandler handler) {
+  void delete(String path, PluginRouteHandler handler) =>
+      _add('DELETE', path, handler);
+
+  void _add(String method, String path, PluginRouteHandler handler) {
     final id = _currentPluginId;
     if (id == null) {
       throw StateError('Call register(pluginId) before adding routes');
     }
-    _routes[_RouteKey('DELETE', '/api/plugin/$id/$path')] = handler;
+    _routes[_RouteKey(method, '/api/plugin/$id/$path')] = handler;
   }
 
   /// Resolve a request to its handler, or null if no route matches.
-  PluginRouteHandler? resolve(String method, String path) {
-    return _routes[_RouteKey(method, path)];
+  PluginRouteHandler? resolve(String method, String path) =>
+      match(method, path)?.handler;
+
+  /// Resolve a request to its handler and the values of its `:name`
+  /// segments, or null if no route matches. An exact route wins.
+  ({PluginRouteHandler handler, Map<String, String> params})? match(
+      String method, String path) {
+    final exact = _routes[_RouteKey(method, path)];
+    if (exact != null) return (handler: exact, params: const {});
+    final segments = path.split('/');
+    for (final entry in _routes.entries) {
+      final key = entry.key;
+      if (key.method != method || !key.path.contains('/:')) continue;
+      final pattern = key.path.split('/');
+      if (pattern.length != segments.length) continue;
+      final params = <String, String>{};
+      var ok = true;
+      for (var i = 0; i < pattern.length && ok; i++) {
+        if (pattern[i].startsWith(':')) {
+          if (segments[i].isEmpty) {
+            ok = false;
+          } else {
+            params[pattern[i].substring(1)] =
+                Uri.decodeComponent(segments[i]);
+          }
+        } else {
+          ok = pattern[i] == segments[i];
+        }
+      }
+      if (ok) return (handler: entry.value, params: params);
+    }
+    return null;
   }
 
   /// All registered route paths, for debugging.

@@ -229,8 +229,8 @@ class LocalApiServer {
         } else {
           if (!_checkAuth(request)) return;
         }
-        final handler = _pluginRouter.resolve(request.method, path);
-        if (handler == null) {
+        final match = _pluginRouter.match(request.method, path);
+        if (match == null) {
           request.response.statusCode = 404;
           request.response.headers.contentType = ContentType.json;
           request.response.write(jsonEncode({'error': 'plugin route not found'}));
@@ -238,16 +238,26 @@ class LocalApiServer {
           return;
         }
         Map<String, dynamic> body = {};
-        if (request.method == 'POST' && request.contentLength > 0) {
+        if ((request.method == 'POST' || request.method == 'PUT') &&
+            request.contentLength > 0) {
           try {
             body = await _readJsonBody(request);
           } catch (e) {
-            return; // _readJsonBody already wrote a 413
+            // _readJsonBody already wrote a 413 for an oversized body.
+            if (e is! FormatException ||
+                e.message != 'Request body too large') {
+              request.response.statusCode = 400;
+              request.response.headers.contentType = ContentType.json;
+              request.response.write(jsonEncode({'error': 'invalid JSON body'}));
+              await request.response.close();
+            }
+            return;
           }
         }
-        await handler(PluginRequest(
+        await match.handler(PluginRequest(
           raw: request,
           body: body,
+          pathParams: match.params,
           config: _configNotifier.current,
           configNotifier: _configNotifier,
           readProvider: _readProvider,
