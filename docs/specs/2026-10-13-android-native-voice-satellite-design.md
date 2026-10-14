@@ -1,7 +1,7 @@
 # Android Native Voice Satellite — Design
 
 **Date:** 2026-10-13
-**Status:** Design. Nothing here is implemented. The hardware facts were measured on one tablet.
+**Status:** Phases 1–5 built. Hardware pass 1 ran on 2026-10-14; results under [Hardware pass 1](#hardware-pass-1-2026-10-14). The hardware facts were measured on one tablet.
 **Goal:** Specify a voice satellite that runs inside the Hearth APK on Android, including how it shares audio with a native Sendspin player, and break the work into tasks.
 
 Builds on `2026-10-13-android-voice-satellite-options.md`, which compared four options and first recommended Ava as a companion app. This document replaces that recommendation with the options spec's runner-up, for the reasons under [Why native](#why-native).
@@ -301,7 +301,7 @@ Each line is one task. Sizes are relative.
 | 1 | Fork Ava, extract `:satellite`, carry the JVM tests. Done in `chrisuthe/Ava-hearth` pull request 1; needs merging and a tag. | Small | — |
 | 2 | Pin the fork as a submodule; `HearthAudioService` with Hearth's own device builder, manifest, permissions, `com.hearth/voice` channel, `VoiceSatelliteBridge`, start from Dart | Medium | 1 |
 | 3 | Identity: `voiceSatelliteMac`, Android MAC source in `VoiceAssistantService`, device info | Small | 2 |
-| 4 | Hardware pass 1: HA discovery, the four states, mute, announce, wake word at distance, wake word over playback | Small | 3 |
+| 4 | Hardware pass 1: HA discovery, the four states, mute, announce, wake word at distance, wake word over playback. Done 2026-10-14 except the release install. | Small | 3 |
 | 5 | Voice plugin settings on both surfaces, health reporting, `settingChanged` | Small-medium | 4 |
 | 6 | Timers: remote timers in `TimerService`, alert overlay, ring with gaps, `startTimerRing` and `stopTimerRing` | Medium | 4, 7 |
 | 7 | `AudioCoordinator` and the media_kit duck request | Small | 4 |
@@ -311,15 +311,77 @@ Each line is one task. Sizes are relative.
 
 Tasks 1 to 4 are the minimum that answers whether this works on the tablet. Task 4 gates everything after it.
 
+## Hardware pass 1 (2026-10-14)
+
+Apolosign Calendar (RK3576, Android 16), debug APK from `main` at `8b83864` plus this branch's two fixes, Home Assistant 2026.10.1. Everything below is **verified** on that tablet unless marked. Wake word `okay_nabu` (both `okay_nabu` and `hey_jarvis` active), sensitivity `very` (set in the Voice plugin before the pass).
+
+**Verdict: proceed with timers (task 6) and the audio coordinator (task 7).** Nothing found blocks them. Two Hearth bugs were found and fixed on this branch. The release (R8) build was built but not installed, so whether R8 breaks the satellite at runtime is still **assumed** and has to be checked before a release ships it. Three fork changes become a follow-up task (below).
+
+**Step 1: enable and permissions.** With Hearth as the HOME app in immersive mode, enabling the satellite showed the microphone prompt, then the notification prompt, both over Hearth without a glitch. The foreground service started straight after the grant (Android logged it as allowed from a `TOP` process), and the `_esphomelib._tcp` record was registered within a second.
+
+**Step 2: discovery and adoption.** HA discovered the device by itself over zeroconf, and it was adopted from the discovery card. Device info: name `hearth`, friendly name `Hearth`, manufacturer `Hearth`, model `Apolosign Calendar`. The firmware field shows Hearth's app version (`1.20.0`), while the mDNS TXT record says `2025.9.0`. Entities: Media Player, Mute Microphone, Enable Wake Sound, plus HA's own assistant, wake word and finished-speaking selects. With the name left empty, the device is called `hearth`, the same name as the Pi's older satellite, so HA suffixed the tablet's entities (`assist_satellite.hearth_assist_satellite_2`). The device also has no area until one is assigned in HA.
+
+**Step 3: the four states.** "Okay nabu, turn off the fireplace lights" and "okay nabu, what time is it" each ran end to end: wake sound, listening, processing, the spoken reply, back to idle. The reply was clear. The voice pill followed the tablet's own satellite once fix 1 below was in.
+
+**Step 4: mute, announce, volume.**
+- Mute from HA and from Hearth's mic button both work and stay in step (after fix 1). Muting stops capture; unmuting reloads the wake-word models.
+- `assist_satellite.announce` played the pre-announce chime and the message five times out of five.
+- Volume from HA (0.86, 0.3, 1.0, 0.9) changed the output audibly and was saved to `voiceSatelliteVolume`.
+- Choosing wake words in HA was saved to `voiceWakeWords`.
+
+**Step 5: wake word at distance.** One attempt per cell unless noted, "okay nabu, what time is it":
+
+| Distance | Quiet room | Music (large desktop speakers next to the tablet, normal volume) |
+|---|---|---|
+| 1 m | 1/1 | 1/1 |
+| 3 m | 1/1 | 1/1 |
+| 7 m | 3/3 | 1/1 |
+
+The samples are small, but no attempt missed. Two **false wakes** in about an hour at sensitivity `very`, one on room conversation and one on barking dogs. `slightly` (the default) was not tried. The music was played by another machine. Playback *from the tablet itself* could not be tested, because Sendspin is inert on Android, so the ducking table above is still untested.
+
+With music, the wake word held but speech after it suffered: once the start of the sentence was lost (" It's it."), and once HA's speech detection did not start until the sentence was repeated, 10.5 s in. The microphone gets no platform processing at all: `HearthMicrophone` logged `Platform audio effects attached: []`.
+
+**First word swallowed: yes, for two reasons, and the vendor gain recovery is not one we could separate.**
+- Ava starts streaming only after the wake sound finishes (`satellite/.../VoiceAssistant.kt:243-248` in the fork), 1.3 to 2.0 s after the wake word. Anything said over the chime is dropped. Every lost word in the quiet runs was speech over the chime.
+- With the wake sound off, streaming starts 47 ms after the detection, but the detection itself fires a few hundred ms after the word ends. Running straight on ("okay nabu set a timer") still lost "set". Ava keeps no lead-in buffer.
+- Turning the wake sound off (the Voice plugin, or HA's Enable Wake Sound) is the recommended setting on this tablet for now. A short pause after the wake word still helps.
+
+**Step 6: robustness.**
+- Rotation: no interruption. Orientation is in the activity's `configChanges`, so the activity is not recreated.
+- Activity recreated in the same process (a relaunch with `CLEAR_TASK`, and a later HOME launch that created a second instance): broke the satellite before fix 2, survives after it. The new engine restarts the device and HA reconnects within about 1.5 s.
+- Wi-Fi off for about 15 s: the service and its process survived. HA reconnected to the satellite about 30 s after the drop, without the record being registered again, and Hearth's own HA connection came back with backoff. The next wake word worked.
+- Overnight soak and lock task: not run in this pass.
+
+**Step 7: release build.** `scripts/build-android-apk.sh` with the release keystore built `hearth-android-dev.apk`: arm64 only (the script builds no other ABI), 81.2 MB, versionCode 1020000. It was **not installed**: replacing the debug build means another uninstall, and the satellite's MAC cannot be restored through the `:8090` API (`voiceSatelliteMac` is read-only there), so HA would see a new device. Deferred to a later session. For comparison, the universal debug APK is 249 MB.
+
+**Step 8: cleanup.** `com.hearth.micprobe` and its recordings are removed from the tablet.
+
+**Timers (seen along the way).** HA's timer events reach the service (started, finished), and Ava rings by itself on `finished`. Hearth shows nothing yet, as planned (task 6). A wake word while the timer rings both stops the ring *and* opens a conversation, 34 ms apart. Twice the extra conversation went wrong (" Thank you." heard; "could not find a timer named Eggs" after the ring had already ended). The stop word on its own was not tried.
+
+**Home Assistant side, not Hearth.** The household pipeline sends everything to an LLM agent (`prefer_local_intents` off). The agent asked for a timer name and area, and once passed the name as `conversation_command`, which HA rejected (`NoTimerCommandError`). The satellite's part was right: every run carried the tablet's `device_id` and `satellite_id`. Turning on "Prefer handling commands locally" is the fix.
+
+### Fixed on this branch
+
+1. **Wrong satellite, and a mute that could not unmute.** `VoiceAssistantService` matched the MAC once, before HA had adopted the tablet, then auto-picked the Pi's satellite and a stale mute switch for the rest of the session. The mic button read that switch as unmuted, so every tap sent "mute". Now the MAC is matched again whenever a new `assist_satellite` entity appears. While the in-app satellite runs, mute is local: `micMuted` drives the service through the bridge, and the service reports it to HA itself.
+2. **Activity recreation stopped the satellite.** A relaunch creates the new activity before the old one is destroyed. The old one's `cleanUpFlutterEngine` stopped the service the new engine had just started, and its `VoiceChannel.dispose()` cleared the process-wide event relay the new engine had attached to. The service is now stopped only when the last `MainActivity` finishes, and the relay detaches only for the listener that attached it.
+
+### Follow-ups
+
+- **Fork (one task):** stream from the moment of the wake, with the chime playing alongside; keep a short lead-in buffer of microphone audio; and make a wake word during a ringing timer stop the ring without starting a conversation. Each needs a hardware check of how the chime and the buffered wake-word tail affect transcription.
+- **`:8090` after activity recreation:** the second engine's `main()` cannot bind the local API port while the first engine still holds it ("The shared flag to bind() needs to be true"), and the API stays down until the process restarts. Not satellite code.
+- **Health event on reconnect:** when HA first connects, the wake-word models restart and the cancellation is reported as `modelLoadFailed` (`ChildCancelledException`). They load fine straight after.
+- **Default name:** an empty `voiceSatelliteName` gives `hearth`, which collides with the Pi's satellite. A default that includes the model, or a prompt for a name in the Voice plugin, would avoid the suffixed entity IDs.
+- **Sensitivity:** rerun the false-wake count at `slightly` before choosing a default for this tablet.
+
 ## Open questions / needs hardware
 
-- Does `okay_nabu` trigger reliably from across a room on this tablet's processed microphone? With music playing at a normal volume?
-- How long is the vendor gain control's recovery after loud playback, and does it swallow the first word after the wake sound?
-- Does the stop word land in a one-second gap in the timer ring?
-- Does Home Assistant discover the service from an `NsdManager` registration made inside a foreground service, and keep the connection for days?
-- Does the service survive under lock task, and across the activity being recreated on rotation?
-- Does requesting `RECORD_AUDIO` from the Flutter activity behave under immersive mode and as the HOME app?
-- How much does the APK grow per ABI?
+- ~~Does `okay_nabu` trigger reliably from across a room? With music playing?~~ Yes, 1 m to 7 m, quiet and with room music (pass 1, small samples). False wakes at `very`; `slightly` untested. Music played *by the tablet* is still untested.
+- ~~Does the first word after the wake sound get swallowed?~~ Yes, by Ava's streaming order rather than by gain recovery (pass 1). The gain recovery itself was not isolated.
+- Does the stop word land in a one-second gap in the timer ring? Not tried.
+- ~~Does Home Assistant discover the service from an `NsdManager` registration inside a foreground service?~~ Yes. Keeping the connection for days: not yet soaked.
+- Does the service survive under lock task? Not tried. ~~Across the activity being recreated on rotation?~~ Rotation does not recreate it; recreation itself is survived since fix 2.
+- ~~Does requesting `RECORD_AUDIO` behave under immersive mode and as the HOME app?~~ Yes.
+- How much does the APK grow per ABI? Release arm64 is 81.2 MB with the satellite; no build without it was made to compare. Does the satellite survive R8 at runtime? Not yet installed.
 - Does the stock assistant's hotword, if the tablet has one, contend for the microphone?
 - Is a linear echo canceller usable after the vendor processing? (Task 9.)
 - Behaviour on a second, non-Rockchip tablet with working platform effects.
