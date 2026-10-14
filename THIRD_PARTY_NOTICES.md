@@ -17,6 +17,7 @@ Full licence texts are in `assets/licenses/`. **Verified** means we read the lic
 | [SendspinDroid (Android Sendspin player)](#sendspindroid) | MIT | android | verified |
 | [Ktor](#ktor) | Apache-2.0 | android | verified |
 | [OkHttp and Okio](#okhttp) | Apache-2.0 | android | verified |
+| [Public Suffix List](#public-suffix-list) | MPL-2.0 | android | verified |
 | [Bouncy Castle Crypto (bcprov)](#bouncycastle) | MIT | android | verified |
 | [SLF4J API](#slf4j) | MIT | android | verified |
 | [Typesafe Config](#typesafe-config) | Apache-2.0 | android | verified |
@@ -120,14 +121,14 @@ Hearth builds SendspinDroid's :shared and :player modules, the protocol client a
 <a id="ktor"></a>
 ## Ktor
 
-Copyright JetBrains s.r.o. and Ktor contributors.
+Copyright JetBrains s.r.o and contributors.
 
 The Sendspin player's WebSocket client and the listener for server-initiated connections.
 
 - Licence: Apache-2.0 (`assets/licenses/apache-2.0.txt`)
 - Source: <https://github.com/ktorio/ktor>
 - Platforms: android
-- Status: **verified**. Maven POM licence of every io.ktor artifact on the release runtime classpath (3.1.1).
+- Status: **verified**. Maven POM licence of every io.ktor artifact on the release runtime classpath (3.1.1); copyright from the source headers at tag 3.1.1.
 
 <a id="okhttp"></a>
 ## OkHttp and Okio
@@ -137,7 +138,17 @@ Copyright Square, Inc.
 - Licence: Apache-2.0 (`assets/licenses/apache-2.0.txt`)
 - Source: <https://github.com/square/okhttp>
 - Platforms: android
-- Status: **verified**. Maven POM licences of okhttp and okhttp-sse 4.12.0 and okio 3.10.2.
+- Status: **verified**. Maven POM licences of okhttp and okhttp-sse 4.12.0 and okio 3.10.2; copyright from the source headers at those tags.
+
+<a id="public-suffix-list"></a>
+## Public Suffix List
+
+Compiled into OkHttp as okhttp3/internal/publicsuffix/publicsuffixes.gz, which the APK carries unmodified.
+
+- Licence: MPL-2.0 (`assets/licenses/mpl-2.0.txt`)
+- Source: <https://publicsuffix.org/list/public_suffix_list.dat>
+- Platforms: android
+- Status: **verified**. okhttp3/internal/publicsuffix/NOTICE in okhttp 4.12.0, and the file in both APKs (unzip -l).
 
 <a id="bouncycastle"></a>
 ## Bouncy Castle Crypto (bcprov)
@@ -162,14 +173,14 @@ Pulled in by Ktor's server.
 <a id="typesafe-config"></a>
 ## Typesafe Config
 
-Copyright Lightbend, Inc.
+Copyright (C) 2011-2012 Typesafe Inc.
 
 Pulled in by Ktor's server.
 
 - Licence: Apache-2.0 (`assets/licenses/apache-2.0.txt`)
 - Source: <https://github.com/lightbend/config>
 - Platforms: android
-- Status: **verified**. Maven POM licence of config 1.4.3.
+- Status: **verified**. Maven POM licence of config 1.4.3; copyright from the source headers at tag v1.4.3.
 
 <a id="litert"></a>
 ## LiteRT

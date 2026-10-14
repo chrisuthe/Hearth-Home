@@ -108,14 +108,14 @@
       "license": "Apache-2.0",
       "licenseFile": "apache-2.0.txt",
       "attribution": [
-        "Copyright JetBrains s.r.o. and Ktor contributors.",
+        "Copyright JetBrains s.r.o and contributors.",
         "The Sendspin player's WebSocket client and the listener for server-initiated connections."
       ],
       "platforms": ["android"],
       "source": "https://github.com/ktorio/ktor",
       "covers": [],
       "status": "verified",
-      "checked": "Maven POM licence of every io.ktor artifact on the release runtime classpath (3.1.1)"
+      "checked": "Maven POM licence of every io.ktor artifact on the release runtime classpath (3.1.1); copyright from the source headers at tag 3.1.1"
     },
     {
       "id": "okhttp",
@@ -129,7 +129,21 @@
       "source": "https://github.com/square/okhttp",
       "covers": [],
       "status": "verified",
-      "checked": "Maven POM licences of okhttp and okhttp-sse 4.12.0 and okio 3.10.2"
+      "checked": "Maven POM licences of okhttp and okhttp-sse 4.12.0 and okio 3.10.2; copyright from the source headers at those tags"
+    },
+    {
+      "id": "public-suffix-list",
+      "name": "Public Suffix List",
+      "license": "MPL-2.0",
+      "licenseFile": "mpl-2.0.txt",
+      "attribution": [
+        "Compiled into OkHttp as okhttp3/internal/publicsuffix/publicsuffixes.gz, which the APK carries unmodified."
+      ],
+      "platforms": ["android"],
+      "source": "https://publicsuffix.org/list/public_suffix_list.dat",
+      "covers": [],
+      "status": "verified",
+      "checked": "okhttp3/internal/publicsuffix/NOTICE in okhttp 4.12.0, and the file in both APKs (unzip -l)"
     },
     {
       "id": "bouncycastle",
@@ -165,14 +179,14 @@
       "license": "Apache-2.0",
       "licenseFile": "apache-2.0.txt",
       "attribution": [
-        "Copyright Lightbend, Inc.",
+        "Copyright (C) 2011-2012 Typesafe Inc.",
         "Pulled in by Ktor's server."
       ],
       "platforms": ["android"],
       "source": "https://github.com/lightbend/config",
       "covers": [],
       "status": "verified",
-      "checked": "Maven POM licence of config 1.4.3"
+      "checked": "Maven POM licence of config 1.4.3; copyright from the source headers at tag v1.4.3"
     },
     {
       "id": "litert",
