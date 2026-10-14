@@ -27,24 +27,28 @@ In Hearth: **Settings → MQTT**
 | Username         | `hearth`                    | optional                               |
 | Password         | `••••••`                    | optional                               |
 | Discovery Prefix | `homeassistant`             | only change if you customized HA's     |
+| Device Name      | `Kitchen`                   | optional; the name HA shows            |
 
-On connect, Hearth publishes its discovery config and a **Hearth** device shows
-up under **Settings → Devices & Services → MQTT**.
+On connect, Hearth publishes its discovery config and a Hearth device shows
+up under **Settings → Devices & Services → MQTT**. With no Device Name set it is
+called **Hearth (<hostname>)** on a Pi (just **Hearth** when the hostname is
+`hearth`) and **Hearth (<model>)** on an Android tablet, so several kiosks on
+one broker stay apart.
 
 ### Your client id
 
-Hearth derives a stable **client id** from the device hostname, lowercased and
-sanitized to `[a-z0-9_]`. For a Pi whose hostname is `kitchen-hearth`, the
-client id is `kitchen_hearth`. It appears in every Hearth MQTT topic:
+Each install has a fixed **client id**, shown read-only as **Device ID** in
+Settings → MQTT. It is assigned the first time a broker is configured: on a Pi
+it is the hostname, lowercased and sanitized to `[a-z0-9_]` (`kitchen-hearth`
+becomes `kitchen_hearth`); Android has no usable hostname, so a tablet gets a
+generated id such as `hearth_3f9a1c07`. It appears in every Hearth MQTT topic:
 
 ```
 hearth/<client-id>/...
 ```
 
-You'll need it for the intent scripts below. The simplest way to find it: open
-the MQTT broker (or HA's **Developer Tools → MQTT → Listen** on `hearth/#`) and
-read it off a published topic. The examples below use `kitchen_hearth` — replace
-it with yours.
+You'll need it for the intent scripts below. The examples below use
+`kitchen_hearth` — replace it with yours.
 
 ## 2. Entities Hearth exposes
 
@@ -54,7 +58,7 @@ it with yours.
 | `sensor.hearth_now_playing`     | read      | track title (or `idle`); artist/album/player attrs   |
 | `sensor.hearth_timer`           | read      | `active` / `fired` / `idle`; count + remaining attrs |
 | `sensor.hearth_next_alarm`      | read      | next alarm ISO time (or `none`); label/days attrs    |
-| `number.hearth_volume`          | write     | ALSA "Master" output volume (0–100), Pi only         |
+| `number.hearth_volume`          | write     | ALSA "Master" output volume (0–100), Pi only; not offered on Android |
 
 Setting `number.hearth_volume` from HA changes the Pi's output volume
 immediately.
