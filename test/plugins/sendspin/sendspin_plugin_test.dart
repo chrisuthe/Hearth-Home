@@ -227,7 +227,7 @@ void main() {
           child: MaterialApp(
             home: Scaffold(
               body: Consumer(
-                builder: (_, ref, __) => SingleChildScrollView(
+                builder: (_, ref, _) => SingleChildScrollView(
                     child: SendspinPlugin().buildSettingsWidget(ref)),
               ),
             ),
