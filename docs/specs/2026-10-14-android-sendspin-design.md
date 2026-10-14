@@ -92,7 +92,7 @@ Differences from Ava:
 - Start stays Dart-driven, from the visible activity. Each feature configures itself over its own channel: `start` on `com.hearth/voice`, `configure` on `com.hearth/sendspin`. Whichever arrives first starts the service, and the service stops when both are off. A Sendspin `configure` rebuilds only the engine, not the satellite, so a playing stream survives a wake-word change and the other way round.
 - The partial wake lock and the Wi-Fi lock the satellite takes cover Sendspin too. SendspinDroid holds a 30-minute playback wake lock and refreshes it (**verified**, `PlaybackService.kt:2370-2385`); Hearth's service-lifetime lock replaces it.
 - **Audio focus.** Hearth is a single-app kiosk. Its other players are media_kit, in the same process. The engine does not request focus in Hearth. Losing focus to a call or another app is not handled in the first version (**assumed** adequate on a dedicated tablet; listed under open questions).
-- **Settings and storage.** `HubConfig` stays the source of truth, as for voice. The start command carries the player name, server URL, unpaired access, output delay and last-playback server. When a server changes the output delay, or a new server becomes the last one to play, the service reports it and Dart writes `HubConfig`, as it does on the Pi through `onOutputDelayPersist` and `onLastPlaybackServer` (**verified**, `sendspin_service.dart:827-837`).
+- **Settings and storage.** `HubConfig` stays the source of truth, as for voice. `configure` carries the player name, server URL, unpaired access, output delay and last-playback server. When a server changes the output delay, or a new server becomes the last one to play, the service reports it and Dart writes `HubConfig`, as it does on the Pi through `onOutputDelayPersist` and `onLastPlaybackServer` (**verified**, `sendspin_service.dart:827-837`).
 - **Secrets are the exception.** The device's key pair, the pairing PSK and the trust records stay out of `hub_config.json`, as the Dart client already keeps them out (**verified**, `sendspin_stores.dart:12`). Hearth's `SendSpinHost` keeps them in the app's private files directory under `sendspin/`. This is the one thing the service persists. Clearing Hearth's data therefore unpairs it from every server, as on the Pi when its identity file is deleted.
 - **Dynamic pairing code** (a code shown on the device's screen) is off in the first version: `PairingConfigStore` reports it disabled. Unpaired access and the pairing token cover setup, as on the Pi.
 
@@ -152,7 +152,7 @@ The voice design's `AudioCoordinator` table says Sendspin is "muted at once" whe
 
 ## Phases
 
-Each line is one task. Sizes are relative. Phases 1 and 2 are pull requests in SendspinDroid; the rest are Hearth tasks.
+Each line is one task. Sizes are relative. Phases 1 and 2 are pull requests in SendspinDroid; the rest are Hearth tasks, and phase 8 may also touch SendspinDroid.
 
 | # | Task | Where | Size | Depends on |
 |---|---|---|---|---|
