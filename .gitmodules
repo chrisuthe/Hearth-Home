@@ -1,3 +1,6 @@
 [submodule "android/third_party/ava"]
 	path = android/third_party/ava
 	url = https://github.com/chrisuthe/Ava-hearth.git
+[submodule "android/third_party/sendspindroid"]
+	path = android/third_party/sendspindroid
+	url = https://github.com/chrisuthe/SendspinDroid.git
