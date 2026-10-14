@@ -448,6 +448,8 @@ class LocalApiServer {
   ///   * [plexClientId] \u2014 internal Plex device identity, app-seeded when the
   ///     Plex player is first enabled.
   ///   * [plexAuthToken] \u2014 plex.tv token from on-device PIN pairing.
+  ///   * [mqttDeviceId] \u2014 MQTT/HA device identity, app-seeded when a
+  ///     broker is first configured; changing it orphans the HA device.
   ///   * [currentVersion] \u2014 managed by the updater, not user-editable.
   ///   * [setupComplete] \u2014 first-run flow state.
   static const _webReadOnlyConfigKeys = {
@@ -455,6 +457,7 @@ class LocalApiServer {
     'dlnaUuid',
     'plexClientId',
     'plexAuthToken',
+    'mqttDeviceId',
     'currentVersion',
     'setupComplete',
     'voiceSatelliteMac',

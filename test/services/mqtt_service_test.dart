@@ -1,11 +1,40 @@
+import 'dart:io';
+import 'dart:math';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hearth/config/hub_config.dart';
 import 'package:hearth/models/hearth_notification.dart';
 import 'package:hearth/modules/alarm_clock/alarm_models.dart';
 import 'package:hearth/modules/alarm_clock/alarm_service.dart';
 import 'package:hearth/services/mqtt_service.dart';
 import 'package:hearth/services/notification_service.dart';
 import 'package:hearth/services/timer_service.dart';
+
+/// Keeps config in memory: the real notifier writes to the app-support dir.
+class _MemoryConfigNotifier extends HubConfigNotifier {
+  _MemoryConfigNotifier(HubConfig c) {
+    state = c;
+  }
+
+  int writes = 0;
+
+  @override
+  Future<void> update(HubConfig Function(HubConfig) updater) async {
+    writes++;
+    state = updater(state);
+  }
+}
+
+/// Counts connection attempts instead of dialing a broker.
+class _CountingMqttService extends MqttService {
+  _CountingMqttService(super.ref, {super.hostname, super.random});
+
+  int connects = 0;
+
+  @override
+  Future<void> connect() async => connects++;
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -46,11 +75,131 @@ void main() {
     });
   });
 
-  group('MqttService.computeClientId', () {
-    test('returns a non-empty sanitized id', () {
-      final id = MqttService.computeClientId();
-      expect(id, isNotEmpty);
-      expect(RegExp(r'^[a-z0-9_]+$').hasMatch(id), isTrue);
+  group('MqttService.resolveDeviceId', () {
+    final generated = RegExp(r'^hearth_[0-9a-f]{8}$');
+    ({String id, String? legacyId}) resolve(String Function() host) =>
+        MqttService.resolveDeviceId(hostname: host, random: Random(1));
+
+    test('a Pi hostname keeps its sanitized id', () {
+      expect(resolve(() => 'hearth').id, 'hearth');
+      expect(resolve(() => 'hearthDev').id, 'hearthdev');
+      expect(resolve(() => 'kitchen-pi').id, 'kitchen_pi');
+      expect(resolve(() => 'hearth').legacyId, isNull);
+    });
+
+    test('localhost gets a generated id and clears the old one', () {
+      final r = resolve(() => 'localhost');
+      expect(r.id, matches(generated));
+      expect(r.legacyId, 'localhost');
+    });
+
+    test('an empty hostname gets a generated id, never bare hearth', () {
+      expect(resolve(() => '').id, matches(generated));
+      expect(resolve(() => '-').id, matches(generated));
+      expect(resolve(() => '').legacyId, isNull);
+    });
+
+    test('a failed lookup gets a generated id and clears nothing', () {
+      final r = resolve(() => throw const SocketException('no hostname'));
+      expect(r.id, matches(generated));
+      // The fallback used to be `hearth`, which a Pi may still own.
+      expect(r.legacyId, isNull);
+    });
+  });
+
+  group('MqttService.defaultDeviceName', () {
+    test('a Pi named hearth stays Hearth', () {
+      expect(MqttService.defaultDeviceName(hostname: 'hearth'), 'Hearth');
+    });
+
+    test('another hostname is shown', () {
+      expect(MqttService.defaultDeviceName(hostname: 'hearthDev'),
+          'Hearth (hearthDev)');
+    });
+
+    test('without a hostname the model is shown', () {
+      expect(MqttService.defaultDeviceName(model: 'Apolosign Calendar'),
+          'Hearth (Apolosign Calendar)');
+      expect(MqttService.defaultDeviceName(), 'Hearth');
+    });
+  });
+
+  group('MqttService device id lifecycle', () {
+    const broker = HubConfig(mqttBrokerUrl: 'mqtt://10.0.0.5:1883');
+
+    ({ProviderContainer container, _MemoryConfigNotifier config,
+        _CountingMqttService service}) start(
+      HubConfig initial,
+      String Function() hostname,
+    ) {
+      final notifier = _MemoryConfigNotifier(initial);
+      final serviceProvider = ChangeNotifierProvider((ref) {
+        final s =
+            _CountingMqttService(ref, hostname: hostname, random: Random(7));
+        ref.listen<HubConfig>(hubConfigProvider, (_, n) => s.updateConfig(n),
+            fireImmediately: true);
+        return s;
+      });
+      final container = ProviderContainer(
+          overrides: [hubConfigProvider.overrideWith((ref) => notifier)]);
+      addTearDown(container.dispose);
+      return (
+        container: container,
+        config: notifier,
+        service: container.read(serviceProvider),
+      );
+    }
+
+    Future<void> settle() => Future<void>.delayed(Duration.zero);
+
+    test('a generated id is persisted once and reused after a restart',
+        () async {
+      final first = start(broker, () => 'localhost');
+      await settle();
+      final id = first.config.state.mqttDeviceId;
+      expect(id, matches(RegExp(r'^hearth_[0-9a-f]{8}$')));
+      expect(first.service.deviceId, id);
+      expect(first.config.writes, 1);
+
+      final second = start(first.config.state, () => 'localhost');
+      await settle();
+      expect(second.service.deviceId, id);
+      expect(second.config.writes, 0);
+    });
+
+    test('a stored id wins over the hostname', () async {
+      final r = start(
+          broker.copyWith(mqttDeviceId: 'hearth_0a1b2c3d'), () => 'hearthDev');
+      await settle();
+      expect(r.service.deviceId, 'hearth_0a1b2c3d');
+      expect(r.config.writes, 0);
+    });
+
+    test('a Pi persists its hostname id', () async {
+      final r = start(broker, () => 'hearth');
+      await settle();
+      expect(r.config.state.mqttDeviceId, 'hearth');
+    });
+
+    test('persisting the id does not reconnect', () async {
+      final r = start(broker, () => 'localhost');
+      await settle();
+      expect(r.config.writes, 1);
+      expect(r.service.connects, 1);
+    });
+
+    test('renaming the device does not reconnect', () async {
+      final r = start(broker, () => 'hearth');
+      await settle();
+      await r.config.update((c) => c.copyWith(mqttDeviceName: 'Kitchen'));
+      expect(r.service.connects, 1);
+    });
+
+    test('no id is assigned until a broker is configured', () async {
+      final r = start(const HubConfig(), () => 'localhost');
+      await settle();
+      expect(r.config.state.mqttDeviceId, isEmpty);
+      expect(r.service.connects, 0);
     });
   });
 
@@ -105,6 +254,42 @@ void main() {
       expect(volume['max'], 100);
     });
 
+    test('the device name is sent in the device block', () {
+      final e = MqttService.buildDiscoveryEntries(
+        clientId: 'k',
+        discoveryPrefix: 'homeassistant',
+        swVersion: '1.2.3',
+        configurationUrl: 'http://10.0.1.80:8090',
+        deviceName: 'Hearth (Apolosign Calendar)',
+      );
+      expect((e.first.config['device'] as Map)['name'],
+          'Hearth (Apolosign Calendar)');
+    });
+
+    test('no configuration_url is sent when none is known', () {
+      final e = MqttService.buildDiscoveryEntries(
+        clientId: 'k',
+        discoveryPrefix: 'homeassistant',
+        swVersion: '1.2.3',
+        configurationUrl: null,
+      );
+      expect(e.first.config['device'] as Map,
+          isNot(contains('configuration_url')));
+    });
+
+    test('volume is left out where it cannot be read', () {
+      final e = MqttService.buildDiscoveryEntries(
+        clientId: 'k',
+        discoveryPrefix: 'homeassistant',
+        swVersion: '1.2.3',
+        configurationUrl: null,
+        includeVolume: false,
+      );
+      expect(e.length, 4);
+      expect(e.map((x) => x.topic),
+          isNot(contains(MqttService.volumeDiscoveryTopic('homeassistant', 'k'))));
+    });
+
     test('empty version falls back to "unknown"', () {
       final e = MqttService.buildDiscoveryEntries(
         clientId: 'k',
@@ -122,11 +307,12 @@ void main() {
     late TimerService timers;
     late AlarmService alarms;
     late NotificationService notifications;
-    final cid = MqttService.computeClientId();
-    String topic(String suffix) => 'hearth/$cid/$suffix';
+    String topic(String suffix) => 'hearth/kitchen/$suffix';
 
     setUp(() {
       container = ProviderContainer(overrides: [
+        hubConfigProvider.overrideWith((ref) =>
+            _MemoryConfigNotifier(const HubConfig(mqttDeviceId: 'kitchen'))),
         // Use a silent chime so no audio subprocess is spawned in tests.
         notificationServiceProvider.overrideWith(
           (ref) => NotificationService(playChime: (_) async {}),

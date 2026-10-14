@@ -19,6 +19,12 @@ Open **MQTT** in the [[web portal|The Web Portal]] and enter:
 | **Username** | *(optional)* | If your broker requires auth. |
 | **Password** | *(optional)* | If your broker requires auth. |
 | **Discovery Prefix** | `homeassistant` | Match Home Assistant's MQTT discovery prefix. |
+| **Device Name** | *(optional)* | The name Home Assistant shows. Defaults to *Hearth (hostname)* on a Pi and *Hearth (tablet model)* on Android. |
+
+The panel also shows the **Device ID**, read-only. Every topic is `hearth/<device id>/...`,
+so you need it for automations that publish commands. A Pi uses its hostname
+(`kitchen-hearth` becomes `kitchen_hearth`); an Android tablet gets a generated id such as
+`hearth_3f9a1c07`. It is fixed once assigned, so the Home Assistant device survives restarts.
 
 Secure schemes (`mqtts://`, `ssl://`, `tls://`, `wss://`) default to port 8883; plain
 `mqtt://` defaults to 1883. The panel shows a live connection status (Connected / Connecting /
@@ -35,7 +41,7 @@ version reports Hearth's installed app version):
 | **Now Playing** | sensor | Track title (or *idle*); artist, album, player, and playback-state attributes. |
 | **Timer** | sensor | `active` / `fired` / `idle`, plus count and remaining-seconds attributes. |
 | **Next Alarm** | sensor | The next alarm's time (or *none*), with label, day-summary, and sunrise attributes. |
-| **Volume** | number | The kiosk's master volume (0–100) — **writable** from Home Assistant. |
+| **Volume** | number | The kiosk's master volume (0–100) — **writable** from Home Assistant. Pi only; not offered on Android yet. |
 
 ## What Home Assistant can control
 
