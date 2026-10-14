@@ -26,6 +26,7 @@ import android.os.HandlerThread
 import android.os.IBinder
 import android.util.DisplayMetrics
 import android.view.Display
+import android.view.Surface
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import com.hearth.hearth.MainActivity
@@ -210,14 +211,12 @@ class ScreenCaptureService : Service() {
             r.setOutputFile(path)
             r.prepare()
             // Same aspect as the panel, so the mirror fills it without bars.
-            d.resize(w, h, panel.dpi)
-            d.surface = r.surface
+            swap(d, r.surface, w, h)
             r.start()
         } catch (e: Exception) {
             Timber.e(e, "Recorder start failed")
             r.release()
-            d.resize(panel.width, panel.height, panel.dpi)
-            d.surface = reader?.surface
+            swap(d, reader?.surface, panel.width, panel.height)
             File(path).delete()
             reply(ERROR_RECORDER, "Recorder failed to start: ${e.message}")
             return@post
@@ -257,10 +256,7 @@ class ScreenCaptureService : Service() {
         } finally {
             r.release()
         }
-        display?.let {
-            it.resize(panel.width, panel.height, panel.dpi)
-            it.surface = reader?.surface
-        }
+        display?.let { swap(it, reader?.surface, panel.width, panel.height) }
         return saved
     }
 
@@ -334,9 +330,19 @@ class ScreenCaptureService : Service() {
         dropLatest()
         val r = newReader(now)
         reader = r
-        d.resize(now.width, now.height, now.dpi)
-        d.surface = r.surface
+        swap(d, r.surface, now.width, now.height)
         old?.close()
+    }
+
+    /**
+     * Surface first, then size. The mirror's scale is computed from the
+     * consuming Surface's size when the display's configuration changes, and
+     * a Surface swap alone does not change it: resizing first scales the
+     * mirror for the old Surface and leaves the new one letterboxed.
+     */
+    private fun swap(d: VirtualDisplay, surface: Surface?, width: Int, height: Int) {
+        d.surface = surface
+        d.resize(width, height, panel.dpi)
     }
 
     private fun readPanel(): Panel {
