@@ -409,7 +409,7 @@ With music, the wake word held but speech after it suffered: once the start of t
 - ~~Does Home Assistant discover the service from an `NsdManager` registration inside a foreground service?~~ Yes. Keeping the connection for days: not yet soaked.
 - Does the service survive under lock task? Not tried. ~~Across the activity being recreated on rotation?~~ Rotation does not recreate it; recreation itself is survived since fix 2.
 - ~~Does requesting `RECORD_AUDIO` behave under immersive mode and as the HOME app?~~ Yes.
-- How much does the APK grow per ABI? Release arm64 is 81.2 MB with the satellite; no build without it was made to compare. Does the satellite survive R8 at runtime? Not yet installed.
+- How much does the APK grow per ABI? Release arm64 is 81.2 MB with the satellite; no build without it was made to compare. Does the satellite survive R8 at runtime? Partly answered on 2026-10-14: the first release APK on the tablet crashed when Home Assistant asked for device info, because R8 stripped the ESPHome protobuf-lite fields. A keep rule in `android/ava/esphomeproto/src/main/resources/META-INF/proguard/esphomeproto.pro` fixed it, and the release build then connected to Home Assistant (**verified**). A spoken exchange on it, and so LiteRT under R8, is not yet checked.
 - Does the stock assistant's hotword, if the tablet has one, contend for the microphone?
 - Is a linear echo canceller usable after the vendor processing? (Task 9.)
 - Behaviour on a second, non-Rockchip tablet with working platform effects.
