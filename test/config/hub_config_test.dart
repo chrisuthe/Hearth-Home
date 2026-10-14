@@ -164,6 +164,80 @@ void main() {
       expect(updated.sendspinEnabled, true);
     });
 
+    test('voice satellite fields have correct defaults', () {
+      const config = HubConfig();
+      expect(config.voiceSatelliteEnabled, false);
+      expect(config.voiceSatelliteName, '');
+      expect(config.voiceSatelliteMac, '');
+      expect(config.voiceWakeWords, ['okay_nabu']);
+      expect(config.voiceWakeSensitivity, 'slightly');
+      expect(config.voiceWakeSound, true);
+      expect(config.voiceAudioSource, 'voiceRecognition');
+    });
+
+    test('voice satellite fields round-trip through JSON', () {
+      const config = HubConfig(
+        voiceSatelliteEnabled: true,
+        voiceSatelliteName: 'Kitchen Hearth',
+        voiceSatelliteMac: '0a:1b:2c:3d:4e:5f',
+        voiceWakeWords: ['hey_jarvis', 'okay_nabu'],
+        voiceWakeSensitivity: 'very',
+        voiceWakeSound: false,
+        voiceAudioSource: 'mic',
+      );
+      final restored = HubConfig.fromJson(config.toJson());
+      expect(restored.voiceSatelliteEnabled, true);
+      expect(restored.voiceSatelliteName, 'Kitchen Hearth');
+      expect(restored.voiceSatelliteMac, '0a:1b:2c:3d:4e:5f');
+      expect(restored.voiceWakeWords, ['hey_jarvis', 'okay_nabu']);
+      expect(restored.voiceWakeSensitivity, 'very');
+      expect(restored.voiceWakeSound, false);
+      expect(restored.voiceAudioSource, 'mic');
+    });
+
+    test('voice satellite fields missing from JSON fall back to defaults', () {
+      final config = HubConfig.fromJson({});
+      expect(config.voiceSatelliteEnabled, false);
+      expect(config.voiceSatelliteMac, '');
+      expect(config.voiceWakeWords, ['okay_nabu']);
+      expect(config.voiceWakeSensitivity, 'slightly');
+      expect(config.voiceWakeSound, true);
+      expect(config.voiceAudioSource, 'voiceRecognition');
+    });
+
+    test('voiceWakeWords keeps one to two non-empty strings', () {
+      List<String> load(dynamic value) =>
+          HubConfig.fromJson({'voiceWakeWords': value}).voiceWakeWords;
+      expect(load(['a', 'b', 'c']), ['a', 'b']);
+      expect(load(['', 'b']), ['b']);
+      expect(load([]), ['okay_nabu']);
+      expect(load([1, null]), ['okay_nabu']);
+      expect(load('okay_nabu'), ['okay_nabu']);
+    });
+
+    test('copyWith changes voice satellite fields and keeps the rest', () {
+      const config = HubConfig(
+        voiceSatelliteMac: '0a:1b:2c:3d:4e:5f',
+        voiceWakeWords: ['hey_jarvis'],
+      );
+      final updated = config.copyWith(
+        voiceSatelliteEnabled: true,
+        voiceSatelliteName: 'Hall',
+        voiceWakeSensitivity: 'moderately',
+        voiceWakeSound: false,
+        voiceAudioSource: 'unprocessed',
+      );
+      expect(updated.voiceSatelliteEnabled, true);
+      expect(updated.voiceSatelliteName, 'Hall');
+      expect(updated.voiceWakeSensitivity, 'moderately');
+      expect(updated.voiceWakeSound, false);
+      expect(updated.voiceAudioSource, 'unprocessed');
+      expect(updated.voiceSatelliteMac, '0a:1b:2c:3d:4e:5f');
+      expect(updated.voiceWakeWords, ['hey_jarvis']);
+      expect(updated.copyWith(voiceWakeWords: ['alexa']).voiceWakeWords,
+          ['alexa']);
+    });
+
     test('dlna fields have correct defaults', () {
       const config = HubConfig();
       expect(config.dlnaEnabled, false);

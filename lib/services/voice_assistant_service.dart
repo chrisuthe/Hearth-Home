@@ -6,6 +6,7 @@ import '../config/hub_config.dart';
 import '../models/ha_entity.dart';
 import '../utils/logger.dart';
 import 'home_assistant_service.dart';
+import 'voice_satellite_bridge.dart';
 
 /// Pipeline stage states for the voice assistant.
 enum VoiceState { idle, listening, processing, responding, error }
@@ -110,8 +111,16 @@ class VoiceAssistantService {
   Stream<bool?> get mutedStream => _mutedController.stream;
   bool? get muted => _muted;
 
-  VoiceAssistantService(this._ha, {String pinnedEntityId = ''})
-      : _pinnedEntityId = pinnedEntityId;
+  /// The in-app satellite's MAC on Android, where the kiosk's own interface
+  /// address says nothing about the satellite. Empty elsewhere.
+  final String _satelliteMac;
+
+  VoiceAssistantService(
+    this._ha, {
+    String pinnedEntityId = '',
+    String satelliteMac = '',
+  })  : _pinnedEntityId = pinnedEntityId,
+        _satelliteMac = satelliteMac;
 
   /// Starts watching the assist_satellite entity for state changes.
   void start() {
@@ -138,7 +147,9 @@ class VoiceAssistantService {
   }
 
   Future<void> _autoDetectByMac() async {
-    final mac = await _readPiMacAddress();
+    final mac = _satelliteMac.isNotEmpty
+        ? _satelliteMac.toLowerCase()
+        : await _readPiMacAddress();
     if (mac == null) {
       Log.d('Voice', 'No MAC available for auto-detect; using auto-pick');
       return;
@@ -477,7 +488,14 @@ final voiceAssistantServiceProvider = Provider<VoiceAssistantService>((ref) {
   // the service against the new pin without disturbing other config.
   final pinnedEntityId = ref.watch(
       hubConfigProvider.select((c) => c.voiceAssistantEntityId));
-  final service = VoiceAssistantService(ha, pinnedEntityId: pinnedEntityId);
+  final satelliteMac = voiceSatelliteSupported
+      ? ref.watch(hubConfigProvider.select((c) => c.voiceSatelliteMac))
+      : '';
+  final service = VoiceAssistantService(
+    ha,
+    pinnedEntityId: pinnedEntityId,
+    satelliteMac: satelliteMac,
+  );
   service.start();
   ref.onDispose(() => service.dispose());
   return service;
