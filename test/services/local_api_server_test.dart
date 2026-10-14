@@ -316,6 +316,20 @@ void main() {
       expect(configNotifier.state.haUrl, 'http://z');
     });
 
+    test('POST /api/config ignores read-only voiceSatelliteMac', () async {
+      configNotifier.state = const HubConfig(
+          apiKey: testApiKey, voiceSatelliteMac: '0a:1b:2c:3d:4e:5f');
+      final r = await post('/api/config',
+          body: jsonEncode({
+            'voiceSatelliteMac': 'ff:ff:ff:ff:ff:ff',
+            'voiceWakeWords': ['hey_jarvis', 'okay_nabu'],
+          }),
+          headers: authHeaders);
+      expect(r.statusCode, 200);
+      expect(configNotifier.state.voiceSatelliteMac, '0a:1b:2c:3d:4e:5f');
+      expect(configNotifier.state.voiceWakeWords, ['hey_jarvis', 'okay_nabu']);
+    });
+
     test('POST /api/config ignores unknown keys without error', () async {
       final r = await post('/api/config',
           body: jsonEncode({'notARealField': 'whatever', 'haUrl': 'http://y'}),

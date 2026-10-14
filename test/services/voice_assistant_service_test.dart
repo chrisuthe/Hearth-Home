@@ -299,6 +299,69 @@ void main() {
     });
   });
 
+  group('VoiceAssistantService satellite MAC from config (Android)', () {
+    late FakeWebSocketChannel fake;
+    late HomeAssistantService ha;
+    late VoiceAssistantService service;
+
+    setUp(() async {
+      fake = FakeWebSocketChannel();
+      ha = HomeAssistantService.withChannel(fake);
+      ha.connect('test-token');
+      fake.simulateMessage({'type': 'auth_ok'});
+      await Future.delayed(const Duration(milliseconds: 20));
+      // Upper case on purpose: the match must not depend on how it was stored.
+      service = VoiceAssistantService(ha, satelliteMac: '0A:1B:2C:3D:4E:5F');
+      service.start();
+    });
+
+    tearDown(() async {
+      service.dispose();
+      ha.dispose();
+      await fake.close();
+    });
+
+    test('locks onto the entity whose unique_id carries the configured MAC',
+        () async {
+      // Auto-pick takes the first satellite it sees, which is the wrong one.
+      fake.simulateMessage(_stateChanged('assist_satellite.kitchen', 'idle'));
+      fake.simulateMessage(_stateChanged('assist_satellite.tablet', 'idle'));
+      await Future.delayed(const Duration(milliseconds: 20));
+      expect(service.selectedEntityIdForTest, 'assist_satellite.kitchen');
+
+      final requests = fake.sentMessages
+          .map((s) => jsonDecode(s) as Map<String, dynamic>)
+          .where((m) => m['type'] == 'config/entity_registry/list')
+          .toList();
+      const registry = [
+        {
+          'entity_id': 'assist_satellite.kitchen',
+          'platform': 'esphome',
+          'unique_id': 'aa:bb:cc:dd:ee:ff-assist_satellite',
+          'device_id': 'dev1',
+        },
+        {
+          'entity_id': 'assist_satellite.tablet',
+          'platform': 'esphome',
+          'unique_id': '0a:1b:2c:3d:4e:5f-assist_satellite',
+          'device_id': 'dev2',
+        },
+      ];
+      // Auto-detect and mute discovery both ask for the registry.
+      for (final request in requests) {
+        fake.simulateMessage({
+          'id': request['id'],
+          'type': 'result',
+          'success': true,
+          'result': registry,
+        });
+      }
+      await Future.delayed(const Duration(milliseconds: 20));
+
+      expect(service.selectedEntityIdForTest, 'assist_satellite.tablet');
+    });
+  });
+
   group('VoiceAssistantService mute-entity resolution', () {
     test('resolves the sibling mute switch on the satellite device', () {
       final registry = [
