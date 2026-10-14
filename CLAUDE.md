@@ -21,7 +21,7 @@ flutter build apk --debug  # experimental Android target (needs JDK 17 + Android
 
 For Raspberry Pi deployment, the app runs via flutter-pi (not `flutter run`). On Pi, swap `media_kit` for `flutterpi_gstreamer_video_player` (same video_player API, GStreamer instead of libmpv).
 
-**Android is experimental.** `android/` builds an APK that launches to Home and runs immersive fullscreen, but webviews, Sendspin, alarm/timer audio, WiFi management, the updater and capture are inert there, and no CI job builds it. Android takes the `media_kit` path. `docs/specs/2026-10-13-android-apk-requirements.md` is the per-subsystem status and the follow-up list — update it when an Android gap is closed.
+**Android is experimental.** `android/` builds an APK that launches to Home and runs immersive fullscreen, but webviews, Sendspin, alarm/timer audio, WiFi management, the updater and capture are inert there. CI builds it with `scripts/build-android-apk.sh` wherever it builds the Pi bundle (release tags, manual runs, the weekly canary) but not on pull requests. Android takes the `media_kit` path. `docs/specs/2026-10-13-android-apk-requirements.md` is the per-subsystem status and the follow-up list — update it when an Android gap is closed.
 
 ## Architecture
 
@@ -142,8 +142,9 @@ GStreamer error, no Dart exception — so it will not show up in CI, only on a
 device. 3.47.6 was accepted after it booted on the Pi and direct-played a
 generated 1080p h264 clip for 60s. That clip also played on 3.44.9, so the
 original crash was not reproduced and is **not proven fixed**. Flutter is now
-pinned at 3.47.7. Before accepting any Flutter bump, cast a 1080p direct-play
-title on a real Pi.
+pinned at 3.47.7, which passed the same check on the same kind of clip (see
+`docs/specs/2026-10-13-v1.21.0-release-readiness.md`). Before accepting any
+Flutter bump, cast a 1080p direct-play title on a real Pi.
 
 **`flutterpi_tool` is temporarily installed from an unreleased upstream commit.**
 The latest pub.dev release (0.12.0) does not compile against Flutter 3.47, so
@@ -155,6 +156,6 @@ Two checks cover what Renovate cannot see:
 - `.gitea/workflows/upstream-drift.yml` — weekly, compares each fork's
   `UPSTREAM_PIN` against its upstream HEAD and opens a tracking issue.
 - `.github/workflows/build-pi-image.yml` — weekly scheduled run, cross-compiles
-  for arm64. Desktop CI never does.
+  for arm64 and builds the Android APK. Desktop CI does neither.
 
 Design rationale: `docs/specs/2026-08-12-dependency-maintenance-process-design.md`
