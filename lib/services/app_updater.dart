@@ -211,14 +211,20 @@ class AppUpdater extends StateNotifier<AppUpdateState> {
       if (!await apk.exists() || await _sha256(apk) != expected) {
         _set(AppUpdateState(AppUpdatePhase.downloading, 'Downloading v$version',
             version: version, progress: 0));
+        var lastPct = 0;
         await _dio.download(
           latest.bundleUrl,
           apk.path,
           options: Options(headers: _downloadHeaders()),
           onReceiveProgress: (got, total) {
             if (total <= 0) return;
+            // Per whole percent: a chunk-by-chunk state rebuilds the UI
+            // thousands of times over a large APK.
+            final pct = got * 100 ~/ total;
+            if (pct == lastPct) return;
+            lastPct = pct;
             _set(AppUpdateState(AppUpdatePhase.downloading,
-                'Downloading v$version (${(got * 100 / total).floor()}%)',
+                'Downloading v$version ($pct%)',
                 version: version, progress: got / total));
           },
         );
