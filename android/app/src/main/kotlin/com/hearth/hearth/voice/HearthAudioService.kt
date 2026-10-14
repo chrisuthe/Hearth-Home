@@ -62,6 +62,7 @@ class HearthAudioService : LifecycleService() {
     private var deviceJob: Job? = null
     private var settings: SatelliteSettings? = null
     private var nsd: NsdRegistration? = null
+    private val audio = AudioCoordinator()
 
     override fun onCreate() {
         super.onCreate()
@@ -123,7 +124,7 @@ class HearthAudioService : LifecycleService() {
         val context = lifecycleScope.coroutineContext + job + failed
         val settings = SatelliteSettings(config)
 
-        val device = SatelliteBuilder(this).build(context, config, settings) { id, error ->
+        val device = SatelliteBuilder(this).build(context, config, settings, audio) { id, error ->
             Timber.e(error, "Wake word model failed to load: $id")
             VoiceEvents.health(VoiceEvents.MODEL_LOAD_FAILED, "$id: ${error.message}")
         }
@@ -158,6 +159,8 @@ class HearthAudioService : LifecycleService() {
             is VoiceError -> "error" to true
             else -> "idle" to false
         }
+        // Ava resets without unDuck when Home Assistant drops mid-exchange.
+        if (!connected) audio.release()
         VoiceEvents.state(state, connected)
         notify(
             when {
@@ -192,6 +195,8 @@ class HearthAudioService : LifecycleService() {
         device?.close()
         device = null
         settings = null
+        // A closed device never calls unDuck.
+        audio.release()
         releaseLocks()
     }
 
