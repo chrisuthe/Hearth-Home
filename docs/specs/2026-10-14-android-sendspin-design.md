@@ -49,7 +49,7 @@ Three classes in the `sendspin` package stay in `:app` because they are the app'
 
 Behaviour is meant to be unchanged; the pull request lists the checks. The unit tests stay in `:app` for now, so the same suite runs before and after the move. As a result, two test seams that were `internal` (`SendSpin.handshakeTimeoutMs`, `SendSpinProtocolHandler.installEncryptedChannel`) are now public.
 
-Link: https://github.com/chrisuthe/SendspinDroid/pull/PR_NUMBER
+Link: https://github.com/chrisuthe/SendspinDroid/pull/326 (branch `refactor/player-library`, commit `dcc9faa4`)
 
 ### Phase 2: the engine
 
@@ -148,7 +148,7 @@ Each line is one task. Sizes are relative. Phases 1 and 2 are pull requests in S
 
 | # | Task | Where | Size | Depends on |
 |---|---|---|---|---|
-| 1 | Extract `:player` from `:app`, behaviour unchanged. Pull request open; tag after merge. | SendspinDroid | Medium | — |
+| 1 | Extract `:player` from `:app`, behaviour unchanged. SendspinDroid pull request 326, open; tag after merge. | SendspinDroid | Medium | — |
 | 2 | Move the pipeline into a `SendspinEngine` in `:player`, with the volume interface, the `VOICE` mute reason, `consumer-rules.pro`, and the pipeline tests. `PlaybackService` becomes its host. Tag. | SendspinDroid | Large | 1 |
 | 3 | Pin SendspinDroid as a submodule; Hearth-owned scripts for `:sendspin-shared` and `:sendspin-player`; the APK builds with the classes in it; `CLAUDE.md` maintenance note | Hearth | Small-medium | 2 |
 | 4 | `HearthAudioService` hosts the engine: start with voice and Sendspin as independent sections, foreground type by feature, `SendSpinHost` with private-file storage, `com.hearth/sendspin` | Hearth | Medium | 3 |
