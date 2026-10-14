@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../config/hub_config.dart';
 import '../../services/capture_service.dart';
+import '../../services/capture_service_android.dart';
 import '../framework/plugin_router.dart';
 import '../framework/web_context.dart';
 import '../hearth_plugin.dart';
@@ -93,10 +94,26 @@ class CapturePlugin extends HearthPlugin {
     return true;
   }
 
+  /// Consent problems and a screenshot during a recording are conflicts with
+  /// device state the user can resolve, so 409; anything else is a failure.
+  Future<void> _captureError(PluginRequest req, CaptureException e) async {
+    final conflict = e.isConsent || e.code == 'recording_active';
+    req.raw.response.statusCode = conflict ? 409 : 500;
+    req.raw.response.headers.contentType = ContentType.json;
+    req.raw.response.write(jsonEncode({'error': e.message, 'code': e.code}));
+    await req.raw.response.close();
+  }
+
   Future<void> _screenshot(PluginRequest req) async {
     if (await _gated(req)) return;
     final capture = req.readProvider(captureServiceProvider);
-    final file = await capture.takeScreenshot();
+    final CaptureFile file;
+    try {
+      file = await capture.takeScreenshot();
+    } on CaptureException catch (e) {
+      await _captureError(req, e);
+      return;
+    }
     await req.respondJson({
       'filename': file.filename,
       'path': file.path,
@@ -123,6 +140,8 @@ class CapturePlugin extends HearthPlugin {
         'detail': e.message,
       }));
       await req.raw.response.close();
+    } on CaptureException catch (e) {
+      await _captureError(req, e);
     }
   }
 
@@ -142,6 +161,8 @@ class CapturePlugin extends HearthPlugin {
       await req.respondError(400, 'no active recording');
       // respondError already closed the response; surface detail in the log.
       debugPrint('Capture: stop with no active recording: ${e.message}');
+    } on CaptureException catch (e) {
+      await _captureError(req, e);
     }
   }
 
@@ -275,6 +296,7 @@ class _CapturePanelState extends ConsumerState<_CapturePanel> {
             style: TextStyle(color: Colors.white54, fontStyle: FontStyle.italic),
           ),
         ),
+        if (captureUsesProjection) const _ProjectionConsent(),
         const Text(
           'Touch indicator',
           style: TextStyle(
@@ -349,6 +371,45 @@ class _CapturePanelState extends ConsumerState<_CapturePanel> {
       case TouchIndicatorStyle.trail:
         return 'Trail';
     }
+  }
+}
+
+/// Android only: whether this session holds a screen-capture grant, and a
+/// button to ask for one so the first portal capture doesn't have to.
+class _ProjectionConsent extends ConsumerWidget {
+  const _ProjectionConsent();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final granted = ref.watch(captureConsentProvider).valueOrNull ?? false;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        children: [
+          Icon(
+            granted ? Icons.check_circle : Icons.info_outline,
+            color: granted ? const Color(0xFF4ADE80) : Colors.white54,
+            size: 18,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              granted
+                  ? 'Screen capture allowed for this session'
+                  : 'Screen capture not allowed yet. Android asks once per '
+                      'session.',
+              style: const TextStyle(color: Colors.white70),
+            ),
+          ),
+          if (!granted)
+            TextButton(
+              onPressed: () =>
+                  ref.read(androidCaptureBridgeProvider).requestConsent(),
+              child: const Text('Grant screen capture'),
+            ),
+        ],
+      ),
+    );
   }
 }
 
@@ -428,17 +489,24 @@ const _captureHtml = r'''
     var recTimer = null;
 
     function headers() { return {'Authorization': 'Bearer ' + API_KEY, 'Content-Type': 'application/json'}; }
+    var toastTimer = null;
     function toast(msg, err) {
       var t = document.getElementById('toast');
       t.textContent = msg;
       t.className = 'toast show' + (err ? ' error' : '');
-      setTimeout(function () { t.className = 'toast'; }, 2000);
+      // Errors can carry instructions (tap Allow on the tablet); give time to read.
+      if (toastTimer) clearTimeout(toastTimer);
+      toastTimer = setTimeout(function () { t.className = 'toast'; }, err ? 6000 : 2000);
+    }
+    // Prefers the route's own message, e.g. a screen-capture consent prompt.
+    async function failure(r, fallback) {
+      try { var j = await r.json(); return j.error || fallback; } catch (e) { return fallback; }
     }
 
     async function takeScreenshot() {
       try {
         var r = await fetch(PREFIX + '/screenshot', {method: 'POST', headers: headers()});
-        if (!r.ok) throw 0;
+        if (!r.ok) { toast(await failure(r, 'Screenshot failed'), true); return; }
         toast('Screenshot saved');
         loadGallery();
       } catch (e) { toast('Screenshot failed', true); }
@@ -449,7 +517,7 @@ const _captureHtml = r'''
       if (!recStart) {
         try {
           var r = await fetch(PREFIX + '/recording/start', {method: 'POST', headers: headers()});
-          if (!r.ok) throw 0;
+          if (!r.ok) { toast(await failure(r, 'Start failed'), true); return; }
           recStart = Date.now();
           btn.textContent = 'Stop Recording';
           btn.className = 'recording';
@@ -459,8 +527,8 @@ const _captureHtml = r'''
       } else {
         try {
           var r = await fetch(PREFIX + '/recording/stop', {method: 'POST', headers: headers()});
-          if (!r.ok) throw 0;
-          toast('Recording saved');
+          if (r.ok) toast('Recording saved');
+          else toast(await failure(r, 'Stop failed'), true);
         } catch (e) { toast('Stop failed', true); }
         recStart = null;
         btn.textContent = 'Start Recording';
