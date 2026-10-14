@@ -2,9 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:video_player/video_player.dart';
 
+import '../../app/idle_controller.dart';
 import '../../app/scale/hearth_scale.dart';
 import '../../config/hub_config.dart';
 import '../../config/webview_config.dart';
+import 'android_webview_session.dart';
+import 'android_webview_view.dart';
+import 'gst_webview_session.dart';
 import 'ha_token_injector.dart';
 import 'webview_geometry.dart';
 import 'webview_session.dart';
@@ -34,9 +38,11 @@ Offset webviewViewportOffset(Offset local, Size box, Size render) {
 
 /// Renders a single configured webview into HubShell's PageView.
 ///
-/// Resolves a [WebviewSession] from the pool, renders the underlying video
-/// texture, and shows Hearth-styled LOADING / ERROR placeholders during
-/// transitions.
+/// Resolves a [WebviewSession] from the pool, renders it, and shows
+/// Hearth-styled LOADING / ERROR placeholders during transitions. A
+/// [GstWebviewSession] renders as a video texture; an [AndroidWebviewSession]
+/// as a system WebView platform view, mounted in every state (it has to exist
+/// to load) with the placeholders drawn over it.
 ///
 /// Offscreen pages resolve and stay warm too: the pool now holds a cap-N LRU
 /// of live sessions, so a pre-built webview page can resolve in the background
@@ -114,6 +120,13 @@ class _WebviewScreenState extends ConsumerState<WebviewScreen> {
     if (mounted) setState(() {});
   }
 
+  /// A touch on the Android WebView. The platform view can win the gesture
+  /// arena before HubShell's tap detector fires, so wake from here.
+  void _onAndroidTouch() {
+    ref.read(idleControllerProvider).onUserActivity();
+    ref.read(webviewSessionPoolProvider).resumeAll();
+  }
+
   @override
   void didUpdateWidget(WebviewScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -159,6 +172,27 @@ class _WebviewScreenState extends ConsumerState<WebviewScreen> {
       if (session == null) {
         return _Placeholder.loading(config: widget.config);
       }
+      if (session is AndroidWebviewSession) {
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            AndroidWebviewView(session: session, onActivity: _onAndroidTouch),
+            if (session.state == WebviewSessionState.loading ||
+                session.state == WebviewSessionState.error)
+              ColoredBox(
+                color: Colors.black,
+                child: session.state == WebviewSessionState.error
+                    ? _Placeholder.error(
+                        config: widget.config,
+                        message: session.lastError ?? 'Unknown error',
+                        onRetry: () => session.reload(),
+                      )
+                    : _Placeholder.loading(config: widget.config),
+              ),
+          ],
+        );
+      }
+      final gst = session as GstWebviewSession;
       switch (session.state) {
         case WebviewSessionState.loading:
           return _Placeholder.loading(config: widget.config);
@@ -170,12 +204,12 @@ class _WebviewScreenState extends ConsumerState<WebviewScreen> {
           );
         case WebviewSessionState.playing:
         case WebviewSessionState.paused:
-          final controller = session.controller;
+          final controller = gst.controller;
           if (controller == null || !controller.value.isInitialized) {
             return _Placeholder.loading(config: widget.config);
           }
           return _TouchableWebviewView(
-            session: session,
+            session: gst,
             controller: controller,
             size: Size(constraints.maxWidth, constraints.maxHeight),
           );
@@ -241,7 +275,7 @@ class _Placeholder extends StatelessWidget {
 }
 
 class _TouchableWebviewView extends StatefulWidget {
-  final WebviewSession session;
+  final GstWebviewSession session;
   final VideoPlayerController controller;
   final Size size;
 

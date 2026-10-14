@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hearth/config/hub_config.dart';
 import 'package:hearth/config/webview_config.dart';
 import 'package:hearth/modules/module_registry.dart';
+import 'package:hearth/modules/webview/gst_webview_session.dart';
 import 'package:hearth/modules/webview/webview_session.dart';
 import 'package:hearth/modules/webview/webview_session_pool.dart';
 
@@ -20,7 +21,7 @@ const _webview = WebviewConfig(
 
 /// Hands out plugin-free sessions and remembers the size each was asked for.
 class _RecordingPool extends WebviewSessionPool {
-  _RecordingPool() : super(sessionFactory: WebviewSession.testing);
+  _RecordingPool() : super(sessionFactory: GstWebviewSession.testing);
 
   final sizes = <Size?>[];
   WebviewSession? last;

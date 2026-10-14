@@ -1,9 +1,12 @@
+import 'dart:io' show Platform;
 import 'dart:ui';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'android_webview_session.dart';
+import 'gst_webview_session.dart';
 import 'webview_session.dart';
 
-/// Factory shape so tests can substitute `WebviewSession.testing`.
+/// Factory shape so tests can substitute a `.testing` constructor.
 typedef WebviewSessionFactory = WebviewSession Function({
   required String url,
   String? initScript,
@@ -13,22 +16,11 @@ typedef WebviewSessionFactory = WebviewSession Function({
   bool useSizeCaps,
 });
 
-WebviewSession _defaultFactory({
-  required String url,
-  String? initScript,
-  String? initScriptAllowOrigin,
-  int renderWidth = 1920,
-  int renderHeight = 1080,
-  bool useSizeCaps = false,
-}) =>
-    WebviewSession(
-      url: url,
-      initScript: initScript,
-      initScriptAllowOrigin: initScriptAllowOrigin,
-      renderWidth: renderWidth,
-      renderHeight: renderHeight,
-      useSizeCaps: useSizeCaps,
-    );
+/// The session backend for this platform: the system WebView on Android,
+/// WPE through GStreamer everywhere else. Nothing off Android constructs an
+/// [AndroidWebviewSession].
+WebviewSessionFactory webviewSessionFactoryFor({required bool android}) =>
+    android ? AndroidWebviewSession.new : GstWebviewSession.new;
 
 /// URL-keyed cache of running [WebviewSession]s, capped at **[capacity] warm
 /// sessions**, evicted least-recently-used.
@@ -55,7 +47,8 @@ class WebviewSessionPool {
   Future<void> _pending = Future<void>.value();
 
   WebviewSessionPool({WebviewSessionFactory? sessionFactory, this.capacity = 4})
-      : _factory = sessionFactory ?? _defaultFactory;
+      : _factory =
+            sessionFactory ?? webviewSessionFactoryFor(android: Platform.isAndroid);
 
   /// Returns the warm session for [url] if it matches the requested injector
   /// and size (marking it most-recently-used), otherwise creates a new one.
@@ -63,7 +56,8 @@ class WebviewSessionPool {
   /// [initScript]/[initScriptAllowOrigin] carry the optional document-start
   /// injector (see [WebviewSession.initScript]). If no session for [url] is
   /// warm, or it's warm with a different injector — e.g. the HA token changed
-  /// in Settings — or a meaningfully different [renderSize], a new session is
+  /// in Settings — or a meaningfully different [renderSize] (ignored by a
+  /// session that [WebviewSession.followsLayoutSize]), a new session is
   /// constructed and inserted before the pool is trimmed back to [capacity]
   /// by evicting the least-recently-used session(s) (awaiting each teardown;
   /// see [WebviewSession.shutdown]).
@@ -101,6 +95,7 @@ class WebviewSessionPool {
     final existing = _sessions[url];
     if (existing != null) {
       final sizeMatches = !useCaps ||
+          existing.followsLayoutSize ||
           (existing.useSizeCaps &&
               (existing.renderWidth - reqW).abs() <= 2 &&
               (existing.renderHeight - reqH).abs() <= 2);
