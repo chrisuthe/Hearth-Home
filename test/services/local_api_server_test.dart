@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hearth/config/hub_config.dart';
+import 'package:hearth/modules/calendar/models.dart';
 import 'package:hearth/plugins/capture/capture_plugin.dart';
 import 'package:hearth/plugins/plugin_registry.dart';
 import 'package:hearth/services/local_api_server.dart';
@@ -245,6 +246,76 @@ void main() {
       final json = jsonDecode(await readBody(response)) as Map<String, dynamic>;
       expect(json['haToken'], '');
       expect(json['immichApiKey'], '');
+    });
+
+    // ICS URLs can carry a secret (Google's private iCal address).
+    const icsUrl = 'https://calendar.example.com/private-abc123/basic.ics';
+    const school = CalendarSource(
+      id: 'ics:0011223344556677',
+      kind: CalendarSourceKind.ics,
+      url: icsUrl,
+      name: 'School',
+    );
+    const family = CalendarSource(
+      id: 'ha:calendar.family',
+      kind: CalendarSourceKind.ha,
+      entityId: 'calendar.family',
+      name: 'Family',
+    );
+
+    test('GET /api/config redacts ICS source URLs', () async {
+      configNotifier.state = const HubConfig(
+          apiKey: testApiKey, calendarSources: [family, school]);
+      final response = await get('/api/config', headers: authHeaders);
+      final text = await readBody(response);
+      expect(text, isNot(contains('private-abc123')));
+      final sources = (jsonDecode(text) as Map)['calendarSources'] as List;
+      expect(sources.last['url'], '••••••••');
+      expect(sources.last['name'], 'School');
+      expect(sources.first['url'], '');
+      expect(sources.first['entityId'], 'calendar.family');
+    });
+
+    test('POST /api/config keeps a stored ICS URL echoed as the marker',
+        () async {
+      configNotifier.state = const HubConfig(
+          apiKey: testApiKey, calendarSources: [family, school]);
+      final get1 = await get('/api/config', headers: authHeaders);
+      final sources = ((jsonDecode(await readBody(get1)) as Map)
+          ['calendarSources'] as List);
+      sources.last['name'] = 'Kids';
+
+      final r = await post('/api/config',
+          body: jsonEncode({'calendarSources': sources}),
+          headers: authHeaders);
+      expect(r.statusCode, 200);
+      final saved = configNotifier.state.calendarSources;
+      expect(saved.map((s) => s.id), [family.id, school.id]);
+      expect(saved.last.url, icsUrl);
+      expect(saved.last.name, 'Kids');
+      expect(saved.first, family);
+    });
+
+    test('POST /api/config takes a new ICS URL and drops a marker with no '
+        'stored source', () async {
+      configNotifier.state =
+          const HubConfig(apiKey: testApiKey, calendarSources: [school]);
+      final r = await post('/api/config',
+          body: jsonEncode({
+            'calendarSources': [
+              {...school.toJson(), 'url': 'https://example.com/new.ics'},
+              {
+                ...school.toJson(),
+                'id': 'ics:ffffffffffffffff',
+                'url': '••••••••',
+              },
+            ],
+          }),
+          headers: authHeaders);
+      expect(r.statusCode, 200);
+      final saved = configNotifier.state.calendarSources;
+      expect(saved, hasLength(1));
+      expect(saved.single.url, 'https://example.com/new.ics');
     });
 
     // --- Typed config writes (Enabler A) ---
