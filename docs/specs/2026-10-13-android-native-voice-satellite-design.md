@@ -202,7 +202,9 @@ Rules:
 - **Released without `unDuck`.** Ava does not call it when Home Assistant drops mid-exchange (`onDisconnected` resets the state) or when the device is closed. Natively, the service releases on a lost connection and in `tearDown`, which covers stop, rebuild and a failure. In Dart, a stopped service, a lost connection or a new health report drops the request, so a service that dies without a last event cannot leave playback ducked. The coordinator's disposal restores too.
 - **Pi unchanged.** `VoiceDucker` still ducks Sendspin from the Home Assistant entity. The coordinator is read only where `voiceSatelliteSupported`.
 - **The Sendspin seam.** `AudioCoordinator.addMute` takes a callback that gets the current state on registration and every change after, on the main thread with no channel round trip. Sendspin's engine registers `engine.setMuted(VOICE, …)` there when it joins the service (`2026-10-14-android-sendspin-design.md`, "Muting at wake").
-- **Deviation.** None from the table. Not yet run on the tablet: no media_kit playback has been ducked on hardware.
+- **Deviation.** None from the table.
+- **On the tablet (2026-10-14, debug build).** After a reboot, a cast ducked at the wake word and came back afterwards (observed by ear; the log was not captured, because the reboot turned wireless debugging off). Not measured: the time from the wake word to the duck, and whether the wake word triggers over the tablet's own playback without it.
+- **Seen on the same build, not caused by it.** Before that reboot, a Plex cast decoded its first frame and then stalled at 0 s (`h264_mediacodec`: "Both surface and native_window are NULL"), and two later casts never created an mpv player. The ducking factor was 1.0 throughout, which leaves the player's volume calls as they were. Plex casting on Android was untested before this; it is not followed up here.
 
 **Later: software echo cancellation.** An in-process satellite can do what no companion app can: it has the playback signal. Sendspin PCM and the voice output could feed a reference into WebRTC AEC3 or speexdsp ahead of the wake word. Two things are unknown: whether a linear canceller works after the vendor's non-linear processing, and whether the playback delay is stable enough to align. Both need a spike on hardware before any design.
 
@@ -313,7 +315,7 @@ Each line is one task. Sizes are relative.
 | 4 | Hardware pass 1: HA discovery, the four states, mute, announce, wake word at distance, wake word over playback. Done 2026-10-14 except the release install. | Small | 3 |
 | 5 | Voice plugin settings on both surfaces, health reporting, `settingChanged` | Small-medium | 4 |
 | 6 | Timers: remote timers in `TimerService`, alert overlay, ring with gaps, `startTimerRing` and `stopTimerRing` | Medium | 4, 7 |
-| 7 | `AudioCoordinator` and the media_kit duck request. Built; see "As built" under [Echo and ducking](#echo-and-ducking). Not run on hardware | Small | 4 |
+| 7 | `AudioCoordinator` and the media_kit duck request. Built; see "As built" under [Echo and ducking](#echo-and-ducking). Ducked a cast on the tablet | Small | 4 |
 | 8 | Sendspin on Android through SendspinDroid's player: `2026-10-14-android-sendspin-design.md`, phases 1 to 6. Its phase 7, the Sendspin mute, needs task 7 | Large | — |
 | 9 | Echo-cancellation spike with a playback reference | Medium, may end in "no" | 8 |
 | 10 | Move Hearth's MQTT entities onto the ESPHome device | Small-medium | 3 |
