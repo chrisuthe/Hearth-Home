@@ -113,7 +113,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          # The voice satellite builds from the Ava fork submodule.
+          # The voice satellite and Sendspin player build from submodules.
           submodules: true
 
       - uses: actions/setup-java@v6

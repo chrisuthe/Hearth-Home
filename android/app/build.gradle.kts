@@ -56,6 +56,18 @@ android {
                 ?: signingConfigs.getByName("debug")
         }
     }
+
+    packaging {
+        resources {
+            // As SendspinDroid's app does: about 1.2 MB of BouncyCastle
+            // resource files that its Noise layer never reads (picnic tables
+            // for post-quantum signatures, X.509 path-validation messages).
+            excludes += setOf(
+                "org/bouncycastle/pqc/crypto/picnic/**",
+                "org/bouncycastle/x509/CertPathReviewerMessages*.properties",
+            )
+        }
+    }
 }
 
 kotlin {
@@ -74,4 +86,7 @@ dependencies {
     implementation(ava.androidx.core.ktx)
     implementation(ava.androidx.lifecycle.service)
     implementation(ava.timber)
+    // Sendspin: SendspinDroid's player (see settings.gradle.kts). Unused until
+    // HearthAudioService hosts the engine.
+    implementation(project(":sendspin-player"))
 }

@@ -78,9 +78,14 @@ void main() {
       expect(paths.where((p) => !isCovered(p)), isEmpty);
     });
 
-    test('every Ava module Hearth builds and every native module is credited',
-        () {
-      final modules = [...dirsUnder('android/ava'), ...dirsUnder('native')];
+    test(
+        'every Ava and Sendspin module Hearth builds and every native module '
+        'is credited', () {
+      final modules = [
+        ...dirsUnder('android/ava'),
+        ...dirsUnder('android/sendspin'),
+        ...dirsUnder('native'),
+      ];
       expect(modules, isNotEmpty);
       expect(modules.where((p) => !isCovered(p)), isEmpty);
     });
