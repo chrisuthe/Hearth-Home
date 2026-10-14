@@ -227,6 +227,19 @@ void main() {
       expect(next.endMinute, 120);
     });
 
+    test('a DST change day keeps events at their wall-clock time', () {
+      // Elapsed time from midnight is 23 or 25 hours on these days in zones
+      // with DST; the grid is always 24 rows.
+      for (final day in [DateTime(2026, 3, 8), DateTime(2026, 11, 1)]) {
+        final slot = layoutDay([
+          timed('Nine', DateTime(day.year, day.month, day.day, 9),
+              const Duration(hours: 1)),
+        ], day).single;
+        expect(slot.startMinute, 9 * 60);
+        expect(slot.endMinute, 10 * 60);
+      }
+    });
+
     test('all-day events are not on the grid', () {
       expect(layoutDay([allDay('Break', wed, 1)], wed), isEmpty);
     });

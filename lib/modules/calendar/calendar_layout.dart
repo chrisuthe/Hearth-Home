@@ -173,12 +173,15 @@ class TimedSlot {
 /// seen, tapped and kept clear of its neighbours.
 const kMinSlotMinutes = 20.0;
 
+const kDayMinutes = 24 * 60.0;
+
+double _wallMinutes(DateTime t) => t.hour * 60.0 + t.minute;
+
 /// Lays out the timed (non-band) events of [day]: each overlapping cluster
 /// splits the column width evenly.
 List<TimedSlot> layoutDay(List<CalendarEvent> events, DateTime day) {
   final dayStart = dateOnly(day);
   final dayEnd = addDays(dayStart, 1);
-  final dayMinutes = dayEnd.difference(dayStart).inMinutes.toDouble();
   final pieces = <({CalendarEvent e, double s, double t})>[];
   for (final e in events) {
     if (inAllDayBand(e)) continue;
@@ -187,16 +190,12 @@ List<TimedSlot> layoutDay(List<CalendarEvent> events, DateTime day) {
     // A zero-length event at midnight still belongs to this day.
     if (!start.isBefore(dayEnd)) continue;
     if (!end.isAfter(dayStart) && start != dayStart) continue;
-    var s = (start.isBefore(dayStart) ? dayStart : start)
-        .difference(dayStart)
-        .inMinutes
-        .toDouble();
-    var t = (end.isAfter(dayEnd) ? dayEnd : end)
-        .difference(dayStart)
-        .inMinutes
-        .toDouble();
+    // Wall-clock minutes, so the grid matches its 24-hour gutter on a DST
+    // change day as well.
+    var s = start.isBefore(dayStart) ? 0.0 : _wallMinutes(start);
+    var t = end.isBefore(dayEnd) ? _wallMinutes(end) : kDayMinutes;
     if (t - s < kMinSlotMinutes) {
-      t = (s + kMinSlotMinutes).clamp(kMinSlotMinutes, dayMinutes);
+      t = (s + kMinSlotMinutes).clamp(kMinSlotMinutes, kDayMinutes);
       s = t - kMinSlotMinutes;
     }
     pieces.add((e: e, s: s, t: t));
