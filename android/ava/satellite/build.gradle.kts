@@ -1,4 +1,5 @@
 import com.android.build.api.dsl.ApplicationExtension
+import javax.inject.Inject
 
 // Hearth's build of the fork's :satellite. Sources and assets are in the
 // submodule; the dependency list mirrors the fork's satellite/build.gradle.kts.
@@ -24,12 +25,57 @@ android {
     sourceSets["main"].apply {
         manifest.srcFile(avaSrc.resolve("AndroidManifest.xml"))
         java.srcDir(avaSrc.resolve("java"))
-        assets.srcDir(avaSrc.resolve("assets"))
     }
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+    }
+}
+
+// Only assets we hold a licence for reach the APK. Ava also ships hey_luna,
+// which has no licence, and models we do not credit. An allowlist, so a fork
+// bump that adds a model cannot ship it unnoticed. Credits:
+// assets/licenses/notices.json (`microwakeword-models`, `voice-pe-sounds`).
+abstract class SatelliteAssets : DefaultTask() {
+    @get:InputDirectory
+    abstract val source: DirectoryProperty
+
+    @get:OutputDirectory
+    abstract val output: DirectoryProperty
+
+    @get:Inject
+    abstract val fs: FileSystemOperations
+
+    @TaskAction
+    fun copy() {
+        fs.sync {
+            from(source) {
+                include(
+                    "sounds/*.flac",
+                    "stopWords/stop.json",
+                    "stopWords/stop.tflite",
+                    "wakeWords/okay_nabu.json",
+                    "wakeWords/okay_nabu.tflite",
+                    "wakeWords/hey_jarvis.json",
+                    "wakeWords/hey_jarvis.tflite",
+                )
+            }
+            into(output)
+        }
+    }
+}
+
+val satelliteAssets = tasks.register<SatelliteAssets>("satelliteAssets") {
+    source.set(avaSrc.resolve("assets"))
+    output.set(layout.buildDirectory.dir("generated/satelliteAssets"))
+}
+
+androidComponents {
+    onVariants { variant ->
+        variant.sources.assets?.addGeneratedSourceDirectory(
+            satelliteAssets, SatelliteAssets::output,
+        )
     }
 }
 
