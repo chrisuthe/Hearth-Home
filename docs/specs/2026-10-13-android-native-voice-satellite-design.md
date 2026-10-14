@@ -122,14 +122,14 @@ Hearth is MIT. Shipping Apache-2.0 code inside it is allowed; the APK carries bo
 | `api.proto` (`:esphomeproto`) | MIT. ESPHome's licence is GPLv3 for C/C++ files only and MIT for everything else | `esphome/home-assistant-voice-pe` `LICENSE`, the ESPHome licence (**verified**) |
 | LiteRT, Media3, Timber; protobuf | Apache-2.0; BSD-3 | Publisher licences (**assumed**, not opened) |
 | `okay_nabu`, `hey_jarvis` models | Apache-2.0 | `esphome/micro-wake-word-models`, which holds both (**verified**) |
-| `stop` model | Apache-2.0 | Its metadata names Kevin Ahrendt, author of the Apache-2.0 `kahrendt/microWakeWord`; we did not find the file in a licensed repo (**assumed**) |
+| `stop` model | Apache-2.0 | Byte-identical to release `stop-20241016.2` of the Apache-2.0 `kahrendt/microWakeWord` (**verified**, `2026-10-14-third-party-notices-design.md`) |
 | Wake, timer and error sounds | CC-BY 4.0, Clayton Charles Tapp | `assets/sounds/LICENSE.md` in Ava (**verified**) |
 
 What follows from the table:
 
 - **`hey_luna` is not bundled.** It comes from `adamlonsdale/microwakeword-custom-words`, which has no licence, so we have no right to redistribute it (**verified**, no licence on the repo). Ava's other models (`alexa`, `hey_mycroft`, `hey_home_assistant`, `okay_computer`, `choo_choo_homie`, `hey_peppa_pig`) are Apache-2.0 in the same models repo, but we ship only the three above. Hearth's build therefore lists model files one by one rather than taking Ava's whole assets folder.
-- **The APK carries the licence texts and credits** for everything in the table. Hearth has no place for that yet; issue 250 decides where and how.
-- **The fork must state what it changed.** Apache-2.0 §4(b) asks for a notice on modified files. The fork's `UPSTREAM_PIN` describes the move, but its README does not yet; adding that is part of issue 250.
+- **The APK carries the licence texts and credits** for everything in the table: `assets/licenses/`, shown under Settings → System → Open-source licences (`2026-10-14-third-party-notices-design.md`).
+- **The fork must state what it changed.** Apache-2.0 §4(b) asks for a notice on modified files. The fork's `UPSTREAM_PIN` describes the move; its README lists the moved files from `chrisuthe/Ava-hearth` pull request 2.
 - **No use of the Ava name as Hearth's.** Apache-2.0 grants no trademark rights.
 
 ## Protocol surface
