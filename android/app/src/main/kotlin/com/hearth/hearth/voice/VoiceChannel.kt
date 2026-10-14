@@ -67,8 +67,11 @@ class VoiceChannel(
                     .getOrDefault(emptyList())
                 result.success(words.map { mapOf("id" to it.id, "name" to it.wakeWord.wake_word) })
             }
-            // Part of the channel contract, served by the timer phase.
-            "startTimerRing", "stopTimerRing" -> result.notImplemented()
+            "startTimerRing" -> result.success(HearthAudioService.instance?.startTimerRing() ?: false)
+            "stopTimerRing" -> {
+                HearthAudioService.instance?.stopTimerRing()
+                result.success(null)
+            }
             else -> result.notImplemented()
         }
     }

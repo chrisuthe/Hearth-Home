@@ -5,35 +5,79 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/hearth_notification.dart';
 import '../utils/logger.dart';
 import 'notification_service.dart';
+import 'voice_satellite_bridge.dart';
 
 /// A single countdown timer managed by [TimerService].
 ///
-/// Tracks its own start time and total duration, computing remaining time
-/// from the wall clock so it stays accurate even if the UI misses ticks.
+/// A local timer counts down from when it was set. A voice timer belongs to
+/// Home Assistant, which reports its time left on every change; between
+/// reports it counts down from the last one, and it is done only when Home
+/// Assistant says it finished. Either way the remaining time comes from the
+/// wall clock, so it stays accurate even if the UI misses ticks.
 /// The [id] is used to identify timers for dismissal.
 class HubTimer {
   final int id;
-  final Duration totalDuration;
-  final DateTime startTime;
+
+  /// Home Assistant's id for a voice timer; null for a timer set on Hearth.
+  final String? remoteId;
+
+  String _name = '';
+  Duration _total;
+  Duration _left;
+  DateTime _leftAt = DateTime.now();
+  bool _paused = false;
+  bool _finished = false;
   bool _dismissed = false;
 
   HubTimer({
     required this.id,
-    required this.totalDuration,
-  }) : startTime = DateTime.now();
+    required Duration totalDuration,
+  })  : remoteId = null,
+        _total = totalDuration,
+        _left = totalDuration;
+
+  HubTimer._remote(this.id, VoiceTimerEvent event)
+      : remoteId = event.id,
+        _total = event.total,
+        _left = event.left {
+    _apply(event);
+  }
+
+  void _apply(VoiceTimerEvent event) {
+    _name = event.name;
+    _total = event.total;
+    _left = event.left;
+    _leftAt = DateTime.now();
+    _paused = !event.active;
+  }
+
+  bool get isRemote => remoteId != null;
+
+  /// The name the timer was set with by voice; empty otherwise.
+  String get name => _name;
+
+  /// A voice timer paused from Home Assistant.
+  bool get isPaused => _paused;
+
+  Duration get totalDuration => _total;
 
   Duration get remaining {
-    final elapsed = DateTime.now().difference(startTime);
-    final left = totalDuration - elapsed;
+    if (_finished) return Duration.zero;
+    if (_paused) return _left;
+    final left = _left - DateTime.now().difference(_leftAt);
     return left.isNegative ? Duration.zero : left;
   }
+
+  /// How long a running voice timer has sat at zero without Home Assistant
+  /// saying it finished.
+  Duration get _overdue => DateTime.now().difference(_leftAt) - _left;
 
   double get progress {
     if (totalDuration.inMilliseconds == 0) return 0;
     return 1.0 - (remaining.inMilliseconds / totalDuration.inMilliseconds);
   }
 
-  bool get isDone => remaining == Duration.zero;
+  bool get isDone => isRemote ? _finished : remaining == Duration.zero;
   bool get isDismissed => _dismissed;
 
   /// Format remaining time as "H:MM:SS" or "MM:SS".
@@ -71,6 +115,22 @@ class TimerService extends ChangeNotifier {
     _notificationService = service;
   }
 
+  /// The voice satellite's ring, on Android. When set, a fired local timer
+  /// rings through it, and the beep is the fallback for when it cannot.
+  Future<bool> Function()? _startRing;
+  Future<void> Function()? _stopRing;
+
+  /// The satellite is ringing, for a voice timer or a local one.
+  bool _ringing = false;
+
+  void attachRing({
+    required Future<bool> Function() start,
+    required Future<void> Function() stop,
+  }) {
+    _startRing = start;
+    _stopRing = stop;
+  }
+
   /// Stable deck-card id for a timer, so re-ingest can't stack duplicates and
   /// dismissal maps back to the timer.
   static String _cardId(int timerId) => 'timer-$timerId';
@@ -100,6 +160,55 @@ class TimerService extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// A voice timer changed in Home Assistant. The satellite rings a finished
+  /// one by itself, so this raises the alert without ringing.
+  void applyRemoteEvent(VoiceTimerEvent event) {
+    final match = _timers.where((t) => t.remoteId == event.id);
+    var timer = match.isEmpty ? null : match.first;
+    if (event.type == 'cancelled') {
+      if (timer != null) _remove(timer);
+      return;
+    }
+    if (timer == null) {
+      timer = HubTimer._remote(_nextId++, event);
+      _timers.add(timer);
+    } else {
+      timer._apply(event);
+    }
+    if (event.type == 'finished' && !timer._finished) {
+      timer._finished = true;
+      _ringing = true;
+      _alreadyFired.add(timer.id);
+      _ingestTimerCard(timer);
+    }
+    _ensureTicking();
+    notifyListeners();
+  }
+
+  /// The satellite's ring ended by the stop word or a wake word, or the
+  /// service went away. Every fired timer was ringing through it.
+  void onRingStopped() {
+    _ringing = false;
+    if (firedTimers.isNotEmpty) dismissAllFired();
+  }
+
+  /// The satellite stopped, and with it the voice timers' updates.
+  void clearRemote() {
+    for (final t in _timers.where((t) => t.isRemote).toList()) {
+      _remove(t);
+    }
+  }
+
+  void _remove(HubTimer timer) {
+    timer._dismissed = true;
+    _alreadyFired.remove(timer.id);
+    _timers.remove(timer);
+    if (firedTimers.isEmpty) _stopAlarmSound();
+    if (_timers.isEmpty) _stopTicking();
+    notifyListeners();
+    _notificationService?.dismiss(_cardId(timer.id));
+  }
+
   void dismissTimer(int id) {
     final match = _timers.where((t) => t.id == id);
     if (match.isEmpty) {
@@ -109,13 +218,13 @@ class TimerService extends ChangeNotifier {
       _notificationService?.dismiss(_cardId(id));
       return;
     }
-    match.first._dismissed = true;
-    _alreadyFired.remove(id);
-    _timers.removeWhere((t) => t.isDismissed);
-    if (firedTimers.isEmpty) _stopAlarmSound();
-    if (_timers.isEmpty) _stopTicking();
-    notifyListeners();
-    _notificationService?.dismiss(_cardId(id));
+    final timer = match.first;
+    if (timer.isRemote && !timer.isDone) {
+      // Home Assistant owns it, and the device cannot cancel a timer.
+      Log.i('Timer', 'Voice timer ${timer.remoteId} is cancelled from Home Assistant, not here');
+      return;
+    }
+    _remove(timer);
   }
 
   /// Dismiss all fired timers at once (e.g., an HA `timer/cancel` with no id).
@@ -148,7 +257,17 @@ class TimerService extends ChangeNotifier {
   /// Prevents the alarm from firing repeatedly on every tick.
   final Set<int> _alreadyFired = {};
 
+  /// How long a voice timer may sit at zero waiting for Home Assistant's
+  /// `finished` before it is taken as lost, e.g. across a disconnect.
+  static const _remoteGrace = Duration(seconds: 60);
+
   void _onTick() {
+    for (final timer in _timers.where((t) => t.isRemote).toList()) {
+      if (!timer.isDone && !timer.isPaused && timer._overdue > _remoteGrace) {
+        Log.w('Timer', 'Voice timer ${timer.remoteId} never finished; dropping');
+        _remove(timer);
+      }
+    }
     // Check for newly fired timers: play the alarm sound and surface a card.
     for (final timer in _timers) {
       if (timer.isDone && !timer.isDismissed && !_alreadyFired.contains(timer.id)) {
@@ -170,7 +289,9 @@ class TimerService extends ChangeNotifier {
       sourceLabel: defaultSourceLabel(NotificationSource.timer),
       priority: NotificationPriority.alert,
       title: "Time's up",
-      body: '${_formatDuration(timer.totalDuration)} timer',
+      body: timer.name.isNotEmpty
+          ? timer.name
+          : '${_formatDuration(timer.totalDuration)} timer',
       sticky: true,
       timestamp: DateTime.now(),
       onDismiss: () => dismissTimer(timer.id),
@@ -191,12 +312,30 @@ class TimerService extends ChangeNotifier {
   Process? _alarmProcess;
   bool _alarmLooping = false;
 
+  /// Ring for a fired local timer: through the satellite when there is one,
+  /// else the beep.
+  void _playAlarmSound() {
+    final start = _startRing;
+    if (start == null) return _playBeep();
+    if (_ringing) return;
+    _ringing = true;
+    start().then((ok) {
+      if (!ok) {
+        _ringing = false;
+        _playBeep();
+      } else if (!_ringing) {
+        // Dismissed before the service answered.
+        _stopRing?.call();
+      }
+    });
+  }
+
   /// Play a looping beep when a timer fires. Uses GStreamer's audiotestsrc
   /// to generate a sine tone (no asset bundle dependency) and routes through
   /// autoaudiosink, which picks pipewiresink/alsasink based on what's
   /// available. Loops until [_stopAlarmSound] is called by dismissTimer
   /// or dismissAllFired.
-  void _playAlarmSound() {
+  void _playBeep() {
     if (!Platform.isLinux) {
       Log.i('Timer', 'Would play alarm tone (non-Linux platform)');
       return;
@@ -230,6 +369,10 @@ class TimerService extends ChangeNotifier {
   }
 
   void _stopAlarmSound() {
+    if (_ringing) {
+      _ringing = false;
+      _stopRing?.call();
+    }
     _alarmLooping = false;
     _alarmProcess?.kill();
     _alarmProcess = null;
@@ -248,9 +391,32 @@ class TimerService extends ChangeNotifier {
   }
 }
 
+/// Wires [timers] to the in-app voice satellite: Home Assistant's voice
+/// timers in, the ring out. Returns the teardown.
+VoidCallback linkVoiceSatelliteTimers(
+    TimerService timers, VoiceSatelliteBridge bridge) {
+  timers.attachRing(start: bridge.startTimerRing, stop: bridge.stopTimerRing);
+  final subs = <StreamSubscription<Object?>>[
+    bridge.timerStream.listen(timers.applyRemoteEvent),
+    bridge.ringStoppedStream.listen((_) => timers.onRingStopped()),
+    bridge.statusStream.listen((s) {
+      if (!s.running) timers.clearRemote();
+    }),
+  ];
+  return () {
+    for (final sub in subs) {
+      sub.cancel();
+    }
+  };
+}
+
 final timerServiceProvider = ChangeNotifierProvider<TimerService>((ref) {
   final service = TimerService();
   // Route fired timers into the notification deck as alert-priority cards.
   service.attachNotificationService(ref.read(notificationServiceProvider));
+  if (voiceSatelliteSupported) {
+    ref.onDispose(linkVoiceSatelliteTimers(
+        service, ref.read(voiceSatelliteBridgeProvider)));
+  }
   return service;
 });

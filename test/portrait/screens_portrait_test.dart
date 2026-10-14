@@ -9,6 +9,7 @@ import 'package:hearth/screens/weather/weather_screen.dart';
 import 'package:hearth/services/music_assistant_service.dart';
 import 'package:hearth/services/notification_service.dart';
 import 'package:hearth/services/timer_service.dart';
+import 'package:hearth/services/voice_satellite_bridge.dart';
 import 'package:hearth/services/weather_service.dart';
 
 import 'portrait_fixtures.dart';
@@ -153,6 +154,31 @@ void main() {
         for (var i = 1; i <= 5; i++) Duration(hours: i, minutes: 7 * i),
       ]);
       expect(find.byType(TimerDisplay), findsWidgets);
+      await unmount(tester);
+    });
+
+    testLayouts('voice timers beside a local one', (tester, canvas) async {
+      final timers = await pumpTimers(tester, const [Duration(minutes: 5)]);
+      timers
+        ..applyRemoteEvent(const VoiceTimerEvent(
+          type: 'started',
+          id: 'a',
+          name: 'Pasta water for the very long Sunday lunch',
+          total: Duration(minutes: 12),
+          left: Duration(minutes: 12),
+        ))
+        ..applyRemoteEvent(const VoiceTimerEvent(
+          type: 'updated',
+          id: 'b',
+          name: 'Eggs',
+          total: Duration(minutes: 7),
+          left: Duration(minutes: 3),
+          active: false,
+        ));
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.byType(TimerDisplay), findsNWidgets(3));
+      expect(find.text('Eggs'), findsOneWidget);
+      expect(find.text('Paused'), findsOneWidget);
       await unmount(tester);
     });
 

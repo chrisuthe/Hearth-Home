@@ -398,16 +398,77 @@ void main() {
       expect(calls, isEmpty);
     });
 
-    test('malformed and later-phase events are ignored', () async {
+    test('timer is decoded, and a malformed one dropped', () async {
+      final seen = <VoiceTimerEvent>[];
+      final sub = bridge.timerStream.listen(seen.add);
+      addTearDown(sub.cancel);
+
+      await emit({
+        'event': 'timer',
+        'type': 'updated',
+        'id': '01J',
+        'name': 'Eggs',
+        'total': 420,
+        'left': 180,
+        'active': false,
+      });
+      await emit({'event': 'timer', 'id': 't1'});
+      await emit({'event': 'timer', 'type': 'snoozed', 'id': 't1'});
+      await emit({'event': 'timer', 'type': 'started', 'id': ''});
+
+      expect(seen, hasLength(1));
+      final t = seen.single;
+      expect(t.type, 'updated');
+      expect(t.id, '01J');
+      expect(t.name, 'Eggs');
+      expect(t.total, const Duration(minutes: 7));
+      expect(t.left, const Duration(minutes: 3));
+      expect(t.active, isFalse);
+    });
+
+    test('ringStopped is passed on', () async {
+      var stops = 0;
+      final sub = bridge.ringStoppedStream.listen((_) => stops++);
+      addTearDown(sub.cancel);
+      await emit({'event': 'ringStopped'});
+      expect(stops, 1);
+    });
+
+    test('malformed events are ignored', () async {
       final before = notifier.state;
       await emit({'event': 'settingChanged', 'setting': 'mute', 'value': 'x'});
       await emit({'event': 'settingChanged', 'setting': 'wakeWords', 'value': []});
       await emit({'event': 'settingChanged', 'setting': 'volume', 'value': 'x'});
       await emit({'event': 'timer', 'id': 't1'});
-      await emit({'event': 'ringStopped'});
       expect(notifier.state, same(before));
       expect(calls, isEmpty);
     });
+  });
+
+  test('the timer ring is started and stopped through the service', () async {
+    final bridge = android(_MemoryConfigNotifier(enabled));
+    addTearDown(bridge.dispose);
+    startResult = true;
+    messenger.setMockMethodCallHandler(_methods, (call) async {
+      calls.add(call);
+      return call.method == 'startTimerRing' ? startResult : null;
+    });
+
+    expect(await bridge.startTimerRing(), isTrue);
+    startResult = false;
+    expect(await bridge.startTimerRing(), isFalse);
+    await bridge.stopTimerRing();
+    expect(methods(), ['startTimerRing', 'startTimerRing', 'stopTimerRing']);
+  });
+
+  test('off Android the ring is refused without touching the channel',
+      () async {
+    final bridge = VoiceSatelliteBridge(_MemoryConfigNotifier(enabled),
+        supported: false);
+    addTearDown(bridge.dispose);
+    expect(await bridge.startTimerRing(), isFalse);
+    await bridge.stopTimerRing();
+    expect(calls, isEmpty);
   });
 
   test('wake asks the service to start a conversation', () async {

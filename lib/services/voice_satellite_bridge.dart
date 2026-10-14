@@ -63,6 +63,50 @@ class VoiceSatelliteHealth {
       };
 }
 
+/// A Home Assistant timer event, as the satellite received it.
+class VoiceTimerEvent {
+  /// `started`, `updated`, `cancelled` or `finished`.
+  final String type;
+
+  /// Home Assistant's timer id.
+  final String id;
+
+  /// Empty when the timer was set without a name.
+  final String name;
+  final Duration total;
+  final Duration left;
+
+  /// False while paused.
+  final bool active;
+
+  const VoiceTimerEvent({
+    required this.type,
+    required this.id,
+    this.name = '',
+    required this.total,
+    required this.left,
+    this.active = true,
+  });
+
+  static const _types = {'started', 'updated', 'cancelled', 'finished'};
+
+  /// Null for a malformed event.
+  static VoiceTimerEvent? fromEvent(Map<dynamic, dynamic> event) {
+    final type = event['type'], id = event['id'];
+    if (type is! String || !_types.contains(type)) return null;
+    if (id is! String || id.isEmpty) return null;
+    final total = event['total'], left = event['left'];
+    return VoiceTimerEvent(
+      type: type,
+      id: id,
+      name: event['name'] as String? ?? '',
+      total: Duration(seconds: total is int ? total : 0),
+      left: Duration(seconds: left is int ? left : 0),
+      active: event['active'] as bool? ?? true,
+    );
+  }
+}
+
 /// What the Android service last reported. Diagnostics only: the voice pill
 /// still follows the Home Assistant entity.
 class VoiceSatelliteStatus {
@@ -110,9 +154,6 @@ class VoiceSatelliteStatus {
 /// meet `hub_config.json`: [sync] starts, restarts or stops the service to
 /// match the config, and `settingChanged` events (a change made from Home
 /// Assistant) are written back. Off Android every method returns at once.
-///
-/// Later phases add to the same channel: `startTimerRing` / `stopTimerRing`
-/// and the `timer` and `ringStopped` events.
 class VoiceSatelliteBridge {
   static const _tag = 'VoiceSatellite';
   static const _methods = MethodChannel('com.hearth/voice');
@@ -137,6 +178,8 @@ class VoiceSatelliteBridge {
   final _statusController = StreamController<VoiceSatelliteStatus>.broadcast();
   List<VoiceWakeWord> _wakeWords = const [];
   final _duckController = StreamController<bool>.broadcast();
+  final _timerController = StreamController<VoiceTimerEvent>.broadcast();
+  final _ringStoppedController = StreamController<void>.broadcast();
 
   VoiceSatelliteBridge(
     this._config, {
@@ -153,6 +196,13 @@ class VoiceSatelliteBridge {
   /// The service's `duck` event: true from the wake word, or a timer ring,
   /// until the satellite lets go of the audio.
   Stream<bool> get duckStream => _duckController.stream;
+
+  /// Home Assistant's timer events for this satellite.
+  Stream<VoiceTimerEvent> get timerStream => _timerController.stream;
+
+  /// The service's timer ring ended: the stop word, a wake word, a
+  /// [stopTimerRing] call, or the service going away.
+  Stream<void> get ringStoppedStream => _ringStoppedController.stream;
 
   /// Wake words bundled in the APK; empty until [attach] has asked for them.
   List<VoiceWakeWord> get wakeWords => _wakeWords;
@@ -264,6 +314,27 @@ class VoiceSatelliteBridge {
     await _methods.invokeMethod<void>('wake');
   }
 
+  /// Rings for a local timer through the service, the way a voice timer
+  /// rings. False when the service is not running to ring it.
+  Future<bool> startTimerRing() async {
+    if (!_supported) return false;
+    try {
+      return await _methods.invokeMethod<bool>('startTimerRing') ?? false;
+    } catch (e) {
+      Log.w(_tag, 'startTimerRing failed: $e');
+      return false;
+    }
+  }
+
+  Future<void> stopTimerRing() async {
+    if (!_supported) return;
+    try {
+      await _methods.invokeMethod<void>('stopTimerRing');
+    } catch (e) {
+      Log.w(_tag, 'stopTimerRing failed: $e');
+    }
+  }
+
   void _onEvent(dynamic event) {
     if (event is! Map) return;
     switch (event['event']) {
@@ -293,6 +364,13 @@ class VoiceSatelliteBridge {
         if (!_duckController.isClosed) {
           _duckController.add(event['active'] as bool? ?? false);
         }
+      case 'timer':
+        final timer = VoiceTimerEvent.fromEvent(event);
+        if (timer != null && !_timerController.isClosed) {
+          _timerController.add(timer);
+        }
+      case 'ringStopped':
+        if (!_ringStoppedController.isClosed) _ringStoppedController.add(null);
       case 'settingChanged':
         unawaited(_onSettingChanged(event['setting'], event['value']));
     }
@@ -341,6 +419,8 @@ class VoiceSatelliteBridge {
     _eventSub?.cancel();
     _statusController.close();
     _duckController.close();
+    _timerController.close();
+    _ringStoppedController.close();
   }
 }
 

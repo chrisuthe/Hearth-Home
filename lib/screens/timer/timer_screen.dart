@@ -255,6 +255,17 @@ class TimerDisplay extends StatelessWidget {
                       size: size * 0.15, color: const Color(0xFFFF9800)),
                   const SizedBox(height: HearthSpacing.x1),
                 ],
+                if (timer.name.isNotEmpty)
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: size * 0.15),
+                    child: Text(
+                      timer.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                          fontSize: size * 0.06, color: Colors.white70),
+                    ),
+                  ),
                 Text(
                   isDone ? "Time's up!" : timer.remainingLabel,
                   style: TextStyle(
@@ -263,6 +274,10 @@ class TimerDisplay extends StatelessWidget {
                     color: isDone ? const Color(0xFFFF9800) : Colors.white,
                   ),
                 ),
+                if (timer.isPaused && !isDone)
+                  Text('Paused',
+                      style: TextStyle(
+                          fontSize: size * 0.05, color: Colors.white38)),
                 if (isDone)
                   Text('Tap to dismiss',
                       style: TextStyle(

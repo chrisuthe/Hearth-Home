@@ -525,7 +525,9 @@ class MqttService extends ChangeNotifier {
       return;
     }
     // No id — dismiss the most-recently-started active timer, else clear fired.
-    final active = [...ts.timers]..sort((a, b) => b.id.compareTo(a.id));
+    // Voice timers are Home Assistant's to cancel, not ours.
+    final active = ts.timers.where((t) => !t.isRemote).toList()
+      ..sort((a, b) => b.id.compareTo(a.id));
     if (active.isNotEmpty) {
       ts.dismissTimer(active.first.id);
     } else if (ts.firedTimers.isNotEmpty) {
