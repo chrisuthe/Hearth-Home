@@ -150,8 +150,8 @@ class VoiceSatelliteStatus {
 
 /// Owns the `com.hearth/voice` channel to `HearthAudioService`.
 ///
-/// The service persists nothing, so this is where the satellite's settings
-/// meet `hub_config.json`: [sync] starts, restarts or stops the service to
+/// The satellite persists nothing, so this is where the satellite's settings
+/// meet `hub_config.json`: [sync] starts, restarts or stops the satellite to
 /// match the config, and `settingChanged` events (a change made from Home
 /// Assistant) are written back. Off Android every method returns at once.
 class VoiceSatelliteBridge {

@@ -23,6 +23,7 @@ import '../modules/webview/webview_session_pool.dart';
 import '../services/dlna/dlna_cast_overlay.dart';
 import '../services/plex/plex_cast_overlay.dart';
 import '../modules/livetv/live_tv_overlay.dart';
+import '../services/sendspin/android_sendspin_service.dart';
 import '../services/sendspin/sendspin_service.dart';
 import '../services/toast_service.dart';
 import '../widgets/toast_overlay.dart';
@@ -686,6 +687,9 @@ class _MenuTray extends StatelessWidget {
 /// the server controls). Slider changes are pushed to both ALSA hardware
 /// and reported back to the Sendspin server via client/state.
 /// When Sendspin is inactive, the slider controls ALSA directly.
+///
+/// On Android the device's media volume (`STREAM_MUSIC`) stands in for ALSA,
+/// and the native side reports a change to the server itself.
 class _SystemVolumeSlider extends ConsumerStatefulWidget {
   const _SystemVolumeSlider();
 
@@ -711,7 +715,9 @@ class _SystemVolumeSliderState extends ConsumerState<_SystemVolumeSlider> {
   }
 
   Future<void> _readVolume() async {
-    final vol = await SendspinService.readAlsaVolume();
+    final vol = sendspinNative
+        ? await AndroidSendspinService.readMediaVolume()
+        : await SendspinService.readAlsaVolume();
     if (vol != null && mounted) {
       setState(() => _volume = vol);
     }
@@ -723,6 +729,10 @@ class _SystemVolumeSliderState extends ConsumerState<_SystemVolumeSlider> {
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 100), () async {
       _userDragging = false;
+      if (sendspinNative) {
+        await AndroidSendspinService.setMediaVolume(value);
+        return;
+      }
       // Set ALSA hardware volume (detects correct control name).
       await SendspinService.setAlsaVolume((value * 100).round(), false);
       // If Sendspin is active, report the volume change to the server.

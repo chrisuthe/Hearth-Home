@@ -5,6 +5,7 @@ import 'package:hearth/config/hub_config.dart';
 import 'package:hearth/plugins/framework/web_context.dart';
 import 'package:hearth/plugins/hearth_plugin.dart';
 import 'package:hearth/plugins/sendspin/sendspin_plugin.dart';
+import 'package:hearth/services/sendspin/android_sendspin_service.dart';
 import 'package:hearth/services/sendspin/sendspin_service.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
@@ -196,6 +197,66 @@ void main() {
       expect(find.text('SP:0TOKEN'), findsOneWidget);
       expect(find.byType(QrImageView), findsOneWidget);
       expect(find.text('Paired with 2 servers'), findsOneWidget);
+    });
+  });
+
+  group('SendspinPlugin on Android', () {
+    setUp(() => debugSendspinNativeOverride = true);
+    tearDown(() => debugSendspinNativeOverride = null);
+
+    test('the portal leaves out Buffer Size', () {
+      final html = SendspinPlugin().buildSettingsHtml(const WebContext(
+        config: HubConfig(sendspinPlayerName: 'Kitchen'),
+        apiBearerToken: 'auth',
+        pluginActionPrefix: '/api/plugin/hearth.sendspin',
+      ));
+      expect(html, isNot(contains('Buffer Size')));
+      expect(html, isNot(contains('data-config-path="sendspinBufferSeconds"')));
+      expect(html, contains('data-config-path="sendspinUnpairedAccess"'));
+    });
+
+    Future<void> pump(WidgetTester tester, SendspinService service) async {
+      final notifier = _MemoryHubConfigNotifier(const HubConfig(
+          sendspinPlayerName: 'Kitchen', sendspinEnabled: true));
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            hubConfigProvider.overrideWith((_) => notifier),
+            sendspinServiceProvider.overrideWithValue(service),
+          ],
+          child: MaterialApp(
+            home: Scaffold(
+              body: Consumer(
+                builder: (_, ref, __) => SingleChildScrollView(
+                    child: SendspinPlugin().buildSettingsWidget(ref)),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('the sidebar leaves out Buffer Size', (tester) async {
+      final service = AndroidSendspinService(events: const Stream.empty());
+      addTearDown(service.dispose);
+      await pump(tester, service);
+      expect(find.text('Buffer Size'), findsNothing);
+      expect(find.text('Allow unpaired servers'), findsOneWidget);
+    });
+
+    testWidgets('the sidebar shows what the native player reported',
+        (tester) async {
+      final service = AndroidSendspinService(events: const Stream.empty());
+      addTearDown(service.dispose);
+      await pump(tester, service);
+      expect(find.byIcon(Icons.warning_amber), findsNothing);
+
+      service.health.value = SendspinHealth(
+          'advertiseFailed', 'registration failed', DateTime(2026));
+      await tester.pumpAndSettle();
+      expect(find.text('Servers cannot discover this player'), findsOneWidget);
+      expect(find.text('registration failed'), findsOneWidget);
     });
   });
 }
