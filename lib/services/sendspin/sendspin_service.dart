@@ -7,6 +7,7 @@ import 'package:sendspin_dart/sendspin_dart.dart';
 import '../../config/hub_config.dart';
 import '../../utils/logger.dart';
 import 'alsa_audio_sink.dart';
+import 'android_sendspin_service.dart';
 import 'output_queue.dart';
 import 'sendspin_admission.dart';
 import 'sendspin_audio_sink.dart';
@@ -798,8 +799,12 @@ final sendspinServiceProvider = Provider<SendspinService>((ref) {
       ref.watch(hubConfigProvider.select((c) => c.sendspinEnabled));
   final playerName =
       ref.watch(hubConfigProvider.select((c) => c.sendspinPlayerName));
+  // Read on Android, which has no buffer setting: a change must not restart
+  // the native engine and drop a stream for nothing.
+  final bufferSelector =
+      hubConfigProvider.select((c) => c.sendspinBufferSeconds);
   final bufferSeconds =
-      ref.watch(hubConfigProvider.select((c) => c.sendspinBufferSeconds));
+      sendspinNative ? ref.read(bufferSelector) : ref.watch(bufferSelector);
   final serverUrl =
       ref.watch(hubConfigProvider.select((c) => c.sendspinServerUrl));
   final unpairedAccess =
@@ -811,12 +816,14 @@ final sendspinServiceProvider = Provider<SendspinService>((ref) {
   final lastPlaybackServerId = ref
       .read(hubConfigProvider.select((c) => c.sendspinLastPlaybackServerId));
 
-  final service = SendspinService();
+  // Android plays through SendspinDroid's native engine instead, and never
+  // constructs the Dart client, its audio sink, FLAC library or bonsoir.
+  final SendspinService service =
+      sendspinNative ? AndroidSendspinService() : SendspinService();
   ref.onDispose(() => service.dispose());
 
-  // Android has neither the FLAC library nor an audio sink, so don't
-  // advertise a player that Music Assistant could select but never hear.
-  if (enabled && playerName.isNotEmpty && !Platform.isAndroid) {
+  // The native player is told when it is off too, so it can stop.
+  if (sendspinNative || (enabled && playerName.isNotEmpty)) {
     service
         .configure(
           enabled: enabled,

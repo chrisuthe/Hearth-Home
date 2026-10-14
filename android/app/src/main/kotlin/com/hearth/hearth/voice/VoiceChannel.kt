@@ -2,7 +2,6 @@ package com.hearth.hearth.voice
 
 import android.Manifest
 import android.app.Activity
-import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.core.app.ActivityCompat
@@ -51,7 +50,8 @@ class VoiceChannel(
                 result,
             )
             "stop" -> {
-                activity.stopService(Intent(activity, HearthAudioService::class.java))
+                // Sendspin may be keeping the service.
+                HearthAudioService.stopVoice(activity)
                 result.success(null)
             }
             "setMuted" -> {
@@ -109,7 +109,7 @@ class VoiceChannel(
     }
 
     private fun startService(config: VoiceConfig): Boolean = try {
-        ContextCompat.startForegroundService(activity, HearthAudioService.intent(activity, config))
+        HearthAudioService.startVoice(activity, config)
         true
     } catch (e: Exception) {
         // Android refuses a microphone service start while Hearth is not visible.

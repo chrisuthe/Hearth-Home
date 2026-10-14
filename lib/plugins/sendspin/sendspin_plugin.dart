@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../config/hub_config.dart';
+import '../../services/sendspin/android_sendspin_service.dart';
 import '../../services/sendspin/sendspin_service.dart';
 import '../framework/fields/bool_setting_field.dart';
 import '../framework/fields/select_setting_field.dart';
@@ -16,7 +17,8 @@ import '../hearth_plugin.dart';
 ///   * `sendspinEnabled`
 ///   * `sendspinPlayerName`
 ///   * `sendspinServerUrl`
-///   * `sendspinBufferSeconds` (one of 5, 7, 10)
+///   * `sendspinBufferSeconds` (one of 5, 7, 10; not on Android, whose
+///     native engine has no buffer-length setting)
 ///   * `sendspinUnpairedAccess`
 ///
 /// The device's identity is not a config field: it is a key pair the
@@ -80,27 +82,29 @@ class SendspinPlugin extends HearthPlugin {
           label: 'Server URL',
           hint: 'ws://192.168.1.x:8927 (blank to let servers find this player)',
         ).buildWidget(ref),
-        SelectSettingField(
-          label: 'Buffer Size',
-          options: const {
-            '5': '5 seconds',
-            '7': '7 seconds',
-            '10': '10 seconds',
-          },
-          readOverride: (c) => c.sendspinBufferSeconds.toString(),
-          writeOverride: (ref, value) async {
-            final notifier = ref.read(hubConfigProvider.notifier);
-            await notifier.update(
-              (c) => c.copyWith(sendspinBufferSeconds: int.parse(value)),
-            );
-          },
-        ).buildWidget(ref),
+        if (!sendspinNative)
+          SelectSettingField(
+            label: 'Buffer Size',
+            options: const {
+              '5': '5 seconds',
+              '7': '7 seconds',
+              '10': '10 seconds',
+            },
+            readOverride: (c) => c.sendspinBufferSeconds.toString(),
+            writeOverride: (ref, value) async {
+              final notifier = ref.read(hubConfigProvider.notifier);
+              await notifier.update(
+                (c) => c.copyWith(sendspinBufferSeconds: int.parse(value)),
+              );
+            },
+          ).buildWidget(ref),
         const BoolSettingField(
           label: 'Allow unpaired servers',
           icon: Icons.lock_open,
           configPath: 'sendspinUnpairedAccess',
           subtitle: _unpairedAccessHelp,
         ).buildWidget(ref),
+        const SendspinHealthNote(),
         const SizedBox(height: 12),
         const SendspinPairingSection(),
       ],
@@ -150,8 +154,38 @@ class SendspinPlugin extends HearthPlugin {
     return enable.buildHtml(ctx) +
         playerName.buildHtml(ctx) +
         serverUrl.buildHtml(ctx) +
-        bufferSize.buildHtml(ctx) +
+        (sendspinNative ? '' : bufferSize.buildHtml(ctx)) +
         unpairedAccess.buildHtml(ctx);
+  }
+}
+
+/// The last problem the Android player reported, while the player is on.
+/// The Dart client on the Pi reports to the log instead.
+class SendspinHealthNote extends ConsumerWidget {
+  const SendspinHealthNote({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (!ref.watch(hubConfigProvider.select((c) => c.sendspinEnabled))) {
+      return const SizedBox.shrink();
+    }
+    final service = ref.watch(sendspinServiceProvider);
+    if (service is! AndroidSendspinService) return const SizedBox.shrink();
+    return ValueListenableBuilder<SendspinHealth?>(
+      valueListenable: service.health,
+      builder: (context, health, _) {
+        if (health == null) return const SizedBox.shrink();
+        return ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.warning_amber, color: Colors.amber),
+          title: Text(health.label),
+          subtitle: health.message.isEmpty
+              ? null
+              : Text(health.message,
+                  style: const TextStyle(color: Colors.white54)),
+        );
+      },
+    );
   }
 }
 

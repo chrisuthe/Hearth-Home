@@ -1,7 +1,7 @@
 # Sendspin on Android — Design
 
 **Date:** 2026-10-14
-**Status:** Design. Phases 1 and 2, in SendspinDroid, are merged. Phase 3 is done: the player is pinned and built into Hearth's APK, and nothing uses it yet. Phase 4 is next.
+**Status:** Phases 1 and 2, in SendspinDroid, are merged. Phases 3 to 5 are done in Hearth: the player is pinned and built into the APK, `HearthAudioService` hosts the engine, and the Dart side drives it over `com.hearth/sendspin`. Phase 6, the hardware pass, ran on the tablet on 2026-10-14 for everything that does not need a person in the room; see [Hardware pass 1](#hardware-pass-1-phase-6).
 **Goal:** Specify how the Android build plays Sendspin through SendspinDroid's native player inside `HearthAudioService`, and break the Hearth integration into tasks.
 **Tracking:** issue 248.
 
@@ -85,7 +85,7 @@ Differences from Ava:
 - **No version catalog.** SendspinDroid writes dependency versions inline in each `build.gradle.kts` (**verified**). Hearth's scripts copy them by hand, and moving the pin means diffing those files. Hearth's `CLAUDE.md` gets the same note it has for Ava.
 - **No `UPSTREAM_PIN` and no drift check.** SendspinDroid is not a fork; we own it. The submodule is bumped by hand, like the Ava pin, and Renovate does not see it.
 - **R8.** SendspinDroid's keep and `-dontwarn` rules for Ktor, OkHttp, BouncyCastle and kotlinx are in `app/proguard-rules.pro` (**verified**). The engine pull request moves the ones the player needs into `:player`'s `consumer-rules.pro` (OkHttp, coroutines, serialization, Ktor), so Hearth's release build inherits them. SendspinDroid's release build still keeps OkHttp's class names with the rules moved (**verified**, `assembleRelease` and the dex). In Hearth, R8 accepts them: the release build completes with no missing-class errors (**verified**, `scripts/build-android-apk.sh`). That they are sufficient at runtime is **assumed** until a release APK plays.
-- **Nothing references the player yet, so R8 dropped all of it**: the first release build had no `com.sendspindroid` class (**verified**, `dexdump`). `android/app/proguard-rules.pro` keeps `SendSpinEngine` and `SendSpin` with their public members until phase 4 references them, and then the rule goes. With it, both APKs carry `com.sendspindroid.playback.SendSpinEngine` and `com.sendspindroid.sendspin.SendSpin` (**verified**, `dexdump` of every `classes*.dex`).
+- **Nothing referenced the player in phase 3, so R8 dropped all of it**: the first release build had no `com.sendspindroid` class (**verified**, `dexdump`). `android/app/proguard-rules.pro` kept `SendSpinEngine` and `SendSpin` with their public members until phase 4 referenced them; phase 4 deleted the file. With it, both APKs carry `com.sendspindroid.playback.SendSpinEngine` and `com.sendspindroid.sendspin.SendSpin` (**verified**, `dexdump` of every `classes*.dex`).
 - **Size.** Ktor's server and client, BouncyCastle and OkHttp join the APK. SendspinDroid already strips BouncyCastle's unused resources (about 1.2 MB) and Ktor's `kotlin-reflect` and `jansi` (about 590 KB) (**verified**, `app/build.gradle.kts`, `shared/build.gradle.kts`); Hearth's scripts and packaging options do the same: `:app` has the same two `packaging` excludes, and neither APK contains a picnic table or `CertPathReviewerMessages` (**verified**, `unzip -l`), and `kotlin-reflect` and `jansi` are absent from `:app`'s release runtime classpath (**verified**, `:app:dependencies`).
 
   Measured at `0e6c67c5` (**verified**):
@@ -96,6 +96,8 @@ Differences from Ava:
   | `scripts/build-android-apk.sh` (release, arm64, R8) | 81,244,316 B | 81,991,051 B | +0.75 MB |
 
   The release figure is with the keep rule above. Without it the growth was 0.63 MB, all library code that `consumer-rules.pro` keeps whole (`okhttp3.**`, `okio.**`), so the player's own reachable code costs about 0.11 MB. Phase 4's real references should land near the figure with the rule.
+
+  With phase 4's real references and no keep rule, the release APK is 82,491,328 B, 0.50 MB more than with the rule (**verified**, `scripts/build-android-apk.sh`). R8 now renames the player's classes, as it does Ava's, so look them up in `build/app/outputs/mapping/release/mapping.txt` first; the short names change from build to build. `SendSpinEngine` and `SendSpin` are in the release dex under their mapped names, and under their own in the debug dex (**verified**, `dexdump` of every `classes*.dex`). `NsdAdvertiser` and `SendspinWebSocketServer` were merged into their callers; their methods appear in the mapping under other classes (**verified**).
 
 **Licences.** SendspinDroid is MIT (**verified**, `LICENSE`). Comparing `:app:dependencies --configuration releaseRuntimeClasspath` before and after found these new libraries, each checked at its source (**verified**): Ktor 3.1.1, OkHttp 4.12.0, Okio 3.10.2, Typesafe Config 1.4.3 (Apache-2.0, POM licences); kotlinx-io and kotlinx-coroutines-slf4j (Apache-2.0, POM licences, folded into the existing Kotlin entry); BouncyCastle `bcprov-jdk18on` 1.80 (Bouncy Castle Licence, MIT text, from `org.bouncycastle.LICENSE` in the jar); SLF4J API 2.0.16 (MIT, `META-INF/LICENSE.txt` in the jar). Typesafe Config and SLF4J come in through Ktor's server. OkHttp also carries the Public Suffix List (`okhttp3/internal/publicsuffix/publicsuffixes.gz`, MPL-2.0, per its `NOTICE`), which lands in both APKs unmodified (**verified**, `unzip -l`) and has its own entry. Each has an entry in `assets/licenses/notices.json` (platform `android`), and `THIRD_PARTY_NOTICES.md` is regenerated (`2026-10-14-third-party-notices-design.md`). `third_party_notices_test.dart` catches a missing entry for the submodule and, since phase 3, for any module under `android/sendspin/`. It does not catch the Maven libraries, so they are checked against `:app:dependencies` by hand.
 
@@ -150,6 +152,44 @@ Not on the channel, on purpose:
 - **`VoiceDucker`** keeps calling `setLocalDuckFactor`; the Android backend ignores it, because the audio coordinator has already muted the engine natively one HA round trip earlier.
 - **State consumers** (`mini_stats_row.dart`, `media_screen.dart`, the slider) read `SendspinPlayerState` from `sendspin_dart`. The Android backend builds that same type from the `state` event, so they do not change.
 
+## As built (phases 4 and 5)
+
+Built and unit-tested on 2026-10-14. What the tablet confirmed is under [Hardware pass 1](#hardware-pass-1-phase-6); anything not listed there is still **assumed**.
+
+- **Service lifecycle.** Each channel puts its feature's request in `HearthAudioService`'s companion and either hands it to the running service or starts one. The service records what is wanted on the main thread, goes foreground with `mediaPlayback`, adding `microphone` only while voice is wanted, and rebuilds only the feature whose request arrived, under `lifecycleMutex`. When the last job finds neither feature wanted it stops with `stopSelfResult`, so a start that arrived meanwhile keeps it. The wake and Wi-Fi locks are held while either feature runs. Voice `stop` no longer stops the service (`HearthAudioService.stopVoice`). The notification now reads "Hearth audio" and carries a line from each running feature.
+- **The glue** is `SendspinPlayer` (`android/app/src/main/kotlin/com/hearth/hearth/sendspin/`), ported from `PlaybackService` as listed under [The service](#the-service). `InboundConnections` runs on a scope that a reconfigure does not cancel, because it destroys a displaced client after its goodbye, which can land after the listener has closed. The network trigger is a default-network callback that re-advertises, or re-binds a listener that never came up, when the network or its addresses change. Hardware volume reaches the server through a `ContentObserver` on `Settings.System`, as SendspinDroid does.
+- **`SendSpinHost`** (`HearthSendSpinHost`): `lowMemoryMode` off, `highPowerMode` on (a kiosk on mains power), preferred codec `opus` (SendspinDroid's default), the server's output delay held and reported. `SendspinSecrets` keeps the private key, the pairing PSK and the trust records in `filesDir/sendspin/` (`identity`, `pairing_psk`, `trust.json`), written through a temporary file and a rename, and refuses to overwrite an unreadable key. It reports `storageIsEncrypted` false: the files are private to the app but not Keystore-encrypted. The server's `PLAYER` mute is held for the life of the process, not persisted.
+- **Channel additions** beyond the table: the `state` event also carries `pairedServers` and `group` (id, name, playback state), and Dart reloads `pairingInfo` when the count changes; two more `health` codes, `dialledUnsupported` (a server URL is set; nothing is advertised) and `secretsUnreadable`. `clockOffsetMs` carries the clock filter's error in ms, -1 until it is ready, which is what the Media screen's sync badge reads on the Pi.
+- **Dart.** `AndroidSendspinService` (`lib/services/sendspin/android_sendspin_service.dart`) implements `SendspinService`'s interface, so its consumers are unchanged; `sendspinNative` picks it in the provider. It is configured when Sendspin is off too, so the native side can stop. The Sendspin plugin hides Buffer Size on Android on both surfaces and shows the last `health` event in the sidebar.
+
+## Hardware pass 1 (phase 6)
+
+2026-10-14, on the Apolosign (RK3576, Android 16), driven over adb, the `:8090` API and Home Assistant's media player services against the house Music Assistant ("MA Production"). The tablet ran with voice enabled throughout unless a step says otherwise. A debug APK first, then the release APK (R8, arm64) installed over it with its data kept.
+
+| Check | Result |
+|---|---|
+| Server URL set (the tablet's existing config, `ws://…:8927`) | **verified**: no advertisement, `dialledUnsupported` health event |
+| Advertising after the URL was cleared | **verified**: listener on 8928 `/sendspin`; `NsdAdvertiser` registered `_sendspin._tcp` with `name` and `path` TXT and the multicast lock |
+| Discovery and admission | **verified**: Music Assistant connected within a second of the registration, completed the Noise handshake on the Sentinel PSK (unpaired access), and was admitted through `InboundConnections`; it appears in Home Assistant as `media_player.kitchenscreen` |
+| Playback | **verified**: opus 48 kHz stereo, `PLAYING` about 1.1 s after `stream/start`; Android shows Hearth's `USAGE_MEDIA` AudioTrack started on the speaker. The Media screen's badge read "Sendspin ±<1ms", so `state` events reach Dart as `streaming` |
+| Pause and resume from HA | **verified**: `stream/end`, the player idles and its track pauses; resume reuses the warm player, `PLAYING` 340 ms after `stream/start` |
+| Volume, server to device | **verified**: 40 % from HA set `STREAM_MUSIC` to 40/100 and was reported back |
+| Volume, device to server | **verified after a fix**: hardware keys were reported one step low (42 on the device, 41 at the server), because `SendSpin.setVolume` truncates `volume * 100` and 41/100 is 40.99… as a float. `SendspinPlayer.reportVolume` now sends the half step; after the fix the device and HA agree (40/0.40; 37 on release) |
+| Voice off and on mid-stream | **verified**: foreground type 130 → 2 → 130 (`microphone|mediaPlayback` to `mediaPlayback` and back), the AudioTrack kept playing, no stream end |
+| Sendspin off and on with voice running | **verified**: the advertisement withdrawn, goodbyes sent, the track gone, the service kept at `0x82`, the satellite not rebuilt; on again, 8928 bound afresh and Music Assistant was readmitted within a second |
+| `lastPlaybackServer` write-back | **verified**: `sendspinLastPlaybackServerId` in `hub_config.json` holds the server's id |
+| Restart (force-stop, launch) | **verified**: no new `identity` or `pairing_psk` was created, and the same server was readmitted |
+| Notification | **verified**: "Hearth audio — Listening for the wake word · Sendspin connected to MA Production (…)" |
+| Release APK | **verified after a fix**: it crashed when Home Assistant asked the satellite for its device info, because R8 stripped the protobuf-lite fields of `com.example.esphomeproto` (a voice-satellite gap present since the satellite landed). `android/ava/esphomeproto/src/main/resources/META-INF/proguard/esphomeproto.pro` keeps them. Then: voice connected, Sendspin advertised, handshook (BouncyCastle survives R8), played and moved volume both ways |
+
+Not run, because each needs someone in the room or the Music Assistant UI: sync against the Pi in one group, pairing by token, an output delay set by the server and its persistence, a spoken voice exchange on the release build, and Doze over hours of idle.
+
+Found, not fixed here:
+
+- `client/hello` names the product "SendSpinDroid": `MessageBuilder` in SendspinDroid's `:shared` hardcodes `product_name`, and `manufacturer` is `Build.MANUFACTURER` ("Electron" on this tablet). A SendspinDroid change, so `SendSpinHost` can supply both.
+- Stopping the player sends `client/goodbye` reason `another_server` before `shutdown`: `InboundConnections.close()` releases the held connection with `leaveForAnotherServer()`. Same in SendspinDroid's app.
+- The volume truncation is in SendspinDroid's `setVolume`; its own app has the same off-by-one.
+
 ## Muting at wake
 
 The voice design's `AudioCoordinator` table says Sendspin is "muted at once" when the wake word fires (`2026-10-13-android-native-voice-satellite-design.md`, "Echo and ducking"). Concretely:
@@ -176,9 +216,9 @@ Each line is one task. Sizes are relative. Phases 1 and 2 are pull requests in S
 | 1 | Extract `:player` from `:app`, behaviour unchanged. SendspinDroid pull request 326, merged. | SendspinDroid | Medium | — |
 | 2 | Move the pipeline into `SendSpinEngine` in `:player`, with the `VOICE` mute reason, `consumer-rules.pro`, and the pipeline tests. `PlaybackService` becomes its host. SendspinDroid pull request 329, merged. | SendspinDroid | Large | 1 |
 | 3 | **Done.** Pin SendspinDroid as a submodule; Hearth-owned scripts for `:sendspin-shared` and `:sendspin-player`; the APK builds with the classes in it; third-party notices; `CLAUDE.md` maintenance note | Hearth | Small-medium | 2 |
-| 4 | `HearthAudioService` hosts the engine: Sendspin configured on its own channel beside voice, foreground type by feature, `SendSpinHost` with private-file storage, the listener and advertiser glue, `STREAM_MUSIC` volume, `com.hearth/sendspin` | Hearth | Medium | 3 |
-| 5 | Dart: Android backend for `SendspinService`, remove the provider guard, hide buffer length on Android, the system slider on `STREAM_MUSIC`, and the requirements spec rows | Hearth | Medium | 4 |
-| 6 | Hardware pass: Music Assistant finds the tablet, pairing, playback in a group with the Pi, volume from both sides, output-delay persistence across a restart, and a release APK | Hearth | Small | 5 |
+| 4 | **Done.** `HearthAudioService` hosts the engine: Sendspin configured on its own channel beside voice, foreground type by feature, `SendSpinHost` with private-file storage, the listener and advertiser glue, `STREAM_MUSIC` volume, `com.hearth/sendspin` | Hearth | Medium | 3 |
+| 5 | **Done.** Dart: Android backend for `SendspinService`, remove the provider guard, hide buffer length on Android, the system slider on `STREAM_MUSIC`, and the requirements spec rows | Hearth | Medium | 4 |
+| 6 | **Partly done** (see [Hardware pass 1](#hardware-pass-1-phase-6)): group sync, pairing by token, server-set output delay and a soak remain. Hardware pass: Music Assistant finds the tablet, pairing, playback in a group with the Pi, volume from both sides, output-delay persistence across a restart, and a release APK | Hearth | Small | 5 |
 | 7 | The audio coordinator's Sendspin mute (voice design, task 7) | Hearth | Small | 6, voice task 7 |
 | 8 | Dialled mode (`sendspinServerUrl`) with reconnect | Hearth and SendspinDroid | Small-medium | 6 |
 

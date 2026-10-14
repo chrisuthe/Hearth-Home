@@ -4,6 +4,7 @@ import android.content.Intent
 import android.os.Bundle
 import com.hearth.hearth.capture.CaptureChannel
 import com.hearth.hearth.capture.ScreenCaptureService
+import com.hearth.hearth.sendspin.SendspinChannel
 import com.hearth.hearth.voice.HearthAudioService
 import com.hearth.hearth.voice.VoiceChannel
 import io.flutter.embedding.android.FlutterActivity
@@ -11,6 +12,7 @@ import io.flutter.embedding.engine.FlutterEngine
 
 class MainActivity : FlutterActivity() {
     private var voice: VoiceChannel? = null
+    private var sendspin: SendspinChannel? = null
     private var appUpdate: AppUpdateChannel? = null
     private var capture: CaptureChannel? = null
 
@@ -28,6 +30,7 @@ class MainActivity : FlutterActivity() {
         super.configureFlutterEngine(flutterEngine)
         val messenger = flutterEngine.dartExecutor.binaryMessenger
         voice = VoiceChannel(this, messenger)
+        sendspin = SendspinChannel(this, messenger)
         appUpdate = AppUpdateChannel(this, messenger)
         capture = CaptureChannel(this, messenger)
     }
@@ -35,12 +38,15 @@ class MainActivity : FlutterActivity() {
     override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
         voice?.dispose()
         voice = null
+        sendspin?.dispose()
+        sendspin = null
         appUpdate?.dispose()
         appUpdate = null
         capture?.dispose()
         capture = null
-        // Dart owns the satellite; without it nothing could mute or stop it.
-        // A newer instance (a relaunch with CLEAR_TASK) already owns it.
+        // Dart owns the satellite and Sendspin; without it nothing could
+        // configure, mute or stop them. A newer instance (a relaunch with
+        // CLEAR_TASK) already owns them.
         if (isFinishing && live == 1) {
             stopService(Intent(this, HearthAudioService::class.java))
             // Consent lasts one session; the next launch asks again.
