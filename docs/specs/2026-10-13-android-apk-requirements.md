@@ -171,7 +171,9 @@ A `build-apk` job in both `build-pi-image.yml` workflows runs `scripts/build-and
 - **The bundle never waits on it.** On GitHub the release job runs when the bundle built, whatever the APK job did, and attaches the APK only if there is one. On Gitea the APK job runs after the bundle is published and uploads to that release.
 - **On GitHub, a dispatch or the canary** keeps the APK as the `hearth-apk` artifact. On Gitea those runs build and discard, as they do for the bundle.
 - The toolchain is JDK 17 (`actions/setup-java`), the SDK command-line tools with licenses accepted (`android-actions/setup-android`), and whatever Gradle then installs itself: platforms 34, 35, 36, build-tools 36, NDK 28.2.13676358, CMake 3.22.1. Roughly 3 GB on top of the Flutter SDK, from `dl.google.com`, Maven Central, the Gradle plugin portal and GitHub releases (libmpv jars). Nothing is cached: the cold build took about 220 s on the host, most of it downloads.
-- **Not verified in CI.** The script was run on the host (Flutter 3.47.6; the workflows pin 3.47.7). Neither workflow has run with the new job, and the Gitea runner has never had an Android toolchain installed on it.
+- **Verified on Gitea**, on a branch dispatch (run 1921): the self-hosted runner installed the toolchain from nothing and built the APK on Flutter 3.47.7 in 14 minutes, after the bundle job. That run had no tag and no signing secrets, so the release upload and the keystore path have **not run in CI**; the keystore path was run on the host only (Flutter 3.47.6).
+- **Not verified on GitHub.** The workflow there has not run with the new job.
+- Keep the keystore passwords to letters and digits: they are written to `key.properties` unescaped.
 - Pull requests still do not build the APK: `flutter analyze` and `flutter test` never run Gradle.
 
 ## Dependency-maintenance impact
