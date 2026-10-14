@@ -40,6 +40,9 @@ dependencies:
       path: packages/flutterpi_gstreamer_video_player
   mqtt_client: ^10.11.11
   qr_flutter: ^4.1.0
+  # Android self-update: the installed version and the APK checksum.
+  package_info_plus: ^10.2.1
+  crypto: ^3.0.7
 
 dev_dependencies:
   flutter_test:
