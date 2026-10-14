@@ -89,12 +89,20 @@ Differences from Ava:
 
 - The service runs when `voiceSatelliteEnabled` or `sendspinEnabled` is set, and stops when neither is.
 - Foreground type: `mediaPlayback` always, plus `microphone` only when voice is on and the permission is granted. Sendspin alone needs no microphone and no prompt.
-- Start stays Dart-driven, from the visible activity. The start command carries two optional sections, voice and Sendspin, and either can be absent. A Sendspin settings change restarts only the engine, not the satellite, so a playing stream survives a wake-word change and the other way round.
+- Start stays Dart-driven, from the visible activity. Each feature configures itself over its own channel: `start` on `com.hearth/voice`, `configure` on `com.hearth/sendspin`. Whichever arrives first starts the service, and the service stops when both are off. A Sendspin `configure` rebuilds only the engine, not the satellite, so a playing stream survives a wake-word change and the other way round.
 - The partial wake lock and the Wi-Fi lock the satellite takes cover Sendspin too. SendspinDroid holds a 30-minute playback wake lock and refreshes it (**verified**, `PlaybackService.kt:2370-2385`); Hearth's service-lifetime lock replaces it.
 - **Audio focus.** Hearth is a single-app kiosk. Its other players are media_kit, in the same process. The engine does not request focus in Hearth. Losing focus to a call or another app is not handled in the first version (**assumed** adequate on a dedicated tablet; listed under open questions).
 - **Settings and storage.** `HubConfig` stays the source of truth, as for voice. The start command carries the player name, server URL, unpaired access, output delay and last-playback server. When a server changes the output delay, or a new server becomes the last one to play, the service reports it and Dart writes `HubConfig`, as it does on the Pi through `onOutputDelayPersist` and `onLastPlaybackServer` (**verified**, `sendspin_service.dart:827-837`).
 - **Secrets are the exception.** The device's key pair, the pairing PSK and the trust records stay out of `hub_config.json`, as the Dart client already keeps them out (**verified**, `sendspin_stores.dart:12`). Hearth's `SendSpinHost` keeps them in the app's private files directory under `sendspin/`. This is the one thing the service persists. Clearing Hearth's data therefore unpairs it from every server, as on the Pi when its identity file is deleted.
 - **Dynamic pairing code** (a code shown on the device's screen) is off in the first version: `PairingConfigStore` reports it disabled. Unpaired access and the pairing token cover setup, as on the Pi.
+
+## mDNS advertisement
+
+- On Android the engine advertises, not Dart: `NsdAdvertiser` registers `_sendspin._tcp` through `NsdManager` with the port the listener actually bound, `path=/sendspin` and `name=<player name>`, and holds a `WifiManager.MulticastLock` while it does (**verified**, `P/discovery/NsdAdvertiser.kt:12-48`, `141-155`). `bonsoir` stays the Pi and desktop path. The multicast permission is already in Hearth's manifest.
+- It runs inside the foreground service, beside the satellite's `_esphomelib._tcp` registration, so both live as long as the service does.
+- When the network changes, SendspinDroid re-registers, or re-binds the listener if that failed (**verified**, `A/playback/PlaybackService.kt`, `advertiseAgainAfterNetworkChange`). That trigger is in `PlaybackService`, so it moves with the engine in phase 2.
+- A bind or registration failure is reported as a `health` event, which the Sendspin plugin shows, as SendspinDroid shows "waiting" only over a working advertisement.
+- Advertising and dialling are exclusive, as the spec requires ("Clients MUST NOT manually connect to servers while advertising", quoted at `P/discovery/NsdAdvertiser.kt:20-21`). With `sendspinServerUrl` set the engine does not advertise; that is phase 8.
 
 ## Platform channel
 
@@ -102,7 +110,7 @@ One `MethodChannel` and one `EventChannel` named `com.hearth/sendspin`, separate
 
 | Direction | Name | Payload |
 |---|---|---|
-| Dart → native | `configure` | enabled, player name, server URL, unpaired access, output delay ms, last-playback server id |
+| Dart → native | `configure` | enabled, player name, server URL, unpaired access, output delay ms, last-playback server id. Starts the service if it is not running; with `enabled` false, stops the engine and, if voice is off too, the service. |
 | Dart → native | `setVolume` | 0.0–1.0. Sets `STREAM_MUSIC` and reports it to the server. |
 | Dart → native | `getVolume` | → 0.0–1.0 from `STREAM_MUSIC`, for the system slider when Sendspin is off |
 | Dart → native | `pairingInfo` | → client id, pairing token, paired server count |
