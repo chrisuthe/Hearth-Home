@@ -226,4 +226,4 @@ The short version:
 
 MIT
 
-The Android build embeds our fork of [Ava](https://github.com/chrisuthe/Ava-hearth) (Apache-2.0) as the `android/third_party/ava` submodule. Its `LICENSE.md` travels with the submodule, and the notice for the bundled voice sounds (CC BY 4.0) ships in the APK at `assets/sounds/LICENSE.md`.
+Hearth's builds also ship third-party code, fonts, sounds and models under their own licences, among them our fork of [Ava](https://github.com/chrisuthe/Ava-hearth) (Apache-2.0) in the Android build. [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) lists them, and the app shows the licence texts under Settings → System → Open-source licences.

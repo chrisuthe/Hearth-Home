@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
+import 'package:flutter/foundation.dart' show LicenseRegistry;
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/hearth_notification.dart';
@@ -15,6 +16,7 @@ import '../plugins/hearth_plugin.dart';
 import '../plugins/framework/plugin_router.dart';
 import '../plugins/framework/web_renderer.dart';
 import 'display_mode_service.dart';
+import 'third_party_licenses.dart';
 import 'timezone_service.dart';
 import 'wifi_service.dart';
 import 'app_updater.dart';
@@ -193,6 +195,12 @@ class LocalApiServer {
       } else if (path == '/logs') {
         if (_checkSession(request)) {
           await _serveLogsPage(request);
+        } else {
+          await _servePinPage(request);
+        }
+      } else if (path == '/licenses') {
+        if (_checkSession(request)) {
+          await _serveLicensesPage(request);
         } else {
           await _servePinPage(request);
         }
@@ -818,6 +826,13 @@ class LocalApiServer {
     request.response.statusCode = 200;
     request.response.headers.contentType = ContentType.html;
     request.response.write(_logsPageHtml);
+    await request.response.close();
+  }
+
+  Future<void> _serveLicensesPage(HttpRequest request) async {
+    request.response.statusCode = 200;
+    request.response.headers.contentType = ContentType.html;
+    request.response.write(await renderLicensesHtml(LicenseRegistry.licenses));
     await request.response.close();
   }
 

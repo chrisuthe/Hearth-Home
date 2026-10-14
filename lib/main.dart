@@ -12,6 +12,7 @@ import 'services/capture_service.dart';
 import 'services/display_rotation_service.dart';
 import 'services/local_api_server.dart';
 import 'services/osk_integration.dart';
+import 'services/third_party_licenses.dart';
 import 'services/timezone_service.dart';
 import 'modules/alarm_clock/alarm_service.dart';
 import 'services/mqtt_service.dart';
@@ -33,6 +34,7 @@ const double kWindowHeight = 864;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  registerThirdPartyLicenses();
 
   // Kiosk tablets: hide Android's status and navigation bars. Sticky, so an
   // edge swipe only reveals them briefly and still reaches the edge menus.

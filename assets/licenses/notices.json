@@ -1,0 +1,283 @@
+{
+  "notices": [
+    {
+      "id": "ava",
+      "name": "Ava (Android voice satellite)",
+      "license": "Apache-2.0",
+      "licenseFile": "apache-2.0.txt",
+      "attribution": [
+        "Copyright 2025 Brownard.",
+        "Hearth builds a fork, chrisuthe/Ava-hearth, that moves Ava's device code into a :satellite library module. The fork's README lists the moved files."
+      ],
+      "platforms": ["android"],
+      "source": "https://github.com/brownard/Ava",
+      "forks": ["https://github.com/chrisuthe/Ava-hearth.git"],
+      "covers": ["android/third_party/ava", "android/ava/satellite"],
+      "status": "verified",
+      "checked": "LICENSE.md in the fork and upstream"
+    },
+    {
+      "id": "tflite-microfrontend",
+      "name": "TensorFlow Lite microfrontend",
+      "license": "Apache-2.0",
+      "licenseFile": "apache-2.0.txt",
+      "attribution": [
+        "Copyright 2018 The TensorFlow Authors. All Rights Reserved.",
+        "The wake-word audio feature frontend, compiled into Ava's :microfeatures library."
+      ],
+      "platforms": ["android"],
+      "source": "https://github.com/tensorflow/tflite-micro",
+      "covers": ["android/ava/microfeatures"],
+      "status": "verified",
+      "checked": "File headers under microfeatures/src/main/cpp/tensorflow"
+    },
+    {
+      "id": "kissfft",
+      "name": "KISS FFT",
+      "license": "BSD-3-Clause",
+      "licenseFile": "kissfft.txt",
+      "attribution": ["Compiled into Ava's :microfeatures library."],
+      "platforms": ["android"],
+      "source": "https://github.com/mborgerding/kissfft",
+      "covers": ["android/ava/microfeatures"],
+      "status": "verified",
+      "checked": "Header of microfeatures/src/main/cpp/kissfft/kiss_fft.c"
+    },
+    {
+      "id": "esphome-api-proto",
+      "name": "ESPHome native API protocol (api.proto)",
+      "license": "MIT",
+      "licenseFile": "esphome-mit.txt",
+      "attribution": [
+        "Ava's :esphomeproto library is generated from ESPHome's api.proto. ESPHome licenses its C and C++ files under GPLv3 and every other file, api.proto included, under MIT."
+      ],
+      "platforms": ["android"],
+      "source": "https://github.com/esphome/esphome",
+      "covers": ["android/ava/esphomeproto"],
+      "status": "verified",
+      "checked": "ESPHome LICENSE"
+    },
+    {
+      "id": "microwakeword-models",
+      "name": "microWakeWord models: okay_nabu, hey_jarvis, stop",
+      "license": "Apache-2.0",
+      "licenseFile": "apache-2.0.txt",
+      "attribution": [
+        "Wake-word models trained by Kevin Ahrendt (https://www.kevinahrendt.com/).",
+        "hey_jarvis from esphome/micro-wake-word-models; okay_nabu and stop from the kahrendt/microWakeWord releases okay_nabu_20241226.3 and stop-20241016.2."
+      ],
+      "platforms": ["android"],
+      "source": "https://github.com/kahrendt/microWakeWord",
+      "covers": [],
+      "status": "verified",
+      "checked": "Each bundled .tflite is byte-identical to the file in an Apache-2.0 repository: hey_jarvis to esphome/micro-wake-word-models models/v2, okay_nabu and stop to the kahrendt/microWakeWord release assets named above"
+    },
+    {
+      "id": "voice-pe-sounds",
+      "name": "Home Assistant Voice Preview Edition sounds",
+      "license": "CC-BY-4.0",
+      "licenseFile": "cc-by-4.0.txt",
+      "attribution": [
+        "Home Assistant Voice Preview Edition Sounds (https://github.com/esphome/home-assistant-voice-pe/tree/dev/sounds) © 2024 by Clayton Charles Tapp (https://www.cctaudio.com/).",
+        "The wake, timer-finished and error sounds, as distributed with Ava."
+      ],
+      "platforms": ["android"],
+      "source": "https://github.com/esphome/home-assistant-voice-pe",
+      "covers": [],
+      "status": "verified",
+      "checked": "satellite/src/main/assets/sounds/LICENSE.md in Ava"
+    },
+    {
+      "id": "litert",
+      "name": "LiteRT",
+      "license": "Apache-2.0",
+      "licenseFile": "apache-2.0.txt",
+      "attribution": ["Copyright Google LLC.", "Runs the wake-word models."],
+      "platforms": ["android"],
+      "source": "https://github.com/google-ai-edge/LiteRT",
+      "covers": [],
+      "status": "verified",
+      "checked": "Maven POM licence of com.google.ai.edge.litert"
+    },
+    {
+      "id": "androidx",
+      "name": "AndroidX libraries, including Media3",
+      "license": "Apache-2.0",
+      "licenseFile": "apache-2.0.txt",
+      "attribution": ["Copyright The Android Open Source Project."],
+      "platforms": ["android"],
+      "source": "https://developer.android.com/jetpack/androidx",
+      "covers": [],
+      "status": "verified",
+      "checked": "Maven POM licence of every androidx artifact on the release runtime classpath"
+    },
+    {
+      "id": "kotlin",
+      "name": "Kotlin standard library, kotlinx.coroutines, kotlinx.serialization, JetBrains annotations",
+      "license": "Apache-2.0",
+      "licenseFile": "apache-2.0.txt",
+      "attribution": ["Copyright JetBrains s.r.o. and Kotlin Programming Language contributors."],
+      "platforms": ["android"],
+      "source": "https://github.com/JetBrains/kotlin",
+      "covers": [],
+      "status": "verified",
+      "checked": "Maven POM licences"
+    },
+    {
+      "id": "guava",
+      "name": "Guava",
+      "license": "Apache-2.0",
+      "licenseFile": "apache-2.0.txt",
+      "attribution": ["Copyright The Guava Authors."],
+      "platforms": ["android"],
+      "source": "https://github.com/google/guava",
+      "covers": [],
+      "status": "verified",
+      "checked": "Maven POM licence (guava-parent)"
+    },
+    {
+      "id": "relinker",
+      "name": "ReLinker",
+      "license": "Apache-2.0",
+      "licenseFile": "apache-2.0.txt",
+      "attribution": ["Copyright KeepSafe Software, Inc."],
+      "platforms": ["android"],
+      "source": "https://github.com/KeepSafe/ReLinker",
+      "covers": [],
+      "status": "verified",
+      "checked": "Maven POM licence"
+    },
+    {
+      "id": "jspecify",
+      "name": "JSpecify annotations",
+      "license": "Apache-2.0",
+      "licenseFile": "apache-2.0.txt",
+      "attribution": ["Copyright The JSpecify Authors."],
+      "platforms": ["android"],
+      "source": "https://github.com/jspecify/jspecify",
+      "covers": [],
+      "status": "verified",
+      "checked": "Maven POM licence"
+    },
+    {
+      "id": "timber",
+      "name": "Timber",
+      "license": "Apache-2.0",
+      "licenseFile": "apache-2.0.txt",
+      "attribution": ["Copyright 2013 Jake Wharton."],
+      "platforms": ["android"],
+      "source": "https://github.com/JakeWharton/timber",
+      "covers": [],
+      "status": "verified",
+      "checked": "Repository LICENSE.txt and Maven POM licence"
+    },
+    {
+      "id": "protobuf",
+      "name": "Protocol Buffers (Java and Kotlin lite runtimes)",
+      "license": "BSD-3-Clause",
+      "licenseFile": "protobuf.txt",
+      "attribution": [],
+      "platforms": ["android"],
+      "source": "https://github.com/protocolbuffers/protobuf",
+      "covers": [],
+      "status": "verified",
+      "checked": "Repository LICENSE and Maven POM licence (protobuf-parent)"
+    },
+    {
+      "id": "libmpv",
+      "name": "libmpv and FFmpeg (media_kit native builds)",
+      "license": "LGPL-2.1-or-later",
+      "licenseFile": "lgpl-2.1.txt",
+      "attribution": [
+        "media_kit downloads prebuilt libmpv, which statically includes FFmpeg and other libraries, from media-kit/libmpv-android-video-build (Android) and media-kit/libmpv-win32-video-build (Windows). Source for those builds is in the repositories named here.",
+        "Linux desktop uses the system's libmpv and does not bundle it; the Pi does not use it."
+      ],
+      "platforms": ["android", "windows"],
+      "source": "https://github.com/media-kit/libmpv-android-video-build",
+      "covers": [],
+      "status": "assumed",
+      "checked": "Not confirmed: we have not read the build flags. mpv and FFmpeg are LGPL-2.1-or-later only when built without their GPL parts"
+    },
+    {
+      "id": "inter",
+      "name": "Inter font",
+      "license": "OFL-1.1",
+      "licenseFile": "ofl-inter.txt",
+      "attribution": [],
+      "platforms": ["android", "pi", "linux", "windows"],
+      "source": "https://github.com/rsms/inter",
+      "covers": ["assets/fonts/Inter-Variable.ttf"],
+      "status": "verified",
+      "checked": "Repository LICENSE.txt and the font's name table"
+    },
+    {
+      "id": "weather-icons",
+      "name": "Weather Icons font",
+      "license": "OFL-1.1",
+      "licenseFile": "ofl-weather-icons.txt",
+      "attribution": [],
+      "platforms": ["android", "pi", "linux", "windows"],
+      "source": "https://github.com/erikflowers/weather-icons",
+      "covers": ["assets/fonts/weathericons-regular-webfont.ttf"],
+      "status": "verified",
+      "checked": "Repository README licensing section and the font's name table"
+    },
+    {
+      "id": "alarm-tones",
+      "name": "Alarm tones",
+      "license": "CC-BY-4.0 and CC0-1.0",
+      "licenseFile": "cc-by-4.0.txt",
+      "attribution": [
+        "\"Chord Alert Notification\" by graham_makes (https://freesound.org/people/graham_makes/sounds/457518/), licensed under CC BY 4.0. Loudness-normalized and re-encoded as Ogg Vorbis for Hearth.",
+        "The other tones are CC0 and need no credit: \"ambientBell.wav\" by Divinux, \"Birds Chirping\" by Lizardhood, \"Alarm Clock\" by dcloh, all from Freesound."
+      ],
+      "platforms": ["android", "pi", "linux", "windows"],
+      "source": "https://freesound.org/",
+      "covers": ["assets/alarm_tones"],
+      "status": "verified",
+      "checked": "Freesound pages, recorded in assets/alarm_tones/CREDITS.md"
+    },
+    {
+      "id": "flutter-pi",
+      "name": "flutter-pi",
+      "license": "MIT",
+      "licenseFile": "flutter-pi.txt",
+      "attribution": ["The Pi runs Hearth on flutter-pi, built from the fork chrisuthe/flutter-pi-hearth."],
+      "platforms": ["pi"],
+      "source": "https://github.com/ardera/flutter-pi",
+      "forks": ["https://github.com/chrisuthe/flutter-pi-hearth.git"],
+      "covers": [],
+      "status": "verified",
+      "checked": "LICENSE in upstream and the fork"
+    },
+    {
+      "id": "flutterpi-gstreamer-video-player",
+      "name": "flutterpi_gstreamer_video_player",
+      "license": "MIT",
+      "licenseFile": null,
+      "attribution": [
+        "A Dart package, built from the fork chrisuthe/flutterpi_gstreamer_video_player-hearth. Flutter's package licences already list it, so it is not registered again."
+      ],
+      "platforms": ["pi"],
+      "source": "https://github.com/ardera/flutter_packages",
+      "forks": ["https://github.com/chrisuthe/flutterpi_gstreamer_video_player-hearth.git"],
+      "covers": [],
+      "status": "verified",
+      "checked": "LICENSE in the fork"
+    },
+    {
+      "id": "libflac",
+      "name": "libFLAC",
+      "license": "BSD-3-Clause",
+      "licenseFile": "libflac.txt",
+      "attribution": [
+        "Decodes FLAC for Sendspin through native/sendspin_flac. Linux links the system's libFLAC; a Windows build bundles it when one is found at build time."
+      ],
+      "platforms": ["linux", "windows"],
+      "source": "https://github.com/xiph/flac",
+      "covers": ["native/sendspin_flac"],
+      "status": "verified",
+      "checked": "COPYING.Xiph in the repository"
+    }
+  ]
+}
