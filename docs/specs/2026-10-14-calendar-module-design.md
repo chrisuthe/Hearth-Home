@@ -10,7 +10,7 @@
 - **verified** — read in source at the commit or version under [Sources read](#sources-read). The file and line are named inline.
 - **assumed** — reasoned from that source or from a standard, not settled by code we read or a test we ran.
 
-Home Assistant paths are relative to `homeassistant/components/` in HA core.
+Home Assistant paths are relative to `homeassistant/components/` in HA core, except `helpers/…`, which is `homeassistant/helpers/`.
 
 ## Sources read
 
@@ -253,7 +253,7 @@ calendarEventsProvider            Provider<MergedEvents>
 
 The window is one shared range, not one per view, so switching between day, week and month inside it costs nothing. It is wide enough for the default views and the ambient glance (which needs only the next 7 days). Paging outside it moves it, which resubscribes HA sources and re-expands (but does not refetch) ICS sources. A midnight timer moves it when "today" leaves the first week.
 
-The glance does not keep the window alive on its own: `calendarEventsProvider` is watched by HubShell's Home screen, which is always built, so the sources stay live as long as at least one source is enabled and either the module is placed or the glance is on.
+Sources are live while something watches `calendarEventsProvider`. With the glance on, that is always, because Home is always built. With it off, it is while the Calendar page is built.
 
 ### HA source
 
@@ -339,7 +339,7 @@ The `ListSection` HTML render is read-only (`lib/plugins/framework/list_section.
 
 ## Views
 
-All four views share a header: `‹ Today ›`, the visible range ("October 12–18"), a view switcher, and a legend of source swatches that toggles each source on screen only (not saved). A tap on an event opens a read-only detail sheet: summary, time, location, description, source. No other gestures besides horizontal paging inside the view; the module itself lives in HubShell's PageView, so paging between ranges uses the arrows, not swipes, to avoid fighting the outer PageView.
+All four views share a header: `‹ Today ›`, the visible range ("October 12–18"), a view switcher, and a legend of source swatches that toggles each source on screen only (not saved). A tap on an event opens a read-only detail sheet: summary, time, location, description, source. Inside a view the only gesture is vertical scrolling. Ranges change with the arrows, not horizontal swipes, because the module lives in HubShell's PageView and a swipe there changes screen.
 
 Every view branches on the constraints from `LayoutBuilder`, never on `displayOrientation`.
 
