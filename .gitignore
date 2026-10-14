@@ -63,3 +63,7 @@ docs/superpowers/
 !.claude/skills/
 .claude/skills/*
 !.claude/skills/hearth-*/
+
+# Output of scripts/build-android-apk.sh
+/hearth-android-*.apk
+/hearth-android-*.sha256

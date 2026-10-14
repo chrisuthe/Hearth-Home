@@ -10,7 +10,7 @@ on:
   # the Pi within a week instead of at release time.
   #
   # Publishes nothing: the `release` job below is gated on a v* tag ref, so a
-  # scheduled run performs `build-bundle` only.
+  # scheduled run performs `build-bundle` and `build-apk` only.
   schedule:
     - cron: '17 6 * * 1'
 
@@ -88,11 +88,58 @@ jobs:
             hearth-bundle-*.tar.gz
             hearth-bundle-*.sha256
 
+  build-apk:
+    # Experimental target. Rides the same triggers as the bundle so every
+    # release, manual run and weekly canary also produces an APK — nothing
+    # else in CI runs Gradle.
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          # AGP 9.1 is verified on 17 only.
+          java-version: '17'
+
+      # Gradle installs the NDK, CMake and the extra platforms on its own once
+      # the licenses are accepted, which this action does.
+      - uses: android-actions/setup-android@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.7'
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Build APK
+        env:
+          # Unset secrets arrive empty and the script falls back to the debug
+          # key, which changes per run: such an APK will not install over the
+          # previous release's.
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: ./scripts/build-android-apk.sh
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: hearth-apk
+          path: |
+            hearth-android-*.apk
+            hearth-android-*.sha256
+
   release:
     name: Publish to GitHub Release
-    needs: [build-bundle]
+    needs: [build-bundle, build-apk]
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
+    # Waits for the APK but does not depend on it: a broken Android build must
+    # not hold back the bundle that Pi devices update from.
+    if: ${{ always() && needs.build-bundle.result == 'success' && startsWith(github.ref, 'refs/tags/v') }}
     permissions:
       contents: write
     steps:
@@ -119,3 +166,19 @@ jobs:
           # devices on updateSource: github. Fail loudly instead.
           fail_on_unmatched_files: true
           generate_release_notes: true
+
+      - name: Download APK artifact
+        if: needs.build-apk.result == 'success'
+        uses: actions/download-artifact@v8
+        with:
+          name: hearth-apk
+          path: hearth-apk
+
+      - name: Attach APK to release
+        if: needs.build-apk.result == 'success'
+        uses: softprops/action-gh-release@v3
+        with:
+          files: |
+            hearth-apk/hearth-android-*.apk
+            hearth-apk/hearth-android-*.sha256
+          fail_on_unmatched_files: true

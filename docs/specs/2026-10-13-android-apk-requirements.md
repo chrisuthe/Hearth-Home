@@ -4,7 +4,7 @@
 **Status:** Experimental. The APK builds and launches; most Pi-only subsystems are inert.
 **Goal:** Record what it takes to build Hearth as an Android APK for a dedicated, wall-mounted kiosk tablet (generic arm64, Android 10+), what works after the scaffold landed, and what is still required before the APK is a full Hearth.
 
-Fire OS, Play Store distribution, and an Android CI job are out of scope here.
+Fire OS and Play Store distribution are out of scope here. The CI job that builds the APK was added afterwards and is described under [The CI build](#the-ci-build).
 
 ## How to read this
 
@@ -56,11 +56,13 @@ adb install -r build/app/outputs/flutter-apk/app-debug.apk
 adb shell am start -n com.hearth.hearth/.MainActivity
 ```
 
-For a device build, once signing is set up (see [Release signing](#release-signing)):
+For a device build, the script CI runs (see [Release signing](#release-signing) for which key it uses):
 
 ```bash
-flutter build apk --release --target-platform android-arm64 --no-tree-shake-icons
+./scripts/build-android-apk.sh
 ```
+
+It wraps `flutter build apk --release --target-platform android-arm64 --no-tree-shake-icons` and leaves `hearth-android-<version>.apk` and its `.sha256` in the project root.
 
 `--no-tree-shake-icons` is required: `WebviewConfig.icon` builds `IconData` from a code point stored in config, and the release build fails without the flag (**verified**).
 
@@ -154,33 +156,35 @@ Apart from immersive fullscreen and the HOME category, none of this is implement
 
 ## Release signing
 
-- The scaffold signs **release builds with the debug key** — the stock `flutter create` placeholder in `android/app/build.gradle.kts` (**verified**). Such an APK cannot be upgraded in place by one signed with a real key.
-- Create an upload keystore once (`keytool -genkey -v -keystore hearth-release.jks -keyalg RSA -keysize 2048 -validity 10000 -alias hearth`) and keep it outside the repo. Losing it means every tablet must uninstall and reinstall, losing `hub_config.json`.
-- Reference it from `android/key.properties` (`storeFile`, `storePassword`, `keyAlias`, `keyPassword`) and load that file in `build.gradle.kts` into a `release` signing config, falling back to debug signing when the file is absent so contributors can still build.
+- `android/app/build.gradle.kts` signs release builds from `android/key.properties` (`storeFile`, `storePassword`, `keyAlias`, `keyPassword`) when that file exists, and with the debug key when it does not, so contributors can still build. Both paths **verified** on the host with a throwaway keystore: `apksigner verify --print-certs` showed the keystore's certificate with the file present and `CN=Android Debug` without it.
+- **No release keystore exists yet.** Until one does, every APK is debug-signed, and the debug key is generated per machine — so an APK from one CI run cannot be installed over one from another (**assumed** from Android's signature check; not tried). Uninstalling first loses `hub_config.json`.
+- Create the keystore once (`keytool -genkey -v -keystore hearth-release.jks -keyalg RSA -keysize 2048 -validity 10000 -alias hearth`) and keep it outside the repo. Losing it means every tablet must uninstall and reinstall.
+- Give it to CI as four secrets, on **both** GitHub and Gitea: `ANDROID_KEYSTORE_BASE64` (`base64 -w0 hearth-release.jks`), `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`. `scripts/build-android-apk.sh` writes the keystore and `key.properties` from them, and refuses to build when only some are set.
 - `android/.gitignore` already excludes `key.properties`, `*.jks`, `*.keystore` and `local.properties` (**verified**).
-- `versionCode` comes from the pubspec build number, which Hearth does not set (`version: 1.20.0`), so every build is versionCode 1 (**verified** in the APK). Android refuses to install an update whose versionCode is not higher: `scripts/release.sh` must start writing a `+N` build number before any APK is distributed.
+- `versionCode` comes from the pubspec build number, which Hearth does not set, so a plain `flutter build apk` produces versionCode 1 (**verified** in the APK). Android refuses to install an update whose versionCode is not higher. `scripts/build-android-apk.sh` passes `--build-number` as `major * 1000000 + minor * 1000 + patch`: 1.21.0 builds as 1021000 (**verified** with `aapt2 dump badging`).
 
-### What a release CI job needs
+### The CI build
 
-Not added here: the self-hosted runner has no Android toolchain, and Renovate automerges on green CI.
+A `build-apk` job in both `build-pi-image.yml` workflows runs `scripts/build-android-apk.sh` on the triggers the Pi bundle already has: a `v*` tag, a manual dispatch, and on GitHub the weekly canary.
 
-- JDK 17; Android cmdline-tools with licenses accepted; platforms 34, 35, 36; build-tools 36; NDK 28.2.13676358; CMake 3.22.1. Roughly 3 GB on top of the Flutter SDK.
-- Outbound access to `dl.google.com`, Maven Central, the Gradle plugin portal, and GitHub releases (libmpv jars).
-- A Gradle cache: the cold build took about 220 s here, most of it downloads; a build from a fresh clone with warm caches about 40 s (**verified**).
-- For releases: the keystore as a base64 secret plus its three passwords, written to `key.properties` at job time; `flutter build apk --release --target-platform android-arm64 --no-tree-shake-icons`; the APK attached next to `hearth-bundle-*.tar.gz`.
-- A build-only job (`flutter build apk --debug`) is the minimum useful guard: `flutter analyze` and `flutter test` never run Gradle.
+- **On a tag** it attaches `hearth-android-<version>.apk` and `hearth-android-<version>.sha256` to the release, beside `hearth-bundle-*`. `hearth-updater.sh` matches `hearth-bundle-*.tar.gz` only, so the Pi ignores them.
+- **The bundle never waits on it.** On GitHub the release job runs when the bundle built, whatever the APK job did, and attaches the APK only if there is one. On Gitea the APK job runs after the bundle is published and uploads to that release.
+- **On GitHub, a dispatch or the canary** keeps the APK as the `hearth-apk` artifact. On Gitea those runs build and discard, as they do for the bundle.
+- The toolchain is JDK 17 (`actions/setup-java`), the SDK command-line tools with licenses accepted (`android-actions/setup-android`), and whatever Gradle then installs itself: platforms 34, 35, 36, build-tools 36, NDK 28.2.13676358, CMake 3.22.1. Roughly 3 GB on top of the Flutter SDK, from `dl.google.com`, Maven Central, the Gradle plugin portal and GitHub releases (libmpv jars). Nothing is cached: the cold build took about 220 s on the host, most of it downloads.
+- **Not verified in CI.** The script was run on the host (Flutter 3.47.6; the workflows pin 3.47.7). Neither workflow has run with the new job, and the Gitea runner has never had an Android toolchain installed on it.
+- Pull requests still do not build the APK: `flutter analyze` and `flutter test` never run Gradle.
 
 ## Dependency-maintenance impact
 
 Extends `docs/specs/2026-08-12-dependency-maintenance-process-design.md`.
 
 - **The Flutter pin now gates an Android build too.** `compileSdk`, `targetSdk` and the NDK version follow `flutter.*`, so a Flutter bump silently changes all three and may require new SDK components (**verified** that they resolve from the Flutter SDK). The hardware-test rule for Flutter bumps should grow an "APK still builds and launches" step.
-- **New moving parts**, none watched by CI: AGP 9.1.0 and Kotlin 2.4.0 (`android/settings.gradle.kts`), Gradle 9.3.1 (`android/gradle/wrapper/gradle-wrapper.properties`), `media_kit_libs_android_video` and the libmpv build it downloads, and the Android halves of `bonsoir`, `path_provider`, `video_player`, `volume_controller`, `wakelock_plus`, `screen_brightness`, `package_info_plus`, `sqflite` and `jni`.
-- **Renovate will start seeing Gradle files** (**assumed** — `config:recommended` enables the `gradle` and `gradle-wrapper` managers; no Renovate run has happened since). Under the current `packageRules`, non-major AGP, Kotlin and Gradle bumps would automerge on a CI that never runs Gradle. Until an Android build job exists, add those managers to the never-automerge carve-out in `renovate.json`.
+- **New moving parts**, watched only by the weekly GitHub canary and release builds: AGP 9.1.0 and Kotlin 2.4.0 (`android/settings.gradle.kts`), Gradle 9.3.1 (`android/gradle/wrapper/gradle-wrapper.properties`), `media_kit_libs_android_video` and the libmpv build it downloads, and the Android halves of `bonsoir`, `path_provider`, `video_player`, `volume_controller`, `wakelock_plus`, `screen_brightness`, `package_info_plus`, `sqflite` and `jni`.
+- **Renovate will start seeing Gradle files** (**assumed** — `config:recommended` enables the `gradle` and `gradle-wrapper` managers; no Renovate run has happened since). Under the current `packageRules`, non-major AGP, Kotlin and Gradle bumps would automerge on a pull-request CI that never runs Gradle; the weekly canary would show the break up to seven days later. Add those managers to the never-automerge carve-out in `renovate.json`, or build the APK on pull requests.
 - **The Gradle wrapper script and jar are gitignored** by Flutter's template (`android/.gitignore`); Flutter regenerates them. Renovate's wrapper manager expects to run `./gradlew wrapper` (**assumed** to need handling or disabling).
 - **The KGP deprecation** (trial-build item 5) will turn into a hard failure on a future Flutter. It clears when `video_player_android` and `volume_controller` migrate; both are transitive, so the fix arrives through `media_kit_video` and `video_player` bumps.
 - **Template drift.** AGP, Gradle and Kotlin versions are frozen at `flutter create` time. Flutter warns, then errors, as they fall behind its supported range (**assumed**); bump them with the Flutter pin.
-- Pub package bumps keep automerging on analyze + test. That was already true for Pi-only breakage, which the weekly Pi image build catches within seven days. Android has no such net yet.
+- Pub package bumps keep automerging on analyze + test. That was already true for Pi-only breakage, which the weekly Pi image build catches within seven days. The same weekly run now builds the APK, so Android has the same seven-day net.
 
 ## Follow-up work
 
@@ -191,8 +195,8 @@ Ordered so that each step leaves something usable on a wall. Each is sized as it
 3. **Multicast lock** — platform channel holding `MulticastLock` while DLNA or Plex is enabled; then test DLNA and Plex casting end to end.
 4. **Alarm, timer and notification audio** — an in-process player for the bundled tones.
 5. **Hide what cannot work** — Wi-Fi wizard step and connect UI, timezone, capture, updater controls; make `isVisible` / the wizard platform-aware instead of showing dead controls.
-6. **Release signing and versionCode** — keystore, `key.properties`, `+N` build numbers in `scripts/release.sh`.
-7. **Android build in CI** — build-only first, with the Renovate carve-out; release artifact once signing exists.
+6. **Release keystore** — create it and add the four `ANDROID_*` secrets to GitHub and Gitea. The Gradle config, the build script and versionCode are in place.
+7. **Android build on pull requests** — or the Renovate carve-out. Release, dispatch and weekly builds are in place.
 8. **APK self-update** — release asset, version from the package, `PackageInstaller` hand-off.
 9. **Webviews on the system WebView** — second `WebviewSession` backend with HA token injection.
 10. **Sendspin** — NDK build of `native/sendspin_flac`, `AudioTrack` sink, volume through `AudioManager`; remove the provider guard.
