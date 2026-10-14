@@ -146,6 +146,13 @@ void main() {
 
     Future<void> tick() => Future.delayed(const Duration(milliseconds: 20));
 
+    // A REST round trip can outlast one tick when the whole suite is running.
+    Future<void> until(bool Function() done) async {
+      for (var i = 0; i < 100 && !done(); i++) {
+        await tick();
+      }
+    }
+
     List<Map<String, dynamic>> sent(FakeWebSocketChannel c) => c.sentMessages
         .map((m) => jsonDecode(m) as Map<String, dynamic>)
         .toList();
@@ -277,7 +284,7 @@ void main() {
       start(dio: Dio()..httpClientAdapter = adapter);
       final id = await connectAndSubscribe();
       fail(id, 'unknown_command');
-      await tick();
+      await until(() => source!.current.status != SourceStatus.loading);
 
       expect(adapter.requests, hasLength(1));
       final req = adapter.requests.single;
