@@ -224,6 +224,7 @@ class VoiceSatelliteBridge {
       'sensitivity': config.voiceWakeSensitivity,
       'audioSource': config.voiceAudioSource,
       'wakeSound': config.voiceWakeSound,
+      'volume': config.voiceSatelliteVolume,
     };
     if (_sameArgs(_applied, args)) return;
 
@@ -304,6 +305,10 @@ class VoiceSatelliteBridge {
         if (words.isEmpty) return;
         _applied?['wakeWords'] = words;
         await _config.update((c) => c.copyWith(voiceWakeWords: words));
+      case 'volume' when value is num:
+        final volume = value.toDouble().clamp(0.0, 1.0).toDouble();
+        _applied?['volume'] = volume;
+        await _config.update((c) => c.copyWith(voiceSatelliteVolume: volume));
     }
   }
 

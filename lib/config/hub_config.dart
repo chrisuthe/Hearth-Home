@@ -338,6 +338,8 @@ class HubConfig {
   final bool voiceWakeSound;
   /// `voiceRecognition` | `mic` | `voiceCommunication` | `unprocessed`.
   final String voiceAudioSource;
+  /// The satellite media player's volume, 0.0–1.0. Set from Home Assistant.
+  final double voiceSatelliteVolume;
   final TouchIndicatorConfig touchIndicator;
   /// Master toggle for developer capture tools (screenshots, recording, touch
   /// indicators). Gates the Capture plugin: when false it's hidden from the
@@ -433,6 +435,7 @@ class HubConfig {
     this.voiceWakeSensitivity = 'slightly',
     this.voiceWakeSound = true,
     this.voiceAudioSource = 'voiceRecognition',
+    this.voiceSatelliteVolume = 1.0,
     this.touchIndicator = const TouchIndicatorConfig(),
     this.captureToolsEnabled = false,
     this.devBundleEnabled = false,
@@ -531,6 +534,7 @@ class HubConfig {
     String? voiceWakeSensitivity,
     bool? voiceWakeSound,
     String? voiceAudioSource,
+    double? voiceSatelliteVolume,
     TouchIndicatorConfig? touchIndicator,
     bool? captureToolsEnabled,
     bool? devBundleEnabled,
@@ -613,6 +617,7 @@ class HubConfig {
       voiceWakeSensitivity: voiceWakeSensitivity ?? this.voiceWakeSensitivity,
       voiceWakeSound: voiceWakeSound ?? this.voiceWakeSound,
       voiceAudioSource: voiceAudioSource ?? this.voiceAudioSource,
+      voiceSatelliteVolume: voiceSatelliteVolume ?? this.voiceSatelliteVolume,
       touchIndicator: touchIndicator ?? this.touchIndicator,
       captureToolsEnabled: captureToolsEnabled ?? this.captureToolsEnabled,
       devBundleEnabled: devBundleEnabled ?? this.devBundleEnabled,
@@ -692,6 +697,7 @@ class HubConfig {
         'voiceWakeSensitivity': voiceWakeSensitivity,
         'voiceWakeSound': voiceWakeSound,
         'voiceAudioSource': voiceAudioSource,
+        'voiceSatelliteVolume': voiceSatelliteVolume,
         'touchIndicator': touchIndicator.toJson(),
         'captureToolsEnabled': captureToolsEnabled,
         'devBundleEnabled': devBundleEnabled,
@@ -786,6 +792,10 @@ class HubConfig {
         voiceWakeSound: json['voiceWakeSound'] as bool? ?? true,
         voiceAudioSource:
             json['voiceAudioSource'] as String? ?? 'voiceRecognition',
+        voiceSatelliteVolume:
+            ((json['voiceSatelliteVolume'] as num?)?.toDouble() ?? 1.0)
+                .clamp(0.0, 1.0)
+                .toDouble(),
         touchIndicator: json['touchIndicator'] is Map
             ? TouchIndicatorConfig.fromJson(
                 (json['touchIndicator'] as Map).cast<String, dynamic>())
@@ -810,11 +820,20 @@ class HubConfig {
   /// Matches the Pi's Linux Voice Assistant default.
   static const defaultVoiceWakeWords = ['okay_nabu'];
 
-  /// The satellite always needs one wake word and can run at most two.
+  /// The wake-word models the APK carries. Must match the list in
+  /// `android/ava/satellite/build.gradle.kts`; a test holds them together.
+  static const shippedVoiceWakeWords = ['okay_nabu', 'hey_jarvis'];
+
+  /// The satellite always needs one wake word and can run at most two. An id
+  /// we no longer ship is dropped: the service would skip it and, with
+  /// nothing left, never wake.
   static List<String> _voiceWakeWordsFromJson(dynamic json) {
     if (json is! List) return defaultVoiceWakeWords;
-    final words =
-        json.whereType<String>().where((w) => w.isNotEmpty).take(2).toList();
+    final words = json
+        .whereType<String>()
+        .where(shippedVoiceWakeWords.contains)
+        .take(2)
+        .toList();
     return words.isEmpty ? defaultVoiceWakeWords : words;
   }
 
