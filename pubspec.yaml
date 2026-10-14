@@ -68,6 +68,7 @@ flutter:
   assets:
     - assets/alarm_tones/
     - assets/fonts/
+    - assets/licenses/
   fonts:
     - family: Inter
       fonts:
