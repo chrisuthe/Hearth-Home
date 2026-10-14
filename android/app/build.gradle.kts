@@ -46,3 +46,11 @@ kotlin {
 flutter {
     source = "../.."
 }
+
+dependencies {
+    // Voice satellite: the Ava fork's device code (see settings.gradle.kts).
+    implementation(project(":ava-satellite"))
+    implementation(ava.androidx.core.ktx)
+    implementation(ava.androidx.lifecycle.service)
+    implementation(ava.timber)
+}

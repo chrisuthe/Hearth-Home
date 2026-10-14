@@ -4,6 +4,15 @@
     <!-- mDNS (Sendspin), SSDP (DLNA) and GDM (Plex) all need multicast receive. -->
     <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE"/>
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
+    <!-- Voice satellite: wake-word capture and voice output from a
+         foreground service. RECORD_AUDIO and POST_NOTIFICATIONS are asked
+         for at runtime when the satellite is first enabled. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"/>
     <!-- usesCleartextTraffic: HA, Immich, Frigate and Plex are commonly
          plain-HTTP hosts on the LAN, and :8090 is served over HTTP. -->
     <application
@@ -40,6 +49,12 @@
                 <category android:name="android.intent.category.DEFAULT"/>
             </intent-filter>
         </activity>
+        <!-- Started only by Dart over com.hearth/voice, from the visible
+             activity. No boot receiver: the HOME role relaunches Hearth. -->
+        <service
+            android:name=".voice.HearthAudioService"
+            android:exported="false"
+            android:foregroundServiceType="microphone|mediaPlayback" />
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data
