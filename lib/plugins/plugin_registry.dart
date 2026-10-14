@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../config/hub_config.dart';
 import 'alarm_clock/alarm_clock_plugin.dart';
+import 'calendar/calendar_plugin.dart';
 import 'capture/capture_plugin.dart';
 import 'display/display_plugin.dart';
 import 'dlna/dlna_plugin.dart';
@@ -31,6 +32,7 @@ List<HearthPlugin> _firstPartyPlugins = [
   ImmichPlugin(),
   MusicAssistantPlugin(),
   FrigatePlugin(),
+  CalendarPlugin(),
   ProtectPlugin(),
   AlarmClockPlugin(),
   SendspinPlugin(),

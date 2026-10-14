@@ -37,6 +37,11 @@ class ListSection<T> {
   /// `null` as the existing arg.
   final T Function()? newItemFactory;
 
+  /// Optional on-device row decorations, e.g. a colour swatch and a live
+  /// status line. The HTML render ignores them.
+  final Widget Function(T item)? leadingFor;
+  final Widget Function(T item)? subtitleFor;
+
   const ListSection({
     required this.label,
     required this.items,
@@ -44,6 +49,8 @@ class ListSection<T> {
     required this.onListChanged,
     required this.editorBuilder,
     this.newItemFactory,
+    this.leadingFor,
+    this.subtitleFor,
   });
 
   /// Render as a Flutter widget.
@@ -147,6 +154,10 @@ class _ListSectionWidgetState<T> extends ConsumerState<_ListSectionWidget<T>> {
             for (var i = 0; i < widget.section.items.length; i++)
               ListTile(
                 contentPadding: EdgeInsets.zero,
+                leading: widget.section.leadingFor
+                    ?.call(widget.section.items[i]),
+                subtitle: widget.section.subtitleFor
+                    ?.call(widget.section.items[i]),
                 title: Text(
                   widget.section.summaryFor(widget.section.items[i]),
                   style: const TextStyle(color: Colors.white),

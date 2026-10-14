@@ -23,7 +23,12 @@ const _haEntitiesRoute = '/api/plugin/hearth.ha/entities';
 /// is not a [SettingField] subclass.
 class HaEntityPickerField {
   /// HubConfig field this picker reads/writes (e.g. `voiceAssistantEntityId`).
-  final String configPath;
+  /// Null for a picker inside a form, which is not auto-saved: the form reads
+  /// the value from the input `haep-<formId>-input`.
+  final String? configPath;
+
+  /// Names the form picker's elements when [configPath] is null.
+  final String? formId;
 
   /// Label shown above the field.
   final String label;
@@ -37,18 +42,30 @@ class HaEntityPickerField {
   final String? domains;
 
   const HaEntityPickerField({
-    required this.configPath,
+    required String this.configPath,
     required this.label,
     this.hint,
     this.domains,
-  });
+  }) : formId = null;
+
+  const HaEntityPickerField.form({
+    required String this.formId,
+    required this.label,
+    this.hint,
+    this.domains,
+  }) : configPath = null;
 
   String buildHtml(WebContext ctx) {
-    final current = (ctx.config.toJson()[configPath] as String?) ?? '';
+    final path = configPath;
+    final current =
+        path == null ? '' : (ctx.config.toJson()[path] as String?) ?? '';
     final escapedValue = _escapeHtml(current);
     final escapedLabel = _escapeHtml(label);
     final placeholder = hint == null ? '' : 'placeholder="${_escapeHtml(hint!)}"';
-    final slug = 'haep-$configPath';
+    final slug = 'haep-${path ?? formId}';
+    final binding = path == null
+        ? 'data-no-auto-save'
+        : 'data-config-path="$path"';
     final d = domains;
     final url = (d == null || d.isEmpty)
         ? _haEntitiesRoute
@@ -59,7 +76,7 @@ class HaEntityPickerField {
   <input type="text"
          class="hearth-field"
          id="$slug-input"
-         data-config-path="$configPath"
+         $binding
          value="$escapedValue"
          autocomplete="off"
          $placeholder>

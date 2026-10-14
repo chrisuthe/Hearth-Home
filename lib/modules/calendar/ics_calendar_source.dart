@@ -147,7 +147,7 @@ class IcsCalendarSource {
     }
   }
 
-  Future<String> _read(ResponseBody body) async {
+  static Future<String> _read(ResponseBody body) async {
     final length = int.tryParse(
       body.headers[Headers.contentLengthHeader]?.firstOrNull ?? '',
     );
@@ -158,6 +158,64 @@ class IcsCalendarSource {
       if (bytes.length > maxBytes) throw const _TooLarge();
     }
     return utf8.decode(bytes.takeBytes(), allowMalformed: true);
+  }
+
+  /// One fetch and parse of [url], to check a feed before it is added.
+  /// Throws [IcsProbeException] carrying the message a source would show.
+  static Future<IcsProbe> probe(
+    String url, {
+    Dio? dio,
+    IcsWorker? worker,
+  }) async {
+    try {
+      final response = await (dio ?? newDio()).get<ResponseBody>(
+        normalizeUrl(url),
+        options: Options(responseType: ResponseType.stream),
+      );
+      final body = await _read(response.data!);
+      if (!body.contains('BEGIN:VCALENDAR')) throw const _NotIcs();
+      final calendar = await (worker ?? _isolateRun)(
+        () => IcsParser.parse(body),
+      );
+      return IcsProbe(
+        name: calendar.name,
+        color: calendar.color,
+        eventCount: calendar.events.length,
+      );
+    } catch (e) {
+      throw IcsProbeException(describeFailure(e).message);
+    }
+  }
+
+  /// The user-facing message for a failed fetch, and whether it is a
+  /// 4xx that retrying sooner will not fix.
+  static ({bool permanent, String message}) describeFailure(Object e) {
+    final status = e is DioException ? e.response?.statusCode : null;
+    if (status != null &&
+        status >= 400 &&
+        status < 500 &&
+        status != 408 &&
+        status != 429) {
+      return (
+        permanent: true,
+        message: status == 404 || status == 410
+            ? 'Calendar not found at this URL'
+            : 'The server refused the calendar (HTTP $status)',
+      );
+    }
+    final message = switch (e) {
+      _TooLarge() => 'Calendar is larger than 10 MB',
+      _NotIcs() => 'This URL is not an iCalendar feed',
+      DioException(type: DioExceptionType.connectionTimeout) ||
+      DioException(type: DioExceptionType.receiveTimeout) ||
+      DioException(
+        type: DioExceptionType.sendTimeout,
+      ) => 'Calendar server timed out',
+      DioException(response: Response(:final statusCode?)) =>
+        "Can't read the calendar (HTTP $statusCode)",
+      _ => "Can't reach the calendar server",
+    };
+    return (permanent: false, message: message);
   }
 
   Future<void> _expand(IcsCalendar calendar) async {
@@ -197,40 +255,23 @@ class IcsCalendarSource {
   ) => worker(() => expandIcs(calendar, window, id));
 
   void _onFailure(Object e) {
-    final status = e is DioException ? e.response?.statusCode : null;
-    if (status != null &&
-        status >= 400 &&
-        status < 500 &&
-        status != 408 &&
-        status != 429) {
+    final (:permanent, :message) = describeFailure(e);
+    if (permanent) {
       // A wrong URL doesn't get better by retrying sooner.
-      Log.w('Calendar', '${source.id}: HTTP $status');
+      Log.w('Calendar', '${source.id}: $message');
       _failures = 0;
       _emit(
         SourceEvents(
           events: _current.events,
           status: SourceStatus.error,
           lastOk: _current.lastOk,
-          error: status == 404 || status == 410
-              ? 'Calendar not found at this URL'
-              : 'The server refused the calendar (HTTP $status)',
+          error: message,
         ),
       );
       _schedule(_pollInterval);
       return;
     }
 
-    final message = switch (e) {
-      _TooLarge() => 'Calendar is larger than 10 MB',
-      DioException(type: DioExceptionType.connectionTimeout) ||
-      DioException(type: DioExceptionType.receiveTimeout) ||
-      DioException(
-        type: DioExceptionType.sendTimeout,
-      ) => 'Calendar server timed out',
-      DioException(response: Response(:final statusCode?)) =>
-        "Can't read the calendar (HTTP $statusCode)",
-      _ => "Can't reach the calendar server",
-    };
     Log.w('Calendar', '${source.id}: fetch failed: $e');
     _emit(
       _current.lastOk != null
@@ -279,4 +320,30 @@ class IcsCalendarSource {
 
 class _TooLarge implements Exception {
   const _TooLarge();
+}
+
+class _NotIcs implements Exception {
+  const _NotIcs();
+}
+
+/// What a one-shot [IcsCalendarSource.probe] found.
+class IcsProbe {
+  /// `X-WR-CALNAME`.
+  final String? name;
+
+  /// `X-APPLE-CALENDAR-COLOR`, as written.
+  final String? color;
+
+  /// `VEVENT`s in the feed, before recurrence expansion.
+  final int eventCount;
+
+  const IcsProbe({this.name, this.color, required this.eventCount});
+}
+
+class IcsProbeException implements Exception {
+  final String message;
+  const IcsProbeException(this.message);
+
+  @override
+  String toString() => message;
 }
