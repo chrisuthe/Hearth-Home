@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hearth/config/hub_config.dart';
 import 'package:hearth/plugins/framework/web_context.dart';
 import 'package:hearth/plugins/plugin_registry.dart';
+import 'package:hearth/services/voice_satellite_bridge.dart';
 
 /// Structural drift guard between the on-device settings panels and the web
 /// settings portal.
@@ -44,6 +45,11 @@ import 'package:hearth/plugins/plugin_registry.dart';
 ///     gone because it was upgraded to a real web picker (forces the entry to
 ///     be removed as the gap closes).
 void main() {
+  // The Voice plugin's satellite group renders only on an Android kiosk.
+  // Render it here so its fields are held to the same ledger.
+  setUp(() => debugVoiceSatelliteSupportedOverride = true);
+  tearDown(() => debugVoiceSatelliteSupportedOverride = null);
+
   /// Web-editable config paths the portal renders, across all plugins.
   Set<String> collectWebPaths() {
     const config = HubConfig();
@@ -117,6 +123,10 @@ void main() {
     'touchIndicator':
         'nested object edited via the Capture plugin panel through the '
             'indicator-config route, not a flat data-config-path field',
+
+    'voiceSatelliteMac':
+        'internal: app-seeded satellite identity in Home Assistant, web '
+            'read-only',
 
     // --- Permanent: device-only (browser cannot drive) ---
     'displayProfile':

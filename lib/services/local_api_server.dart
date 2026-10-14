@@ -430,6 +430,7 @@ class LocalApiServer {
     'plexAuthToken',
     'currentVersion',
     'setupComplete',
+    'voiceSatelliteMac',
   };
 
   /// Coerce an incoming JSON value to match the runtime type of the existing

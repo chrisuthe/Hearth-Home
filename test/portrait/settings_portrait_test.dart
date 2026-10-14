@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hearth/app/scale/hearth_scale.dart';
@@ -25,6 +26,7 @@ import 'package:hearth/services/local_api_server.dart';
 import 'package:hearth/services/mqtt_service.dart';
 import 'package:hearth/services/timezone_service.dart';
 import 'package:hearth/services/update_service.dart';
+import 'package:hearth/services/voice_satellite_bridge.dart';
 import 'package:hearth/services/wifi_service.dart';
 import 'package:hearth/widgets/entity_picker_dialog.dart';
 import 'package:hearth/widgets/timezone_picker_dialog.dart';
@@ -328,6 +330,87 @@ void main() {
     ));
     await _settle(tester);
     expect(await _walkPanels(tester), isEmpty);
+  });
+
+  // The Voice panel's satellite group only exists on an Android kiosk, so the
+  // walks above never lay it out.
+  testLayouts('voice panel with the Android satellite group',
+      (tester, canvas) async {
+    debugVoiceSatelliteSupportedOverride = true;
+    addTearDown(() => debugVoiceSatelliteSupportedOverride = null);
+
+    const methods = MethodChannel('com.hearth/voice');
+    const events = 'com.hearth/voice/events';
+    const codec = StandardMethodCodec();
+    final messenger = tester.binding.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(
+        methods,
+        (call) async => call.method == 'listWakeWords'
+            ? [
+                for (var i = 0; i < 9; i++)
+                  {
+                    'id': 'wake_word_$i',
+                    'name': 'A wake word with a long display name $i',
+                  },
+              ]
+            : null);
+    messenger.setMockMessageHandler(
+        events, (_) async => codec.encodeSuccessEnvelope(null));
+    addTearDown(() {
+      messenger.setMockMethodCallHandler(methods, null);
+      messenger.setMockMessageHandler(events, null);
+    });
+
+    final config = _config.copyWith(
+      voiceSatelliteEnabled: true,
+      voiceSatelliteName: 'Kitchen Hearth with a long satellite name',
+      voiceSatelliteMac: '0a:1b:2c:3d:4e:5f',
+      voiceWakeWords: ['wake_word_3', 'wake_word_7'],
+    );
+    final bridge = VoiceSatelliteBridge(_MemoryConfigNotifier(config));
+    await bridge.attach();
+    addTearDown(bridge.dispose);
+    await messenger.handlePlatformMessage(
+        events,
+        codec.encodeSuccessEnvelope({
+          'event': 'health',
+          'code': 'micOpenFailed',
+          'message': 'Foreground service start refused: the app was not in a '
+              'state that allows starting a microphone foreground service',
+        }),
+        (_) {});
+
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        ..._overrides(config: config),
+        voiceSatelliteBridgeProvider.overrideWithValue(bridge),
+      ],
+      child: hostScreen(const SettingsScreen()),
+    ));
+    await _settle(tester);
+
+    final row = find.descendant(
+      of: find.byType(PluginSidebar),
+      matching: find.text('Voice'),
+    );
+    await tester.scrollUntilVisible(
+        row,
+        120,
+        scrollable: find
+            .descendant(
+              of: find.byType(PluginSidebar),
+              matching: find.byType(Scrollable),
+            )
+            .first);
+    await tester.tap(row);
+    await _settle(tester);
+    expect(tester.widget<PluginPanel>(find.byType(PluginPanel)).plugin.id,
+        'hearth.voice');
+    await _scrollPanelToEnd(tester);
+
+    expect(find.text('Satellite MAC'), findsOneWidget);
+    expect(find.textContaining('Microphone could not be opened'),
+        findsOneWidget);
   });
 
   // HearthScaleScope divides the canvas by uiScale, so the largest scale on a

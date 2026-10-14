@@ -323,6 +323,21 @@ class HubConfig {
   final String bottomSwipeAction; // "menu1" | "menu2" | "settings" | "nextScreen" | "previousScreen"
   final bool showVoiceFeedback;
   final bool micMuted;
+  /// Android only: run the in-app voice satellite (`HearthAudioService`).
+  final bool voiceSatelliteEnabled;
+  /// Name Home Assistant shows for the satellite. Empty = the hostname.
+  final String voiceSatelliteName;
+  /// The satellite's identity in Home Assistant: a random MAC generated once
+  /// by `VoiceSatelliteBridge`. Kept here, not in the Android service, so a
+  /// config backup or restore keeps the HA device.
+  final String voiceSatelliteMac;
+  /// Active wake-word model ids, at most two.
+  final List<String> voiceWakeWords;
+  /// `slightly` | `moderately` | `very`.
+  final String voiceWakeSensitivity;
+  final bool voiceWakeSound;
+  /// `voiceRecognition` | `mic` | `voiceCommunication` | `unprocessed`.
+  final String voiceAudioSource;
   final TouchIndicatorConfig touchIndicator;
   /// Master toggle for developer capture tools (screenshots, recording, touch
   /// indicators). Gates the Capture plugin: when false it's hidden from the
@@ -410,6 +425,13 @@ class HubConfig {
     this.bottomSwipeAction = 'menu1',
     this.showVoiceFeedback = true,
     this.micMuted = false,
+    this.voiceSatelliteEnabled = false,
+    this.voiceSatelliteName = '',
+    this.voiceSatelliteMac = '',
+    this.voiceWakeWords = defaultVoiceWakeWords,
+    this.voiceWakeSensitivity = 'slightly',
+    this.voiceWakeSound = true,
+    this.voiceAudioSource = 'voiceRecognition',
     this.touchIndicator = const TouchIndicatorConfig(),
     this.captureToolsEnabled = false,
     this.devBundleEnabled = false,
@@ -501,6 +523,13 @@ class HubConfig {
     String? bottomSwipeAction,
     bool? showVoiceFeedback,
     bool? micMuted,
+    bool? voiceSatelliteEnabled,
+    String? voiceSatelliteName,
+    String? voiceSatelliteMac,
+    List<String>? voiceWakeWords,
+    String? voiceWakeSensitivity,
+    bool? voiceWakeSound,
+    String? voiceAudioSource,
     TouchIndicatorConfig? touchIndicator,
     bool? captureToolsEnabled,
     bool? devBundleEnabled,
@@ -575,6 +604,14 @@ class HubConfig {
       bottomSwipeAction: bottomSwipeAction ?? this.bottomSwipeAction,
       showVoiceFeedback: showVoiceFeedback ?? this.showVoiceFeedback,
       micMuted: micMuted ?? this.micMuted,
+      voiceSatelliteEnabled:
+          voiceSatelliteEnabled ?? this.voiceSatelliteEnabled,
+      voiceSatelliteName: voiceSatelliteName ?? this.voiceSatelliteName,
+      voiceSatelliteMac: voiceSatelliteMac ?? this.voiceSatelliteMac,
+      voiceWakeWords: voiceWakeWords ?? this.voiceWakeWords,
+      voiceWakeSensitivity: voiceWakeSensitivity ?? this.voiceWakeSensitivity,
+      voiceWakeSound: voiceWakeSound ?? this.voiceWakeSound,
+      voiceAudioSource: voiceAudioSource ?? this.voiceAudioSource,
       touchIndicator: touchIndicator ?? this.touchIndicator,
       captureToolsEnabled: captureToolsEnabled ?? this.captureToolsEnabled,
       devBundleEnabled: devBundleEnabled ?? this.devBundleEnabled,
@@ -647,6 +684,13 @@ class HubConfig {
         'bottomSwipeAction': bottomSwipeAction,
         'showVoiceFeedback': showVoiceFeedback,
         'micMuted': micMuted,
+        'voiceSatelliteEnabled': voiceSatelliteEnabled,
+        'voiceSatelliteName': voiceSatelliteName,
+        'voiceSatelliteMac': voiceSatelliteMac,
+        'voiceWakeWords': voiceWakeWords,
+        'voiceWakeSensitivity': voiceWakeSensitivity,
+        'voiceWakeSound': voiceWakeSound,
+        'voiceAudioSource': voiceAudioSource,
         'touchIndicator': touchIndicator.toJson(),
         'captureToolsEnabled': captureToolsEnabled,
         'devBundleEnabled': devBundleEnabled,
@@ -732,6 +776,15 @@ class HubConfig {
         bottomSwipeAction: json['bottomSwipeAction'] as String? ?? 'menu1',
         showVoiceFeedback: json['showVoiceFeedback'] as bool? ?? true,
         micMuted: json['micMuted'] as bool? ?? false,
+        voiceSatelliteEnabled: json['voiceSatelliteEnabled'] as bool? ?? false,
+        voiceSatelliteName: json['voiceSatelliteName'] as String? ?? '',
+        voiceSatelliteMac: json['voiceSatelliteMac'] as String? ?? '',
+        voiceWakeWords: _voiceWakeWordsFromJson(json['voiceWakeWords']),
+        voiceWakeSensitivity:
+            json['voiceWakeSensitivity'] as String? ?? 'slightly',
+        voiceWakeSound: json['voiceWakeSound'] as bool? ?? true,
+        voiceAudioSource:
+            json['voiceAudioSource'] as String? ?? 'voiceRecognition',
         touchIndicator: json['touchIndicator'] is Map
             ? TouchIndicatorConfig.fromJson(
                 (json['touchIndicator'] as Map).cast<String, dynamic>())
@@ -752,6 +805,17 @@ class HubConfig {
                 .toList() ??
             const [],
       );
+
+  /// Matches the Pi's Linux Voice Assistant default.
+  static const defaultVoiceWakeWords = ['okay_nabu'];
+
+  /// The satellite always needs one wake word and can run at most two.
+  static List<String> _voiceWakeWordsFromJson(dynamic json) {
+    if (json is! List) return defaultVoiceWakeWords;
+    final words =
+        json.whereType<String>().where((w) => w.isNotEmpty).take(2).toList();
+    return words.isEmpty ? defaultVoiceWakeWords : words;
+  }
 
   /// Where modules sit before the user has arranged anything. A fresh install
   /// must start from this rather than an empty map: `load()` saves straight

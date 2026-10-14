@@ -18,6 +18,7 @@ import 'services/dlna/dlna_service.dart';
 import 'services/plex/plex_service.dart';
 import 'services/sendspin/sendspin_service.dart';
 import 'services/voice_ducker.dart';
+import 'services/voice_satellite_bridge.dart';
 import 'services/video/media_kit_player.dart';
 import 'services/video/gstreamer_player.dart';
 // media_kit uses native libmpv — not available on web.
@@ -121,6 +122,9 @@ Future<void> main() async {
     // while voice is active. Eager-read so it starts listening before
     // the first voice exchange.
     container.read(voiceDuckerProvider);
+    // Android only: start the in-app voice satellite when config enables it.
+    // Reading the provider is what starts it; a no-op elsewhere.
+    container.read(voiceSatelliteBridgeProvider);
     // DLNA renderer is also self-initializing but needs an eager read to
     // start SSDP advertisement when config says enabled.
     container.read(dlnaServiceProvider);

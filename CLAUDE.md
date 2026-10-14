@@ -16,12 +16,15 @@ flutter test test/services/display_mode_service_test.dart  # run a single test
 flutter test test/portrait   # every surface at landscape + portrait canvases
 flutter run -d windows   # run on Windows (dev)
 flutter run -d linux     # run on Linux desktop
+git submodule update --init  # Android only: the voice satellite's Ava fork
 flutter build apk --debug  # experimental Android target (needs JDK 17 + Android SDK)
 ```
 
 For Raspberry Pi deployment, the app runs via flutter-pi (not `flutter run`). On Pi, swap `media_kit` for `flutterpi_gstreamer_video_player` (same video_player API, GStreamer instead of libmpv).
 
 **Android is experimental.** `android/` builds an APK that launches to Home and runs immersive fullscreen, but webviews, Sendspin, alarm/timer audio, WiFi management, the updater and capture are inert there. CI builds it with `scripts/build-android-apk.sh` wherever it builds the Pi bundle (release tags, manual runs, the weekly canary) but not on pull requests. Android takes the `media_kit` path. `docs/specs/2026-10-13-android-apk-requirements.md` is the per-subsystem status and the follow-up list — update it when an Android gap is closed.
+
+**The Android voice satellite is built in and untested on hardware.** `HearthAudioService` (`android/app/src/main/kotlin/com/hearth/hearth/voice/`) runs our Ava fork's ESPHome device code, pinned as the `android/third_party/ava` submodule and compiled by the Hearth-owned Gradle scripts under `android/ava/`. Dart drives it through `VoiceSatelliteBridge` over `com.hearth/voice`; the service persists nothing, and every setting lives in `HubConfig` (`voice*` fields). It compiles into the APK, and nothing about it has been run on a tablet. Voice timers and ducking of Hearth's own playback are not wired yet. Design: `docs/specs/2026-10-13-android-native-voice-satellite-design.md`.
 
 ## Architecture
 
@@ -152,9 +155,19 @@ both Pi workflows pin upstream's 3.47 commit by full SHA. A `# Renovate anchor:`
 comment beside it keeps Renovate watching for the next release. Move back to a
 pub.dev version when one ships with 3.47 support — tracked in issue #226.
 
+**The Ava fork is pinned as a git submodule, which Renovate does not track.**
+`android/third_party/ava` records a commit (tag `v0.6.2-hearth.1`), and Renovate's
+`git-submodules` manager is off and follows branches, not tags. Bump it by hand:
+check out the new tag inside the submodule, commit the pointer, and run
+`flutter build apk --debug`. The fork's dependency versions are read from its
+own `gradle/libs.versions.toml`, so they move with the pin and Renovate sees
+none of them. `android/ava/satellite/build.gradle.kts` mirrors the fork's
+dependency list by hand and needs the same edit when the fork adds one.
+
 Two checks cover what Renovate cannot see:
 - `.gitea/workflows/upstream-drift.yml` — weekly, compares each fork's
-  `UPSTREAM_PIN` against its upstream HEAD and opens a tracking issue.
+  `UPSTREAM_PIN` against its upstream HEAD and opens a tracking issue. Covers
+  flutter-pi, the GStreamer plugin and Ava.
 - `.github/workflows/build-pi-image.yml` — weekly scheduled run, cross-compiles
   for arm64 and builds the Android APK. Desktop CI does neither.
 

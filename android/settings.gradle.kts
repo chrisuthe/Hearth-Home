@@ -21,6 +21,31 @@ plugins {
     id("dev.flutter.flutter-plugin-loader") version "1.0.0"
     id("com.android.application") version "9.1.0" apply false
     id("org.jetbrains.kotlin.android") version "2.4.0" apply false
+    id("org.jetbrains.kotlin.jvm") version "2.4.0" apply false
+    id("org.jetbrains.kotlin.plugin.serialization") version "2.4.0" apply false
 }
 
 include(":app")
+
+// The voice satellite is our Ava fork, pinned as a submodule. Its own build
+// scripts pin an older AGP, Kotlin and Gradle, so the three library modules
+// are built from the scripts under ava/, whose source sets point into the
+// submodule. Dependency versions come from the fork's catalog so they move
+// with the pin.
+val avaCatalog = file("third_party/ava/gradle/libs.versions.toml")
+require(avaCatalog.isFile) {
+    "android/third_party/ava is empty. Run: git submodule update --init"
+}
+
+dependencyResolutionManagement {
+    versionCatalogs {
+        create("ava") {
+            from(files(avaCatalog))
+        }
+    }
+}
+
+for (module in listOf("esphomeproto", "microfeatures", "satellite")) {
+    include(":ava-$module")
+    project(":ava-$module").projectDir = file("ava/$module")
+}
