@@ -104,7 +104,7 @@ What we take from Ava, all Apache-2.0 (**verified**, `LICENSE.md`):
 | Device server, pipeline, entities, wake-word detector, mDNS registration | `A/esphome/`, `A/server/`, `A/wakewords/`, `A/nsd/`: 2,453 lines of Kotlin (**verified** by count) | Lives in `:app`; needs extracting |
 | Wake-word models | `app/src/main/assets/wakeWords/` (nine, `okay_nabu` among them) and `stopWords/stop.tflite` (**verified**) | Bundle `okay_nabu`, `hey_jarvis`, `stop`; licence of the model files **assumed** Apache-2.0, to confirm |
 
-The extraction is the real work. Ava's core is written against interfaces (`Microphone`, `MediaPlayer`, `WakeWord`, `Logger`) with JVM tests, but the files import Media3, Timber and Ava's settings types, and the wiring is Hilt (**verified**, `A/services/DeviceBuilder.kt`, `gradle/libs.versions.toml`). We keep Media3 for playback and LiteRT for inference, and drop Hilt, DataStore, Compose and the Tasker plugin.
+The extraction turned out to be a pure move. The four packages reach the rest of Ava through three small helpers only (`SettingState`, `BufferUtils`, `AsyncUtils`) and import no Hilt, DataStore or Compose; those live in Ava's settings stores, its service and `DeviceBuilder`, which stay in `:app` (**verified** by doing it: `chrisuthe/Ava-hearth` pull request 1, 80 renames, the same 47 unit tests passing before and after). The library keeps Media3 for playback, LiteRT for inference and Timber for logging. What Hearth still has to write is its own equivalent of `DeviceBuilder`, wiring the device from Hearth's configuration.
 
 **Packaging.** Fork Ava, move the four packages above into a new `:satellite` library module in the fork, and leave `:esphomeproto` and `:microfeatures` untouched so upstream merges stay cheap. Hearth pins the fork by tag as a git submodule under `android/third_party/` and includes its three modules from `android/settings.gradle.kts`. The fork carries an `UPSTREAM_PIN`, gets a third `check_fork` entry in `scripts/check-upstream-drift.sh`, and its tag never automerges, like the other forks.
 
@@ -278,8 +278,8 @@ Each line is one task. Sizes are relative.
 
 | # | Task | Size | Depends on |
 |---|---|---|---|
-| 1 | Fork Ava, extract `:satellite`, remove Hilt, DataStore and Compose from it, carry the JVM tests | Medium | — |
-| 2 | `HearthAudioService`, manifest, permissions, `com.hearth/voice` channel, `VoiceSatelliteBridge`, start from Dart | Medium | 1 |
+| 1 | Fork Ava, extract `:satellite`, carry the JVM tests. Done in `chrisuthe/Ava-hearth` pull request 1; needs merging and a tag. | Small | — |
+| 2 | Pin the fork as a submodule; `HearthAudioService` with Hearth's own device builder, manifest, permissions, `com.hearth/voice` channel, `VoiceSatelliteBridge`, start from Dart | Medium | 1 |
 | 3 | Identity: `voiceSatelliteMac`, Android MAC source in `VoiceAssistantService`, device info | Small | 2 |
 | 4 | Hardware pass 1: HA discovery, the four states, mute, announce, wake word at distance, wake word over playback | Small | 3 |
 | 5 | Voice plugin settings on both surfaces, health reporting, `settingChanged` | Small-medium | 4 |
