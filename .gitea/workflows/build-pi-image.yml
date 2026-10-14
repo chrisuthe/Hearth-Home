@@ -48,6 +48,9 @@ jobs:
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           VERSION="${VERSION:-dev}"
+          # Sanitize: branch names like task/screen-capture contain slashes
+          # that break the tarball path. Collapse to dashes.
+          VERSION="${VERSION//\//-}"
           # Export so the later checksum step sees the same VERSION (each step
           # runs in its own shell). Without this the checksum step's
           # ${VERSION:-dev} fell back to dev, naming the asset
