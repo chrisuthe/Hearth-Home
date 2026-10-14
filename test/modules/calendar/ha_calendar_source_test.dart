@@ -146,6 +146,14 @@ void main() {
 
     Future<void> tick() => Future.delayed(const Duration(milliseconds: 20));
 
+    // A REST fetch goes through Dio, which can take longer than a tick when
+    // the suite is busy.
+    Future<void> until(bool Function() done) async {
+      for (var i = 0; i < 250 && !done(); i++) {
+        await tick();
+      }
+    }
+
     List<Map<String, dynamic>> sent(FakeWebSocketChannel c) => c.sentMessages
         .map((m) => jsonDecode(m) as Map<String, dynamic>)
         .toList();
@@ -277,7 +285,7 @@ void main() {
       start(dio: Dio()..httpClientAdapter = adapter);
       final id = await connectAndSubscribe();
       fail(id, 'unknown_command');
-      await tick();
+      await until(() => source!.current.status != SourceStatus.loading);
 
       expect(adapter.requests, hasLength(1));
       final req = adapter.requests.single;
@@ -293,7 +301,7 @@ void main() {
 
       // REST refetches on each auth_ok, and never resubscribes over WS.
       channel.simulateMessage({'type': 'auth_ok'});
-      await tick();
+      await until(() => adapter.requests.length > 1);
       expect(adapter.requests, hasLength(2));
       expect(
           sent(channel)
@@ -307,7 +315,7 @@ void main() {
       start(dio: Dio()..httpClientAdapter = adapter);
       final id = await connectAndSubscribe();
       fail(id, 'unknown_command');
-      await tick();
+      await until(() => source!.current.status != SourceStatus.loading);
       expect(source!.current.status, SourceStatus.error);
     });
 
