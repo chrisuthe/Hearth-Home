@@ -318,6 +318,17 @@ void main() {
       expect(configNotifier.state.haUrl, 'http://z');
     });
 
+    test('POST /api/config ignores read-only mqttDeviceId', () async {
+      configNotifier.state =
+          const HubConfig(apiKey: testApiKey, mqttDeviceId: 'hearth_0a1b2c3d');
+      final r = await post('/api/config',
+          body: jsonEncode({'mqttDeviceId': 'other', 'haUrl': 'http://m'}),
+          headers: authHeaders);
+      expect(r.statusCode, 200);
+      expect(configNotifier.state.mqttDeviceId, 'hearth_0a1b2c3d');
+      expect(configNotifier.state.haUrl, 'http://m');
+    });
+
     test('POST /api/config ignores read-only voiceSatelliteMac', () async {
       configNotifier.state = const HubConfig(
           apiKey: testApiKey, voiceSatelliteMac: '0a:1b:2c:3d:4e:5f');

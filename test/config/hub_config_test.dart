@@ -384,6 +384,20 @@ void main() {
       expect(config.mqttUsername, '');
       expect(config.mqttPassword, '');
       expect(config.mqttDiscoveryPrefix, 'homeassistant');
+      expect(config.mqttDeviceId, '');
+      expect(config.mqttDeviceName, '');
+    });
+
+    test('mqtt device identity round-trips through JSON and copyWith', () {
+      const config =
+          HubConfig(mqttDeviceId: 'hearth_0a1b2c3d', mqttDeviceName: 'Kitchen');
+      final restored = HubConfig.fromJson(config.toJson());
+      expect(restored.mqttDeviceId, 'hearth_0a1b2c3d');
+      expect(restored.mqttDeviceName, 'Kitchen');
+      final renamed = restored.copyWith(mqttDeviceName: 'Hall');
+      expect(renamed.mqttDeviceId, 'hearth_0a1b2c3d');
+      expect(renamed.mqttDeviceName, 'Hall');
+      expect(HubConfig.fromJson(const {}).mqttDeviceId, '');
     });
 
     test('mqtt fields round-trip through JSON', () {

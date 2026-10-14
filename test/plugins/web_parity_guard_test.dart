@@ -109,6 +109,9 @@ void main() {
     'apiKey': 'internal: API bearer token, redacted on read, never web-writable',
     'currentVersion': 'internal: managed by the updater',
     'dlnaUuid': 'internal: app-seeded UPnP device identity (UDN), web read-only',
+    'mqttDeviceId':
+        'internal: app-seeded MQTT client id and HA device identity, shown '
+            'read-only, web read-only',
     'plexClientId':
         'internal: app-seeded Plex device identity (X-Plex-Client-Identifier), '
             'web read-only',

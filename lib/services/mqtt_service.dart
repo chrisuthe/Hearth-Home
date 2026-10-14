@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -14,7 +15,9 @@ import '../models/music_state.dart';
 import '../modules/alarm_clock/alarm_models.dart';
 import '../modules/alarm_clock/alarm_service.dart';
 import '../utils/alsa_utils.dart';
+import '../utils/device_ip.dart';
 import '../utils/logger.dart';
+import 'installed_version.dart';
 import 'music_assistant_service.dart';
 import 'notification_service.dart';
 import 'timer_service.dart';
@@ -46,9 +49,29 @@ class MqttDiscoveryEntry {
 /// from HA (volume, timers, alarms). State is republished whenever the
 /// underlying service reports a change.
 class MqttService extends ChangeNotifier {
-  MqttService(this._ref);
+  MqttService(
+    this._ref, {
+    String Function()? hostname,
+    Random? random,
+    bool? volumeSupported,
+    Future<String> Function()? deviceModel,
+    Future<String?> Function()? deviceIp,
+    Future<String> Function()? installedVersion,
+  })  : _hostname = hostname ?? _platformHostname,
+        _random = random ?? Random.secure(),
+        _volumeSupported = volumeSupported ?? (!kIsWeb && Platform.isLinux),
+        _deviceModel = deviceModel ?? _platformDeviceModel,
+        _deviceIp = deviceIp ?? lookupDeviceIp,
+        _installedVersion = installedVersion ?? readInstalledVersion;
 
   final Ref _ref;
+  final String Function() _hostname;
+  final Random _random;
+  // Volume is ALSA-only; elsewhere the entity would never get a state.
+  final bool _volumeSupported;
+  final Future<String> Function() _deviceModel;
+  final Future<String?> Function() _deviceIp;
+  final Future<String> Function() _installedVersion;
 
   MqttServerClient? _client;
   MqttStatus _status = MqttStatus.disconnected;
@@ -61,9 +84,20 @@ class MqttService extends ChangeNotifier {
   String _username = '';
   String _password = '';
   String _discoveryPrefix = 'homeassistant';
-  String _swVersion = '';
+  String _deviceNameSetting = '';
+  String _versionFallback = '';
 
-  late final String _clientId = computeClientId();
+  // Resolved once per process; see [resolveDeviceId].
+  String _clientId = '';
+  String get deviceId => _clientId;
+  // An id this install published under before it had a stored one, cleared
+  // from the broker on the next connect.
+  String? _legacyIdToClear;
+
+  // Device identity sent with discovery, refreshed on each connect.
+  String _swVersion = '';
+  String _defaultDeviceName = 'Hearth';
+  String? _configurationUrl;
 
   Timer? _reconnectTimer;
   int _reconnectDelay = 1;
@@ -87,7 +121,10 @@ class MqttService extends ChangeNotifier {
   /// discovery as appropriate. Called with `fireImmediately` on creation.
   void updateConfig(HubConfig config) {
     if (kIsWeb) return; // The MQTT client is native-only.
-    _swVersion = readInstalledVersion(fallback: config.currentVersion);
+    _versionFallback = config.currentVersion;
+    if (_clientId.isEmpty && config.mqttDeviceId.isNotEmpty) {
+      _clientId = config.mqttDeviceId;
+    }
     final url = config.mqttBrokerUrl.trim();
     final user = config.mqttUsername;
     final pass = config.mqttPassword;
@@ -104,23 +141,42 @@ class MqttService extends ChangeNotifier {
       return;
     }
 
+    if (_clientId.isEmpty) _seedDeviceId();
+
     final connectionChanged =
         url != _brokerUrl || user != _username || pass != _password;
     final prefixChanged = prefix != _discoveryPrefix;
+    final nameChanged = config.mqttDeviceName.trim() != _deviceNameSetting;
 
     _brokerUrl = url;
     _username = user;
     _password = pass;
     _discoveryPrefix = prefix;
+    _deviceNameSetting = config.mqttDeviceName.trim();
 
     if (connectionChanged) {
       _reconnectDelay = 1;
-      _connect();
+      connect();
     } else if (prefixChanged && isConnected) {
       // Discovery topics are keyed by prefix — republish under the new one.
       _publishDiscovery();
       _publishAllState();
+    } else if (nameChanged && isConnected) {
+      _publishDiscovery();
     }
+  }
+
+  /// Resolve this install's device id and persist it, so it never changes.
+  void _seedDeviceId() {
+    final r = resolveDeviceId(hostname: _hostname, random: _random);
+    _clientId = r.id;
+    _legacyIdToClear = r.legacyId;
+    Log.i('MQTT', 'Device id: ${r.id}');
+    // Deferred: this can run while mqttServiceProvider is still building,
+    // and a provider may not modify another during its initialization.
+    Future.microtask(() => _ref
+        .read(hubConfigProvider.notifier)
+        .update((c) => c.copyWith(mqttDeviceId: r.id)));
   }
 
   /// (Re)subscribe to the Music Assistant player stream. Called whenever the
@@ -130,7 +186,10 @@ class MqttService extends ChangeNotifier {
     _playerSub = ma.playerStateStream.listen((_) => onNowPlayingChanged());
   }
 
-  Future<void> _connect() async {
+  /// Open a fresh broker connection. Overridden in tests to count attempts.
+  @protected
+  @visibleForTesting
+  Future<void> connect() async {
     if (_disposed || kIsWeb || _brokerUrl.isEmpty) return;
     await _teardownClient();
     _reconnectTimer?.cancel();
@@ -163,7 +222,7 @@ class MqttService extends ChangeNotifier {
     } catch (e) {
       Log.w('MQTT', 'Connect failed: $e');
       _abandonClient(client);
-      // Only drive reconnect if a newer _connect() hasn't superseded us.
+      // Only drive reconnect if a newer connect() hasn't superseded us.
       if (_client == client) {
         _client = null;
         _setStatus(MqttStatus.disconnected);
@@ -172,7 +231,7 @@ class MqttService extends ChangeNotifier {
       return;
     }
 
-    // A concurrent _connect() (e.g. another config change) took over while we
+    // A concurrent connect() (e.g. another config change) took over while we
     // awaited — abandon this attempt and let the newer one own the lifecycle.
     if (_client != client) {
       _abandonClient(client);
@@ -193,6 +252,9 @@ class MqttService extends ChangeNotifier {
     Log.i('MQTT', 'Connected to ${broker.host}:${broker.port} as $_clientId');
 
     client.updates?.listen(_onMessage);
+    await _refreshIdentity();
+    if (_client != client) return;
+    _clearLegacyId();
     _publishDiscovery();
     _subscribeCommands();
     await _publishAllState();
@@ -236,7 +298,7 @@ class MqttService extends ChangeNotifier {
     Log.w('MQTT', 'Reconnecting in ${_reconnectDelay}s...');
     _reconnectTimer = Timer(Duration(seconds: _reconnectDelay), () {
       _reconnectDelay = (_reconnectDelay * 2).clamp(1, _maxReconnectDelay);
-      _connect();
+      connect();
     });
   }
 
@@ -261,14 +323,40 @@ class MqttService extends ChangeNotifier {
   String get _alarmDismissTopic => '$_baseTopic/alarm/dismiss';
   String get _notifyTopic => '$_baseTopic/notify';
 
-  String get _configurationUrl {
-    var host = 'hearth';
-    if (!kIsWeb) {
-      try {
-        host = Platform.localHostname;
-      } catch (_) {}
+  /// Read the version, default name and portal URL sent with discovery.
+  Future<void> _refreshIdentity() async {
+    final version = await _installedVersion();
+    _swVersion = version.isEmpty ? _versionFallback : version;
+    final host = _realHostname(_hostname);
+    _defaultDeviceName = defaultDeviceName(
+      hostname: host,
+      model: host == null ? await _deviceModel() : '',
+    );
+    final address = host ?? await _deviceIp();
+    _configurationUrl = address == null ? null : 'http://$address:8090';
+  }
+
+  String get _deviceName =>
+      _deviceNameSetting.isEmpty ? _defaultDeviceName : _deviceNameSetting;
+
+  /// Remove the retained discovery and state left under the id this install
+  /// used before it had a stored one, so HA drops that device.
+  void _clearLegacyId() {
+    final legacy = _legacyIdToClear;
+    if (legacy == null) return;
+    _legacyIdToClear = null;
+    final entries = buildDiscoveryEntries(
+      clientId: legacy,
+      discoveryPrefix: _discoveryPrefix,
+      swVersion: '',
+      configurationUrl: null,
+    );
+    for (final e in entries) {
+      _publish(e.topic, '');
+      _publish(e.config['state_topic'] as String, '');
+      final attrs = e.config['json_attributes_topic'] as String?;
+      if (attrs != null) _publish(attrs, '');
     }
-    return 'http://$host:8090';
   }
 
   // --- Discovery ------------------------------------------------------------
@@ -279,9 +367,15 @@ class MqttService extends ChangeNotifier {
       discoveryPrefix: _discoveryPrefix,
       swVersion: _swVersion,
       configurationUrl: _configurationUrl,
+      deviceName: _deviceName,
+      includeVolume: _volumeSupported,
     );
     for (final e in entries) {
       _publish(e.topic, jsonEncode(e.config));
+    }
+    if (!_volumeSupported) {
+      // An empty retained config removes a volume entity published earlier.
+      _publish(volumeDiscoveryTopic(_discoveryPrefix, _clientId), '');
     }
   }
 
@@ -434,7 +528,7 @@ class MqttService extends ChangeNotifier {
     final c = _client;
     if (c == null) return;
     for (final topic in [
-      _volumeCmdTopic,
+      if (_volumeSupported) _volumeCmdTopic,
       _timerStartTopic,
       _timerCancelTopic,
       _alarmCreateTopic,
@@ -640,16 +734,18 @@ class MqttService extends ChangeNotifier {
     required String clientId,
     required String discoveryPrefix,
     required String swVersion,
-    required String configurationUrl,
+    required String? configurationUrl,
+    String deviceName = 'Hearth',
+    bool includeVolume = true,
   }) {
     final base = 'hearth/$clientId';
     final device = <String, dynamic>{
       'identifiers': ['hearth_$clientId'],
-      'name': 'Hearth',
+      'name': deviceName,
       'model': 'Hearth Kiosk',
       'manufacturer': 'Hearth',
       'sw_version': swVersion.isEmpty ? 'unknown' : swVersion,
-      'configuration_url': configurationUrl,
+      'configuration_url': ?configurationUrl,
     };
 
     String topic(String component, String entity) =>
@@ -675,21 +771,26 @@ class MqttService extends ChangeNotifier {
       sensor('now_playing', 'Now Playing', 'mdi:music'),
       sensor('timer', 'Timer', 'mdi:timer-outline'),
       sensor('next_alarm', 'Next Alarm', 'mdi:alarm'),
-      MqttDiscoveryEntry(topic('number', 'volume'), {
-        'name': 'Volume',
-        'unique_id': uid('volume'),
-        'state_topic': '$base/volume/state',
-        'command_topic': '$base/volume/set',
-        'min': 0,
-        'max': 100,
-        'step': 1,
-        'mode': 'slider',
-        'unit_of_measurement': '%',
-        'icon': 'mdi:volume-high',
-        'device': device,
-      }),
+      if (includeVolume)
+        MqttDiscoveryEntry(volumeDiscoveryTopic(discoveryPrefix, clientId), {
+          'name': 'Volume',
+          'unique_id': uid('volume'),
+          'state_topic': '$base/volume/state',
+          'command_topic': '$base/volume/set',
+          'min': 0,
+          'max': 100,
+          'step': 1,
+          'mode': 'slider',
+          'unit_of_measurement': '%',
+          'icon': 'mdi:volume-high',
+          'device': device,
+        }),
     ];
   }
+
+  @visibleForTesting
+  static String volumeDiscoveryTopic(String discoveryPrefix, String clientId) =>
+      '$discoveryPrefix/number/hearth_$clientId/volume/config';
 
   /// Parse a broker URL into host/port/secure. Accepts bare `host`,
   /// `host:port`, and scheme-prefixed forms (`mqtt://`, `mqtts://`,
@@ -719,34 +820,76 @@ class MqttService extends ChangeNotifier {
     return (host: host, port: port, secure: secure);
   }
 
-  /// The running Hearth version, reported to HA as the device firmware
-  /// (`sw_version`). Reads `/etc/hearth-version` — the file the installer and
-  /// OTA updater maintain, and the same source Settings → Updates displays —
-  /// so the HA "firmware" stays in lockstep with the installed bundle. Returns
-  /// [fallback] when the file is absent (Windows dev) or unreadable.
+  /// The id this install publishes under: the MQTT client id, the topic
+  /// base, the HA device identifier and every `unique_id`.
+  ///
+  /// A real hostname keeps the sanitized hostname, the id every install used
+  /// before ids were stored, so an existing HA device survives. Android
+  /// reports `localhost`, which every tablet shares, so it and a failed lookup
+  /// get a generated `hearth_<hex>`; [legacyId] is then `localhost` when that
+  /// is what the install published under before.
   @visibleForTesting
-  static String readInstalledVersion({String fallback = ''}) {
-    if (kIsWeb) return fallback;
+  static ({String id, String? legacyId}) resolveDeviceId({
+    required String Function() hostname,
+    required Random random,
+  }) {
+    String? sanitized;
     try {
-      final v = File('/etc/hearth-version').readAsStringSync().trim();
-      if (v.isNotEmpty) return v;
+      sanitized = _sanitizeId(hostname());
     } catch (_) {}
-    return fallback;
+    if (sanitized != null &&
+        sanitized.isNotEmpty &&
+        sanitized != 'localhost' &&
+        sanitized.replaceAll('_', '').isNotEmpty) {
+      return (id: sanitized, legacyId: null);
+    }
+    final hex = List.generate(
+      8,
+      (_) => random.nextInt(16).toRadixString(16),
+    ).join();
+    return (
+      id: 'hearth_$hex',
+      legacyId: sanitized == 'localhost' ? 'localhost' : null,
+    );
   }
 
-  /// A stable client identifier derived from the device hostname, sanitized
-  /// to `[a-z0-9_]`. Used both as the MQTT client id and the HA device id.
+  /// The HA device name when none is set: the hostname, or on Android (no
+  /// hostname) the device model, so two kiosks never share a name.
   @visibleForTesting
-  static String computeClientId() {
-    var h = 'hearth';
-    if (!kIsWeb) {
-      try {
-        h = Platform.localHostname;
-      } catch (_) {}
+  static String defaultDeviceName({String? hostname, String model = ''}) {
+    if (hostname != null) {
+      return hostname.toLowerCase() == 'hearth'
+          ? 'Hearth'
+          : 'Hearth ($hostname)';
     }
-    h = h.toLowerCase().replaceAll(RegExp(r'[^a-z0-9_]'), '_');
-    if (h.isEmpty || h == '_') h = 'hearth';
-    return h;
+    final m = model.trim();
+    return m.isEmpty ? 'Hearth' : 'Hearth ($m)';
+  }
+
+  static String _sanitizeId(String raw) =>
+      raw.toLowerCase().replaceAll(RegExp(r'[^a-z0-9_]'), '_');
+
+  /// The hostname, or null when the lookup fails or gives `localhost`.
+  static String? _realHostname(String Function() hostname) {
+    try {
+      final h = hostname().trim();
+      if (h.isEmpty || h.toLowerCase() == 'localhost') return null;
+      return h;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static String _platformHostname() => Platform.localHostname;
+
+  static Future<String> _platformDeviceModel() async {
+    if (kIsWeb || !Platform.isAndroid) return '';
+    try {
+      final r = await Process.run('getprop', ['ro.product.model']);
+      return (r.stdout as String).trim();
+    } catch (_) {
+      return '';
+    }
   }
 }
 

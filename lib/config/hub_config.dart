@@ -312,6 +312,12 @@ class HubConfig {
   final String mqttUsername;
   final String mqttPassword;
   final String mqttDiscoveryPrefix;
+  /// Per-install MQTT client id and HA device id. App-seeded the first time a
+  /// broker is configured, then fixed; web read-only. Topics, `unique_id`s and
+  /// the HA device all key off it, so changing it orphans the HA device.
+  final String mqttDeviceId;
+  /// HA device name. Empty means a default derived from the host or model.
+  final String mqttDeviceName;
   final bool setupComplete;
   final bool autoUpdate;
   final String updateSource; // 'github' or 'gitea'
@@ -417,6 +423,8 @@ class HubConfig {
     this.mqttUsername = '',
     this.mqttPassword = '',
     this.mqttDiscoveryPrefix = 'homeassistant',
+    this.mqttDeviceId = '',
+    this.mqttDeviceName = '',
     this.setupComplete = false,
     this.autoUpdate = true,
     this.updateSource = 'github',
@@ -516,6 +524,8 @@ class HubConfig {
     String? mqttUsername,
     String? mqttPassword,
     String? mqttDiscoveryPrefix,
+    String? mqttDeviceId,
+    String? mqttDeviceName,
     bool? setupComplete,
     bool? autoUpdate,
     String? updateSource,
@@ -598,6 +608,8 @@ class HubConfig {
       mqttUsername: mqttUsername ?? this.mqttUsername,
       mqttPassword: mqttPassword ?? this.mqttPassword,
       mqttDiscoveryPrefix: mqttDiscoveryPrefix ?? this.mqttDiscoveryPrefix,
+      mqttDeviceId: mqttDeviceId ?? this.mqttDeviceId,
+      mqttDeviceName: mqttDeviceName ?? this.mqttDeviceName,
       setupComplete: setupComplete ?? this.setupComplete,
       autoUpdate: autoUpdate ?? this.autoUpdate,
       updateSource: updateSource ?? this.updateSource,
@@ -679,6 +691,8 @@ class HubConfig {
         'mqttUsername': mqttUsername,
         'mqttPassword': mqttPassword,
         'mqttDiscoveryPrefix': mqttDiscoveryPrefix,
+        'mqttDeviceId': mqttDeviceId,
+        'mqttDeviceName': mqttDeviceName,
         'setupComplete': setupComplete,
         'autoUpdate': autoUpdate,
         'updateSource': updateSource,
@@ -772,6 +786,8 @@ class HubConfig {
         mqttPassword: json['mqttPassword'] as String? ?? '',
         mqttDiscoveryPrefix:
             json['mqttDiscoveryPrefix'] as String? ?? 'homeassistant',
+        mqttDeviceId: json['mqttDeviceId'] as String? ?? '',
+        mqttDeviceName: json['mqttDeviceName'] as String? ?? '',
         setupComplete: json['setupComplete'] as bool? ?? false,
         autoUpdate: json['autoUpdate'] as bool? ?? true,
         updateSource: json['updateSource'] as String? ?? 'github',
