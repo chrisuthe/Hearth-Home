@@ -360,6 +360,91 @@ void main() {
 
       expect(service.selectedEntityIdForTest, 'assist_satellite.tablet');
     });
+
+    test('re-detects when the satellite is adopted after start', () async {
+      final answered = <Object?>{};
+      Future<void> answerRegistry(List<Map<String, String>> registry) async {
+        for (final m in fake.sentMessages
+            .map((s) => jsonDecode(s) as Map<String, dynamic>)
+            .where((m) => m['type'] == 'config/entity_registry/list')
+            .toList()) {
+          if (!answered.add(m['id'])) continue;
+          fake.simulateMessage({
+            'id': m['id'],
+            'type': 'result',
+            'success': true,
+            'result': registry,
+          });
+        }
+        await Future.delayed(const Duration(milliseconds: 20));
+      }
+
+      const kitchen = {
+        'entity_id': 'assist_satellite.kitchen',
+        'platform': 'esphome',
+        'unique_id': 'aa:bb:cc:dd:ee:ff-assist_satellite',
+        'device_id': 'dev1',
+      };
+      fake.simulateMessage(_stateChanged('assist_satellite.kitchen', 'idle'));
+      await Future.delayed(const Duration(milliseconds: 20));
+      // Not adopted yet: no match, so auto-pick keeps the other device.
+      await answerRegistry([kitchen]);
+      expect(service.selectedEntityIdForTest, 'assist_satellite.kitchen');
+
+      // HA adopts the tablet and its satellite entity appears.
+      fake.simulateMessage(_stateChanged('assist_satellite.tablet', 'idle'));
+      await Future.delayed(const Duration(milliseconds: 20));
+      await answerRegistry([
+        kitchen,
+        {
+          'entity_id': 'assist_satellite.tablet',
+          'platform': 'esphome',
+          'unique_id': '0a:1b:2c:3d:4e:5f-assist_satellite',
+          'device_id': 'dev2',
+        },
+      ]);
+
+      expect(service.selectedEntityIdForTest, 'assist_satellite.tablet');
+    });
+  });
+
+  group('VoiceAssistantService in-app satellite mute (Android)', () {
+    late FakeWebSocketChannel fake;
+    late HomeAssistantService ha;
+    late VoiceAssistantService service;
+
+    setUp(() async {
+      fake = FakeWebSocketChannel();
+      ha = HomeAssistantService.withChannel(fake);
+      ha.connect('test-token');
+      fake.simulateMessage({'type': 'auth_ok'});
+      await Future.delayed(const Duration(milliseconds: 20));
+      service = VoiceAssistantService(ha,
+          pinnedEntityId: 'assist_satellite.hearth', localMute: true);
+      service.start();
+    });
+
+    tearDown(() async {
+      service.dispose();
+      ha.dispose();
+      await fake.close();
+    });
+
+    test('neither looks up nor drives the HA mute switch', () async {
+      fake.simulateMessage(_stateChanged('assist_satellite.hearth', 'idle'));
+      await Future.delayed(const Duration(milliseconds: 20));
+      service.setSatelliteMuted(true);
+      service.setSatelliteMuted(false);
+      await Future.delayed(const Duration(milliseconds: 10));
+
+      final types = fake.sentMessages
+          .map((s) => jsonDecode(s) as Map<String, dynamic>)
+          .map((m) => m['type'])
+          .toList();
+      expect(types, isNot(contains('config/entity_registry/list')));
+      expect(types, isNot(contains('call_service')));
+      expect(service.muted, isNull);
+    });
   });
 
   group('VoiceAssistantService mute-entity resolution', () {

@@ -119,17 +119,17 @@ class VoiceChannel(
         ContextCompat.checkSelfPermission(activity, permission) == PackageManager.PERMISSION_GRANTED
 
     override fun onListen(arguments: Any?, sink: EventChannel.EventSink) {
-        VoiceEvents.attach { sink.success(it) }
+        VoiceEvents.attach(this) { sink.success(it) }
     }
 
     override fun onCancel(arguments: Any?) {
-        VoiceEvents.attach(null)
+        VoiceEvents.detach(this)
     }
 
     fun dispose() {
         methods.setMethodCallHandler(null)
         events.setStreamHandler(null)
-        VoiceEvents.attach(null)
+        VoiceEvents.detach(this)
         pendingStart = null
         scope.cancel()
     }

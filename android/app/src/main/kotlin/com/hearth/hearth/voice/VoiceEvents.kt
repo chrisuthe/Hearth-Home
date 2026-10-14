@@ -25,13 +25,25 @@ object VoiceEvents {
     const val MODEL_LOAD_FAILED = "modelLoadFailed"
 
     private val main = Handler(Looper.getMainLooper())
+    private var owner: Any? = null
     private var sink: ((Map<String, Any?>) -> Unit)? = null
     private var lastState: Map<String, Any?>? = null
 
     /** Main thread only. A new listener is caught up with the current state. */
-    fun attach(sink: ((Map<String, Any?>) -> Unit)?) {
+    fun attach(owner: Any, sink: (Map<String, Any?>) -> Unit) {
+        this.owner = owner
         this.sink = sink
-        lastState?.let { sink?.invoke(it) }
+        lastState?.let { sink(it) }
+    }
+
+    /**
+     * Main thread only. A no-op unless [owner] attached the current listener:
+     * a recreated activity's engine attaches before the old one is torn down.
+     */
+    fun detach(owner: Any) {
+        if (this.owner !== owner) return
+        this.owner = null
+        sink = null
     }
 
     /** [running] is false only in the service's last event before it is gone. */
