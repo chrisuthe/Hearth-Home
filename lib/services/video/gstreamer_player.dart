@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutterpi_gstreamer_video_player/flutterpi_gstreamer_video_player.dart';
@@ -14,12 +15,22 @@ import '../../utils/logger.dart';
 class GstreamerVideoPlayer implements HearthVideoPlayer {
   VideoPlayerController? _controller;
   bool _playing = false;
+  final _videoSize = ValueNotifier<Size?>(null);
 
   /// Injects a controller so [seek]/[resume]/[pause] can be exercised in tests
   /// without a real GStreamer backend. Not used in production.
   @visibleForTesting
-  set debugController(VideoPlayerController controller) =>
-      _controller = controller;
+  set debugController(VideoPlayerController controller) {
+    _controller = controller..addListener(_updateSize);
+    _updateSize();
+  }
+
+  void _updateSize() {
+    final value = _controller?.value;
+    _videoSize.value = value == null || !value.isInitialized || value.size.isEmpty
+        ? null
+        : value.size;
+  }
 
   @override
   Future<bool> play(String url) async {
@@ -47,6 +58,7 @@ class GstreamerVideoPlayer implements HearthVideoPlayer {
       } else {
         _controller = VideoPlayerController.networkUrl(Uri.parse(url));
       }
+      _controller!.addListener(_updateSize);
       await _controller!.initialize();
       await startPlayback();
       _playing = true;
@@ -55,8 +67,10 @@ class GstreamerVideoPlayer implements HearthVideoPlayer {
     } catch (e) {
       Log.e('Video', 'Failed to play ${redactSecrets(url)}: $e');
       _playing = false;
+      _controller?.removeListener(_updateSize);
       _controller?.dispose();
       _controller = null;
+      _videoSize.value = null;
       return false;
     }
   }
@@ -105,6 +119,8 @@ class GstreamerVideoPlayer implements HearthVideoPlayer {
   @override
   Future<void> stop() async {
     _playing = false;
+    _controller?.removeListener(_updateSize);
+    _videoSize.value = null;
     try {
       await _controller?.dispose();
     } catch (e) {
@@ -152,6 +168,9 @@ class GstreamerVideoPlayer implements HearthVideoPlayer {
 
   @override
   Duration get duration => _controller?.value.duration ?? Duration.zero;
+
+  @override
+  ValueListenable<Size?> get videoSize => _videoSize;
 
   @override
   Widget buildView({BoxFit fit = BoxFit.contain}) {

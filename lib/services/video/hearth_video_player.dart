@@ -42,6 +42,10 @@ abstract class HearthVideoPlayer {
   /// Total media duration (snapshot). [Duration.zero] when unknown.
   Duration get duration;
 
+  /// The decoded picture's size, null until the first frame's size is known
+  /// and again after [stop]. Drives `AspectAwareVideoView`'s fit.
+  ValueListenable<Size?> get videoSize;
+
   Widget buildView({BoxFit fit = BoxFit.contain});
 
   static HearthVideoPlayer create() {
