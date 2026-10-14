@@ -32,6 +32,7 @@ Full licence texts are in `assets/licenses/`. **Verified** means we read the lic
 | [libmpv and FFmpeg (media_kit native builds)](#libmpv) | LGPL-2.1-or-later | android, windows | assumed |
 | [Inter font](#inter) | OFL-1.1 | android, pi, linux, windows | verified |
 | [Weather Icons font](#weather-icons) | OFL-1.1 | android, pi, linux, windows | verified |
+| [Unicode CLDR Windows time zone mapping](#cldr-windows-zones) | Unicode-3.0 | android, pi, linux, windows | verified |
 | [Alarm tones](#alarm-tones) | CC-BY-4.0 and CC0-1.0 | android, pi, linux, windows | verified |
 | [flutter-pi](#flutter-pi) | MIT | pi | verified |
 | [flutterpi_gstreamer_video_player](#flutterpi-gstreamer-video-player) | MIT | pi | verified |
@@ -289,6 +290,16 @@ Linux desktop uses the system's libmpv and does not bundle it; the Pi does not u
 - Source: <https://github.com/erikflowers/weather-icons>
 - Platforms: android, pi, linux, windows
 - Status: **verified**. Repository README licensing section and the font's name table.
+
+<a id="cldr-windows-zones"></a>
+## Unicode CLDR Windows time zone mapping
+
+The territory 001 rows of common/supplemental/windowsZones.xml from CLDR 48.2, embedded as a Dart map to read Windows time zone names in ICS calendar feeds.
+
+- Licence: Unicode-3.0 (`assets/licenses/unicode-3.0.txt`)
+- Source: <https://github.com/unicode-org/cldr>
+- Platforms: android, pi, linux, windows
+- Status: **verified**. LICENSE at tag release-48-2.
 
 <a id="alarm-tones"></a>
 ## Alarm tones

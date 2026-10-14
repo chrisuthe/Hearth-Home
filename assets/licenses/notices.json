@@ -324,6 +324,20 @@
       "checked": "Repository README licensing section and the font's name table"
     },
     {
+      "id": "cldr-windows-zones",
+      "name": "Unicode CLDR Windows time zone mapping",
+      "license": "Unicode-3.0",
+      "licenseFile": "unicode-3.0.txt",
+      "attribution": [
+        "The territory 001 rows of common/supplemental/windowsZones.xml from CLDR 48.2, embedded as a Dart map to read Windows time zone names in ICS calendar feeds."
+      ],
+      "platforms": ["android", "pi", "linux", "windows"],
+      "source": "https://github.com/unicode-org/cldr",
+      "covers": ["lib/modules/calendar/ics/windows_zones.dart"],
+      "status": "verified",
+      "checked": "LICENSE at tag release-48-2"
+    },
+    {
       "id": "alarm-tones",
       "name": "Alarm tones",
       "license": "CC-BY-4.0 and CC0-1.0",

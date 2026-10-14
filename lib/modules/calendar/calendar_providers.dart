@@ -1,11 +1,13 @@
 import 'dart:async';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart' show DateTimeRange;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../config/hub_config.dart';
 import '../../services/home_assistant_service.dart';
 import 'ha_calendar_source.dart';
+import 'ics_calendar_source.dart';
 import 'models.dart';
 
 /// The default window around [now]: from the start of last week (Monday) to
@@ -42,8 +44,12 @@ final calendarWindowProvider = StateProvider<DateTimeRange>((ref) {
   return defaultCalendarWindow(DateTime.now());
 });
 
-/// Events of one configured source over [calendarWindowProvider]. Rebuilt,
-/// and so resubscribed, when the source's config entry or the window changes.
+/// The HTTP client ICS sources fetch with; tests override it.
+final icsDioProvider = Provider<Dio>((ref) => IcsCalendarSource.newDio());
+
+/// Events of one configured source over [calendarWindowProvider]. Rebuilt
+/// when the source's config entry changes. A window change resubscribes an
+/// HA source and re-expands an ICS source without refetching it.
 final calendarSourceEventsProvider =
     StreamProvider.family<SourceEvents, String>((ref, sourceId) {
   final source = ref.watch(hubConfigProvider.select((c) {
@@ -56,15 +62,15 @@ final calendarSourceEventsProvider =
     return Stream.value(const SourceEvents(
         status: SourceStatus.error, error: 'Calendar source not configured'));
   }
-  final window = ref.watch(calendarWindowProvider);
+  final pollMinutes =
+      ref.watch(hubConfigProvider.select((c) => c.calendarIcsPollMinutes));
 
   switch (source.kind) {
     case CalendarSourceKind.ha:
+      final window = ref.watch(calendarWindowProvider);
       final ha = ref.watch(homeAssistantServiceProvider);
       final haUrl = ref.watch(hubConfigProvider.select((c) => c.haUrl));
       final haToken = ref.watch(hubConfigProvider.select((c) => c.haToken));
-      final pollMinutes =
-          ref.watch(hubConfigProvider.select((c) => c.calendarIcsPollMinutes));
       final haSource = HaCalendarSource(
         ha: ha,
         source: source,
@@ -76,9 +82,16 @@ final calendarSourceEventsProvider =
       ref.onDispose(haSource.dispose);
       return haSource.stream;
     case CalendarSourceKind.ics:
-      // IcsCalendarSource (fetch, parse, expand, poll) plugs in here.
-      return Stream.value(const SourceEvents(
-          status: SourceStatus.error, error: 'ICS feeds are not supported yet'));
+      final icsSource = IcsCalendarSource(
+        source: source,
+        window: ref.read(calendarWindowProvider),
+        pollInterval: Duration(minutes: pollMinutes),
+        dio: ref.watch(icsDioProvider),
+      );
+      ref.listen(
+          calendarWindowProvider, (_, window) => icsSource.window = window);
+      ref.onDispose(icsSource.dispose);
+      return icsSource.stream;
   }
 });
 

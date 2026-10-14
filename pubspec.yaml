@@ -48,6 +48,8 @@ dependencies:
   # (WebView2, NuGet) or macOS implementations.
   flutter_inappwebview_android: 1.2.0-beta.3
   flutter_inappwebview_platform_interface: 1.4.0-beta.3
+  rrule: 0.2.18
+  timezone: 0.11.2
 
 dev_dependencies:
   flutter_test:
