@@ -1,7 +1,7 @@
 # Sendspin on Android — Design
 
 **Date:** 2026-10-14
-**Status:** Design. In SendspinDroid, phase 1 (the `:player` library) is merged and phase 2 (the engine) is open as a pull request. Nothing in Hearth is implemented.
+**Status:** Design. Phases 1 and 2, in SendspinDroid, are merged. Nothing in Hearth is implemented; phase 3 is next.
 **Goal:** Specify how the Android build plays Sendspin through SendspinDroid's native player inside `HearthAudioService`, and break the Hearth integration into tasks.
 **Tracking:** issue 248.
 
@@ -49,9 +49,9 @@ Three classes in the `sendspin` package stay in `:app` because they are the app'
 
 Behaviour is meant to be unchanged; the pull request lists the checks. The unit tests stay in `:app` for now, so the same suite runs before and after the move. As a result, two test seams that were `internal` (`SendSpin.handshakeTimeoutMs`, `SendSpinProtocolHandler.installEncryptedChannel`) are now public.
 
-Link: https://github.com/chrisuthe/SendspinDroid/pull/326, merged as `92fdc211` after a rebase onto #324. Not tagged: nothing pins it, and Hearth pins after phase 2.
+Link: https://github.com/chrisuthe/SendspinDroid/pull/326, merged as `92fdc211` after a rebase onto #324. Not tagged.
 
-### Phase 2: the engine (pull request open)
+### Phase 2: the engine (merged)
 
 The pipeline in `PlaybackService` moves into `:player` as `SendSpinEngine` (`P/playback/SendSpinEngine.kt`). It owns (**verified**, by the pull request below):
 
@@ -66,7 +66,7 @@ The connection side stays with each host: the listener, `InboundConnections`, th
 
 `PlaybackService` is the engine's first host, and Hearth's service the second. The pull request also adds the `VOICE` mute reason and moves the player's R8 rules into `player/consumer-rules.pro`. It moves the pipeline tests to `:player`, where `DecoderPipelineIntegrationTest` now drives the real engine instead of a copy of the service's callbacks. 860 `:app`, 40 `:player` and 611 `:shared` tests pass, debug and release build, and it has not been run on a device.
 
-Link: https://github.com/chrisuthe/SendspinDroid/pull/329 (branch `refactor/sendspin-engine`). Tag after merge, which Hearth then pins in phase 3.
+Link: https://github.com/chrisuthe/SendspinDroid/pull/329, merged as `0e6c67c5`. Not tagged; Hearth pins that commit in phase 3.
 
 The alternative was for Hearth to write its own copy of the pipeline against `:player`. That is about 400 lines of subtle threading that SendspinDroid has already debugged (the comments at `PlaybackService.kt:242-262` record two races), and two copies would drift. We did not take it.
 
@@ -74,15 +74,15 @@ The alternative was for Hearth to write its own copy of the pipeline against `:p
 
 As with the Ava fork:
 
-- SendspinDroid is a submodule at `android/third_party/sendspindroid`, pinned to a tag (`player-v<n>` or a release tag, whichever SendspinDroid cuts first).
+- SendspinDroid is a submodule at `android/third_party/sendspindroid`, pinned to commit `0e6c67c5`, the merge of phase 2. There is no tag yet. A `v*` tag there runs SendspinDroid's release workflow and publishes an app release (**verified**, `.github/workflows/release.yml`), so a tag is cut only when there is a reason to; the pin moves to it then.
 - Hearth builds `:shared` and `:player` from its own scripts under `android/sendspin/shared` and `android/sendspin/player`, with source sets pointing into the submodule, and includes them from `android/settings.gradle.kts` as `:sendspin-shared` and `:sendspin-player`.
 - The scripts take their SDK levels from `:app`, as `android/ava/satellite/build.gradle.kts` does.
 
 Differences from Ava:
 
 - **`:shared` is Kotlin Multiplatform with `expect`/`actual` declarations** (**verified**, `Platform.kt` in `commonMain` against `Platform.android.kt` in `androidMain`, and others). It cannot be compiled as a plain Android library. Hearth's script applies `org.jetbrains.kotlin.multiplatform` and `com.android.kotlin.multiplatform.library` with only the `androidLibrary` target, and points `commonMain`, the intermediate `jvmShared` and `androidMain` at the submodule. That this builds under Hearth's AGP 9.1.0 and Kotlin 2.4.0 (SendspinDroid uses 9.0.1 and 2.3.0, **verified**, `android/build.gradle.kts` in both) is **assumed** until phase 3 builds it.
-- **No version catalog.** SendspinDroid writes dependency versions inline in each `build.gradle.kts` (**verified**). Hearth's scripts copy them by hand, and a tag bump means diffing those files. Hearth's `CLAUDE.md` gets the same note it has for Ava.
-- **No `UPSTREAM_PIN` and no drift check.** SendspinDroid is not a fork; we own it. The submodule is bumped by hand when SendspinDroid tags, like the Ava pin, and Renovate does not see it.
+- **No version catalog.** SendspinDroid writes dependency versions inline in each `build.gradle.kts` (**verified**). Hearth's scripts copy them by hand, and moving the pin means diffing those files. Hearth's `CLAUDE.md` gets the same note it has for Ava.
+- **No `UPSTREAM_PIN` and no drift check.** SendspinDroid is not a fork; we own it. The submodule is bumped by hand, like the Ava pin, and Renovate does not see it.
 - **R8.** SendspinDroid's keep and `-dontwarn` rules for Ktor, OkHttp, BouncyCastle and kotlinx are in `app/proguard-rules.pro` (**verified**). The engine pull request moves the ones the player needs into `:player`'s `consumer-rules.pro` (OkHttp, coroutines, serialization, Ktor), so Hearth's release build inherits them. SendspinDroid's release build still keeps OkHttp's class names with the rules moved (**verified**, `assembleRelease` and the dex). That they are sufficient for Hearth is **assumed** until a release APK plays.
 - **Size.** Ktor's server and client, BouncyCastle and OkHttp join the APK. SendspinDroid already strips BouncyCastle's unused resources (about 1.2 MB) and Ktor's `kotlin-reflect` and `jansi` (about 590 KB) (**verified**, `app/build.gradle.kts`, `shared/build.gradle.kts`); Hearth's scripts and packaging options do the same. The growth is unmeasured.
 
@@ -163,7 +163,7 @@ Each line is one task. Sizes are relative. Phases 1 and 2 are pull requests in S
 | # | Task | Where | Size | Depends on |
 |---|---|---|---|---|
 | 1 | Extract `:player` from `:app`, behaviour unchanged. SendspinDroid pull request 326, merged. | SendspinDroid | Medium | — |
-| 2 | Move the pipeline into `SendSpinEngine` in `:player`, with the `VOICE` mute reason, `consumer-rules.pro`, and the pipeline tests. `PlaybackService` becomes its host. SendspinDroid pull request 329, open. Tag after merge. | SendspinDroid | Large | 1 |
+| 2 | Move the pipeline into `SendSpinEngine` in `:player`, with the `VOICE` mute reason, `consumer-rules.pro`, and the pipeline tests. `PlaybackService` becomes its host. SendspinDroid pull request 329, merged. | SendspinDroid | Large | 1 |
 | 3 | Pin SendspinDroid as a submodule; Hearth-owned scripts for `:sendspin-shared` and `:sendspin-player`; the APK builds with the classes in it; third-party notices; `CLAUDE.md` maintenance note | Hearth | Small-medium | 2 |
 | 4 | `HearthAudioService` hosts the engine: Sendspin configured on its own channel beside voice, foreground type by feature, `SendSpinHost` with private-file storage, the listener and advertiser glue, `STREAM_MUSIC` volume, `com.hearth/sendspin` | Hearth | Medium | 3 |
 | 5 | Dart: Android backend for `SendspinService`, remove the provider guard, hide buffer length on Android, the system slider on `STREAM_MUSIC`, and the requirements spec rows | Hearth | Medium | 4 |
