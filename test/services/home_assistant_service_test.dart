@@ -248,4 +248,185 @@ void main() {
       expect(result?['weather.pirateweather'], isNotNull);
     });
   });
+
+  group('HomeAssistantService.subscribe', () {
+    late FakeWebSocketChannel fakeChannel;
+    late HomeAssistantService service;
+
+    setUp(() {
+      fakeChannel = FakeWebSocketChannel();
+      service = HomeAssistantService.withChannel(fakeChannel);
+    });
+
+    tearDown(() async {
+      service.dispose();
+      await fakeChannel.close();
+    });
+
+    Future<void> tick() => Future.delayed(const Duration(milliseconds: 20));
+
+    List<Map<String, dynamic>> sent(FakeWebSocketChannel c) => c.sentMessages
+        .map((m) => jsonDecode(m) as Map<String, dynamic>)
+        .toList();
+
+    Map<String, dynamic> lastOfType(FakeWebSocketChannel c, String type) =>
+        sent(c).lastWhere((m) => m['type'] == type);
+
+    const calendarSubscribe = {
+      'type': 'calendar/event/subscribe',
+      'entity_id': 'calendar.family',
+      'start': '2026-10-12T05:00:00.000Z',
+      'end': '2026-10-19T05:00:00.000Z',
+    };
+
+    Map<String, dynamic> calendarPush(int id, String summary) => {
+          'id': id,
+          'type': 'event',
+          'event': {
+            'events': [
+              {
+                'start': '2026-10-14',
+                'end': '2026-10-15',
+                'summary': summary,
+                'all_day': true,
+              }
+            ]
+          },
+        };
+
+    Map<String, dynamic> stateChanged(int id, String entityId) => {
+          'id': id,
+          'type': 'event',
+          'event': {
+            'event_type': 'state_changed',
+            'data': {
+              'entity_id': entityId,
+              'new_state': {
+                'entity_id': entityId,
+                'state': 'on',
+                'attributes': <String, dynamic>{},
+                'last_changed': '2026-10-14T10:00:00.000Z',
+              },
+            },
+          },
+        };
+
+    test('routes an event by subscription id, away from the state cache',
+        () async {
+      final pushes = <Map<String, dynamic>>[];
+      final entities = <String>[];
+      service.entityStream.listen((e) => entities.add(e.entityId));
+      service.connect('t');
+      fakeChannel.simulateMessage({'type': 'auth_ok'});
+      await tick();
+
+      service.subscribe(calendarSubscribe, onEvent: pushes.add);
+      await tick();
+      final sub = lastOfType(fakeChannel, 'calendar/event/subscribe');
+      expect(sub['entity_id'], 'calendar.family');
+      final id = sub['id'] as int;
+
+      fakeChannel.simulateMessage(
+          {'id': id, 'type': 'result', 'success': true, 'result': null});
+      fakeChannel.simulateMessage(calendarPush(id, 'Birthday'));
+      // The state_changed subscription (id 1) still feeds the cache.
+      fakeChannel.simulateMessage(stateChanged(1, 'light.kitchen'));
+      await tick();
+
+      expect(pushes, hasLength(1));
+      expect((pushes.single['events'] as List).single['summary'], 'Birthday');
+      expect(entities, ['light.kitchen']);
+      expect(service.entities.keys, ['light.kitchen']);
+    });
+
+    test('subscribes on auth_ok when called before connecting', () async {
+      service.subscribe(calendarSubscribe, onEvent: (_) {});
+      expect(fakeChannel.sentMessages, isEmpty);
+      service.connect('t');
+      fakeChannel.simulateMessage({'type': 'auth_ok'});
+      await tick();
+      expect(sent(fakeChannel).where(
+          (m) => m['type'] == 'calendar/event/subscribe'), hasLength(1));
+    });
+
+    test('resubscribes with a new id after a reconnect and ignores the old id',
+        () async {
+      final pushes = <String>[];
+      var authCount = 0;
+      service.onAuthenticated.listen((_) => authCount++);
+      service.connect('t');
+      fakeChannel.simulateMessage({'type': 'auth_ok'});
+      await tick();
+      service.subscribe(calendarSubscribe,
+          onEvent: (e) => pushes.add((e['events'] as List).single['summary']));
+      await tick();
+      final oldId =
+          lastOfType(fakeChannel, 'calendar/event/subscribe')['id'] as int;
+
+      // The socket drops; a new one authenticates.
+      var disconnects = 0;
+      service.onDisconnected.listen((_) => disconnects++);
+      await fakeChannel.close();
+      await tick();
+      expect(disconnects, 1);
+      final second = FakeWebSocketChannel();
+      service.replaceChannel(second);
+      service.connect('t');
+      second.simulateMessage({'type': 'auth_ok'});
+      await tick();
+
+      final resub = lastOfType(second, 'calendar/event/subscribe');
+      final newId = resub['id'] as int;
+      expect(newId, isNot(oldId));
+      expect(resub['entity_id'], 'calendar.family');
+      expect(authCount, 2);
+
+      second.simulateMessage(calendarPush(oldId, 'Stale'));
+      second.simulateMessage(calendarPush(newId, 'Fresh'));
+      await tick();
+      expect(pushes, ['Fresh']);
+      await second.close();
+    });
+
+    test('unsubscribe sends unsubscribe_events and stops resubscribing',
+        () async {
+      service.connect('t');
+      fakeChannel.simulateMessage({'type': 'auth_ok'});
+      await tick();
+      final cancel = service.subscribe(calendarSubscribe, onEvent: (_) {});
+      await tick();
+      final id =
+          lastOfType(fakeChannel, 'calendar/event/subscribe')['id'] as int;
+
+      cancel();
+      await tick();
+      expect(lastOfType(fakeChannel, 'unsubscribe_events')['subscription'], id);
+
+      fakeChannel.simulateMessage({'type': 'auth_ok'});
+      await tick();
+      expect(sent(fakeChannel).where(
+          (m) => m['type'] == 'calendar/event/subscribe'), hasLength(1));
+    });
+
+    test('a failed subscribe reaches onError and not the pending responses',
+        () async {
+      Map<String, dynamic>? error;
+      service.connect('t');
+      fakeChannel.simulateMessage({'type': 'auth_ok'});
+      await tick();
+      service.subscribe(calendarSubscribe,
+          onEvent: (_) {}, onError: (e) => error = e);
+      await tick();
+      final id =
+          lastOfType(fakeChannel, 'calendar/event/subscribe')['id'] as int;
+      fakeChannel.simulateMessage({
+        'id': id,
+        'type': 'result',
+        'success': false,
+        'error': {'code': 'not_found', 'message': 'Entity not found'},
+      });
+      await tick();
+      expect(error?['code'], 'not_found');
+    });
+  });
 }

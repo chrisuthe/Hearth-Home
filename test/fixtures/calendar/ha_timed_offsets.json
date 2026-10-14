@@ -1,0 +1,13 @@
+{
+  "_comment": "HA in America/Chicago; the window crosses the US DST change on 2026-11-01. Offsets are used as sent, whatever the device zone.",
+  "websocket": [
+    {"start": "2026-10-30T09:00:00-05:00", "end": "2026-10-30T10:00:00-05:00", "summary": "Before DST ends", "uid": "a", "all_day": false},
+    {"start": "2026-11-02T09:00:00-06:00", "end": "2026-11-02T10:00:00-06:00", "summary": "After DST ends", "uid": "b", "all_day": false},
+    {"start": "2026-10-31T23:30:00-05:00", "end": "2026-10-31T23:30:00-05:00", "summary": "Zero length", "uid": "c", "all_day": false}
+  ],
+  "rest": [
+    {"start": {"dateTime": "2026-10-30T09:00:00-05:00"}, "end": {"dateTime": "2026-10-30T10:00:00-05:00"}, "summary": "Before DST ends", "description": null, "location": null, "uid": "a", "recurrence_id": null, "rrule": null},
+    {"start": {"dateTime": "2026-11-02T09:00:00-06:00"}, "end": {"dateTime": "2026-11-02T10:00:00-06:00"}, "summary": "After DST ends", "description": null, "location": null, "uid": "b", "recurrence_id": null, "rrule": null},
+    {"start": {"dateTime": "2026-10-31T23:30:00-05:00"}, "end": {"dateTime": "2026-10-31T23:30:00-05:00"}, "summary": "Zero length", "description": null, "location": null, "uid": "c", "recurrence_id": null, "rrule": null}
+  ]
+}

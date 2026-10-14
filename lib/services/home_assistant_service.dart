@@ -33,6 +33,13 @@ class HomeAssistantService {
   /// callers cast to the type they expect.
   final Map<int, Completer<dynamic>> _pendingResponses = {};
 
+  /// Live subscriptions from [subscribe], replayed on every `auth_ok`, and
+  /// the same keyed by the message id of their current subscribe.
+  final Set<_Subscription> _subscriptions = {};
+  final Map<int, _Subscription> _subscriptionsById = {};
+  final _authenticatedController = StreamController<void>.broadcast();
+  final _disconnectedController = StreamController<void>.broadcast();
+
   // Reconnection state
   String? _url;
   String? _token;
@@ -45,6 +52,12 @@ class HomeAssistantService {
   Stream<HaEntity> get entityStream => _entityController.stream;
   Map<String, HaEntity> get entities => Map.unmodifiable(_entities);
   bool get isConnected => _authenticated;
+
+  /// Fires on every `auth_ok`, the first connect and each reconnect.
+  Stream<void> get onAuthenticated => _authenticatedController.stream;
+
+  /// Fires when an authenticated socket closes or errors.
+  Stream<void> get onDisconnected => _disconnectedController.stream;
 
   HomeAssistantService();
 
@@ -70,7 +83,7 @@ class HomeAssistantService {
       },
       onError: (error) {
         Log.e('HA', 'WebSocket error: $error');
-        _authenticated = false;
+        _markDisconnected();
         for (final completer in _pendingResponses.values) {
           completer.complete(null);
         }
@@ -79,7 +92,7 @@ class HomeAssistantService {
       },
       onDone: () {
         Log.i('HA', 'WebSocket closed');
-        _authenticated = false;
+        _markDisconnected();
         for (final completer in _pendingResponses.values) {
           completer.complete(null);
         }
@@ -88,6 +101,16 @@ class HomeAssistantService {
       },
     );
   }
+
+  void _markDisconnected() {
+    final wasAuthenticated = _authenticated;
+    _authenticated = false;
+    if (wasAuthenticated && !_disposed) _disconnectedController.add(null);
+  }
+
+  /// Test hook: swap in a new channel, as a reconnect does.
+  @visibleForTesting
+  void replaceChannel(WebSocketChannel channel) => _channel = channel;
 
   /// Converts an http(s) URL to a ws(s) URL with /api/websocket path.
   @visibleForTesting
@@ -142,6 +165,12 @@ class HomeAssistantService {
       case 'auth_ok':
         _authenticated = true;
         _subscribeToStateChanges();
+        // Subscriptions died with the old socket; replay them with new ids.
+        _subscriptionsById.clear();
+        for (final sub in _subscriptions) {
+          _sendSubscription(sub);
+        }
+        _authenticatedController.add(null);
         break;
       case 'auth_invalid':
         Log.e('HA', 'Auth failed: ${msg['message'] ?? 'invalid token'}');
@@ -150,6 +179,12 @@ class HomeAssistantService {
         _channel?.sink.close();
         break;
       case 'event':
+        final sub = _subscriptionsById[msg['id']];
+        if (sub != null) {
+          final event = msg['event'];
+          if (event is Map<String, dynamic>) sub.onEvent(event);
+          break;
+        }
         _handleEvent(msg);
         break;
       case 'result':
@@ -176,6 +211,17 @@ class HomeAssistantService {
 
   void _handleResult(Map<String, dynamic> msg) {
     final id = msg['id'] as int?;
+    final sub = _subscriptionsById[id];
+    if (sub != null) {
+      if (msg['success'] != true) {
+        // HA holds no subscription for a failed subscribe; nothing to undo.
+        _subscriptionsById.remove(id);
+        sub.id = null;
+        final error = msg['error'];
+        sub.onError?.call(error is Map<String, dynamic> ? error : const {});
+      }
+      return;
+    }
     if (id != null && _pendingResponses.containsKey(id)) {
       final completer = _pendingResponses.remove(id)!;
       if (msg['success'] == true) {
@@ -344,6 +390,37 @@ class HomeAssistantService {
   }
 
 
+  /// Sends [message] as a subscription now and after every reconnect.
+  /// [onEvent] gets each `event` payload; [onError] the failed `result`'s
+  /// `error` (`code`, `message`). The returned function unsubscribes and
+  /// stops resubscribing.
+  void Function() subscribe(
+    Map<String, dynamic> message, {
+    required void Function(Map<String, dynamic> event) onEvent,
+    void Function(Map<String, dynamic> error)? onError,
+  }) {
+    final sub = _Subscription(message, onEvent, onError);
+    _subscriptions.add(sub);
+    if (_authenticated) _sendSubscription(sub);
+    return () {
+      if (!_subscriptions.remove(sub)) return;
+      final id = sub.id;
+      if (id == null) return;
+      _subscriptionsById.remove(id);
+      sub.id = null;
+      if (_authenticated) {
+        _send({'id': _nextId, 'type': 'unsubscribe_events', 'subscription': id});
+      }
+    };
+  }
+
+  void _sendSubscription(_Subscription sub) {
+    final id = _nextId;
+    sub.id = id;
+    _subscriptionsById[id] = sub;
+    _send({...sub.message, 'id': id});
+  }
+
   void _send(Map<String, dynamic> msg) {
     if (_channel == null) {
       Log.w('HA', 'Send dropped (not connected): ${msg['type'] ?? msg['command']}');
@@ -358,7 +435,20 @@ class HomeAssistantService {
     _streamSub?.cancel();
     _channel?.sink.close();
     _entityController.close();
+    _subscriptions.clear();
+    _subscriptionsById.clear();
+    _authenticatedController.close();
+    _disconnectedController.close();
   }
+}
+
+class _Subscription {
+  final Map<String, dynamic> message;
+  final void Function(Map<String, dynamic> event) onEvent;
+  final void Function(Map<String, dynamic> error)? onError;
+  int? id;
+
+  _Subscription(this.message, this.onEvent, this.onError);
 }
 
 final homeAssistantServiceProvider = Provider<HomeAssistantService>((ref) {
