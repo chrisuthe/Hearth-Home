@@ -108,7 +108,7 @@ The extraction is the real work. Ava's core is written against interfaces (`Micr
 
 **Packaging.** Fork Ava, move the four packages above into a new `:satellite` library module in the fork, and leave `:esphomeproto` and `:microfeatures` untouched so upstream merges stay cheap. Hearth pins the fork by tag as a git submodule under `android/third_party/` and includes its three modules from `android/settings.gradle.kts`. The fork carries an `UPSTREAM_PIN`, gets a third `check_fork` entry in `scripts/check-upstream-drift.sh`, and its tag never automerges, like the other forks.
 
-The alternative is to copy the code into `android/` directly. It is simpler on day one and loses the upstream diff. We prefer the fork; this is a [decision to confirm](#decisions-to-confirm).
+The alternative is to copy the code into `android/` directly. It is simpler on day one and loses the upstream diff. We chose the fork; see [Decisions](#decisions).
 
 Apache-2.0 code inside MIT-licensed Hearth needs the licence text, notices and file headers kept (**assumed**; not legal advice).
 
@@ -259,11 +259,11 @@ SendspinDroid is a second route. All **verified** at `3af5666`:
 2. To run in the same process, so that mute is a call and not a message.
 3. Later, a tap on the PCM it writes, as the echo reference.
 
-The Dart route can meet the first two through the existing `setMuted` on its sink. The third means sending the reference back across the channel.
+The Dart route could meet the first two through the existing `setMuted` on its sink; the third would mean sending the reference back across the channel.
 
-**Recommendation.** Use SendspinDroid's player on Android, inside `HearthAudioService`, and keep the Dart `SendspinService` as the settings and state facade over a channel. It is a released beta that we have not yet run on this tablet, it needs no NDK FLAC build, it meets all three needs natively, and adding a `VOICE` mute reason is a one-line change in a repository we own. The cost is extracting the player from `:app` into a library module in SendspinDroid, and two Sendspin implementations in Hearth (Dart on the Pi and desktop, Kotlin on Android).
+**Decision.** Use SendspinDroid's player on Android, inside `HearthAudioService`, and keep the Dart `SendspinService` as the settings and state facade over a channel. It is a released beta that we have not yet run on this tablet, it needs no NDK FLAC build, it meets all three needs natively, and adding a `VOICE` mute reason is a one-line change in a repository we own. The cost is extracting the player from `:app` into a library module in SendspinDroid, and two Sendspin implementations in Hearth (Dart on the Pi and desktop, Kotlin on Android).
 
-This changes follow-up 10 and deserves its own spec; it is a [decision to confirm](#decisions-to-confirm). The satellite does not wait for it: with Sendspin off on Android there is nothing to mute, and the `AudioCoordinator` is written against an interface.
+This replaces the plan in follow-up 10 and gets its own spec. The satellite does not wait for it: with Sendspin off on Android there is nothing to mute, and the `AudioCoordinator` is written against an interface.
 
 ## Testing
 
@@ -304,8 +304,13 @@ Tasks 1 to 4 are the minimum that answers whether this works on the tablet. Task
 - Is a linear echo canceller usable after the vendor processing? (Task 9.)
 - Behaviour on a second, non-Rockchip tablet with working platform effects.
 
-## Decisions to confirm
+## Decisions
 
-1. **Packaging**: a fork of Ava as a pinned submodule (preferred), or the code copied into `android/`.
-2. **Sendspin on Android**: SendspinDroid's native player (preferred), or the Dart client with a native sink as follow-up 10 describes today.
+Made on 2026-10-13:
+
+1. **Packaging**: a fork of Ava, pinned as a submodule. Copying the code into `android/` was the alternative.
+2. **Sendspin on Android**: SendspinDroid's native player. The Dart client with a native sink, as follow-up 10 of the requirements spec used to describe, was the alternative.
+
+Still open:
+
 3. **Auto-brightness on the Apolosign**: the light sensor does not work, so system auto-brightness holds the panel near minimum. Turning it off and driving brightness from Hearth's night-mode sources is a separate small task for the requirements spec, not part of voice.
