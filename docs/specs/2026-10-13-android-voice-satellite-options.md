@@ -1,7 +1,7 @@
 # Android Voice Satellite — Options and Recommendation
 
 **Date:** 2026-10-13
-**Status:** Decision record. Nothing here is implemented, and nothing was run on a tablet.
+**Status:** Decision record, since revised: see [Decision update](#decision-update). Nothing here is implemented. No candidate was installed; the tablet's microphone was measured afterwards.
 **Goal:** Decide how an Android Hearth tablet gets a voice satellite, by comparing four options against upstream source, and name the follow-up work.
 
 Extends the "Voice satellite" row and follow-up #12 of `2026-10-13-android-apk-requirements.md`.
@@ -237,7 +237,19 @@ This is an axis, not a requirement. The reference holder is the HA companion app
 
 The companion as a satellite, for completeness: it would give wake word and the role, but no `assist_satellite` entity in its own source (**verified**), so the voice pill, the mute toggle and the ducker would all need new plumbing, and a detected wake word would raise its Assist UI over Hearth. That is why it is not a candidate.
 
-## Recommendation
+## Decision update
+
+Later the same day we chose the runner-up: **the in-app satellite**. Its design is `2026-10-13-android-native-voice-satellite-design.md`. The comparison above stands; the recommendation and follow-up tasks below are kept as the record of the first call and are superseded.
+
+What changed:
+
+- **Boot start has no clean answer for Ava.** Its service is not exported and only its activity starts it (**verified** above). Android 14+ wants the app visible when a `microphone` foreground service starts, and Android 15 blocks starting one from `BOOT_COMPLETED` (**assumed**, from platform documentation), so even an upstream boot receiver would not do. This is the first flip condition below.
+- **We want voice timers in Hearth's timer UI.** Home Assistant sends timer events only to the satellite, so a companion app would need a fork of Ava and a cross-app hand-off.
+- **The tablet does not cancel its own speaker.** Recordings on the Apolosign tablet show one vendor-processed microphone channel that is identical for every `AudioSource`, speaker echo about 38 dB above the noise floor, and no attachable platform echo canceller (**verified**; details in the design spec). Voice has to mute what Hearth is playing at the moment of wake, which needs one process to own both. This is the third flip condition, met before Sendspin lands.
+
+Two open questions below are now answered for this tablet: the `AudioSource` makes no difference, and there is no echo cancellation to rely on.
+
+## Original recommendation (superseded)
 
 **Use Ava as a companion app.**
 
@@ -256,9 +268,9 @@ What we accept: a second APK updated by hand, a single maintainer on a project t
 
 Starting with Ava costs nothing toward that switch: the mDNS self-match is discarded, and everything else in Hearth stays.
 
-## Follow-up tasks
+## Follow-up tasks (superseded)
 
-In order. Each is its own task.
+Replaced by the phases in the design spec. Kept for the record. In order; each was its own task.
 
 1. **Hardware trial of Ava** (small) — install `v0.6.2` on the Apolosign tablet, pair it with HA, pin the entity by hand in Hearth. Confirms the items under [Open questions](#open-questions--needs-hardware) and gates the rest.
 2. **mDNS self-match** (small) — replace the Linux-only MAC source on Android with a browse of `_esphomelib._tcp` for the tablet's own address; unit-test the TXT-to-unique_id path; keep the manual pin.
