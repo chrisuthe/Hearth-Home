@@ -165,6 +165,10 @@ check out the new tag inside the submodule, commit the pointer, and run
 own `gradle/libs.versions.toml`, so they move with the pin and Renovate sees
 none of them. `android/ava/satellite/build.gradle.kts` mirrors the fork's
 dependency list by hand and needs the same edit when the fork adds one.
+The R8 keep rule for the fork's protobuf-lite messages
+(`android/ava/esphomeproto/src/main/resources/META-INF/proguard/esphomeproto.pro`)
+names their package, `com.example.esphomeproto`; a proto in another package
+needs adding there, or the release APK crashes when Home Assistant connects.
 
 **SendspinDroid is pinned the same way, by commit.** `android/third_party/sendspindroid`
 records commit `0e6c67c5`; there is no tag, because a `v*` tag in SendspinDroid
