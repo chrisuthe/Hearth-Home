@@ -10,8 +10,9 @@ import '../hearth_plugin.dart';
 
 /// MQTT discovery integration plugin.
 ///
-/// Owns the `mqttBrokerUrl`, `mqttUsername`, `mqttPassword`, and
-/// `mqttDiscoveryPrefix` HubConfig fields. The heavy lifting (connecting,
+/// Owns the `mqttBrokerUrl`, `mqttUsername`, `mqttPassword`,
+/// `mqttDiscoveryPrefix` and `mqttDeviceName` HubConfig fields, and shows the
+/// app-seeded `mqttDeviceId` read-only. The heavy lifting (connecting,
 /// publishing discovery + state, handling inbound commands) lives in
 /// [MqttService]; this plugin surfaces the connection settings and a live
 /// connection-status indicator.
@@ -67,9 +68,34 @@ class MqttPlugin extends HearthPlugin {
       label: 'Discovery Prefix',
       hint: 'homeassistant',
     ).buildHtml(ctx);
-    return broker + username + password + prefix;
+    final name = const TextSettingField(
+      configPath: 'mqttDeviceName',
+      label: 'Device Name',
+      hint: _nameHint,
+    ).buildHtml(ctx);
+    final deviceId = _escapeHtml(_deviceIdLabel(ctx.config));
+    return '''
+$broker$username$password$prefix$name
+<div class="field">
+  <label>Device ID</label>
+  <div class="hint" style="font-size:13px;color:#e0e0e0">$deviceId</div>
+</div>
+''';
   }
 }
+
+const _nameHint = 'Defaults to the hostname, or the tablet model';
+
+// Topics are hearth/<id>/..., so users need it to build HA automations.
+String _deviceIdLabel(HubConfig config) => config.mqttDeviceId.isEmpty
+    ? 'Assigned when a broker is first configured'
+    : config.mqttDeviceId;
+
+String _escapeHtml(String value) => value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;');
 
 class _MqttPanel extends ConsumerWidget {
   const _MqttPanel();
@@ -107,6 +133,24 @@ class _MqttPanel extends ConsumerWidget {
           label: 'Discovery Prefix',
           hint: 'homeassistant',
         ).buildWidget(ref),
+        const TextSettingField(
+          configPath: 'mqttDeviceName',
+          label: 'Device Name',
+          hint: _nameHint,
+        ).buildWidget(ref),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Device ID',
+                  style: TextStyle(color: Colors.white70, fontSize: 13)),
+              const SizedBox(height: 4),
+              SelectableText(_deviceIdLabel(config),
+                  style: const TextStyle(color: Colors.white)),
+            ],
+          ),
+        ),
       ],
     );
   }
