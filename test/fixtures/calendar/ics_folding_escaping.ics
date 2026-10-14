@@ -1,0 +1,20 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+X-WR-CALNAME:School\, lunch \; more
+BEGIN:VEVENT
+UID:conferences@hearth
+DTSTART:20261014T150000Z
+DTEND:20261014T160000Z
+SUMMARY:Parent-teacher conferences\, room 12\; bring the per
+ mission slip
+DESCRIPTION:Line one\nLine two\NLine three\\n stays literal
+LOCATION:Main 
+	building
+ATTENDEE;CN="Doe; Jane: PTA";ROLE=REQ-PARTICIPANT:mailto:jane@example.com
+END:VEVENT
+BEGIN:VEVENT
+UID:bake-sale@hearth
+DTSTART;X-HEARTH="a:b;c";TZID=America/Chicago:20261015T090000
+SUMMARY:Bake sale
+END:VEVENT
+END:VCALENDAR
