@@ -279,6 +279,23 @@ class _HubShellState extends ConsumerState<HubShell> {
     );
   }
 
+  /// Jumps to the Calendar page; null when it is not in the swipe row.
+  VoidCallback? _calendarTap(
+      List<dynamic> leftModules, List<dynamic> rightModules, int homeIndex) {
+    final left = leftModules.indexWhere((m) => m.id == 'calendar');
+    final right = rightModules.indexWhere((m) => m.id == 'calendar');
+    if (left < 0 && right < 0) return null;
+    final index = left >= 0 ? left : homeIndex + 1 + right;
+    return () {
+      _onUserActivity();
+      _pageController!.animateToPage(
+        index,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
     final config = ref.watch(hubConfigProvider);
@@ -363,6 +380,7 @@ class _HubShellState extends ConsumerState<HubShell> {
             );
           }
         },
+        onCalendarTap: _calendarTap(leftModules, rightModules, homeIndex),
       ),
       ...rightModules.map((m) => m.buildScreen(
           isActive: _currentPage == homeIndex + 1 + rightModules.indexOf(m))),

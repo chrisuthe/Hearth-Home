@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hearth/config/hub_config.dart';
+import 'package:hearth/modules/calendar/calendar_providers.dart';
+import 'package:hearth/modules/calendar/models.dart';
 import 'package:hearth/screens/home/home_screen.dart';
 import 'package:hearth/screens/timer/timer_screen.dart';
 import 'package:hearth/screens/weather/day_detail_screen.dart';
@@ -12,6 +14,7 @@ import 'package:hearth/services/timer_service.dart';
 import 'package:hearth/services/voice_satellite_bridge.dart';
 import 'package:hearth/services/weather_service.dart';
 
+import '../modules/calendar/calendar_fixtures.dart';
 import 'portrait_fixtures.dart';
 import 'portrait_harness.dart';
 
@@ -21,6 +24,7 @@ void main() {
       WidgetTester tester, {
       required bool populated,
       bool use24h = false,
+      List<CalendarEvent>? calendar,
     }) async {
       final timers = TimerService();
       if (populated) {
@@ -30,8 +34,12 @@ void main() {
       }
       await tester.pumpWidget(ProviderScope(
         overrides: [
-          hubConfigProvider.overrideWith(
-              (ref) => MemoryConfigNotifier(HubConfig(use24HourClock: use24h))),
+          hubConfigProvider.overrideWith((ref) => MemoryConfigNotifier(
+              calendar == null
+                  ? HubConfig(use24HourClock: use24h)
+                  : calendarConfig(use24h: use24h))),
+          if (calendar != null)
+            calendarEventsProvider.overrideWithValue(merged(calendar)),
           timerServiceProvider.overrideWith((ref) => timers),
           weatherStateProvider.overrideWith((ref) => populated
               ? Stream.value(sampleWeather('lightning-rainy'))
@@ -55,6 +63,33 @@ void main() {
       await pumpHome(tester, populated: true);
       expect(find.text(longTitle), findsOneWidget);
       expect(find.byIcon(Icons.chevron_right), findsWidgets);
+      await unmount(tester);
+    });
+
+    testLayouts('with the calendar glance and everything else',
+        (tester, canvas) async {
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      await pumpHome(tester, populated: true, calendar: [
+        CalendarEvent(
+          sourceId: kFamily.id,
+          summary: kLongSummary,
+          allDay: true,
+          start: today,
+          end: today.add(const Duration(days: 1)),
+        ),
+        for (final (i, source) in [kFamily, kSchool].indexed)
+          CalendarEvent(
+            sourceId: source.id,
+            summary: 'Soccer practice $i',
+            allDay: false,
+            start: DateTime(today.year, today.month, today.day + 1, 15, 30)
+                .toUtc(),
+            end: DateTime(today.year, today.month, today.day + 1, 17).toUtc(),
+          ),
+      ]);
+      expect(find.text('$kLongSummary (all day)'), findsOneWidget);
+      expect(find.text('Soccer practice 1'), findsOneWidget);
       await unmount(tester);
     });
 
