@@ -283,7 +283,7 @@ The Dart route could meet the first two through the existing `setMuted` on its s
 
 **Decision.** Use SendspinDroid's player on Android, inside `HearthAudioService`, and keep the Dart `SendspinService` as the settings and state facade over a channel. It is a released beta that we have not yet run on this tablet, it needs no NDK FLAC build, it meets all three needs natively, and adding a `VOICE` mute reason is a one-line change in a repository we own. The cost is extracting the player from `:app` into a library module in SendspinDroid, and two Sendspin implementations in Hearth (Dart on the Pi and desktop, Kotlin on Android).
 
-This replaces the plan in follow-up 10 and gets its own spec. The satellite does not wait for it: with Sendspin off on Android there is nothing to mute, and the `AudioCoordinator` is written against an interface.
+This replaces the plan in follow-up 10 and gets its own spec, `2026-10-14-android-sendspin-design.md`. The satellite does not wait for it: with Sendspin off on Android there is nothing to mute, and the `AudioCoordinator` is written against an interface.
 
 ## Testing
 
@@ -305,7 +305,7 @@ Each line is one task. Sizes are relative.
 | 5 | Voice plugin settings on both surfaces, health reporting, `settingChanged` | Small-medium | 4 |
 | 6 | Timers: remote timers in `TimerService`, alert overlay, ring with gaps, `startTimerRing` and `stopTimerRing` | Medium | 4, 7 |
 | 7 | `AudioCoordinator` and the media_kit duck request | Small | 4 |
-| 8 | Sendspin on Android through SendspinDroid's player (own spec) | Large | 7 |
+| 8 | Sendspin on Android through SendspinDroid's player: `2026-10-14-android-sendspin-design.md`, phases 1 to 6. Its phase 7, the Sendspin mute, needs task 7 | Large | — |
 | 9 | Echo-cancellation spike with a playback reference | Medium, may end in "no" | 8 |
 | 10 | Move Hearth's MQTT entities onto the ESPHome device | Small-medium | 3 |
 
