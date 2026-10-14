@@ -2,6 +2,8 @@ package com.hearth.hearth
 
 import android.content.Intent
 import android.os.Bundle
+import com.hearth.hearth.capture.CaptureChannel
+import com.hearth.hearth.capture.ScreenCaptureService
 import com.hearth.hearth.sendspin.SendspinChannel
 import com.hearth.hearth.voice.HearthAudioService
 import com.hearth.hearth.voice.VoiceChannel
@@ -12,6 +14,7 @@ class MainActivity : FlutterActivity() {
     private var voice: VoiceChannel? = null
     private var sendspin: SendspinChannel? = null
     private var appUpdate: AppUpdateChannel? = null
+    private var capture: CaptureChannel? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         live++
@@ -29,6 +32,7 @@ class MainActivity : FlutterActivity() {
         voice = VoiceChannel(this, messenger)
         sendspin = SendspinChannel(this, messenger)
         appUpdate = AppUpdateChannel(this, messenger)
+        capture = CaptureChannel(this, messenger)
     }
 
     override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
@@ -38,11 +42,24 @@ class MainActivity : FlutterActivity() {
         sendspin = null
         appUpdate?.dispose()
         appUpdate = null
+        capture?.dispose()
+        capture = null
         // Dart owns the satellite and Sendspin; without it nothing could
-        // configure, mute or stop them.
-        // A newer instance (a relaunch with CLEAR_TASK) already owns them.
-        if (isFinishing && live == 1) stopService(Intent(this, HearthAudioService::class.java))
+        // configure, mute or stop them. A newer instance (a relaunch with
+        // CLEAR_TASK) already owns them.
+        if (isFinishing && live == 1) {
+            stopService(Intent(this, HearthAudioService::class.java))
+            // Consent lasts one session; the next launch asks again.
+            stopService(Intent(this, ScreenCaptureService::class.java))
+        }
         super.cleanUpFlutterEngine(flutterEngine)
+    }
+
+    @Deprecated("FlutterActivity still routes results through here")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        if (capture?.onActivityResult(requestCode, resultCode, data) == true) return
+        @Suppress("DEPRECATION")
+        super.onActivityResult(requestCode, resultCode, data)
     }
 
     override fun onRequestPermissionsResult(
