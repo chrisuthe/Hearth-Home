@@ -1,6 +1,5 @@
 package com.hearth.hearth.voice
 
-import android.content.Intent
 import android.media.MediaRecorder
 
 /**
@@ -44,17 +43,6 @@ data class VoiceConfig(
             else -> 1.0f
         }
 
-    fun putInto(intent: Intent): Intent = intent
-        .putExtra("name", name)
-        .putExtra("mac", mac)
-        .putExtra("port", port)
-        .putStringArrayListExtra("wakeWords", ArrayList(wakeWords))
-        .putExtra("sensitivity", sensitivity)
-        .putExtra("audioSource", audioSource)
-        .putExtra("wakeSound", wakeSound)
-        .putExtra("volume", volume)
-        .putExtra("muted", muted)
-
     companion object {
         const val DEFAULT_PORT = 6053
 
@@ -69,20 +57,5 @@ data class VoiceConfig(
             volume = ((args["volume"] as? Number)?.toFloat() ?: 1.0f).coerceIn(0f, 1f),
             muted = muted,
         )
-
-        fun fromIntent(intent: Intent): VoiceConfig? {
-            val mac = intent.getStringExtra("mac") ?: return null
-            return VoiceConfig(
-                name = intent.getStringExtra("name") ?: "",
-                mac = mac,
-                port = intent.getIntExtra("port", DEFAULT_PORT),
-                wakeWords = intent.getStringArrayListExtra("wakeWords").orEmpty(),
-                sensitivity = intent.getStringExtra("sensitivity") ?: "",
-                audioSource = intent.getStringExtra("audioSource") ?: "",
-                wakeSound = intent.getBooleanExtra("wakeSound", true),
-                volume = intent.getFloatExtra("volume", 1.0f),
-                muted = intent.getBooleanExtra("muted", false),
-            )
-        }
     }
 }

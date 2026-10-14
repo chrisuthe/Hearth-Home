@@ -86,7 +86,7 @@ dependencies {
     implementation(ava.androidx.core.ktx)
     implementation(ava.androidx.lifecycle.service)
     implementation(ava.timber)
-    // Sendspin: SendspinDroid's player (see settings.gradle.kts). Unused until
-    // HearthAudioService hosts the engine.
+    // Sendspin: SendspinDroid's player (see settings.gradle.kts), hosted by
+    // HearthAudioService.
     implementation(project(":sendspin-player"))
 }

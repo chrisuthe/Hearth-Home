@@ -52,8 +52,9 @@
                 <category android:name="android.intent.category.DEFAULT"/>
             </intent-filter>
         </activity>
-        <!-- Started only by Dart over com.hearth/voice, from the visible
-             activity. No boot receiver: the HOME role relaunches Hearth. -->
+        <!-- Started only by Dart over com.hearth/voice or com.hearth/sendspin,
+             from the visible activity. No boot receiver: the HOME role
+             relaunches Hearth. -->
         <service
             android:name=".voice.HearthAudioService"
             android:exported="false"
