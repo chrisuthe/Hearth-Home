@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/tokens/tokens.dart';
 import '../../services/plex/livetv/plex_livetv_service.dart';
 import '../../services/plex/livetv/plex_livetv_state.dart';
+import '../../services/video/video_fit.dart';
 
 /// Full-screen Live TV playback overlay. Renders nothing when idle; shows a
 /// "Tuning…" state while the grab spins up, then the player full-screen with a
@@ -40,8 +41,9 @@ class _LiveTvOverlayState extends ConsumerState<LiveTvOverlay> {
         child: Stack(
           fit: StackFit.expand,
           children: [
+            // Fills or letterboxes by aspect; see AspectAwareVideoView.
             if (state.phase == LiveTvPhase.playing && player != null)
-              player.buildView(fit: BoxFit.cover)
+              AspectAwareVideoView(player: player)
             else if (state.phase == LiveTvPhase.tuning)
               Center(
                 child: Column(
