@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import '../utils/logger.dart';
+import 'capture_service_android.dart';
 
 /// Abstract handle over a recording subprocess — test seam so we don't
 /// depend on real [Process] instances in unit tests.
@@ -24,6 +25,42 @@ class _GstProcess implements RecordingProcess {
 
   @override
   void kill() => _proc.kill(ProcessSignal.sigkill);
+}
+
+/// A capture the platform refused, with a code the HTTP layer maps to a
+/// status. Only the Android pipeline raises these.
+class CaptureException implements Exception {
+  /// `consent_required`, `consent_pending`, `consent_denied` and
+  /// `consent_revoked` mean there is no screen-capture grant; the device is
+  /// showing the consent dialog. Others: `recording_active`, `not_recording`,
+  /// `empty_recording`, `no_frame`, `recorder_failed`, `write_failed`,
+  /// `unavailable`.
+  final String code;
+  final String? detail;
+
+  const CaptureException(this.code, [this.detail]);
+
+  bool get isConsent => code.startsWith('consent_');
+
+  String get message => switch (code) {
+        'consent_required' => 'Waiting for screen-capture permission on the '
+            'device. Tap Allow on the tablet, then try again.',
+        'consent_pending' => 'The screen-capture permission dialog is open on '
+            'the device. Tap Allow on the tablet, then try again.',
+        'consent_denied' => 'Screen capture was denied on the device. It is '
+            'asking again: tap Allow on the tablet, then try again.',
+        'consent_revoked' => 'Screen capture was stopped on the device. It is '
+            'asking again: tap Allow on the tablet, then try again.',
+        'recording_active' => 'Screenshots are unavailable while a recording '
+            'is running.',
+        'empty_recording' =>
+          'The recording captured no frames, so nothing was saved.',
+        'unavailable' => 'Screen capture is not available on this build.',
+        _ => detail ?? 'Capture failed ($code).',
+      };
+
+  @override
+  String toString() => 'CaptureException($code${detail == null ? '' : ': $detail'})';
 }
 
 typedef RecordingSpawner = Future<RecordingProcess> Function(String path);
@@ -143,10 +180,12 @@ class CaptureService {
       Log.e('Capture', 'Recording did not exit within $_stopTimeout; killing');
       proc.kill();
       await proc.exitCode;
+    } finally {
+      // A failed finalize still ends the recording, or start would 409 forever.
+      _active = null;
+      _activeFilename = null;
+      _activeStartedAt = null;
     }
-    _active = null;
-    _activeFilename = null;
-    _activeStartedAt = null;
 
     final path = '${_capturesDir.path}/$filename';
     final size = await File(path).length();
@@ -162,7 +201,7 @@ class CaptureService {
     final proc = _active;
     if (proc != null) {
       proc.kill();
-      await proc.exitCode;
+      await proc.exitCode.catchError((Object _) => -1);
       _active = null;
       _activeFilename = null;
       _activeStartedAt = null;
@@ -316,12 +355,24 @@ final captureServiceProvider = Provider<CaptureService>((ref) {
 });
 
 /// Builds a production-wired [CaptureService] with the default captures
-/// directory and Pi-specific ffmpeg kmsgrab pipelines.
+/// directory: MediaProjection on Android, ffmpeg kmsgrab everywhere else.
 class CaptureServiceBootstrap {
-  static Future<CaptureService> build() async {
-    final dir = await defaultCapturesDir();
+  static Future<CaptureService> build({
+    Directory? capturesDir,
+    bool? android,
+    AndroidCaptureBridge? bridge,
+  }) async {
+    final dir = capturesDir ?? await defaultCapturesDir();
     if (!await dir.exists()) {
       await dir.create(recursive: true);
+    }
+    if (android ?? captureUsesProjection) {
+      final b = bridge ?? AndroidCaptureBridge.instance;
+      return CaptureService(
+        capturesDir: dir,
+        takeScreenshotFn: b.screenshot,
+        spawnRecordingFn: b.startRecording,
+      );
     }
     return CaptureService(
       capturesDir: dir,

@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hearth/services/capture_service.dart';
+import 'package:hearth/services/capture_service_android.dart';
 
 /// A fake [RecordingProcess] that records stop/kill calls and lets tests
 /// control when exitCode completes.
@@ -27,6 +29,8 @@ class FakeRecordingProcess implements RecordingProcess {
 }
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('CaptureService filename rules', () {
     test('isValidCaptureFilename accepts well-formed png', () {
       expect(CaptureService.isValidCaptureFilename('hearth-20260421-143022.png'),
@@ -202,6 +206,150 @@ void main() {
       expect(service.isRecording, false);
       expect(stubborn!.killed, true,
           reason: 'SIGKILL escalation path must invoke kill() when SIGINT is ignored');
+    });
+  });
+
+  group('Android MediaProjection pipeline', () {
+    const channel = MethodChannel('com.hearth/capture');
+    late Directory tempDir;
+    late List<MethodCall> calls;
+    // Per-method behaviour of the fake native side.
+    late Map<String, Future<Object?> Function(MethodCall)> native;
+    late CaptureService service;
+
+    TestDefaultBinaryMessenger messenger() =>
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+
+    // Delivers a native-to-Dart call, as CaptureState.listener would.
+    Future<void> fromNative(String method, Map<String, Object?> args) async {
+      await messenger().handlePlatformMessage(
+        channel.name,
+        const StandardMethodCodec().encodeMethodCall(MethodCall(method, args)),
+        (_) {},
+      );
+    }
+
+    setUp(() async {
+      tempDir = await Directory.systemTemp.createTemp('hearth_capture_android_');
+      calls = [];
+      native = {
+        'screenshot': (call) async {
+          await File(call.arguments['path'] as String).writeAsBytes([1, 2, 3]);
+          return null;
+        },
+        'startRecording': (call) async {
+          await File(call.arguments['path'] as String).writeAsBytes([0]);
+          return null;
+        },
+        'stopRecording': (_) async => null,
+      };
+      messenger().setMockMethodCallHandler(channel, (call) async {
+        calls.add(call);
+        final handler = native[call.method];
+        return handler == null ? null : await handler(call);
+      });
+      service = await CaptureServiceBootstrap.build(
+        capturesDir: tempDir,
+        android: true,
+        bridge: AndroidCaptureBridge(channel: channel),
+      );
+    });
+
+    tearDown(() async {
+      messenger().setMockMethodCallHandler(channel, null);
+      await tempDir.delete(recursive: true);
+    });
+
+    test('screenshot is taken over com.hearth/capture into the captures dir',
+        () async {
+      final meta = await service.takeScreenshot();
+      expect(calls.single.method, 'screenshot');
+      expect(calls.single.arguments, {'path': meta.path});
+      expect(meta.path, startsWith(tempDir.path));
+      expect(meta.sizeBytes, 3);
+      expect((await service.listCaptures()).single.filename, meta.filename);
+    });
+
+    for (final code in [
+      'consent_required',
+      'consent_pending',
+      'consent_denied',
+      'consent_revoked',
+    ]) {
+      test('$code surfaces as a consent CaptureException', () async {
+        native['screenshot'] =
+            (_) async => throw PlatformException(code: code);
+        await expectLater(
+          service.takeScreenshot(),
+          throwsA(isA<CaptureException>()
+              .having((e) => e.code, 'code', code)
+              .having((e) => e.isConsent, 'isConsent', true)
+              .having((e) => e.message, 'message', contains('tablet'))),
+        );
+      });
+    }
+
+    test('a refused recording start leaves no recording active', () async {
+      native['startRecording'] =
+          (_) async => throw PlatformException(code: 'consent_revoked');
+      await expectLater(service.startRecording(),
+          throwsA(isA<CaptureException>()));
+      expect(service.isRecording, isFalse);
+    });
+
+    test('recording starts and stops through the channel', () async {
+      final started = await service.startRecording();
+      expect(service.isRecording, isTrue);
+      expect(calls.last.method, 'startRecording');
+      expect(calls.last.arguments,
+          {'path': '${tempDir.path}/${started.filename}'});
+
+      final finished = await service.stopRecording();
+      expect(calls.last.method, 'stopRecording');
+      expect(finished.filename, started.filename);
+      expect(finished.sizeBytes, 1);
+      expect(service.isRecording, isFalse);
+    });
+
+    test('a second start while recording still throws StateError', () async {
+      await service.startRecording();
+      expect(() => service.startRecording(), throwsA(isA<StateError>()));
+      expect(calls.where((c) => c.method == 'startRecording'), hasLength(1));
+    });
+
+    test('an empty recording fails the stop but ends the recording',
+        () async {
+      native['stopRecording'] =
+          (_) async => throw PlatformException(code: 'empty_recording');
+      await service.startRecording();
+      await expectLater(
+        service.stopRecording(),
+        throwsA(isA<CaptureException>()
+            .having((e) => e.code, 'code', 'empty_recording')),
+      );
+      expect(service.isRecording, isFalse);
+      await service.startRecording();
+      expect(service.isRecording, isTrue);
+    });
+
+    test('a revoke mid-recording finalizes without a stop call', () async {
+      await service.startRecording();
+      await fromNative('recordingEnded', {'path': 'x', 'saved': true});
+      final finished = await service.stopRecording();
+      expect(finished.sizeBytes, 1);
+      expect(calls.where((c) => c.method == 'stopRecording'), isEmpty);
+      expect(service.isRecording, isFalse);
+    });
+
+    test('grant changes from native reach grantChanges', () async {
+      final bridge = AndroidCaptureBridge(channel: channel);
+      final seen = <bool>[];
+      final sub = bridge.grantChanges.listen(seen.add);
+      await fromNative('projection', {'granted': true});
+      await fromNative('projection', {'granted': false, 'reason': 'consent_revoked'});
+      await Future<void>.delayed(Duration.zero);
+      expect(seen, [true, false]);
+      await sub.cancel();
     });
   });
 }

@@ -2,6 +2,8 @@ package com.hearth.hearth
 
 import android.content.Intent
 import android.os.Bundle
+import com.hearth.hearth.capture.CaptureChannel
+import com.hearth.hearth.capture.ScreenCaptureService
 import com.hearth.hearth.voice.HearthAudioService
 import com.hearth.hearth.voice.VoiceChannel
 import io.flutter.embedding.android.FlutterActivity
@@ -10,6 +12,7 @@ import io.flutter.embedding.engine.FlutterEngine
 class MainActivity : FlutterActivity() {
     private var voice: VoiceChannel? = null
     private var appUpdate: AppUpdateChannel? = null
+    private var capture: CaptureChannel? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         live++
@@ -26,6 +29,7 @@ class MainActivity : FlutterActivity() {
         val messenger = flutterEngine.dartExecutor.binaryMessenger
         voice = VoiceChannel(this, messenger)
         appUpdate = AppUpdateChannel(this, messenger)
+        capture = CaptureChannel(this, messenger)
     }
 
     override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
@@ -33,10 +37,23 @@ class MainActivity : FlutterActivity() {
         voice = null
         appUpdate?.dispose()
         appUpdate = null
+        capture?.dispose()
+        capture = null
         // Dart owns the satellite; without it nothing could mute or stop it.
         // A newer instance (a relaunch with CLEAR_TASK) already owns it.
-        if (isFinishing && live == 1) stopService(Intent(this, HearthAudioService::class.java))
+        if (isFinishing && live == 1) {
+            stopService(Intent(this, HearthAudioService::class.java))
+            // Consent lasts one session; the next launch asks again.
+            stopService(Intent(this, ScreenCaptureService::class.java))
+        }
         super.cleanUpFlutterEngine(flutterEngine)
+    }
+
+    @Deprecated("FlutterActivity still routes results through here")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        if (capture?.onActivityResult(requestCode, resultCode, data) == true) return
+        @Suppress("DEPRECATION")
+        super.onActivityResult(requestCode, resultCode, data)
     }
 
     override fun onRequestPermissionsResult(
