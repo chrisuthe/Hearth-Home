@@ -48,6 +48,9 @@ jobs:
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           VERSION="${VERSION:-dev}"
+          # Sanitize: branch names like task/screen-capture contain slashes
+          # that break the tarball path. Collapse to dashes.
+          VERSION="${VERSION//\//-}"
           # Export so the later checksum step sees the same VERSION (each step
           # runs in its own shell). Without this the checksum step's
           # ${VERSION:-dev} fell back to dev, naming the asset
@@ -96,4 +99,74 @@ jobs:
                 "${SERVER}/api/v1/repos/${REPO}/releases/${RELEASE_ID}/assets"
               echo "Uploaded $FILE"
             fi
+          done
+
+  build-apk:
+    # Experimental target, built on the same triggers as the bundle. Runs
+    # after it rather than beside it: the release must exist before the APK
+    # can attach, a failure here cannot touch the bundle already published,
+    # and two jobs extracting Flutter into the runner's shared toolcache at
+    # once is the race .gitea/workflows/build.yml describes.
+    name: Build APK and attach to release
+    needs: [build-and-release]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # The voice satellite builds from the Ava fork submodule.
+          submodules: true
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          # AGP 9.1 is verified on 17 only.
+          java-version: '17'
+
+      # Gradle installs the NDK, CMake and the extra platforms on its own once
+      # the licenses are accepted, which this action does.
+      - uses: android-actions/setup-android@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.7'
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Build APK
+        env:
+          # Unset secrets arrive empty and the script falls back to the debug
+          # key, which changes per run: such an APK will not install over the
+          # previous release's.
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: ./scripts/build-android-apk.sh
+
+      - name: Attach to release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GITEA_TOKEN: ${{ secrets.TOKEN }}
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          SERVER="${GITHUB_SERVER_URL}"
+          REPO="${GITHUB_REPOSITORY}"
+
+          RELEASE_ID=$(curl -s \
+            -H "Authorization: token ${GITEA_TOKEN}" \
+            "${SERVER}/api/v1/repos/${REPO}/releases/tags/${TAG}" \
+            | grep -o '"id":[0-9]*' | head -1 | cut -d: -f2)
+
+          if [ -z "$RELEASE_ID" ]; then
+            echo "ERROR: no release found for ${TAG}"
+            exit 1
+          fi
+
+          for FILE in hearth-android-*.apk hearth-android-*.sha256; do
+            curl -sf -X POST \
+              -H "Authorization: token ${GITEA_TOKEN}" \
+              -F "attachment=@${FILE}" \
+              "${SERVER}/api/v1/repos/${REPO}/releases/${RELEASE_ID}/assets"
+            echo "Uploaded $FILE"
           done

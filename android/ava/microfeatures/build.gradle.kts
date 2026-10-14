@@ -18,6 +18,7 @@ android {
 
     defaultConfig {
         minSdk = app.defaultConfig.minSdk
+        consumerProguardFiles("consumer-rules.pro")
         externalNativeBuild {
             cmake {
                 arguments += listOf("-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON")
