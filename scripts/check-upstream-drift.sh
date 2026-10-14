@@ -5,9 +5,10 @@
 # that fork has diverged from its own upstream, because that isn't a dependency
 # relationship. This closes that gap.
 #
-# Each fork carries an UPSTREAM_PIN recording the upstream SHA it tracks. The two
-# forks write it differently (flutter-pi-hearth uses a key/value block, the
-# plugin fork a bare SHA), so we just pull the first 40-hex string out of either.
+# Each fork carries an UPSTREAM_PIN recording the upstream SHA it tracks. The
+# forks write it differently (flutter-pi-hearth and Ava-hearth use a key/value
+# block, the plugin fork a bare SHA), so we just pull the first 40-hex string
+# out of any of them.
 # Comparing against the pin — rather than raw branch distance — matches the
 # rebase procedure in docs/specs/2026-05-08-flutter-pi-fork-and-mirror-design.md.
 #
@@ -79,5 +80,10 @@ check_fork "flutter-pi-hearth" \
 check_fork "flutterpi_gstreamer_video_player-hearth" \
     "https://github.com/chrisuthe/flutterpi_gstreamer_video_player-hearth.git" "main" \
     "https://github.com/ardera/flutter_packages.git" "main"
+
+# Pinned as the android/third_party/ava submodule, which Renovate cannot see.
+check_fork "Ava-hearth" \
+    "https://github.com/chrisuthe/Ava-hearth.git" "hearth" \
+    "https://github.com/brownard/Ava.git" "master"
 
 exit "$DRIFT"
