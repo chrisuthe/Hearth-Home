@@ -43,6 +43,11 @@ dependencies:
   # Android self-update: the installed version and the APK checksum.
   package_info_plus: ^10.2.1
   crypto: ^3.0.7
+  # Android webviews. The Android implementation and the platform interface,
+  # not the umbrella package, so desktop builds never pull in the Windows
+  # (WebView2, NuGet) or macOS implementations.
+  flutter_inappwebview_android: 1.2.0-beta.3
+  flutter_inappwebview_platform_interface: 1.4.0-beta.3
 
 dev_dependencies:
   flutter_test:

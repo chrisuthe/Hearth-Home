@@ -1,30 +1,31 @@
 import 'dart:ui';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hearth/modules/webview/gst_webview_session.dart';
 import 'package:hearth/modules/webview/webview_session.dart';
 
 void main() {
   group('WebviewSession state machine', () {
     test('starts in LOADING', () {
-      final session = WebviewSession.testing(url: 'https://example.com');
+      final session = GstWebviewSession.testing(url: 'https://example.com');
       expect(session.state, WebviewSessionState.loading);
     });
 
     test('transitions to PLAYING when first frame arrives', () {
-      final session = WebviewSession.testing(url: 'https://example.com');
+      final session = GstWebviewSession.testing(url: 'https://example.com');
       session.notifyFirstFrame();
       expect(session.state, WebviewSessionState.playing);
     });
 
     test('transitions to PAUSED via setPaused(true)', () async {
-      final session = WebviewSession.testing(url: 'https://example.com');
+      final session = GstWebviewSession.testing(url: 'https://example.com');
       session.notifyFirstFrame();
       await session.setPaused(true);
       expect(session.state, WebviewSessionState.paused);
     });
 
     test('setPaused does NOT transition out of LOADING — natural transitions own that', () async {
-      final session = WebviewSession.testing(url: 'https://example.com');
+      final session = GstWebviewSession.testing(url: 'https://example.com');
       // Pre-condition: LOADING (no notifyFirstFrame yet).
       expect(session.state, WebviewSessionState.loading);
       // setPaused(false) is a no-op while LOADING — it must not pre-empt
@@ -40,7 +41,7 @@ void main() {
     });
 
     test('setPaused does NOT transition out of ERROR', () async {
-      final session = WebviewSession.testing(url: 'https://example.com');
+      final session = GstWebviewSession.testing(url: 'https://example.com');
       session.notifyError('boom');
       expect(session.state, WebviewSessionState.error);
       await session.setPaused(false);
@@ -50,7 +51,7 @@ void main() {
     });
 
     test('transitions from PAUSED back to PLAYING via setPaused(false)', () async {
-      final session = WebviewSession.testing(url: 'https://example.com');
+      final session = GstWebviewSession.testing(url: 'https://example.com');
       session.notifyFirstFrame();
       await session.setPaused(true);
       await session.setPaused(false);
@@ -58,7 +59,7 @@ void main() {
     });
 
     test('transitions to ERROR on plugin error', () {
-      final session = WebviewSession.testing(url: 'https://example.com');
+      final session = GstWebviewSession.testing(url: 'https://example.com');
       session.notifyFirstFrame();
       session.notifyError('WebProcess crashed');
       expect(session.state, WebviewSessionState.error);
@@ -66,7 +67,7 @@ void main() {
     });
 
     test('reload() returns ERROR session to LOADING', () async {
-      final session = WebviewSession.testing(url: 'https://example.com');
+      final session = GstWebviewSession.testing(url: 'https://example.com');
       session.notifyError('something');
       expect(session.state, WebviewSessionState.error);
       await session.reload();
@@ -74,7 +75,7 @@ void main() {
     });
 
     test('notifyError does not auto-restart in testing mode', () {
-      final session = WebviewSession.testing(url: 'https://example.com');
+      final session = GstWebviewSession.testing(url: 'https://example.com');
       session.notifyFirstFrame();
       session.notifyError('test');
       expect(session.state, WebviewSessionState.error);
@@ -82,7 +83,7 @@ void main() {
     });
 
     test('builds correct pipeline string', () {
-      final session = WebviewSession.testing(url: 'https://ha.example/lovelace');
+      final session = GstWebviewSession.testing(url: 'https://ha.example/lovelace');
       expect(session.pipelineString, contains('wpevideosrc'));
       expect(session.pipelineString, contains('https://ha.example/lovelace'));
       expect(session.pipelineString, contains('gldownload'));
@@ -94,7 +95,7 @@ void main() {
     });
 
     test('pipeline includes size caps when useSizeCaps is set', () {
-      final session = WebviewSession.testing(
+      final session = GstWebviewSession.testing(
         url: 'https://ha.example/lovelace',
         renderWidth: 1920,
         renderHeight: 1200,
@@ -109,7 +110,7 @@ void main() {
     });
 
     test('pipeline omits size caps when useSizeCaps is false', () {
-      final session = WebviewSession.testing(url: 'https://ha.example');
+      final session = GstWebviewSession.testing(url: 'https://ha.example');
       expect(session.pipelineString, isNot(contains('video/x-raw')));
       expect(session.pipelineString, contains('wpevideosrc'));
     });

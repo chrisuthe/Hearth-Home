@@ -2,13 +2,15 @@ import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hearth/modules/webview/android_webview_session.dart';
+import 'package:hearth/modules/webview/gst_webview_session.dart';
 import 'package:hearth/modules/webview/webview_session.dart';
 import 'package:hearth/modules/webview/webview_session_pool.dart';
 
 /// A test session whose [shutdown] can be held open with a [Completer] so tests
 /// can observe that the pool awaits an outgoing session's teardown before it
 /// constructs the replacement.
-class _ProbeSession extends WebviewSession {
+class _ProbeSession extends GstWebviewSession {
   _ProbeSession({
     required super.url,
     super.initScript,
@@ -32,7 +34,7 @@ class _ProbeSession extends WebviewSession {
 void main() {
   group('WebviewSessionPool', () {
     test('creates a new session for an unseen URL', () async {
-      final pool = WebviewSessionPool(sessionFactory: WebviewSession.testing);
+      final pool = WebviewSessionPool(sessionFactory: GstWebviewSession.testing);
       final session = await pool.getOrCreate('https://example.com');
       expect(session, isNotNull);
       expect(session.url, 'https://example.com');
@@ -40,7 +42,7 @@ void main() {
 
     test('returns the same session for repeated URL lookups (warm cache)',
         () async {
-      final pool = WebviewSessionPool(sessionFactory: WebviewSession.testing);
+      final pool = WebviewSessionPool(sessionFactory: GstWebviewSession.testing);
       final a = await pool.getOrCreate('https://example.com');
       final b = await pool.getOrCreate('https://example.com');
       expect(identical(a, b), isTrue);
@@ -48,7 +50,7 @@ void main() {
     });
 
     test('creates distinct sessions for different URLs', () async {
-      final pool = WebviewSessionPool(sessionFactory: WebviewSession.testing);
+      final pool = WebviewSessionPool(sessionFactory: GstWebviewSession.testing);
       final a = await pool.getOrCreate('https://a.example');
       final b = await pool.getOrCreate('https://b.example');
       expect(identical(a, b), isFalse);
@@ -58,7 +60,7 @@ void main() {
 
     test('keeps N distinct sessions warm without tearing any down', () async {
       final pool = WebviewSessionPool(
-          sessionFactory: WebviewSession.testing, capacity: 4);
+          sessionFactory: GstWebviewSession.testing, capacity: 4);
       final a = await pool.getOrCreate('https://a.example');
       final b = await pool.getOrCreate('https://b.example');
       final c = await pool.getOrCreate('https://c.example');
@@ -69,7 +71,7 @@ void main() {
 
     test('the (N+1)th resolve evicts exactly the LRU', () async {
       final pool = WebviewSessionPool(
-          sessionFactory: WebviewSession.testing, capacity: 2);
+          sessionFactory: GstWebviewSession.testing, capacity: 2);
       final a = await pool.getOrCreate('https://a.example');
       final b = await pool.getOrCreate('https://b.example');
       final c = await pool.getOrCreate('https://c.example');
@@ -82,7 +84,7 @@ void main() {
     test('re-resolving a warm URL marks it MRU so it survives the next eviction',
         () async {
       final pool = WebviewSessionPool(
-          sessionFactory: WebviewSession.testing, capacity: 2);
+          sessionFactory: GstWebviewSession.testing, capacity: 2);
       final a = await pool.getOrCreate('https://a.example');
       await pool.getOrCreate('https://b.example');
       await pool.getOrCreate('https://a.example'); // touch A -> MRU; B now LRU
@@ -94,7 +96,7 @@ void main() {
 
     test('create-then-evict never disposes the just-created session', () async {
       final pool = WebviewSessionPool(
-          sessionFactory: WebviewSession.testing, capacity: 1);
+          sessionFactory: GstWebviewSession.testing, capacity: 1);
       final a = await pool.getOrCreate('https://a.example');
       final b = await pool.getOrCreate('https://b.example');
       expect(b.isDisposed, isFalse); // the new one survives
@@ -104,7 +106,7 @@ void main() {
 
     test('never holds more than capacity live sessions', () async {
       final pool = WebviewSessionPool(
-          sessionFactory: WebviewSession.testing, capacity: 3);
+          sessionFactory: GstWebviewSession.testing, capacity: 3);
       for (final u in ['a', 'b', 'c', 'd', 'e']) {
         await pool.getOrCreate('https://$u.example');
       }
@@ -115,7 +117,7 @@ void main() {
 
     test('concurrent resolves serialize and respect capacity', () async {
       final pool = WebviewSessionPool(
-          sessionFactory: WebviewSession.testing, capacity: 2);
+          sessionFactory: GstWebviewSession.testing, capacity: 2);
       await Future.wait([
         pool.getOrCreate('https://a.example'),
         pool.getOrCreate('https://b.example'),
@@ -165,7 +167,7 @@ void main() {
     // ---- lifecycle ----
 
     test('release(url) disposes and forgets a session', () async {
-      final pool = WebviewSessionPool(sessionFactory: WebviewSession.testing);
+      final pool = WebviewSessionPool(sessionFactory: GstWebviewSession.testing);
       final a = await pool.getOrCreate('https://example.com');
       pool.release('https://example.com');
       expect(a.isDisposed, isTrue);
@@ -174,7 +176,7 @@ void main() {
     });
 
     test('releaseAll disposes the live session', () async {
-      final pool = WebviewSessionPool(sessionFactory: WebviewSession.testing);
+      final pool = WebviewSessionPool(sessionFactory: GstWebviewSession.testing);
       final a = await pool.getOrCreate('https://a.example');
       pool.releaseAll();
       expect(a.isDisposed, isTrue);
@@ -184,7 +186,7 @@ void main() {
 
     test('reconcile disposes a session whose URL left the desired set',
         () async {
-      final pool = WebviewSessionPool(sessionFactory: WebviewSession.testing);
+      final pool = WebviewSessionPool(sessionFactory: GstWebviewSession.testing);
       final a = await pool.getOrCreate('https://a.example');
       pool.reconcile({'https://other.example'});
       expect(a.isDisposed, isTrue);
@@ -192,7 +194,7 @@ void main() {
     });
 
     test('reconcile keeps a session still in the desired set', () async {
-      final pool = WebviewSessionPool(sessionFactory: WebviewSession.testing);
+      final pool = WebviewSessionPool(sessionFactory: GstWebviewSession.testing);
       await pool.getOrCreate('https://a.example');
       pool.reconcile({'https://a.example'});
       expect(pool.activeUrls.toSet(), {'https://a.example'});
@@ -202,7 +204,7 @@ void main() {
 
     test('stores the init script and allow-origin on the created session',
         () async {
-      final pool = WebviewSessionPool(sessionFactory: WebviewSession.testing);
+      final pool = WebviewSessionPool(sessionFactory: GstWebviewSession.testing);
       final session = await pool.getOrCreate(
         'https://ha.example/lovelace',
         initScript: 'INJECT;',
@@ -214,7 +216,7 @@ void main() {
 
     test('returns the same session when the init script is unchanged',
         () async {
-      final pool = WebviewSessionPool(sessionFactory: WebviewSession.testing);
+      final pool = WebviewSessionPool(sessionFactory: GstWebviewSession.testing);
       final a = await pool.getOrCreate('https://ha.example', initScript: 'A;');
       final b = await pool.getOrCreate('https://ha.example', initScript: 'A;');
       expect(identical(a, b), isTrue);
@@ -222,7 +224,7 @@ void main() {
 
     test('replaces the session when the init script changes (token change)',
         () async {
-      final pool = WebviewSessionPool(sessionFactory: WebviewSession.testing);
+      final pool = WebviewSessionPool(sessionFactory: GstWebviewSession.testing);
       final a =
           await pool.getOrCreate('https://ha.example', initScript: 'OLD-TOKEN;');
       final b =
@@ -237,7 +239,7 @@ void main() {
     // ---- pause / resume ----
 
     test('pauseAll pauses the live session', () async {
-      final pool = WebviewSessionPool(sessionFactory: WebviewSession.testing);
+      final pool = WebviewSessionPool(sessionFactory: GstWebviewSession.testing);
       final a = await pool.getOrCreate('https://a.example');
       a.notifyFirstFrame();
       await pool.pauseAll();
@@ -245,7 +247,7 @@ void main() {
     });
 
     test('resumeAll resumes the paused session', () async {
-      final pool = WebviewSessionPool(sessionFactory: WebviewSession.testing);
+      final pool = WebviewSessionPool(sessionFactory: GstWebviewSession.testing);
       final a = await pool.getOrCreate('https://a.example');
       a.notifyFirstFrame();
       await pool.pauseAll();
@@ -256,7 +258,7 @@ void main() {
     // ---- render size identity ----
 
     test('stores requested render size and enables caps', () async {
-      final pool = WebviewSessionPool(sessionFactory: WebviewSession.testing);
+      final pool = WebviewSessionPool(sessionFactory: GstWebviewSession.testing);
       final s = await pool.getOrCreate('https://a.example',
           renderSize: const Size(1920, 1200));
       expect(s.renderWidth, 1920);
@@ -265,13 +267,13 @@ void main() {
     });
 
     test('omitting render size leaves caps off (back-compat)', () async {
-      final pool = WebviewSessionPool(sessionFactory: WebviewSession.testing);
+      final pool = WebviewSessionPool(sessionFactory: GstWebviewSession.testing);
       final s = await pool.getOrCreate('https://a.example');
       expect(s.useSizeCaps, isFalse);
     });
 
     test('same render size returns the same session', () async {
-      final pool = WebviewSessionPool(sessionFactory: WebviewSession.testing);
+      final pool = WebviewSessionPool(sessionFactory: GstWebviewSession.testing);
       final a = await pool.getOrCreate('https://a.example',
           renderSize: const Size(1920, 1200));
       final b = await pool.getOrCreate('https://a.example',
@@ -280,7 +282,7 @@ void main() {
     });
 
     test('a meaningful render-size change rebuilds the session', () async {
-      final pool = WebviewSessionPool(sessionFactory: WebviewSession.testing);
+      final pool = WebviewSessionPool(sessionFactory: GstWebviewSession.testing);
       final a = await pool.getOrCreate('https://a.example',
           renderSize: const Size(1920, 1200));
       final b = await pool.getOrCreate('https://a.example',
@@ -288,6 +290,50 @@ void main() {
       expect(identical(a, b), isFalse);
       expect(a.isDisposed, isTrue);
       expect(b.renderWidth, 1280);
+    });
+      test('an Android session survives a render-size change', () async {
+      final pool =
+          WebviewSessionPool(sessionFactory: AndroidWebviewSession.testing);
+      final a = await pool.getOrCreate('https://ha.example',
+          renderSize: const Size(1920, 1200));
+      final b = await pool.getOrCreate('https://ha.example',
+          renderSize: const Size(1200, 1920));
+      expect(identical(a, b), isTrue);
+      expect(a.isDisposed, isFalse);
+    });
+
+    test('an Android session still rebuilds on an injector change', () async {
+      final pool =
+          WebviewSessionPool(sessionFactory: AndroidWebviewSession.testing);
+      final a = await pool.getOrCreate('https://ha.example',
+          initScript: 'one', initScriptAllowOrigin: 'https://ha.example/*');
+      final b = await pool.getOrCreate('https://ha.example',
+          initScript: 'two', initScriptAllowOrigin: 'https://ha.example/*');
+      expect(identical(a, b), isFalse);
+      expect(a.isDisposed, isTrue);
+    });
+
+    test('pauseAll and resumeAll drive Android sessions', () async {
+      final pool =
+          WebviewSessionPool(sessionFactory: AndroidWebviewSession.testing);
+      final s = await pool.getOrCreate('https://ha.example')
+          as AndroidWebviewSession;
+      s.onLoadStop();
+      await pool.pauseAll();
+      expect(s.state, WebviewSessionState.paused);
+      await pool.resumeAll();
+      expect(s.state, WebviewSessionState.playing);
+    });
+  });
+
+  group('webviewSessionFactoryFor', () {
+    test('Android gets the system WebView backend', () {
+      expect(webviewSessionFactoryFor(android: true),
+          AndroidWebviewSession.new);
+    });
+
+    test('everything else keeps GStreamer/WPE', () {
+      expect(webviewSessionFactoryFor(android: false), GstWebviewSession.new);
     });
   });
 }
