@@ -422,6 +422,8 @@ class _HubShellState extends ConsumerState<HubShell> {
             // Reflects the satellite's actual HA Mute switch state (so mutes
             // from HA automations / the device button show here too), falling
             // back to the locally-stored intent until HA's state is known.
+            // The in-app satellite never reports an HA state, so it shows
+            // `micMuted`, which the bridge keeps in step with HA.
             Positioned(
               top: HearthSpacing.x6,
               left: HearthSpacing.x6,

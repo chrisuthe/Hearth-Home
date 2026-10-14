@@ -74,6 +74,8 @@ class VoiceAssistantService {
   final HomeAssistantService _ha;
   String _pinnedEntityId; // mutable so auto-detect can fill it in when empty
   bool _autoDetectAttempted = false;
+  bool _autoDetectInFlight = false;
+  bool _autoDetectAgain = false;
   final _stateController = StreamController<VoiceAssistantState>.broadcast();
   VoiceAssistantState _currentState = const VoiceAssistantState();
   Timer? _idleResetTimer;
@@ -115,12 +117,19 @@ class VoiceAssistantService {
   /// address says nothing about the satellite. Empty elsewhere.
   final String _satelliteMac;
 
+  /// True while the in-app satellite runs. It takes its mute from
+  /// `micMuted` through the bridge and reports it to HA itself, so the HA
+  /// switch is neither driven nor watched.
+  final bool _localMute;
+
   VoiceAssistantService(
     this._ha, {
     String pinnedEntityId = '',
     String satelliteMac = '',
+    bool localMute = false,
   })  : _pinnedEntityId = pinnedEntityId,
-        _satelliteMac = satelliteMac;
+        _satelliteMac = satelliteMac,
+        _localMute = localMute;
 
   /// Starts watching the assist_satellite entity for state changes.
   void start() {
@@ -144,6 +153,22 @@ class VoiceAssistantService {
     // comment there. We can't fire it here because HA's WS handshake may
     // still be in flight at start() time and entity_registry/list would
     // be rejected as unauthenticated.
+  }
+
+  /// Runs one auto-detect at a time; a burst of new satellites (HA's initial
+  /// state dump) collapses into at most one follow-up run.
+  void _requestAutoDetect() {
+    if (_autoDetectInFlight) {
+      _autoDetectAgain = true;
+      return;
+    }
+    _autoDetectInFlight = true;
+    unawaited(_autoDetectByMac().whenComplete(() {
+      _autoDetectInFlight = false;
+      final again = _autoDetectAgain;
+      _autoDetectAgain = false;
+      if (again && !_disposed && _pinnedEntityId.isEmpty) _requestAutoDetect();
+    }));
   }
 
   Future<void> _autoDetectByMac() async {
@@ -223,9 +248,15 @@ class VoiceAssistantService {
     // streaming state. That's our cue to try the MAC-based auto-detect:
     // entity_registry/list needs an authenticated WS, and at start()
     // time the handshake may not have finished yet.
-    if (!_autoDetectAttempted && _pinnedEntityId.isEmpty) {
+    // A satellite that appears later is retried too: the in-app satellite is
+    // only in the registry once HA has adopted it, and until then auto-pick
+    // has latched onto some other device.
+    if (_pinnedEntityId.isEmpty &&
+        (!_autoDetectAttempted ||
+            (entity.entityId.startsWith('assist_satellite.') &&
+                !_candidates.containsKey(entity.entityId)))) {
       _autoDetectAttempted = true;
-      unawaited(_autoDetectByMac());
+      _requestAutoDetect();
     }
 
     // The mute switch lives in the `switch.` domain, so it must be handled
@@ -349,6 +380,7 @@ class VoiceAssistantService {
   /// `amixer` path never stopped LVA's PipeWire-fed mic. No-op (with a warning)
   /// until the mute switch has been discovered.
   void setSatelliteMuted(bool muted) {
+    if (_localMute) return;
     final id = _muteEntityId;
     if (id == null) {
       Log.w('Voice',
@@ -365,7 +397,7 @@ class VoiceAssistantService {
   /// Resolves the satellite's mute switch from the entity registry when the
   /// selection changes. Runs at most once per selected satellite.
   void _maybeDiscoverMute() {
-    if (_satelliteEntityId == null) return;
+    if (_localMute || _satelliteEntityId == null) return;
     if (_satelliteEntityId == _lastDiscoveredFor) return;
     _lastDiscoveredFor = _satelliteEntityId;
     _muteEntityId = null;
@@ -491,10 +523,13 @@ final voiceAssistantServiceProvider = Provider<VoiceAssistantService>((ref) {
   final satelliteMac = voiceSatelliteSupported
       ? ref.watch(hubConfigProvider.select((c) => c.voiceSatelliteMac))
       : '';
+  final localMute = voiceSatelliteSupported &&
+      ref.watch(hubConfigProvider.select((c) => c.voiceSatelliteEnabled));
   final service = VoiceAssistantService(
     ha,
     pinnedEntityId: pinnedEntityId,
     satelliteMac: satelliteMac,
+    localMute: localMute,
   );
   service.start();
   ref.onDispose(() => service.dispose());

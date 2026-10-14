@@ -17,7 +17,8 @@ import '../hearth_plugin.dart';
 /// Owns kiosk-side voice settings:
 ///   * `micMuted` — the on-device toggle mutes the LVA satellite by driving its
 ///     HA Mute switch (via [VoiceAssistantService.setSatelliteMuted]) and shows
-///     a toast. `micMuted` is kept as the persisted local intent / display
+///     a toast. The in-app satellite on Android is muted by `micMuted` alone,
+///     through the bridge. `micMuted` is kept as the persisted local intent / display
 ///     hint. The on-device toggle is semantically inverted (UI shows
 ///     "Microphone on/off", config stores "muted"); the web checkbox is
 ///     presented as a raw "Mute microphone" option so the bool maps directly to
