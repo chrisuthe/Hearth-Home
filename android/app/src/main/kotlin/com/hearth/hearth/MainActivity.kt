@@ -1,6 +1,7 @@
 package com.hearth.hearth
 
 import android.content.Intent
+import android.os.Bundle
 import com.hearth.hearth.voice.HearthAudioService
 import com.hearth.hearth.voice.VoiceChannel
 import io.flutter.embedding.android.FlutterActivity
@@ -9,6 +10,16 @@ import io.flutter.embedding.engine.FlutterEngine
 class MainActivity : FlutterActivity() {
     private var voice: VoiceChannel? = null
     private var appUpdate: AppUpdateChannel? = null
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        live++
+        super.onCreate(savedInstanceState)
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        live--
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -23,7 +34,8 @@ class MainActivity : FlutterActivity() {
         appUpdate?.dispose()
         appUpdate = null
         // Dart owns the satellite; without it nothing could mute or stop it.
-        if (isFinishing) stopService(Intent(this, HearthAudioService::class.java))
+        // A newer instance (a relaunch with CLEAR_TASK) already owns it.
+        if (isFinishing && live == 1) stopService(Intent(this, HearthAudioService::class.java))
         super.cleanUpFlutterEngine(flutterEngine)
     }
 
@@ -34,5 +46,10 @@ class MainActivity : FlutterActivity() {
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         voice?.onRequestPermissionsResult(requestCode)
+    }
+
+    private companion object {
+        /** Instances between onCreate and onDestroy, for the service stop. */
+        var live = 0
     }
 }
