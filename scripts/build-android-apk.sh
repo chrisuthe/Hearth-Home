@@ -45,6 +45,8 @@ for VAR in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS A
     [ -n "${!VAR:-}" ] && SET=$((SET + 1))
 done
 if [ "$SET" -eq 4 ]; then
+    # A self-hosted runner may keep its workspace between jobs.
+    trap 'rm -f android/hearth-release.jks android/key.properties' EXIT
     echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > android/hearth-release.jks
     # Gradle resolves storeFile against android/.
     cat > android/key.properties <<PROPS
