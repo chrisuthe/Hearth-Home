@@ -12,8 +12,8 @@ data class SendspinConfig(
     val outputDelayMs: Int,
     val lastPlaybackServerId: String?,
 ) {
-    /** Whether there is anything for the service to run. */
-    val active: Boolean get() = enabled && playerName.isNotBlank()
+    /** Whether there is anything to run. The Dart side's test, so the two agree. */
+    val active: Boolean get() = enabled && playerName.isNotEmpty()
 
     companion object {
         fun fromArguments(args: Map<*, *>) = SendspinConfig(

@@ -280,6 +280,21 @@ void main() {
       expect(configureCall.arguments['enabled'], isFalse);
     });
 
+    test('a buffer change does not restart the native player', () async {
+      debugSendspinNativeOverride = true;
+      messenger.setMockMethodCallHandler(
+          const MethodChannel(_eventsName), (_) async => null);
+      addTearDown(() => messenger.setMockMethodCallHandler(
+          const MethodChannel(_eventsName), null));
+
+      final notifier = _MemoryHubConfigNotifier(const HubConfig(
+          sendspinEnabled: true, sendspinPlayerName: 'Kitchen'));
+      final c = container(notifier);
+      final first = c.read(sendspinServiceProvider);
+      await notifier.update((cfg) => cfg.copyWith(sendspinBufferSeconds: 10));
+      expect(identical(c.read(sendspinServiceProvider), first), isTrue);
+    });
+
     test('uses the Dart client elsewhere', () async {
       debugSendspinNativeOverride = false;
       final service = container(_MemoryHubConfigNotifier(const HubConfig()))

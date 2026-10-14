@@ -1,6 +1,7 @@
 package com.hearth.hearth.sendspin
 
 import android.content.Context
+import android.util.AtomicFile
 import com.sendspindroid.sendspin.crypto.Base64Url
 import com.sendspindroid.sendspin.crypto.ClientIdentity
 import com.sendspindroid.sendspin.crypto.InMemoryTrustStore
@@ -44,7 +45,7 @@ class SendspinSecrets private constructor(dir: File) {
     private val pairingPsk: ByteArray by lazy { loadOrMint(pairingPskFile, Psk.PSK_SIZE) }
 
     val trustStore: TrustStore by lazy {
-        val initial = if (trustFile.exists()) PskRecordCodec.decode(trustFile.readText()) else emptyList()
+        val initial = read(trustFile)?.let(PskRecordCodec::decode).orEmpty()
         object : InMemoryTrustStore(
             initial = initial,
             pairingPskId = PskId.derive(pairingPsk),
@@ -80,8 +81,8 @@ class SendspinSecrets private constructor(dir: File) {
      * report nothing.
      */
     private fun loadOrMint(file: File, size: Int): ByteArray {
-        if (file.exists()) {
-            val bytes = Base64Url.decodeOrNull(file.readText().trim())
+        read(file)?.let { text ->
+            val bytes = Base64Url.decodeOrNull(text.trim())
             check(bytes != null && bytes.size == size) { "${file.name} is unreadable" }
             return bytes
         }
@@ -91,13 +92,31 @@ class SendspinSecrets private constructor(dir: File) {
         return fresh
     }
 
-    private fun writeAtomically(file: File, text: String): Boolean = try {
-        val tmp = File(file.parentFile, "${file.name}.tmp")
-        tmp.writeText(text)
-        tmp.renameTo(file) || throw IOException("rename failed")
-    } catch (e: IOException) {
-        Timber.e(e, "Cannot write ${file.name}")
-        false
+    /** Null when there is no file; AtomicFile restores an interrupted write's backup. */
+    private fun read(file: File): String? {
+        val atomic = AtomicFile(file)
+        if (!atomic.baseFile.exists() && !File(file.path + ".bak").exists()) return null
+        return String(atomic.readFully(), Charsets.UTF_8)
+    }
+
+    /** Synced before it replaces the old file, so a power cut cannot leave it empty. */
+    private fun writeAtomically(file: File, text: String): Boolean {
+        val atomic = AtomicFile(file)
+        val out = try {
+            atomic.startWrite()
+        } catch (e: IOException) {
+            Timber.e(e, "Cannot write ${file.name}")
+            return false
+        }
+        return try {
+            out.write(text.toByteArray(Charsets.UTF_8))
+            atomic.finishWrite(out)
+            true
+        } catch (e: IOException) {
+            atomic.failWrite(out)
+            Timber.e(e, "Cannot write ${file.name}")
+            false
+        }
     }
 
     companion object {

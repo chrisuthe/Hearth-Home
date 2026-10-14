@@ -128,6 +128,13 @@ class SendspinPlayer(
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
     private var lastStatus: String? = null
 
+    /**
+     * False when [start] found nothing it could do (a server URL, unreadable
+     * secrets); the service then holds no locks for it.
+     */
+    var running = false
+        private set
+
     fun start() {
         if (config.serverUrl.isNotBlank()) {
             // Advertising and dialling are exclusive, and dialling is not built yet.
@@ -150,6 +157,7 @@ class SendspinPlayer(
             report()
             return
         }
+        running = true
         initializeVolumeControl()
         registerNetworkCallback()
         startAdvertising()

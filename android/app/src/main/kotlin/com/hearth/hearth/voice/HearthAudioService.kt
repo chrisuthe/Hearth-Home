@@ -81,6 +81,9 @@ class HearthAudioService : LifecycleService() {
     private var sendspinStatus: String? = null
     private var lastStartId = 0
 
+    /** The foreground types last granted, 0 before the first. */
+    private var currentType = 0
+
     override fun onCreate() {
         super.onCreate()
         instance = this
@@ -94,14 +97,14 @@ class HearthAudioService : LifecycleService() {
         lastStartId = startId
         // startForegroundService() obliges us to go foreground even on the
         // way out; apply() does so before anything else.
-        apply()
+        apply(fromStart = true)
         // A restart without the activity could not open the microphone, and
         // the configuration lives in Dart. Hearth's next launch starts it.
         return START_NOT_STICKY
     }
 
     /** Takes the pending requests and brings each feature in line with them. Main thread. */
-    private fun apply() {
+    private fun apply(fromStart: Boolean = false) {
         val voiceChange = pendingVoice
         val sendspinChange = pendingSendspin
         pendingVoice = null
@@ -114,13 +117,15 @@ class HearthAudioService : LifecycleService() {
             wantedVoice = null
         }
         var rebuildVoice = voiceChange != null
-        if (!goForeground()) {
-            // Without the microphone type Sendspin can still play.
+        // Asked again only when the types change: a Sendspin change made while
+        // Hearth is in the background must not risk the microphone type.
+        if ((fromStart || foregroundType() != currentType) && !goForeground()) {
             if (wantedVoice != null) {
                 wantedVoice = null
                 rebuildVoice = true
             }
-            if (wantedSendspin != null && !goForeground()) wantedSendspin = null
+            // Media playback alone, which Sendspin needs and a start obliges.
+            if (!goForeground()) wantedSendspin = null
         }
 
         lifecycleScope.launch {
@@ -147,14 +152,10 @@ class HearthAudioService : LifecycleService() {
      */
     private fun goForeground(): Boolean {
         val voice = wantedVoice != null
-        val type = if (voice) {
-            ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE or
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
-        } else {
-            ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
-        }
+        val type = foregroundType()
         return try {
             ServiceCompat.startForeground(this, NOTIFICATION_ID, notification(), type)
+            currentType = type
             true
         } catch (e: Exception) {
             Timber.e(e, "Foreground start refused")
@@ -168,6 +169,12 @@ class HearthAudioService : LifecycleService() {
         }
     }
 
+    private fun foregroundType() = if (wantedVoice != null) {
+        ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE or ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+    } else {
+        ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+    }
+
     private fun micGranted() =
         ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) ==
             PackageManager.PERMISSION_GRANTED
@@ -179,7 +186,7 @@ class HearthAudioService : LifecycleService() {
             shutDown()
             return
         }
-        if (device != null || sendspin != null) acquireLocks() else releaseLocks()
+        if (device != null || sendspin?.running == true) acquireLocks() else releaseLocks()
         updateNotification()
     }
 

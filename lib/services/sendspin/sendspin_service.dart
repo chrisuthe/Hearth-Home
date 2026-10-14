@@ -799,8 +799,12 @@ final sendspinServiceProvider = Provider<SendspinService>((ref) {
       ref.watch(hubConfigProvider.select((c) => c.sendspinEnabled));
   final playerName =
       ref.watch(hubConfigProvider.select((c) => c.sendspinPlayerName));
+  // Read on Android, which has no buffer setting: a change must not restart
+  // the native engine and drop a stream for nothing.
+  final bufferSelector =
+      hubConfigProvider.select((c) => c.sendspinBufferSeconds);
   final bufferSeconds =
-      ref.watch(hubConfigProvider.select((c) => c.sendspinBufferSeconds));
+      sendspinNative ? ref.read(bufferSelector) : ref.watch(bufferSelector);
   final serverUrl =
       ref.watch(hubConfigProvider.select((c) => c.sendspinServerUrl));
   final unpairedAccess =
