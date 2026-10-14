@@ -53,6 +53,11 @@ abstract class HearthVideoPlayer {
   }
 }
 
+/// Scales every media_kit player's volume; 1.0 is untouched. The voice
+/// satellite's `AudioCoordinator` lowers it, and since each player keeps the
+/// level its caller asked for, restoring is exact.
+final playbackDuck = ValueNotifier<double>(1.0);
+
 HearthVideoPlayer Function() _createMediaKitPlayer = () =>
     throw StateError('MediaKitVideoPlayer not registered. Call registerMediaKitPlayer() at startup.');
 HearthVideoPlayer Function() _createGstreamerPlayer = () =>

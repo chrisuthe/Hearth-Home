@@ -112,7 +112,7 @@ class VoiceSatelliteStatus {
 /// Assistant) are written back. Off Android every method returns at once.
 ///
 /// Later phases add to the same channel: `startTimerRing` / `stopTimerRing`
-/// and the `timer`, `duck` and `ringStopped` events.
+/// and the `timer` and `ringStopped` events.
 class VoiceSatelliteBridge {
   static const _tag = 'VoiceSatellite';
   static const _methods = MethodChannel('com.hearth/voice');
@@ -136,6 +136,7 @@ class VoiceSatelliteBridge {
   VoiceSatelliteStatus _status = const VoiceSatelliteStatus();
   final _statusController = StreamController<VoiceSatelliteStatus>.broadcast();
   List<VoiceWakeWord> _wakeWords = const [];
+  final _duckController = StreamController<bool>.broadcast();
 
   VoiceSatelliteBridge(
     this._config, {
@@ -148,6 +149,10 @@ class VoiceSatelliteBridge {
 
   VoiceSatelliteStatus get status => _status;
   Stream<VoiceSatelliteStatus> get statusStream => _statusController.stream;
+
+  /// The service's `duck` event: true from the wake word, or a timer ring,
+  /// until the satellite lets go of the audio.
+  Stream<bool> get duckStream => _duckController.stream;
 
   /// Wake words bundled in the APK; empty until [attach] has asked for them.
   List<VoiceWakeWord> get wakeWords => _wakeWords;
@@ -284,6 +289,10 @@ class VoiceSatelliteBridge {
         );
         Log.w(_tag, 'health: ${health.code} ${health.message}');
         _emit(_status.copyWith(health: health));
+      case 'duck':
+        if (!_duckController.isClosed) {
+          _duckController.add(event['active'] as bool? ?? false);
+        }
       case 'settingChanged':
         unawaited(_onSettingChanged(event['setting'], event['value']));
     }
@@ -331,6 +340,7 @@ class VoiceSatelliteBridge {
     _debounce?.cancel();
     _eventSub?.cancel();
     _statusController.close();
+    _duckController.close();
   }
 }
 

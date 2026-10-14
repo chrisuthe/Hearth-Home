@@ -386,13 +386,24 @@ void main() {
       expect(startArgs()['volume'], 0.42);
     });
 
+    test('duck is passed on as a bool', () async {
+      final seen = <bool>[];
+      final sub = bridge.duckStream.listen(seen.add);
+      addTearDown(sub.cancel);
+
+      await emit({'event': 'duck', 'active': true});
+      await emit({'event': 'duck', 'active': false});
+
+      expect(seen, [true, false]);
+      expect(calls, isEmpty);
+    });
+
     test('malformed and later-phase events are ignored', () async {
       final before = notifier.state;
       await emit({'event': 'settingChanged', 'setting': 'mute', 'value': 'x'});
       await emit({'event': 'settingChanged', 'setting': 'wakeWords', 'value': []});
       await emit({'event': 'settingChanged', 'setting': 'volume', 'value': 'x'});
       await emit({'event': 'timer', 'id': 't1'});
-      await emit({'event': 'duck', 'value': true});
       await emit({'event': 'ringStopped'});
       expect(notifier.state, same(before));
       expect(calls, isEmpty);

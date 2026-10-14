@@ -1,7 +1,7 @@
 # Android Native Voice Satellite — Design
 
 **Date:** 2026-10-13
-**Status:** Phases 1–5 built. Hardware pass 1 ran on 2026-10-14; results under [Hardware pass 1](#hardware-pass-1-2026-10-14). The hardware facts were measured on one tablet.
+**Status:** Phases 1–5 and 7 built. Hardware pass 1 ran on 2026-10-14; results under [Hardware pass 1](#hardware-pass-1-2026-10-14). The hardware facts were measured on one tablet.
 **Goal:** Specify a voice satellite that runs inside the Hearth APK on Android, including how it shares audio with a native Sendspin player, and break the work into tasks.
 
 Builds on `2026-10-13-android-voice-satellite-options.md`, which compared four options and first recommended Ava as a companion app. This document replaces that recommendation with the options spec's runner-up, for the reasons under [Why native](#why-native).
@@ -195,6 +195,17 @@ Rules:
 - **The ring leaves gaps.** A timer ring has to be stopped by voice, so the tone asset has at least one second of silence per cycle for the stop word to land in. Whether that is enough is an open question; the on-screen dismiss is always available.
 - **Wake word during playback is not solved.** At 80% media volume our test signal, itself at 0.3 of full scale, sat roughly 38 dB above the microphone floor. Whether `okay_nabu` still triggers over music is the first hardware test. If it does not, the options are a lower default media volume on this tablet, the on-screen mic button, or the software echo canceller below.
 
+### As built (phase 7)
+
+- **Driven by Ava's `duck`, not by the `state` event.** Ava calls `VoiceOutput.duck()` before the wake sound, at `RUN_START`, for an announcement and for a timer ring, and `unDuck()` when the conversation, the announcement or the ring ends (**verified**, `satellite/.../VoiceAssistant.kt:171`, `195`, `244`, `274`, `282`, `292`, `307` and `VoicePipeline.kt:81` in the fork). The `state` event misses two rows: it stays idle while the wake sound plays, because the pipeline starts only after it, and for the whole of a timer ring. `CoordinatedVoiceOutput` wraps Ava's output and reports both calls to `AudioCoordinator` (`android/.../voice/AudioCoordinator.kt`), which sends `duck` (`active`: bool) only on a change. The fork is unchanged.
+- **Dart.** `AudioCoordinator` (`lib/services/audio_coordinator.dart`) ducks while the service is running and connected, and either the last `duck` was true or the state is listening, processing or responding. The states are a backstop for a missed event; on the way out the duck holds until `unDuck`, which Ava sends after the state returns to idle. It sets `playbackDuck`, a factor every `MediaKitVideoPlayer` multiplies into the volume its caller set, so DLNA's reported volume is untouched and restoring is exact. A player started while ducked starts ducked. The level is 0.20, as the Pi uses for Sendspin. This covers DLNA and Plex casts and Live TV; Music Assistant does not play through media_kit on the tablet, and its local playback will be Sendspin.
+- **Released without `unDuck`.** Ava does not call it when Home Assistant drops mid-exchange (`onDisconnected` resets the state) or when the device is closed. Natively, the service releases on a lost connection and in `tearDown`, which covers stop, rebuild and a failure. In Dart, a stopped service, a lost connection or a new health report drops the request, so a service that dies without a last event cannot leave playback ducked. The coordinator's disposal restores too.
+- **Pi unchanged.** `VoiceDucker` still ducks Sendspin from the Home Assistant entity. The coordinator is read only where `voiceSatelliteSupported`.
+- **The Sendspin seam.** `AudioCoordinator.addMute` takes a callback that gets the current state on registration and every change after, on the main thread with no channel round trip. Sendspin's engine registers `engine.setMuted(VOICE, …)` there when it joins the service (`2026-10-14-android-sendspin-design.md`, "Muting at wake").
+- **Deviation.** None from the table.
+- **On the tablet (2026-10-14, debug build).** After a reboot, a cast ducked at the wake word and came back afterwards, by ear, through a conversation that HA continued into a second turn. The log holds only the end: Ava's last `TTS finished` at 12:10:34.102 and the coordinator's "restoring playback" at 12:10:34.131, 29 ms later, so the restore crossed the channel within a frame or two. The wake word and the duck itself had already scrolled out, because the debug build logs every `VoiceAssistantAudio` frame (about 30 a second) and the main buffer holds only seconds of a conversation. Not measured: the time from the wake word to the duck, and whether the wake word triggers over the tablet's own playback without it.
+- **Seen on the same build, not caused by it.** Before that reboot, a Plex cast decoded its first frame and then stalled at 0 s (`h264_mediacodec`: "Both surface and native_window are NULL"), and two later casts never created an mpv player. The ducking factor was 1.0 throughout, which leaves the player's volume calls as they were. Plex casting on Android was untested before this; it is not followed up here.
+
 **Later: software echo cancellation.** An in-process satellite can do what no companion app can: it has the playback signal. Sendspin PCM and the voice output could feed a reference into WebRTC AEC3 or speexdsp ahead of the wake word. Two things are unknown: whether a linear canceller works after the vendor's non-linear processing, and whether the playback delay is stable enough to align. Both need a spike on hardware before any design.
 
 ## Timers
@@ -227,7 +238,7 @@ One `MethodChannel` and one `EventChannel` named `com.hearth/voice`. Dart is the
 | Dart → native | `listWakeWords` | → ids and display names |
 | native → Dart | `state` | idle, listening, processing, responding, error; connected to HA or not |
 | native → Dart | `timer` | event type, id, name, total, left, active |
-| native → Dart | `duck` | bool |
+| native → Dart | `duck` | `active`: bool |
 | native → Dart | `ringStopped` | — |
 | native → Dart | `settingChanged` | mute, wake sound, active wake words or media player volume changed from Home Assistant |
 | native → Dart | `health` | permission missing, port in use, mic open failed, model load failed |
@@ -304,7 +315,7 @@ Each line is one task. Sizes are relative.
 | 4 | Hardware pass 1: HA discovery, the four states, mute, announce, wake word at distance, wake word over playback. Done 2026-10-14 except the release install. | Small | 3 |
 | 5 | Voice plugin settings on both surfaces, health reporting, `settingChanged` | Small-medium | 4 |
 | 6 | Timers: remote timers in `TimerService`, alert overlay, ring with gaps, `startTimerRing` and `stopTimerRing` | Medium | 4, 7 |
-| 7 | `AudioCoordinator` and the media_kit duck request | Small | 4 |
+| 7 | `AudioCoordinator` and the media_kit duck request. Built; see "As built" under [Echo and ducking](#echo-and-ducking). Ducked a cast on the tablet | Small | 4 |
 | 8 | Sendspin on Android through SendspinDroid's player: `2026-10-14-android-sendspin-design.md`, phases 1 to 6. Its phase 7, the Sendspin mute, needs task 7 | Large | — |
 | 9 | Echo-cancellation spike with a playback reference | Medium, may end in "no" | 8 |
 | 10 | Move Hearth's MQTT entities onto the ESPHome device | Small-medium | 3 |

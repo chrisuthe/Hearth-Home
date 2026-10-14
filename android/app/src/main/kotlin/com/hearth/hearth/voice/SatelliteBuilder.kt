@@ -48,6 +48,7 @@ class SatelliteBuilder(private val context: Context) {
         coroutineContext: CoroutineContext,
         config: VoiceConfig,
         settings: SatelliteSettings,
+        audio: AudioCoordinator,
         onModelLoadFailed: (id: String, error: Throwable) -> Unit,
     ): EspHomeDevice {
         val voiceOutput = VoiceOutputImpl(
@@ -103,7 +104,7 @@ class SatelliteBuilder(private val context: Context) {
             voiceAssistant = VoiceAssistant(
                 coroutineContext = coroutineContext,
                 voiceInput = voiceInput,
-                voiceOutput = voiceOutput,
+                voiceOutput = CoordinatedVoiceOutput(voiceOutput, audio),
             ),
             logger = TimberLogger(),
             entities = listOf(
