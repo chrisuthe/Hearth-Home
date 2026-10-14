@@ -1,0 +1,3 @@
+[submodule "android/third_party/ava"]
+	path = android/third_party/ava
+	url = https://github.com/chrisuthe/Ava-hearth.git
