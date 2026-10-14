@@ -16,7 +16,7 @@ flutter test test/services/display_mode_service_test.dart  # run a single test
 flutter test test/portrait   # every surface at landscape + portrait canvases
 flutter run -d windows   # run on Windows (dev)
 flutter run -d linux     # run on Linux desktop
-git submodule update --init  # Android only: the voice satellite's Ava fork
+git submodule update --init  # Android only: the Ava fork and SendspinDroid
 flutter build apk --debug  # experimental Android target (needs JDK 17 + Android SDK)
 ```
 
@@ -164,6 +164,18 @@ own `gradle/libs.versions.toml`, so they move with the pin and Renovate sees
 none of them. `android/ava/satellite/build.gradle.kts` mirrors the fork's
 dependency list by hand and needs the same edit when the fork adds one.
 
+**SendspinDroid is pinned the same way, by commit.** `android/third_party/sendspindroid`
+records commit `0e6c67c5`; there is no tag, because a `v*` tag in SendspinDroid
+publishes an app release. Renovate cannot see the pin or anything behind it.
+SendspinDroid has no version catalog, so `android/sendspin/shared/build.gradle.kts`
+and `android/sendspin/player/build.gradle.kts` copy the dependency versions and
+exclusions from its `shared/` and `player/` scripts by hand. Bump it by hand:
+check out the new commit inside the submodule, diff those two upstream scripts
+since the old pin, carry any change across, commit the pointer, and run both
+`flutter build apk --debug` and `scripts/build-android-apk.sh` (R8 reads the
+player's `consumer-rules.pro` from the submodule). It is ours, not a fork, so the
+drift check does not cover it.
+
 Two checks cover what Renovate cannot see:
 - `.gitea/workflows/upstream-drift.yml` — weekly, compares each fork's
   `UPSTREAM_PIN` against its upstream HEAD and opens a tracking issue. Covers
@@ -175,7 +187,7 @@ Design rationale: `docs/specs/2026-08-12-dependency-maintenance-process-design.m
 
 **Third-party notices.** Anything shipped that is not a Dart package needs an
 entry in `assets/licenses/notices.json`: a bundled asset, a fork, a submodule,
-a module under `android/ava/` or `native/`, an Android library. Then run
+a module under `android/ava/`, `android/sendspin/` or `native/`, an Android library. Then run
 `dart run tool/gen_third_party_notices.dart` to regenerate
 `THIRD_PARTY_NOTICES.md`. `test/services/third_party_notices_test.dart` catches
 all of these except new Android libraries, which need a manual check of
