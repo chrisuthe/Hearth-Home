@@ -12,8 +12,9 @@ import '../hearth_plugin.dart';
 /// Resolves the device's primary non-loopback IPv4 address, or null on failure.
 ///
 /// Backed by [lookupDeviceIp] so the Network settings panel can show the
-/// address a user types into a browser to reach the web portal. Degrades gracefully — any failure (no
-/// network, platform quirk) resolves to null rather than throwing to the UI.
+/// address a user types into a browser to reach the web portal. Degrades
+/// gracefully — any failure (no network, platform quirk) resolves to null
+/// rather than throwing to the UI.
 final deviceIpProvider = FutureProvider<String?>((ref) => lookupDeviceIp());
 
 /// Network plugin — third device-category plugin.
