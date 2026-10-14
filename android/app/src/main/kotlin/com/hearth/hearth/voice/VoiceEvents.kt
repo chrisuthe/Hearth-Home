@@ -8,8 +8,8 @@ import android.os.Looper
  * any one Flutter engine, so events go through this process-wide relay and
  * the channel attaches a sink while Dart is listening.
  *
- * `timer`, `duck` and `ringStopped` are part of the channel contract and are
- * never sent yet: timers and the audio coordinator arrive in later phases.
+ * `timer` and `ringStopped` are part of the channel contract and are never
+ * sent yet: timers arrive in a later phase.
  */
 object VoiceEvents {
     const val STATE = "state"
@@ -28,12 +28,14 @@ object VoiceEvents {
     private var owner: Any? = null
     private var sink: ((Map<String, Any?>) -> Unit)? = null
     private var lastState: Map<String, Any?>? = null
+    private var lastDuck: Map<String, Any?>? = null
 
     /** Main thread only. A new listener is caught up with the current state. */
     fun attach(owner: Any, sink: (Map<String, Any?>) -> Unit) {
         this.owner = owner
         this.sink = sink
         lastState?.let { sink(it) }
+        lastDuck?.let { sink(it) }
     }
 
     /**
@@ -54,12 +56,17 @@ object VoiceEvents {
     fun health(code: String, message: String) =
         emit(mapOf("event" to HEALTH, "code" to code, "message" to message))
 
+    fun duck(active: Boolean) = emit(mapOf("event" to DUCK, "active" to active))
+
     fun settingChanged(setting: String, value: Any) =
         emit(mapOf("event" to SETTING_CHANGED, "setting" to setting, "value" to value))
 
     private fun emit(event: Map<String, Any?>) {
         main.post {
-            if (event["event"] == STATE) lastState = event
+            when (event["event"]) {
+                STATE -> lastState = event
+                DUCK -> lastDuck = event
+            }
             sink?.invoke(event)
         }
     }

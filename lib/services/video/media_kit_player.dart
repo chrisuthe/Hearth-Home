@@ -13,6 +13,9 @@ class MediaKitVideoPlayer implements HearthVideoPlayer {
   VideoController? _controller;
   bool _playing = false;
   final _videoSize = ValueNotifier<Size?>(null);
+
+  /// The level callers asked for; [playbackDuck] scales it on the way to mpv.
+  double _volume = 1.0;
   final List<StreamSubscription<void>> _logSubscriptions = [];
 
   @override
@@ -27,6 +30,10 @@ class MediaKitVideoPlayer implements HearthVideoPlayer {
       _listenForDiagnostics(player);
       _controller = VideoController(player);
       _player!.open(Media(url));
+      // mpv starts each player at full volume.
+      _volume = 1.0;
+      playbackDuck.addListener(_applyVolume);
+      if (playbackDuck.value != 1.0) _applyVolume();
       _playing = true;
       return true;
     } catch (e) {
@@ -96,6 +103,7 @@ class MediaKitVideoPlayer implements HearthVideoPlayer {
   @override
   Future<void> stop() async {
     _playing = false;
+    playbackDuck.removeListener(_applyVolume);
     _cancelDiagnostics();
     _player?.dispose();
     _player = null;
@@ -123,9 +131,13 @@ class MediaKitVideoPlayer implements HearthVideoPlayer {
 
   @override
   Future<void> setVolume(double volume) async {
-    // media_kit volume is 0–100.
-    await _player?.setVolume((volume.clamp(0.0, 1.0)) * 100);
+    _volume = volume.clamp(0.0, 1.0);
+    await _applyVolume();
   }
+
+  // media_kit volume is 0–100.
+  Future<void> _applyVolume() async =>
+      _player?.setVolume(_volume * playbackDuck.value * 100);
 
   @override
   void dispose() => stop();
