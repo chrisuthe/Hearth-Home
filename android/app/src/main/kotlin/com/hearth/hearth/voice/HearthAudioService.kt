@@ -62,6 +62,7 @@ class HearthAudioService : LifecycleService() {
     private var deviceJob: Job? = null
     private var settings: SatelliteSettings? = null
     private var nsd: NsdRegistration? = null
+    private var ring: TimerRing? = null
     private val audio = AudioCoordinator()
 
     override fun onCreate() {
@@ -131,6 +132,8 @@ class HearthAudioService : LifecycleService() {
         this.device = device
         this.deviceJob = job
         this.settings = settings
+        val ring = TimerRing(device.voiceAssistant)
+        this.ring = ring
 
         acquireLocks()
         device.start()
@@ -140,6 +143,7 @@ class HearthAudioService : LifecycleService() {
             Triple(server, voice, muted)
         }.onEach { (server, voice, muted) -> report(server, voice, muted) }
             .launchIn(lifecycleScope + job)
+        ring.watch().launchIn(lifecycleScope + job)
     }
 
     private fun report(server: EspHomeState, voice: EspHomeState, muted: Boolean) {
@@ -195,6 +199,8 @@ class HearthAudioService : LifecycleService() {
         device?.close()
         device = null
         settings = null
+        ring?.release()
+        ring = null
         // A closed device never calls unDuck.
         audio.release()
         releaseLocks()
@@ -211,6 +217,17 @@ class HearthAudioService : LifecycleService() {
 
     fun wake() {
         device?.voiceAssistant?.wakeAssistant()
+    }
+
+    /** Rings for a local Hearth timer. False when there is no device to ring. */
+    fun startTimerRing(): Boolean {
+        val ring = ring ?: return false
+        lifecycleScope.launch { ring.start() }
+        return true
+    }
+
+    fun stopTimerRing() {
+        ring?.stop()
     }
 
     override fun onDestroy() {

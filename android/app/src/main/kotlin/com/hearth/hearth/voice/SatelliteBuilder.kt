@@ -65,7 +65,8 @@ class SatelliteBuilder(private val context: Context) {
             enableWakeSound = { settings.wakeSound.value },
             wakeSound = { WAKE_SOUND },
             timerFinishedSound = { TIMER_FINISHED_SOUND },
-            // The ring repeats until the stop word, a wake word or a stop call.
+            // The ring repeats until the stop word, a wake word or a stop call,
+            // with Ava's one-second pause after each play for the stop word.
             repeatTimerFinishedSound = { true },
             enableErrorSound = { false },
             errorSound = { ERROR_SOUND },
@@ -86,7 +87,7 @@ class SatelliteBuilder(private val context: Context) {
         return EspHomeDevice(
             coroutineContext = coroutineContext,
             port = config.port,
-            server = ServerImpl(),
+            server = TimerEventTap(ServerImpl()),
             deviceInfo = deviceInfoResponse {
                 name = config.nodeName
                 friendlyName = config.name

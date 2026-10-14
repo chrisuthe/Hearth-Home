@@ -19,6 +19,7 @@ import 'services/mqtt_service.dart';
 import 'services/dlna/dlna_service.dart';
 import 'services/plex/plex_service.dart';
 import 'services/sendspin/sendspin_service.dart';
+import 'services/timer_service.dart';
 import 'services/voice_ducker.dart';
 import 'services/voice_satellite_bridge.dart';
 import 'services/audio_coordinator.dart';
@@ -130,7 +131,11 @@ Future<void> main() async {
     // Reading the provider is what starts it; a no-op elsewhere.
     container.read(voiceSatelliteBridgeProvider);
     // Lowers Hearth's media_kit playback while the satellite is active.
-    if (voiceSatelliteSupported) container.read(audioCoordinatorProvider);
+    if (voiceSatelliteSupported) {
+      container.read(audioCoordinatorProvider);
+      // Voice timers arrive on a broadcast stream; listen before the first.
+      container.read(timerServiceProvider);
+    }
     // DLNA renderer is also self-initializing but needs an eager read to
     // start SSDP advertisement when config says enabled.
     container.read(dlnaServiceProvider);
