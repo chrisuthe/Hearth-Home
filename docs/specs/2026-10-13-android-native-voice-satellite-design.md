@@ -230,7 +230,13 @@ The fork is unchanged; Hearth wraps what Ava already exposes.
 - **`ringStopped`** is sent when Ava's ringing timer clears, whatever cleared it, read from `VoiceAssistant.allTimers`, and when the device closes while ringing. Dart dismisses every fired timer on it, since they share the one ring. Dart calls `stopTimerRing` only when the last fired timer is dismissed, as the Pi's beep stops.
 - **In `TimerService`** a voice timer is a `HubTimer` with a `remoteId`, a name and a paused flag. It is done only on `finished`, never by its own countdown. One that sits at zero for 60 s without `finished`, as across a lost connection, is dropped. It cannot be dismissed while it runs, from the timer screen or the MQTT cancel command. The timer screen shows its name and "Paused"; the alert card's body is its name, or the duration when it has none.
 - **Cancelling from Hearth is not built.** Home Assistant does offer a way: `POST /api/intent/handle` with `HassCancelTimer` and the satellite's `device_id` (**verified**, HA core `intent/__init__.py` `IntentHandleView`, `intent/timers.py` `CancelTimerIntentHandler` and `_find_timer`). It matches by name, area or starting duration, not by timer id, so it cannot reliably cancel one timer of two that share a name or a duration. Left as a follow-up.
-- **Not verified on the tablet.** Everything above is tested on the Dart side against a fake channel (`test/services/voice_timers_test.dart`) and compiles into the APK; no timer has been set by voice on a build with it.
+- **On the tablet (2026-10-14, debug build of this branch).** Timers were set from Home Assistant's intent API with the tablet's `device_id` (`HassStartTimer`, `HassPauseTimer`, `HassIncreaseTimer`, `HassCancelTimer`), not spoken: the events the satellite receives are the same, and speech recognition is not part of this check. **Verified**:
+  - A 3-minute "Eggs" timer showed on the home pill and on the timer screen with its name, counting down. Paused with 2 minutes added, it showed the new time and "Paused"; cancelled, it went.
+  - A 10-second "Tea" timer raised the alert card ("Time's up", "Tea") as HA sent `finished`, and the coordinator ducked. The only audio was Ava's ring, one assistant player per cycle, about 3 s of tone and 1 s of silence; Hearth played nothing of its own.
+  - The card's dismiss stopped it: Ava logged `Stop timer`, playback was restored 43 ms later, and no further cycle started.
+  - A 1-minute local timer rang through the same ring (`startTimerRing`).
+  - The stop word stopped that ring and closed Hearth's alert. It landed in the gap: the last play ended at 13:48:56.958 and Ava stopped the timer at 13:48:57.630. How many tries it took was not recorded.
+  - A wake word stopped a ringing "Pizza" timer and closed the alert (seen by the person at the tablet; the log line scrolled out). As in pass 1, it also opened a conversation, which HA continued into a second turn. The fork follow-up below still applies.
 
 The Pi does not get this. LVA has no hand-off, and Home Assistant does not expose voice timers as entities (**assumed**; we did not find one in the `esphome` or `assist_satellite` components, and did not search the rest of HA). Voice timers on the Pi keep ringing from LVA alone.
 
@@ -325,7 +331,7 @@ Each line is one task. Sizes are relative.
 | 3 | Identity: `voiceSatelliteMac`, Android MAC source in `VoiceAssistantService`, device info | Small | 2 |
 | 4 | Hardware pass 1: HA discovery, the four states, mute, announce, wake word at distance, wake word over playback. Done 2026-10-14 except the release install. | Small | 3 |
 | 5 | Voice plugin settings on both surfaces, health reporting, `settingChanged` | Small-medium | 4 |
-| 6 | Timers: remote timers in `TimerService`, alert overlay, ring with gaps, `startTimerRing` and `stopTimerRing`. Built; see "As built" under [Timers](#timers). Not yet run on the tablet | Medium | 4, 7 |
+| 6 | Timers: remote timers in `TimerService`, alert overlay, ring with gaps, `startTimerRing` and `stopTimerRing`. Built and run on the tablet; see "As built" under [Timers](#timers) | Medium | 4, 7 |
 | 7 | `AudioCoordinator` and the media_kit duck request. Built; see "As built" under [Echo and ducking](#echo-and-ducking). Ducked a cast on the tablet | Small | 4 |
 | 8 | Sendspin on Android through SendspinDroid's player: `2026-10-14-android-sendspin-design.md`, phases 1 to 6. Its phase 7, the Sendspin mute, needs task 7 | Large | — |
 | 9 | Echo-cancellation spike with a playback reference | Medium, may end in "no" | 8 |
@@ -399,7 +405,7 @@ With music, the wake word held but speech after it suffered: once the start of t
 
 - ~~Does `okay_nabu` trigger reliably from across a room? With music playing?~~ Yes, 1 m to 7 m, quiet and with room music (pass 1, small samples). False wakes at `very`; `slightly` untested. Music played *by the tablet* is still untested.
 - ~~Does the first word after the wake sound get swallowed?~~ Yes, by Ava's streaming order rather than by gain recovery (pass 1). The gain recovery itself was not isolated.
-- Does the stop word land in a one-second gap in the timer ring? Not tried.
+- ~~Does the stop word land in a one-second gap in the timer ring?~~ Yes, once (phase 6 on the tablet): Ava stopped the timer 670 ms into the gap. Whether it is also caught over the tone was not isolated.
 - ~~Does Home Assistant discover the service from an `NsdManager` registration inside a foreground service?~~ Yes. Keeping the connection for days: not yet soaked.
 - Does the service survive under lock task? Not tried. ~~Across the activity being recreated on rotation?~~ Rotation does not recreate it; recreation itself is survived since fix 2.
 - ~~Does requesting `RECORD_AUDIO` behave under immersive mode and as the HOME app?~~ Yes.
