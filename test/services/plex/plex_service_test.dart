@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:fake_async/fake_async.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hearth/services/plex/plex_player_state.dart';
@@ -65,6 +66,9 @@ class FakeVideoPlayer implements HearthVideoPlayer {
 
   @override
   Duration get duration => durationValue;
+
+  @override
+  ValueListenable<Size?> get videoSize => ValueNotifier<Size?>(null);
 
   @override
   Widget buildView({BoxFit fit = BoxFit.contain}) => const SizedBox.shrink();
