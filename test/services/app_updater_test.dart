@@ -94,6 +94,22 @@ void main() {
     expect(s.phase, AppUpdatePhase.waitingForConfirmation);
   });
 
+  test('a dev APK without its .sha256 says so', () async {
+    latest = UpdateInfo.devApk(_apkUrl);
+    http.files.remove(_sumUrl);
+    final s = await updater().apply();
+    expect(s.phase, AppUpdatePhase.failed);
+    expect(s.message, 'the dev APK has no .sha256 checksum; not installing');
+    expect(http.requests, isNot(contains(_apkUrl)));
+  });
+
+  test('a failed download reports the status in one line', () async {
+    http.files.remove(_apkUrl);
+    final s = await updater().apply();
+    expect(s.phase, AppUpdatePhase.failed);
+    expect(s.message, 'Download of v1.22.0 failed: HTTP 404 from $_apkUrl');
+  });
+
   test('a verified download is reused rather than fetched again', () async {
     final u = updater();
     await u.apply();

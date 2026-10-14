@@ -46,11 +46,11 @@ class AppUpdateState {
       phase == AppUpdatePhase.verifying;
 
   Map<String, dynamic> toJson() => {
-        'phase': phase.name,
-        'message': message,
-        if (version != null) 'version': version,
-        if (progress != null) 'progress': progress,
-      };
+    'phase': phase.name,
+    'message': message,
+    if (version != null) 'version': version,
+    if (progress != null) 'progress': progress,
+  };
 }
 
 /// A `PackageInstaller` session result, as `MainActivity` reports it.
@@ -89,7 +89,8 @@ class MethodChannelAppInstaller implements AppInstaller {
       if (call.method == 'installStatus') {
         final args = Map<String, dynamic>.from(call.arguments as Map);
         _results.add(
-            InstallResult(args['status'] as int, args['message'] as String?));
+          InstallResult(args['status'] as int, args['message'] as String?),
+        );
       }
     });
   }
@@ -136,15 +137,16 @@ class AppUpdater extends StateNotifier<AppUpdateState> {
     Map<String, String> Function()? downloadHeaders,
     Future<Directory> Function()? cacheDir,
     Dio? dio,
-  })  : _checkForUpdate = checkForUpdate,
-        _installer = installer,
-        _installedVersion =
-            installedVersion ?? (() => readInstalledVersion(android: true)),
-        _downloadHeaders = downloadHeaders ?? (() => const {}),
-        _cacheDir = cacheDir ?? getTemporaryDirectory,
-        _dio = dio ??
-            Dio(BaseOptions(headers: {'User-Agent': 'Hearth-Home-Updater'})),
-        super(AppUpdateState.idle) {
+  }) : _checkForUpdate = checkForUpdate,
+       _installer = installer,
+       _installedVersion =
+           installedVersion ?? (() => readInstalledVersion(android: true)),
+       _downloadHeaders = downloadHeaders ?? (() => const {}),
+       _cacheDir = cacheDir ?? getTemporaryDirectory,
+       _dio =
+           dio ??
+           Dio(BaseOptions(headers: {'User-Agent': 'Hearth-Home-Updater'})),
+       super(AppUpdateState.idle) {
     _resultSub = _installer.results.listen(_onInstallResult);
   }
 
@@ -169,25 +171,35 @@ class AppUpdater extends StateNotifier<AppUpdateState> {
       return _fail('Update check failed: $e');
     }
     if (latest == null || (!latest.dev && !latest.isNewerThan(current))) {
-      return _set(AppUpdateState(AppUpdatePhase.upToDate,
-          current.isEmpty ? 'Up to date' : 'Up to date (v$current)'));
+      return _set(
+        AppUpdateState(
+          AppUpdatePhase.upToDate,
+          current.isEmpty ? 'Up to date' : 'Up to date (v$current)',
+        ),
+      );
     }
     final version = latest.version;
+    final v = _label(version);
     if (auto && _autoAttempted.contains(version)) return _set(before);
 
     if (!await _installer.canInstall()) {
       if (!auto) await _installer.openInstallSettings();
-      return _set(AppUpdateState(
+      return _set(
+        AppUpdateState(
           AppUpdatePhase.needsPermission,
           'Allow Hearth to install unknown apps in Android settings, '
           'then update again',
-          version: version));
+          version: version,
+        ),
+      );
     }
 
     final checksumUrl = latest.checksumUrl;
     if (checksumUrl == null) {
-      return _fail('v$version has no .sha256 checksum; not installing',
-          version: version);
+      return _fail(
+        '$v has no .sha256 checksum; not installing',
+        version: version,
+      );
     }
     if (auto) _autoAttempted.add(version);
 
@@ -195,22 +207,44 @@ class AppUpdater extends StateNotifier<AppUpdateState> {
     try {
       final dir = Directory('${(await _cacheDir()).path}/updates');
       await dir.create(recursive: true);
-      apk = File('${dir.path}/${Uri.parse(latest.bundleUrl).pathSegments.last}');
+      apk = File(
+        '${dir.path}/${Uri.parse(latest.bundleUrl).pathSegments.last}',
+      );
       await for (final old in dir.list()) {
         if (old.path != apk.path) await old.delete(recursive: true);
       }
 
-      final expected = await _fetchChecksum(checksumUrl);
+      final String? expected;
+      try {
+        expected = await _fetchChecksum(checksumUrl);
+      } on DioException catch (e) {
+        if (e.response?.statusCode == 404) {
+          return _fail(
+            '$v has no .sha256 checksum; not installing',
+            version: version,
+          );
+        }
+        rethrow;
+      }
       if (expected == null) {
-        return _fail('The checksum file for v$version is unreadable; '
-            'not installing', version: version);
+        return _fail(
+          'The checksum file for $v is unreadable; '
+          'not installing',
+          version: version,
+        );
       }
 
       // A file already fetched and intact is reused rather than downloaded
       // again — the prompt may have been dismissed, not the update refused.
       if (!await apk.exists() || await _sha256(apk) != expected) {
-        _set(AppUpdateState(AppUpdatePhase.downloading, 'Downloading v$version',
-            version: version, progress: 0));
+        _set(
+          AppUpdateState(
+            AppUpdatePhase.downloading,
+            'Downloading $v',
+            version: version,
+            progress: 0,
+          ),
+        );
         var lastPct = 0;
         await _dio.download(
           latest.bundleUrl,
@@ -223,21 +257,33 @@ class AppUpdater extends StateNotifier<AppUpdateState> {
             final pct = got * 100 ~/ total;
             if (pct == lastPct) return;
             lastPct = pct;
-            _set(AppUpdateState(AppUpdatePhase.downloading,
-                'Downloading v$version ($pct%)',
-                version: version, progress: got / total));
+            _set(
+              AppUpdateState(
+                AppUpdatePhase.downloading,
+                'Downloading $v ($pct%)',
+                version: version,
+                progress: got / total,
+              ),
+            );
           },
         );
-        _set(AppUpdateState(AppUpdatePhase.verifying, 'Verifying v$version',
-            version: version));
+        _set(
+          AppUpdateState(
+            AppUpdatePhase.verifying,
+            'Verifying $v',
+            version: version,
+          ),
+        );
         if (await _sha256(apk) != expected) {
           await apk.delete();
-          return _fail('Checksum mismatch for v$version; not installing',
-              version: version);
+          return _fail(
+            'Checksum mismatch for $v; not installing',
+            version: version,
+          );
         }
       }
     } catch (e) {
-      return _fail('Download of v$version failed: $e', version: version);
+      return _fail('Download of $v failed: ${_describe(e)}', version: version);
     }
 
     try {
@@ -248,9 +294,13 @@ class AppUpdater extends StateNotifier<AppUpdateState> {
     // The prompt may already have come and gone while install() ran.
     if (state.phase == AppUpdatePhase.verifying ||
         state.phase == AppUpdatePhase.checking) {
-      _set(AppUpdateState(AppUpdatePhase.waitingForConfirmation,
-          'Confirm the update to v$version on the tablet',
-          version: version));
+      _set(
+        AppUpdateState(
+          AppUpdatePhase.waitingForConfirmation,
+          'Confirm the update to $v on the tablet',
+          version: version,
+        ),
+      );
     }
     return state;
   }
@@ -273,28 +323,54 @@ class AppUpdater extends StateNotifier<AppUpdateState> {
 
   void _onInstallResult(InstallResult r) {
     final version = state.version;
-    final v = version == null ? 'the update' : 'v$version';
+    final v = _label(version);
     switch (r.status) {
       case InstallResult.pendingUserAction:
-        _set(AppUpdateState(AppUpdatePhase.waitingForConfirmation,
+        _set(
+          AppUpdateState(
+            AppUpdatePhase.waitingForConfirmation,
             'Confirm the update to $v on the tablet',
-            version: version));
+            version: version,
+          ),
+        );
       case InstallResult.success:
-        _set(AppUpdateState(AppUpdatePhase.idle, 'Installed $v',
-            version: version));
+        _set(
+          AppUpdateState(AppUpdatePhase.idle, 'Installed $v', version: version),
+        );
       case InstallResult.aborted:
         _fail('Install of $v was cancelled', version: version);
       default:
-        _fail('Android refused $v: ${describeInstallFailure(r.message)}',
-            version: version);
+        _fail(
+          'Android refused $v: ${describeInstallFailure(r.message)}',
+          version: version,
+        );
     }
   }
 
   Future<String?> _fetchChecksum(String url) async {
-    final res = await _dio.get<String>(url,
-        options: Options(
-            headers: _downloadHeaders(), responseType: ResponseType.plain));
+    final res = await _dio.get<String>(
+      url,
+      options: Options(
+        headers: _downloadHeaders(),
+        responseType: ResponseType.plain,
+      ),
+    );
     return parseSha256(res.data ?? '');
+  }
+
+  static String _label(String? version) => switch (version) {
+    null => 'the update',
+    'dev' => 'the dev APK',
+    _ => 'v$version',
+  };
+
+  /// Dio's own text runs to several lines of advice; one line is enough.
+  static String _describe(Object e) {
+    if (e is! DioException) return '$e';
+    final code = e.response?.statusCode;
+    return code != null
+        ? 'HTTP $code from ${e.requestOptions.uri}'
+        : e.message ?? e.type.name;
   }
 
   static Future<String> _sha256(File f) async =>
@@ -302,7 +378,9 @@ class AppUpdater extends StateNotifier<AppUpdateState> {
 
   AppUpdateState _fail(String message, {String? version}) {
     Log.e('Update', message);
-    return _set(AppUpdateState(AppUpdatePhase.failed, message, version: version));
+    return _set(
+      AppUpdateState(AppUpdatePhase.failed, message, version: version),
+    );
   }
 
   AppUpdateState _set(AppUpdateState s) {
@@ -338,8 +416,9 @@ String describeInstallFailure(String? message) {
   return m;
 }
 
-final appUpdaterProvider =
-    StateNotifierProvider<AppUpdater, AppUpdateState>((ref) {
+final appUpdaterProvider = StateNotifierProvider<AppUpdater, AppUpdateState>((
+  ref,
+) {
   // As on the Pi, a dev URL replaces the release lookup and carries no auth.
   String? devApk() {
     final c = ref.read(hubConfigProvider);
