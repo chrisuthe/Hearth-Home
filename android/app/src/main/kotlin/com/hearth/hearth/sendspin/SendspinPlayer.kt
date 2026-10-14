@@ -174,7 +174,7 @@ class SendspinPlayer(
     /** Dart's system slider. Sets the media volume and tells the server. */
     fun setVolume(value: Float) {
         lastKnownVolume = volume.set(value)
-        current?.setVolume(volume.get().toDouble())
+        reportVolume()
         report()
     }
 
@@ -423,12 +423,22 @@ class SendspinPlayer(
                 val index = volume.index
                 if (index == lastKnownVolume) return
                 lastKnownVolume = index
-                current?.setVolume(volume.get().toDouble())
+                reportVolume()
                 report()
             }
         }
         context.contentResolver.registerContentObserver(Settings.System.CONTENT_URI, true, observer)
         volumeObserver = observer
+    }
+
+    /**
+     * The media volume to the server. `setVolume` truncates `volume * 100`,
+     * and 41/100 comes out as 40.99…: the half step makes it land on the
+     * percent the device shows.
+     */
+    private fun reportVolume() {
+        val percent = (volume.get() * 100).roundToInt()
+        current?.setVolume((percent + 0.5) / 100)
     }
 
     // ========== Network ==========
