@@ -348,7 +348,8 @@ class HubConfig {
   /// set, the OTA updater installs the bundle at that URL directly instead of
   /// checking the release API. Lets us test unreleased builds on-device. The
   /// URL is web-portal only (typing it via OSK is painful); the toggle is on
-  /// both surfaces. See scripts/hearth-updater.sh.
+  /// both surfaces. See scripts/hearth-updater.sh; on Android, an `.apk` URL
+  /// is installed by `AppUpdater` (its `.sha256` must sit beside it).
   final bool devBundleEnabled;
   final String devBundleUrl;
 

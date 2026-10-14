@@ -10,6 +10,8 @@ import 'package:hearth/services/local_api_server.dart';
 import 'package:hearth/services/display_mode_service.dart';
 import 'package:hearth/services/capture_service.dart';
 import 'package:hearth/services/notification_service.dart';
+import 'package:hearth/services/app_updater.dart';
+import 'package:hearth/services/update_service.dart';
 import 'package:hearth/models/hearth_notification.dart';
 
 void main() {
@@ -441,6 +443,86 @@ void main() {
       expect(data.containsKey('autoUpdate'), true);
     });
 
+    group('update routes', () {
+      Future<void> restart({
+        required bool android,
+        List<List<String>>? calls,
+        AppUpdater? appUpdater,
+      }) async {
+        await server.stop();
+        server = LocalApiServer(
+          displayModeService: displayService,
+          configNotifier: configNotifier,
+          android: android,
+          appUpdater: appUpdater,
+          installedVersion: () async => '1.21.0',
+          updateService: _FixedUpdateService(const UpdateInfo(
+              version: '1.22.0', bundleUrl: 'u', tagName: 'v1.22.0')),
+          runProcess: (exe, args) async {
+            calls?.add([exe, ...args]);
+            return ProcessResult(0, 0, 'started', '');
+          },
+        );
+        port = await server.start(port: 0);
+      }
+
+      test('the Pi status reports only version and auto-update', () async {
+        await restart(android: false);
+        final data = jsonDecode(await readBody(
+                await get('/api/update/status', headers: authHeaders)))
+            as Map<String, dynamic>;
+        expect(data, {'currentVersion': '1.21.0', 'autoUpdate': true});
+      });
+
+      test('the Pi apply still starts hearth-updater.service', () async {
+        final calls = <List<String>>[];
+        await restart(android: false, calls: calls);
+        final res =
+            await post('/api/update/apply', body: '{}', headers: authHeaders);
+        expect(res.statusCode, 200);
+        final data = jsonDecode(await readBody(res)) as Map<String, dynamic>;
+        expect(data, {'success': true, 'output': 'started', 'error': ''});
+        expect(calls, [
+          ['sudo', 'systemctl', 'start', 'hearth-updater.service'],
+        ]);
+      });
+
+      test('Android status adds the latest release and updater state',
+          () async {
+        final updater = AppUpdater(
+            checkForUpdate: () async => null, installer: _NoInstaller());
+        await restart(android: true, appUpdater: updater);
+        final data = jsonDecode(await readBody(
+                await get('/api/update/status', headers: authHeaders)))
+            as Map<String, dynamic>;
+        expect(data['currentVersion'], '1.21.0');
+        expect(data['latestVersion'], '1.22.0');
+        expect(data['updateAvailable'], true);
+        expect((data['state'] as Map)['phase'], 'idle');
+        updater.dispose();
+      });
+
+      test('Android apply reports where it stopped and never runs sudo',
+          () async {
+        final calls = <List<String>>[];
+        final updater = AppUpdater(
+          checkForUpdate: () async => const UpdateInfo(
+              version: '1.22.0', bundleUrl: 'u', tagName: 'v1.22.0'),
+          installedVersion: () async => '1.21.0',
+          installer: _NoInstaller(),
+        );
+        await restart(android: true, calls: calls, appUpdater: updater);
+        final res =
+            await post('/api/update/apply', body: '{}', headers: authHeaders);
+        expect(res.statusCode, 409);
+        final data = jsonDecode(await readBody(res)) as Map<String, dynamic>;
+        expect(data['state'], 'needsPermission');
+        expect(data['message'], contains('install unknown apps'));
+        expect(calls, isEmpty);
+        updater.dispose();
+      });
+    });
+
     // --- Notify endpoint ---
 
     group('notify endpoint', () {
@@ -807,4 +889,27 @@ class _MemoryHubConfigNotifier extends HubConfigNotifier {
   Future<void> update(HubConfig Function(HubConfig) updater) async {
     state = updater(state);
   }
+}
+
+class _FixedUpdateService extends UpdateService {
+  final UpdateInfo? _latest;
+  _FixedUpdateService(this._latest);
+
+  @override
+  Future<UpdateInfo?> checkForUpdate() async => _latest;
+}
+
+/// An installer without the "Install unknown apps" grant.
+class _NoInstaller implements AppInstaller {
+  @override
+  Future<bool> canInstall() async => false;
+
+  @override
+  Future<void> openInstallSettings() async {}
+
+  @override
+  Future<void> install(String apkPath) async {}
+
+  @override
+  Stream<InstallResult> get results => const Stream.empty();
 }

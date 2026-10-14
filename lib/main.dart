@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'app/app.dart';
 import 'config/hub_config.dart';
 import 'packages/hearth_osk/hearth_osk.dart';
+import 'services/app_updater.dart';
 import 'services/capture_service.dart';
 import 'services/display_rotation_service.dart';
 import 'services/local_api_server.dart';
@@ -131,6 +132,8 @@ Future<void> main() async {
     // Plex Companion player: eager read so GDM advertisement starts at boot
     // when config says enabled.
     container.read(plexServiceProvider);
+    // Android self-update: eager read starts the daily auto-update check.
+    if (Platform.isAndroid) container.read(appUpdaterProvider);
   }
 
   // Eager-load AlarmService so persisted alarms are loaded and the
