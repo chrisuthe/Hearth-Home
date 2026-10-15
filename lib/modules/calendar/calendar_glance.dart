@@ -165,10 +165,7 @@ class _CalendarGlanceState extends ConsumerState<CalendarGlance> {
                     borderRadius: radius,
                   ),
                   child: DefaultTextStyle.merge(
-                    style: const TextStyle(
-                      fontFamily: CalendarType.family,
-                      fontFeatures: [FontFeature.tabularFigures()],
-                    ),
+                    style: CalendarType.base,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       mainAxisSize: MainAxisSize.min,

@@ -279,4 +279,17 @@ void main() {
       );
     });
   });
+
+  group('compactTime', () {
+    test('drops :00 and shortens the period on a 12-hour clock', () {
+      expect(compactTime(DateTime(2026, 10, 15, 18), false), '6p');
+      expect(compactTime(DateTime(2026, 10, 15, 12, 30), false), '12:30p');
+      expect(compactTime(DateTime(2026, 10, 15, 0, 5), false), '12:05a');
+      expect(compactTime(DateTime(2026, 10, 15, 9, 30), false), '9:30a');
+    });
+
+    test('keeps the full time on a 24-hour clock', () {
+      expect(compactTime(DateTime(2026, 10, 15, 18), true), '18:00');
+    });
+  });
 }

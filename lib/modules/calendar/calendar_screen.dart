@@ -132,7 +132,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen>
     return ColoredBox(
       color: Colors.black,
       child: DefaultTextStyle.merge(
-        style: _calendarText,
+        style: CalendarType.base,
         child: LayoutBuilder(
           builder: (context, c) {
             final narrow = c.maxWidth < kCalendarNarrowWidth;
@@ -229,12 +229,6 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen>
   }
 }
 
-/// The face the design was drawn in, with figures that line up in columns.
-const _calendarText = TextStyle(
-  fontFamily: CalendarType.family,
-  fontFeatures: [FontFeature.tabularFigures()],
-);
-
 class _NotConfigured extends StatelessWidget {
   const _NotConfigured();
 
@@ -242,7 +236,7 @@ class _NotConfigured extends StatelessWidget {
   Widget build(BuildContext context) => ColoredBox(
     color: Colors.black,
     child: DefaultTextStyle.merge(
-      style: _calendarText,
+      style: CalendarType.base,
       child: Center(
         child: Padding(
           padding: HearthSpacing.allX6,
@@ -478,6 +472,7 @@ class _ViewSwitcher extends StatelessWidget {
   Widget _segment(CalendarView v, bool fallsBack) {
     final selected = v == view;
     final button = Material(
+      textStyle: CalendarType.base,
       color: selected ? CalendarColors.accent : Colors.transparent,
       shape: const StadiumBorder(),
       child: InkWell(
@@ -539,12 +534,16 @@ class _SourcePill extends StatelessWidget {
         : CalendarColors.onFill;
     final shape = StadiumBorder(
       side: hidden
-          ? const BorderSide(color: CalendarColors.pillOffOutline, width: 2)
+          ? const BorderSide(
+              color: CalendarColors.pillOffOutline,
+              width: CalendarSizes.outline,
+            )
           : BorderSide.none,
     );
     return Tooltip(
       message: [name, ?note, if (hidden) 'hidden'].join(' · '),
       child: Material(
+        textStyle: CalendarType.base,
         color: hidden ? Colors.transparent : fill,
         shape: shape,
         child: InkWell(

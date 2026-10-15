@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hearth/app/tokens/calendar_tokens.dart';
 import 'package:hearth/config/hub_config.dart';
 import 'package:hearth/modules/calendar/calendar_layout.dart';
 import 'package:hearth/modules/calendar/calendar_providers.dart';
@@ -201,6 +202,26 @@ void main() {
     await tester.tap(find.byTooltip('Family · hidden'));
     await tester.pump();
     expect(find.text('Dentist — Ava'), findsWidgets);
+  });
+
+  testWidgets('text under a Material keeps the calendar face', (tester) async {
+    await pump(tester, view: 'day');
+    for (final text in [
+      find.descendant(
+        of: find.byTooltip('Family'),
+        matching: find.text('Family'),
+      ),
+      find.text('Week'),
+      find.text('Dentist — Ava').first,
+    ]) {
+      final style = tester
+          .widget<RichText>(
+            find.descendant(of: text, matching: find.byType(RichText)),
+          )
+          .text
+          .style;
+      expect(style?.fontFamily, CalendarType.family, reason: '$text');
+    }
   });
 
   testWidgets('an event opens a read-only detail sheet', (tester) async {

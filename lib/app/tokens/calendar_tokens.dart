@@ -123,6 +123,9 @@ class CalendarSizes {
 
   /// Space around an event block inside its column.
   static const double blockGap = 3;
+
+  /// Stroke of an outline: a tentative event, a hidden source's pill.
+  static const double outline = 2;
   static const double blockPadH = 10;
   static const double blockPadV = 7;
 
@@ -194,6 +197,15 @@ class CalendarType {
 
   /// Bundled, and what the design was drawn in.
   static const String family = 'Inter';
+
+  /// The root text style for the screen, the sheets and the glance, with
+  /// figures that line up in columns. Every [Material] in them takes it as
+  /// its `textStyle`, or Material would put the theme's face back.
+  static const TextStyle base = TextStyle(
+    fontFamily: family,
+    fontFeatures: [FontFeature.tabularFigures()],
+    color: CalendarColors.text,
+  );
 
   static const double title = 26;
   static const double control = 17;

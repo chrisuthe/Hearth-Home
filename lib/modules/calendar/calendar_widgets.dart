@@ -106,6 +106,7 @@ class CalendarEventTile extends StatelessWidget {
     final card = Padding(
       padding: const EdgeInsets.only(bottom: HearthSpacing.x2),
       child: Material(
+        textStyle: CalendarType.base,
         color: now ? CalendarColors.nowTint : CalendarColors.card,
         borderRadius: BorderRadius.circular(CalendarRadii.card),
         child: InkWell(
@@ -368,7 +369,7 @@ Future<void> _showSheet(BuildContext context, WidgetBuilder builder) =>
         ),
       ),
       builder: (context) => DefaultTextStyle.merge(
-        style: const TextStyle(fontFamily: CalendarType.family),
+        style: CalendarType.base,
         child: builder(context),
       ),
     );
@@ -483,10 +484,7 @@ Future<void> showCalendarEventSheet(
               ],
             ),
             const SizedBox(height: HearthSpacing.x3),
-            row(
-              Icons.schedule,
-              event.tentative ? '$when (tentative)' : when,
-            ),
+            row(Icons.schedule, event.tentative ? '$when (tentative)' : when),
             if (event.location != null && event.location!.isNotEmpty)
               row(Icons.place_outlined, event.location!),
             if (event.description != null && event.description!.isNotEmpty)

@@ -265,7 +265,9 @@ class _CalendarTimeGridState extends State<CalendarTimeGrid> {
             Positioned(
               top: slot.startMinute * pxPerMinute + 1,
               height: (slot.endMinute - slot.startMinute) * pxPerMinute - 2,
-              left: colWidth * slot.column / slot.columns + CalendarSizes.blockGap,
+              left:
+                  colWidth * slot.column / slot.columns +
+                  CalendarSizes.blockGap,
               width: colWidth / slot.columns - 2 * CalendarSizes.blockGap,
               child: _TimedBlock(
                 event: slot.event,
@@ -283,12 +285,11 @@ class _CalendarTimeGridState extends State<CalendarTimeGrid> {
     final col = widget.days.indexOf(widget.ctx.today);
     if (col < 0) return const [];
     final now = widget.ctx.now;
-    final top =
-        (now.hour * 60 + now.minute) * CalendarSizes.hourHeight / 60;
-    final time = formatTime(now, widget.ctx.use24h).replaceAll(
-      RegExp(r' [AP]M$'),
-      '',
-    );
+    final top = (now.hour * 60 + now.minute) * CalendarSizes.hourHeight / 60;
+    final time = formatTime(
+      now,
+      widget.ctx.use24h,
+    ).replaceAll(RegExp(r' [AP]M$'), '');
     return [
       Positioned(
         top: top - CalendarSizes.nowLine / 2,
@@ -438,7 +439,9 @@ BoxDecoration _eventDecoration(
   final fill = ctx.fillOf(event.sourceId);
   return BoxDecoration(
     color: event.tentative ? Colors.black : fill,
-    border: event.tentative ? Border.all(color: fill, width: 2) : null,
+    border: event.tentative
+        ? Border.all(color: fill, width: CalendarSizes.outline)
+        : null,
     borderRadius: BorderRadius.circular(radius),
   );
 }

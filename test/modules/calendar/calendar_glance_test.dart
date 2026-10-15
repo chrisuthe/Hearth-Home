@@ -13,6 +13,7 @@ import 'package:hearth/services/notification_service.dart';
 import 'package:hearth/services/timer_service.dart';
 import 'package:hearth/services/voice_assistant_service.dart';
 import 'package:hearth/services/weather_service.dart';
+import 'package:hearth/utils/time_format.dart';
 
 import '../../portrait/portrait_fixtures.dart';
 import '../../portrait/portrait_harness.dart';
@@ -257,6 +258,26 @@ void main() {
       await tester.pump();
       expect(rebuilt, contains(CalendarGlance));
       expect(find.text('Dentist'), findsOneWidget);
+    });
+
+    testWidgets('marks the event in progress Now, with its end', (
+      tester,
+    ) async {
+      final now = DateTime.now();
+      final end = now.add(const Duration(minutes: 30));
+      await pump(
+        tester,
+        events: [
+          _timed(
+            'Standup',
+            now.subtract(const Duration(minutes: 30)),
+            const Duration(hours: 1),
+          ),
+        ],
+      );
+      expect(find.text('Now'), findsOneWidget);
+      expect(find.text('until ${formatTime(end, false)}'), findsOneWidget);
+      expect(find.text('Standup'), findsOneWidget);
     });
 
     testWidgets('tapping it calls onTap', (tester) async {

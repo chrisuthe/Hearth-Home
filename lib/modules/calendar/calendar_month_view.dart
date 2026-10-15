@@ -10,7 +10,9 @@ import 'models.dart';
 
 /// Top of the first chip: the day number and the space around it.
 const _chipsTop =
-    HearthSpacing.x1 + CalendarSizes.monthDayNumber + CalendarSizes.monthChipGap;
+    HearthSpacing.x1 +
+    CalendarSizes.monthDayNumber +
+    CalendarSizes.monthChipGap;
 const _laneHeight = CalendarSizes.monthChip + CalendarSizes.monthChipGap;
 
 /// Six week rows. Wide cells show chips and "+n", with multi-day events as
@@ -245,6 +247,7 @@ class _DayCell extends StatelessWidget {
       ),
     );
     return Material(
+      textStyle: CalendarType.base,
       color: isSelected
           ? CalendarColors.todayTint
           : weekend
@@ -332,7 +335,9 @@ class _Chip extends StatelessWidget {
         alignment: Alignment.centerLeft,
         decoration: BoxDecoration(
           color: event.tentative ? Colors.black : fill,
-          border: event.tentative ? Border.all(color: fill, width: 2) : null,
+          border: event.tentative
+              ? Border.all(color: fill, width: CalendarSizes.outline)
+              : null,
           borderRadius: BorderRadius.circular(CalendarRadii.chip),
         ),
         child: Text(
