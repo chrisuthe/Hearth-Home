@@ -51,7 +51,7 @@ Captured from a live Hearth kiosk (Raspberry Pi 5, 11" AMOLED).
 
 | Calendar | Lists & Chores |
 | --- | --- |
-| ![Calendar week view with events from Home Assistant calendars](docs/screenshots/calendar.png) | ![Lists screen showing Home Assistant to-do lists](docs/screenshots/lists.png) |
+| ![Calendar week view with events from two colour-coded calendars](docs/screenshots/calendar.png) | ![Lists screen with a groceries list and two chore lists in the rail](docs/screenshots/lists.png) |
 
 | Home Assistant Controls | Music Assistant |
 | --- | --- |
