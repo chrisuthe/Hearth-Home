@@ -11,6 +11,7 @@
 - [[Photos & Ambient Display]]
 - [[Weather]]
 - [[Calendar]]
+- [[Lists & Chores]]
 - [[Home Assistant Controls]]
 - [[Music Assistant]]
 - [[Cameras (Frigate)]]
