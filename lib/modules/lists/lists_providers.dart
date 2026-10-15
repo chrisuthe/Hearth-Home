@@ -44,6 +44,12 @@ final todoActionsProvider = Provider<TodoActions>((ref) => TodoActions(
       (entityId) => ref.read(todoFeaturesProvider(entityId)),
     ));
 
+enum ListsView { lists, chores }
+
+/// Which view the Lists screen shows. Outside the screen so the glance can
+/// open it on Chores.
+final listsViewProvider = StateProvider<ListsView>((ref) => ListsView.lists);
+
 /// The clock [choresTodayProvider] reads; tests override it.
 final todoNowProvider = Provider<DateTime Function()>((ref) => DateTime.now);
 

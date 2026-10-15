@@ -7,6 +7,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/tokens/tokens.dart';
 import '../../config/hub_config.dart';
 import '../../services/home_assistant_service.dart';
+import '../../utils/time_format.dart';
+import 'chores_view.dart';
 import 'lists_providers.dart';
 import 'lists_widgets.dart';
 import 'models.dart';
@@ -32,8 +34,8 @@ class _Write {
   bool settled = false;
 }
 
-/// The configured HA to-do lists: complete, add, edit, delete, reorder.
-/// Nothing here uses a horizontal gesture; those belong to HubShell's
+/// The configured HA to-do lists: complete, add, edit, delete, reorder;
+/// and, once a list has a person, the chore chart. Nothing here uses a horizontal gesture; those belong to HubShell's
 /// PageView.
 class ListsScreen extends ConsumerStatefulWidget {
   const ListsScreen({super.key, this.isActive = false});
@@ -51,8 +53,8 @@ class _ListsScreenState extends ConsumerState<ListsScreen>
 
   String? _selected;
 
-  /// The list on screen at the last build.
-  String? _shown;
+  /// The lists on screen at the last build.
+  Set<String> _shown = const {};
   bool _showCompleted = false;
   final Map<String, List<_Write>> _writes = {};
 
@@ -60,15 +62,17 @@ class _ListsScreenState extends ConsumerState<ListsScreen>
   final Map<String, int> _pushes = {};
   final _add = TextEditingController();
   final _addFocus = FocusNode();
-  DateTime _now = DateTime.now();
+  late DateTime _now = _clockNow();
   Timer? _clock;
+
+  DateTime _clockNow() => ref.read(todoNowProvider)();
 
   @override
   void initState() {
     super.initState();
-    // Keeps "today" and the overdue colour current.
+    // Keeps "today", "late" and the overdue colour current.
     _clock = Timer.periodic(const Duration(minutes: 1), (_) {
-      if (mounted) setState(() => _now = DateTime.now());
+      if (mounted) setState(() => _now = _clockNow());
     });
   }
 
@@ -101,7 +105,7 @@ class _ListsScreenState extends ConsumerState<ListsScreen>
       // that came in meanwhile is already the result. A list no longer shown
       // resubscribes, fresh, when it is shown again.
       if (error != null ||
-          entityId != _shown ||
+          !_shown.contains(entityId) ||
           _pushes[entityId] != pushes ||
           listEquals(apply(_items(entityId)), _items(entityId))) {
         _writes[entityId]?.remove(write);
@@ -118,15 +122,15 @@ class _ListsScreenState extends ConsumerState<ListsScreen>
   }
 
   void _toggle(String entityId, TodoItem item) {
+    final completing = item.status != TodoStatus.completed;
     final to = TodoItem(
       uid: item.uid,
       summary: item.summary,
-      status: item.status == TodoStatus.completed
-          ? TodoStatus.needsAction
-          : TodoStatus.completed,
+      status: completing ? TodoStatus.completed : TodoStatus.needsAction,
       due: item.due,
       description: item.description,
-      completed: item.completed,
+      // Drawn as HA will stamp it, so the chart keeps it under done today.
+      completed: completing ? _clockNow().toUtc() : null,
     );
     _update(entityId, item, to);
   }
@@ -245,24 +249,11 @@ class _ListsScreenState extends ConsumerState<ListsScreen>
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    super.build(context);
-    final lists = ref.watch(hubConfigProvider.select((c) => c.todoLists));
-    if (lists.isEmpty) return const _NotConfigured();
-    final list = lists.firstWhere(
-      (l) => l.entityId == _selected,
-      orElse: () => lists.first,
-    );
-    final entityId = list.entityId;
-    _shown = entityId;
-    final ha = ref.watch(homeAssistantServiceProvider);
-    final name = todoListName(list, ha.entities[entityId]);
-    final features = ref.watch(todoFeaturesProvider(entityId));
-    final use24h = ref.watch(hubConfigProvider.select((c) => c.use24HourClock));
-    final state =
-        ref.watch(todoListProvider(entityId)).valueOrNull ??
-            const TodoListState();
+  /// [entityId]'s state, with the writes in flight drawn over its items and
+  /// the uids they hold busy. Also counts its pushes, and drops the writes a
+  /// push settles.
+  ({TodoListState state, List<TodoItem> items, Set<String> busy}) _watchList(
+      String entityId) {
     ref.listen(todoListProvider(entityId), (_, next) {
       if (!next.hasValue) return;
       _pushes[entityId] = (_pushes[entityId] ?? 0) + 1;
@@ -270,13 +261,120 @@ class _ListsScreenState extends ConsumerState<ListsScreen>
       if (writes == null || !writes.any((w) => w.settled)) return;
       setState(() => writes.removeWhere((w) => w.settled));
     });
-
+    final state = ref.watch(todoListProvider(entityId)).valueOrNull ??
+        const TodoListState();
     final writes = _writes[entityId] ?? const <_Write>[];
     var items = state.items;
     for (final w in writes) {
       items = w.apply(items);
     }
-    final busy = {for (final w in writes) ...w.uids};
+    return (
+      state: state,
+      items: items,
+      busy: {for (final w in writes) ...w.uids},
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    final lists = ref.watch(hubConfigProvider.select((c) => c.todoLists));
+    if (lists.isEmpty) return const _NotConfigured();
+    final hasChores = lists.any((l) => l.isChore);
+    final view = hasChores ? ref.watch(listsViewProvider) : ListsView.lists;
+    final switcher = _ViewSwitch(
+      view: view,
+      onChanged: hasChores
+          ? (v) => ref.read(listsViewProvider.notifier).state = v
+          : null,
+    );
+    return ColoredBox(
+      color: Colors.black,
+      child: view == ListsView.chores
+          ? _buildChores(lists, switcher)
+          : _buildLists(lists, switcher),
+    );
+  }
+
+  Widget _buildChores(List<TodoListConfig> lists, _ViewSwitch switcher) {
+    final use24h = ref.watch(hubConfigProvider.select((c) => c.use24HourClock));
+    final chores = [for (final l in lists) if (l.isChore) l];
+    _shown = {for (final l in chores) l.entityId};
+    final watched = {for (final l in chores) l.entityId: _watchList(l.entityId)};
+    final features = {
+      for (final l in chores) l.entityId: ref.watch(todoFeaturesProvider(l.entityId)),
+    };
+    final states = [for (final w in watched.values) w.state];
+    final note = states.firstWhere(
+      (s) => s.status == ListStatus.error || s.status == ListStatus.stale,
+      orElse: () => const TodoListState(status: ListStatus.ok),
+    );
+    final loading = states.every(
+        (s) => s.status == ListStatus.loading && s.items.isEmpty);
+
+    Widget row(ChoreLine line) {
+      final entityId = line.list.entityId;
+      final item = line.item;
+      final uid = item.uid;
+      final canUpdate = features[entityId]!.canUpdate;
+      final toggle =
+          uid == null || !canUpdate ? null : () => _toggle(entityId, item);
+      return TodoItemRow(
+        item: item,
+        now: _now,
+        use24h: use24h,
+        showCheckbox: canUpdate,
+        busy: uid != null && watched[entityId]!.busy.contains(uid),
+        late: line.late,
+        onToggle: toggle,
+        onTap: toggle,
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _Header(
+          switcher: switcher,
+          wide: false,
+          current: Text(
+            formatDateShort(_now),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.end,
+            style: TextStyle(
+              fontSize: HearthFont.bodyLg,
+              color: Colors.white.withValues(alpha: 0.7),
+            ),
+          ),
+        ),
+        _StatusNote(state: note),
+        const Divider(height: 1, color: Colors.white12),
+        Expanded(
+          child: loading
+              ? const Center(child: CircularProgressIndicator())
+              : ChoresView(
+                  columns: choreColumns(
+                      chores, (id) => watched[id]!.items, _now),
+                  row: row,
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLists(List<TodoListConfig> lists, _ViewSwitch switcher) {
+    final list = lists.firstWhere(
+      (l) => l.entityId == _selected,
+      orElse: () => lists.first,
+    );
+    final entityId = list.entityId;
+    _shown = {entityId};
+    final ha = ref.watch(homeAssistantServiceProvider);
+    final name = todoListName(list, ha.entities[entityId]);
+    final features = ref.watch(todoFeaturesProvider(entityId));
+    final use24h = ref.watch(hubConfigProvider.select((c) => c.use24HourClock));
+    final (:state, :items, :busy) = _watchList(entityId);
     final open = [
       for (final i in items)
         if (i.status == TodoStatus.needsAction) i,
@@ -304,118 +402,127 @@ class _ListsScreenState extends ConsumerState<ListsScreen>
       );
     }
 
-    return ColoredBox(
-      color: Colors.black,
-      child: LayoutBuilder(
-        builder: (context, c) {
-          final narrow = c.maxWidth < kListsNarrowWidth;
-          final body = CustomScrollView(
-            slivers: [
-              if (features.canAdd)
-                SliverToBoxAdapter(
-                  child: _AddField(
-                    controller: _add,
-                    focusNode: _addFocus,
-                    onSubmit: () => _addItem(entityId),
-                  ),
-                ),
-              if (state.status == ListStatus.loading && items.isEmpty)
-                const SliverToBoxAdapter(
-                  child: Padding(
-                    padding: HearthSpacing.allX8,
-                    child: Center(child: CircularProgressIndicator()),
-                  ),
-                )
-              else if (items.isEmpty && state.status == ListStatus.ok)
-                SliverToBoxAdapter(child: _Empty(name: name)),
-              SliverReorderableList(
-                itemCount: open.length,
-                itemBuilder: (context, i) => row(open[i], i, reorderable: true),
-                onReorderItem: (from, to) => _reorder(entityId, open, from, to),
-                proxyDecorator: (child, _, _) => Material(
-                  color: const Color(0xFF1E1E1E),
-                  elevation: 4,
-                  child: child,
+    return LayoutBuilder(
+      builder: (context, c) {
+        final narrow = c.maxWidth < kListsNarrowWidth;
+        final body = CustomScrollView(
+          slivers: [
+            if (features.canAdd)
+              SliverToBoxAdapter(
+                child: _AddField(
+                  controller: _add,
+                  focusNode: _addFocus,
+                  onSubmit: () => _addItem(entityId),
                 ),
               ),
-              if (done.isNotEmpty) ...[
-                SliverToBoxAdapter(
-                  child: InkWell(
-                    onTap: () =>
-                        setState(() => _showCompleted = !_showCompleted),
-                    child: Padding(
-                      padding: const EdgeInsets.all(HearthSpacing.x3),
-                      child: Row(
-                        children: [
-                          Icon(
-                            _showCompleted
-                                ? Icons.expand_more
-                                : Icons.chevron_right,
-                            color: Colors.white54,
+            if (state.status == ListStatus.loading && items.isEmpty)
+              const SliverToBoxAdapter(
+                child: Padding(
+                  padding: HearthSpacing.allX8,
+                  child: Center(child: CircularProgressIndicator()),
+                ),
+              )
+            else if (items.isEmpty && state.status == ListStatus.ok)
+              SliverToBoxAdapter(child: _Empty(name: name)),
+            SliverReorderableList(
+              itemCount: open.length,
+              itemBuilder: (context, i) => row(open[i], i, reorderable: true),
+              onReorderItem: (from, to) => _reorder(entityId, open, from, to),
+              proxyDecorator: (child, _, _) => Material(
+                color: const Color(0xFF1E1E1E),
+                elevation: 4,
+                child: child,
+              ),
+            ),
+            if (done.isNotEmpty) ...[
+              SliverToBoxAdapter(
+                child: InkWell(
+                  onTap: () => setState(() => _showCompleted = !_showCompleted),
+                  child: Padding(
+                    padding: const EdgeInsets.all(HearthSpacing.x3),
+                    child: Row(
+                      children: [
+                        Icon(
+                          _showCompleted
+                              ? Icons.expand_more
+                              : Icons.chevron_right,
+                          color: Colors.white54,
+                        ),
+                        const SizedBox(width: HearthSpacing.x2),
+                        Text(
+                          'Completed (${done.length})',
+                          style: const TextStyle(
+                            fontSize: HearthFont.body,
+                            color: Colors.white70,
                           ),
-                          const SizedBox(width: HearthSpacing.x2),
-                          Text(
-                            'Completed (${done.length})',
-                            style: const TextStyle(
-                              fontSize: HearthFont.body,
-                              color: Colors.white70,
-                            ),
-                          ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
-                if (_showCompleted)
-                  SliverList.list(children: [
-                    for (final (i, item) in done.indexed) row(item, i),
-                  ]),
-              ],
-              const SliverToBoxAdapter(
-                child: SizedBox(height: HearthSpacing.x8),
               ),
+              if (_showCompleted)
+                SliverList.list(children: [
+                  for (final (i, item) in done.indexed) row(item, i),
+                ]),
             ],
-          );
+            const SliverToBoxAdapter(
+              child: SizedBox(height: HearthSpacing.x8),
+            ),
+          ],
+        );
 
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _Header(
-                narrow: narrow,
+        final Widget current = narrow
+            ? _ListDropdown(
                 lists: lists,
-                selected: list,
-                title: name,
+                selected: entityId,
                 onSelect: (id) => setState(() => _selected = id),
-                onClearDone: features.canDelete && done.isNotEmpty
-                    ? () => _clearCompleted(entityId, name, done)
-                    : null,
-              ),
-              _StatusNote(state: state),
-              const Divider(height: 1, color: Colors.white12),
-              Expanded(
-                child: narrow
-                    ? body
-                    : Row(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          SizedBox(
-                            width: _railWidth,
-                            child: _Rail(
-                              lists: lists,
-                              selected: entityId,
-                              onSelect: (id) => setState(() => _selected = id),
-                            ),
+              )
+            : Text(
+                name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: HearthFont.title,
+                  color: Colors.white,
+                ),
+              );
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _Header(
+              switcher: switcher,
+              wide: !narrow,
+              current: current,
+              onClearDone: features.canDelete && done.isNotEmpty
+                  ? () => _clearCompleted(entityId, name, done)
+                  : null,
+            ),
+            _StatusNote(state: state),
+            const Divider(height: 1, color: Colors.white12),
+            Expanded(
+              child: narrow
+                  ? body
+                  : Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        SizedBox(
+                          width: _railWidth,
+                          child: _Rail(
+                            lists: lists,
+                            selected: entityId,
+                            onSelect: (id) => setState(() => _selected = id),
                           ),
-                          const VerticalDivider(
-                              width: 1, color: Colors.white12),
-                          Expanded(child: body),
-                        ],
-                      ),
-              ),
-            ],
-          );
-        },
-      ),
+                        ),
+                        const VerticalDivider(width: 1, color: Colors.white12),
+                        Expanded(child: body),
+                      ],
+                    ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
@@ -479,67 +586,21 @@ class _Empty extends StatelessWidget {
 
 class _Header extends StatelessWidget {
   const _Header({
-    required this.narrow,
-    required this.lists,
-    required this.selected,
-    required this.title,
-    required this.onSelect,
-    required this.onClearDone,
+    required this.switcher,
+    required this.wide,
+    required this.current,
+    this.onClearDone,
   });
 
-  final bool narrow;
-  final List<TodoListConfig> lists;
-  final TodoListConfig selected;
-  final String title;
-  final void Function(String entityId) onSelect;
+  final _ViewSwitch switcher;
+
+  /// Lines the title up over the list, clear of the rail.
+  final bool wide;
+  final Widget current;
   final VoidCallback? onClearDone;
 
   @override
   Widget build(BuildContext context) {
-    // The Lists/Chores switcher goes here once there is a Chores view.
-    const view = Text(
-      'Lists',
-      style: TextStyle(
-        fontSize: HearthFont.title,
-        fontWeight: FontWeight.w600,
-        color: Colors.white,
-      ),
-    );
-    final Widget current = narrow
-        ? Consumer(
-            builder: (context, ref, _) {
-              final ha = ref.watch(homeAssistantServiceProvider);
-              return DropdownButton<String>(
-                value: selected.entityId,
-                isExpanded: true,
-                underline: const SizedBox.shrink(),
-                dropdownColor: const Color(0xFF1E1E1E),
-                onChanged: (id) {
-                  if (id != null) onSelect(id);
-                },
-                items: [
-                  for (final l in lists)
-                    DropdownMenuItem(
-                      value: l.entityId,
-                      child: _ListLabel(
-                        color: Color(l.color),
-                        name: todoListName(l, ha.entities[l.entityId]),
-                      ),
-                    ),
-                ],
-              );
-            },
-          )
-        : Text(
-            title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: HearthFont.title,
-              color: Colors.white,
-            ),
-          );
-
     // HubShell's mic toggle sits over the top-left corner of every page, so
     // the header starts clear of it.
     return Padding(
@@ -553,13 +614,14 @@ class _Header extends StatelessWidget {
         height: HearthSpacing.x12,
         child: Row(
           children: [
-            if (narrow)
-              view
-            else
-              const SizedBox(
+            // The Lists | Chores switch is wider than the rail.
+            if (wide && switcher.onChanged == null)
+              SizedBox(
                 width: _railWidth - HearthSpacing.x20,
-                child: Align(alignment: Alignment.centerLeft, child: view),
-              ),
+                child: Align(alignment: Alignment.centerLeft, child: switcher),
+              )
+            else
+              switcher,
             const SizedBox(width: HearthSpacing.x4),
             Expanded(child: current),
             if (onClearDone != null)
@@ -571,6 +633,77 @@ class _Header extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// "Lists", or the Lists | Chores switch once a list has a person.
+class _ViewSwitch extends StatelessWidget {
+  const _ViewSwitch({required this.view, required this.onChanged});
+
+  final ListsView view;
+
+  /// Null when there is no chore list, so no Chores view.
+  final ValueChanged<ListsView>? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final onChanged = this.onChanged;
+    if (onChanged == null) {
+      return const Text(
+        'Lists',
+        style: TextStyle(
+          fontSize: HearthFont.title,
+          fontWeight: FontWeight.w600,
+          color: Colors.white,
+        ),
+      );
+    }
+    return SegmentedButton<ListsView>(
+      segments: const [
+        ButtonSegment(value: ListsView.lists, label: Text('Lists')),
+        ButtonSegment(value: ListsView.chores, label: Text('Chores')),
+      ],
+      selected: {view},
+      showSelectedIcon: false,
+      onSelectionChanged: (s) => onChanged(s.single),
+    );
+  }
+}
+
+/// The rail, folded into the header on a narrow screen.
+class _ListDropdown extends ConsumerWidget {
+  const _ListDropdown({
+    required this.lists,
+    required this.selected,
+    required this.onSelect,
+  });
+
+  final List<TodoListConfig> lists;
+  final String selected;
+  final void Function(String entityId) onSelect;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ha = ref.watch(homeAssistantServiceProvider);
+    return DropdownButton<String>(
+      value: selected,
+      isExpanded: true,
+      underline: const SizedBox.shrink(),
+      dropdownColor: const Color(0xFF1E1E1E),
+      onChanged: (id) {
+        if (id != null) onSelect(id);
+      },
+      items: [
+        for (final l in lists)
+          DropdownMenuItem(
+            value: l.entityId,
+            child: _ListLabel(
+              color: Color(l.color),
+              name: todoListName(l, ha.entities[l.entityId]),
+            ),
+          ),
+      ],
     );
   }
 }

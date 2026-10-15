@@ -1,7 +1,7 @@
 # Chores and Lists — Design
 
 **Date:** 2026-10-14
-**Status:** Design. Child tasks 1 (data layer) and 2 (screen) built.
+**Status:** Design. Child tasks 1 (data layer), 2 (screen), 3 (settings) and 4 (chore chart) built.
 **Goal:** Specify Skylight-style lists and a chore chart on Hearth, built on Home Assistant `todo` entities, and break the work into the tasks the epic will follow.
 **Tracking:** issue 214 (Skylight feature inventory). The Calendar epic did the calendar half; this is the lists and chores half.
 
@@ -282,7 +282,7 @@ choresTodayProvider       Provider.autoDispose<List<ChoreLine>>
 
 `lib/modules/lists/lists_module.dart`: id `lists`, name `Lists`, icon `Icons.checklist`, `defaultOrder` **7**, between Calendar (5) and Controls (10). `isConfigured` is `todoLists.isNotEmpty`. It goes into `_staticModules`; not into `defaultModulePlacements`, like Calendar. CLAUDE.md's screen-order line gets it in the screen task.
 
-The screen has two views, chosen by a segmented control in its header: **Lists** and **Chores**. Chores appears only when at least one list has a person. The header starts `x20` from the left, clear of HubShell's mic toggle, the fix Calendar needed (`28392b9`).
+The screen has two views, chosen by a segmented control in its header: **Lists** and **Chores**. Chores appears only when at least one list has a person. The chosen view is `listsViewProvider`, outside the screen, so the glance can open the screen on Chores by setting it to `ListsView.chores` before jumping to the page. The header starts `x20` from the left, clear of HubShell's mic toggle, the fix Calendar needed (`28392b9`).
 
 Horizontal swipes belong to HubShell's PageView, so nothing in the module uses one: no swipe-to-delete, no horizontal paging between lists or people. Reordering uses a drag handle and is vertical.
 
@@ -331,6 +331,7 @@ Horizontal swipes belong to HubShell's PageView, so nothing in the module uses o
 - The header count is done-today over done-today plus open-shown.
 - **The whole row is the tap target** for complete and uncomplete, big enough for a child's finger. Editing is the Lists view's job. A list without `canUpdate` shows its chores without checkboxes.
 - No add field, no reorder. The chart is for doing chores, not for managing them.
+- Completing a chore draws it under done today at once, stamped with the local time; HA's push replaces the stamp. On an integration that gives no `completed`, the chore leaves the chart when that push lands.
 
 ### Portrait and narrow widths
 
@@ -389,7 +390,7 @@ The `ListSection` HTML render is read-only (`lib/plugins/framework/list_section.
 
 - At most three lines, then "+n more". Draws nothing when nothing is open for today.
 - The person's colour as the dot, the same text shadows as the clock.
-- A tap jumps to the Lists page on the Chores view, when the module is in the swipe row.
+- A tap jumps to the Lists page on the Chores view, when the module is in the swipe row: it sets `listsViewProvider` to `ListsView.chores`, then moves to the page.
 - It watches `choresTodayProvider` through `select`, so a push that changes nothing for today does not rebuild it.
 
 ### What counts as today
