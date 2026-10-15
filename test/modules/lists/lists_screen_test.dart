@@ -299,6 +299,41 @@ void main() {
     expect(find.byType(Dialog), findsNothing);
   });
 
+  testWidgets('items without a uid are shown and offer nothing',
+      (tester) async {
+    lists = FakeTodoLists({
+      _groceries: [
+        const TodoItem(summary: 'Milk'),
+        const TodoItem(summary: 'Milk'),
+        todo('3', 'Bread'),
+      ],
+      _hardware: const [],
+    });
+    await pump(tester);
+    expect(find.text('Milk'), findsNWidgets(2));
+    expect(find.byIcon(Icons.drag_handle), findsOneWidget);
+    await tester.tap(find.text('Milk').first);
+    await tester.pumpAndSettle();
+    expect(find.byType(Dialog), findsNothing);
+  });
+
+  testWidgets('a write that lands after switching lists is let go',
+      (tester) async {
+    await pump(tester);
+    actions.hold = Completer();
+    await tester.tap(checkbox('Milk'));
+    await tester.pump();
+    await tester.tap(find.text('Hardware'));
+    await tester.pumpAndSettle();
+    actions.hold!.complete(null);
+    await tester.pump();
+    await tester.tap(find.text('Groceries').first);
+    await tester.pumpAndSettle();
+    // No push carried it, so HA's list is what shows.
+    expect(find.text('Milk'), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+  });
+
   testWidgets('a stale list keeps its items and says so', (tester) async {
     await pump(tester);
     lists.push(_groceries, [todo('1', 'Milk')], status: ListStatus.stale);

@@ -50,6 +50,9 @@ class _ListsScreenState extends ConsumerState<ListsScreen>
   bool get wantKeepAlive => true;
 
   String? _selected;
+
+  /// The list on screen at the last build.
+  String? _shown;
   bool _showCompleted = false;
   final Map<String, List<_Write>> _writes = {};
 
@@ -94,12 +97,13 @@ class _ListsScreenState extends ConsumerState<ListsScreen>
     final error = await send(ref.read(todoActionsProvider));
     if (!mounted) return;
     setState(() {
-      final current = _items(entityId);
       // call_service answers after the integration has written, so a push
-      // that came in meanwhile is already the result.
+      // that came in meanwhile is already the result. A list no longer shown
+      // resubscribes, fresh, when it is shown again.
       if (error != null ||
+          entityId != _shown ||
           _pushes[entityId] != pushes ||
-          listEquals(apply(current), current)) {
+          listEquals(apply(_items(entityId)), _items(entityId))) {
         _writes[entityId]?.remove(write);
       } else {
         write.settled = true;
@@ -251,6 +255,7 @@ class _ListsScreenState extends ConsumerState<ListsScreen>
       orElse: () => lists.first,
     );
     final entityId = list.entityId;
+    _shown = entityId;
     final ha = ref.watch(homeAssistantServiceProvider);
     final name = todoListName(list, ha.entities[entityId]);
     final features = ref.watch(todoFeaturesProvider(entityId));
@@ -281,10 +286,11 @@ class _ListsScreenState extends ConsumerState<ListsScreen>
         if (i.status == TodoStatus.completed) i,
     ];
 
-    Widget row(TodoItem item, {int? dragIndex}) {
+    Widget row(TodoItem item, int index, {bool reorderable = false}) {
       final uid = item.uid;
       return TodoItemRow(
-        key: ValueKey('${item.status.name}:${uid ?? item.summary}'),
+        // HA may send items without a uid, and two can share a summary.
+        key: ValueKey('${item.status.name}:${uid ?? '#$index'}'),
         item: item,
         now: _now,
         use24h: use24h,
@@ -294,7 +300,7 @@ class _ListsScreenState extends ConsumerState<ListsScreen>
         onTap: uid == null || !(features.canUpdate || features.canDelete)
             ? null
             : () => _edit(entityId, item, features),
-        dragIndex: features.canMove && uid != null ? dragIndex : null,
+        dragIndex: reorderable && features.canMove && uid != null ? index : null,
       );
     }
 
@@ -324,7 +330,7 @@ class _ListsScreenState extends ConsumerState<ListsScreen>
                 SliverToBoxAdapter(child: _Empty(name: name)),
               SliverReorderableList(
                 itemCount: open.length,
-                itemBuilder: (context, i) => row(open[i], dragIndex: i),
+                itemBuilder: (context, i) => row(open[i], i, reorderable: true),
                 onReorderItem: (from, to) => _reorder(entityId, open, from, to),
                 proxyDecorator: (child, _, _) => Material(
                   color: const Color(0xFF1E1E1E),
@@ -361,7 +367,9 @@ class _ListsScreenState extends ConsumerState<ListsScreen>
                   ),
                 ),
                 if (_showCompleted)
-                  SliverList.list(children: [for (final i in done) row(i)]),
+                  SliverList.list(children: [
+                    for (final (i, item) in done.indexed) row(item, i),
+                  ]),
               ],
               const SliverToBoxAdapter(
                 child: SizedBox(height: HearthSpacing.x8),
