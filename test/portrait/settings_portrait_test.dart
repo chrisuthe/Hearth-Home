@@ -12,6 +12,7 @@ import 'package:hearth/models/immich_album.dart';
 import 'package:hearth/models/immich_person.dart';
 import 'package:hearth/modules/alarm_clock/alarm_models.dart';
 import 'package:hearth/modules/alarm_clock/alarm_service.dart';
+import 'package:hearth/modules/lists/models.dart';
 import 'package:hearth/modules/webview/custom_url_editor.dart';
 import 'package:hearth/plugins/framework/plugin_panel.dart';
 import 'package:hearth/plugins/framework/plugin_sidebar.dart';
@@ -99,6 +100,16 @@ final _config = HubConfig.fromJson({
     smartSearchEnabled: true,
     smartSearchQuery: 'golden hour on the beach with the whole family',
   ).toJson(),
+  'todoLists': [
+    for (var i = 0; i < 4; i++)
+      TodoListConfig(
+        entityId: 'todo.a_long_shared_household_list_entity_$i',
+        name: 'A to-do list with a long display name $i',
+        color: 0xFF646CFF,
+        person: i.isEven ? 'Someone With A Long Name $i' : '',
+      ).toJson(),
+  ],
+  'todoChoreGlance': true,
   'webviews': [
     for (var i = 0; i < 4; i++)
       WebviewConfig(

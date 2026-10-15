@@ -373,6 +373,8 @@ The thresholds are logical pixels after `uiScale`, a starting point for the scre
   - *Edit*: name, colour, person. To change the entity, delete and add again.
 - **Show today's chores when idle:** the `todoChoreGlance` toggle, off by default.
 
+The live status is read from the entity HA already caches, not from an item subscription, so the panel opens no `todo/item/subscribe` per list: a `todo.*` entity's state is its count of incomplete items (`TodoListEntity.state` in `homeassistant/components/todo/entity.py`), shown as "3 open" or "All done", with "Not found in Home Assistant" and "Unavailable" for a missing entity and an `unknown`/`unavailable` state.
+
 The `ListSection` HTML render is read-only (`lib/plugins/framework/list_section.dart`), so the portal needs routes, as Calendar's do: `GET /api/plugin/hearth.lists/lists` (with status and features), `POST …/lists`, `PUT …/lists/<entity_id>`, `DELETE …/lists/<entity_id>`. A second add of the same entity answers 409. Each handler validates its own input.
 
 ## The idle glance

@@ -10,6 +10,7 @@ import 'frigate/frigate_plugin.dart';
 import 'hearth_plugin.dart';
 import 'home_assistant/home_assistant_plugin.dart';
 import 'immich/immich_plugin.dart';
+import 'lists/lists_plugin.dart';
 import 'mealie/mealie_plugin.dart';
 import 'mqtt/mqtt_plugin.dart';
 import 'music_assistant/music_assistant_plugin.dart';
@@ -33,6 +34,7 @@ List<HearthPlugin> _firstPartyPlugins = [
   MusicAssistantPlugin(),
   FrigatePlugin(),
   CalendarPlugin(),
+  ListsPlugin(),
   ProtectPlugin(),
   AlarmClockPlugin(),
   SendspinPlugin(),
