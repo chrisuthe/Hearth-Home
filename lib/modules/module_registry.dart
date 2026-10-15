@@ -3,6 +3,7 @@ import '../config/hub_config.dart';
 import 'hearth_module.dart';
 import 'alarm_clock/alarm_clock_module.dart';
 import 'calendar/calendar_module.dart';
+import 'lists/lists_module.dart';
 import 'media/media_module.dart';
 import 'controls/controls_module.dart';
 import 'cameras/cameras_module.dart';
@@ -16,6 +17,7 @@ final List<HearthModule> _staticModules = <HearthModule>[
   AlarmClockModule(),
   MediaModule(),
   CalendarModule(),
+  ListsModule(),
   ControlsModule(),
   CamerasModule(),
   ProtectModule(),

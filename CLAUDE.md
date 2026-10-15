@@ -44,7 +44,7 @@ The active/ambient layers crossfade via a single `AnimationController`. The app 
 
 Every overlay in layer 5 takes an `onWake` callback and calls it from a post-frame callback, so anything arriving (a cast, an alarm, a notification) both wakes the kiosk and holds off the idle return. Each renders `SizedBox.shrink()` when idle, and each is its own `ConsumerWidget` so high-frequency ticks don't rebuild HubShell.
 
-**Screen order in PageView:** Dynamic — modules with negative `defaultOrder` appear left of Home, positive right. Settings is always last. Default: `Media(-10) ← AlarmClock(-5) ← Home → Calendar(5) → Controls(10) → LiveTv(15) → Cameras(20) → Protect(25) → Mealie(30) → Settings`
+**Screen order in PageView:** Dynamic — modules with negative `defaultOrder` appear left of Home, positive right. Settings is always last. Default: `Media(-10) ← AlarmClock(-5) ← Home → Calendar(5) → Lists(7) → Controls(10) → LiveTv(15) → Cameras(20) → Protect(25) → Mealie(30) → Settings`
 
 Placement is per-module and multi-valued: `config.modulePlacements` maps a module ID to any of `swipe`, `menu1`, `menu2`, so a module can sit in the swipe row, an edge menu, or both. `swipeModulesProvider` filters to `swipe` and sorts by `config.moduleOrder` when the user has customized it, falling back to `defaultOrder`.
 
@@ -99,7 +99,7 @@ Layouts must hold at 864x1184 and 800x1280 as well as 1184x864. Branch on `Media
 
 Optional screens implement `HearthModule` (in `lib/modules/hearth_module.dart`). Each module provides an `id`, `name`, `icon`, `defaultOrder`, `isConfigured()`, `buildScreen()`, and `buildSettingsSection()`. Modules live in `lib/modules/<name>/` with their screen, service, and data models. The registry is a static list in `lib/modules/module_registry.dart`. HubShell builds the PageView dynamically from enabled modules (configured in Settings).
 
-Current static modules (`_staticModules`): Alarm Clock, Media (music), Calendar (HA + ICS, read-only), Controls (HA entities), Cameras (Frigate), Protect (UniFi Protect), Recipes (Mealie), Live TV (Plex DVR).
+Current static modules (`_staticModules`): Alarm Clock, Media (music), Calendar (HA + ICS, read-only), Lists (HA to-do), Controls (HA entities), Cameras (Frigate), Protect (UniFi Protect), Recipes (Mealie), Live TV (Plex DVR).
 
 **Webview modules are dynamic** — `modulesForConfig()` synthesizes one `WebviewModule` per entry in `config.webviews`, so the module list is a function of config, not a fixed array. Use `modulesForConfig(config)` from non-Riverpod code (e.g. the web portal's Screens & Order render) and `allModulesProvider` from widgets.
 

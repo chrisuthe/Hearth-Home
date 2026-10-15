@@ -1,7 +1,7 @@
 # Chores and Lists — Design
 
 **Date:** 2026-10-14
-**Status:** Design. Child task 1 (data layer) built.
+**Status:** Design. Child tasks 1 (data layer) and 2 (screen) built.
 **Goal:** Specify Skylight-style lists and a chore chart on Hearth, built on Home Assistant `todo` entities, and break the work into the tasks the epic will follow.
 **Tracking:** issue 214 (Skylight feature inventory). The Calendar epic did the calendar half; this is the lists and chores half.
 
@@ -274,7 +274,7 @@ choresTodayProvider       Provider.autoDispose<List<ChoreLine>>
 
 **autoDispose, on purpose.** Calendar's hardware pass found that a non-autoDispose family kept a disabled source subscribed until restart (`d8ceb00`). Here a list stays subscribed only while a view or the glance watches it, and a list removed from config builds nothing. With the glance on, chore lists are always watched, because Home is always built. `choresTodayProvider` is autoDispose for the same reason: a plain `Provider` read once would keep every chore list subscribed for good.
 
-**Writes and what the user sees.** A write changes nothing locally. The push that follows it is the new truth. To keep a check tap feeling immediate, the screen holds a small **pending map** (uid → the status or text it sent). A row in it draws the new value with a faint spinner. An error reply reverts the entry and shows HA's message in a snackbar. A success reply clears it at the next push, or at once if the last push already shows the change. `call_service` is blocking (**verified**, `websocket_api/commands.py:288`), so the reply comes only after the integration has written: on Google Tasks that includes HA's refresh from Google (`google_tasks/todo.py:130`). `request()`'s 10 s timeout is the only timer, and a timeout reverts like an error ("Couldn't confirm the change"). The write may still have landed, and the next push shows it if it did.
+**Writes and what the user sees.** A write changes nothing locally. The push that follows it is the new truth. To keep a check tap feeling immediate, the screen holds a small **pending map** (uid → the status or text it sent). A row in it draws the new value with a faint spinner. An error reply reverts the entry and shows HA's message in a snackbar. A success reply clears it at the next push, or at once if a push came in while it waited or the last push already shows the change. HA sends the push before the reply, and that push carries fields the overlay lacks (`completed`), so waiting for the *next* one would leave the row spinning. `call_service` is blocking (**verified**, `websocket_api/commands.py:288`), so the reply comes only after the integration has written: on Google Tasks that includes HA's refresh from Google (`google_tasks/todo.py:130`). `request()`'s 10 s timeout is the only timer, and a timeout reverts like an error ("Couldn't confirm the change"). The write may still have landed, and the next push shows it if it did.
 
 **What a write sends.** Only fields that changed, and only fields the list supports. A field the list lacks is an error even as `null` (`todo/services.py:86-98`), so the edit sheet never sends it. To clear a due date it sends the field the list supports (`due_date` if it can, else `due_datetime`) as `null`.
 
@@ -359,7 +359,7 @@ The thresholds are logical pixels after `uiScale`, a starting point for the scre
 
 `hearth_osk` is a `TextInputControl` installed for the whole app (`lib/packages/hearth_osk/src/osk_control.dart:16`). Any `TextField` brings it up with no extra code. While it shows, `HearthOskScope` adds its height to `MediaQuery.viewInsets.bottom` (`osk_scope.dart:57-67`). So:
 
-- The Lists view pads its bottom by `MediaQuery.viewInsetsOf(context).bottom` and scrolls the add field into view, so the keyboard never covers what is being typed.
+- The Lists view needs no padding of its own. The root `Scaffold` (`lib/app/app.dart`) resizes its body above the keyboard and gives it `viewInsets` of zero, so HubShell and every page already end at the keyboard's top. The add field sits at the top of the list and stays in view. (This said earlier to pad by `viewInsets.bottom`; under that `Scaffold` the value is zero.)
 - The add field and the name field use `TextInputAction.done` and `onSubmitted`; the OSK's Enter submits a single-line field. The description field is `TextInputType.multiline`, where Enter inserts a newline (`osk_control.dart:236-242`).
 - The edit sheet is a dialog, which already respects `viewInsets`.
 - `test/portrait/osk_portrait_test.dart` gets a case with the add field focused at all three sizes.
