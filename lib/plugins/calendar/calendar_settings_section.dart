@@ -177,10 +177,11 @@ class _KindDialog extends StatelessWidget {
 }
 
 /// The palette as tappable swatches, plus [selected] when it is not in it.
-class _ColorPicker extends StatelessWidget {
+class CalendarColorPicker extends StatelessWidget {
   final int selected;
   final ValueChanged<int> onChanged;
-  const _ColorPicker({required this.selected, required this.onChanged});
+  const CalendarColorPicker(
+      {super.key, required this.selected, required this.onChanged});
 
   @override
   Widget build(BuildContext context) {
@@ -229,7 +230,7 @@ Widget _colorRow(int selected, ValueChanged<int> onChanged) => Column(
         const SizedBox(height: 16),
         const Text('Colour', style: _labelStyle),
         const SizedBox(height: 6),
-        _ColorPicker(selected: selected, onChanged: onChanged),
+        CalendarColorPicker(selected: selected, onChanged: onChanged),
       ],
     );
 

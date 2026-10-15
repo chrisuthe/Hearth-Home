@@ -24,12 +24,15 @@ const calendarPalette = <int>[
 
 /// The first palette colour no source uses yet; past eight, the palette
 /// repeats.
-int nextPaletteColor(List<CalendarSource> existing) {
-  final used = {for (final s in existing) s.color};
+int nextPaletteColor(List<CalendarSource> existing) =>
+    nextFreePaletteColor([for (final s in existing) s.color]);
+
+/// [nextPaletteColor] over bare colours, for other palette users (Lists).
+int nextFreePaletteColor(List<int> used) {
   for (final c in calendarPalette) {
     if (!used.contains(c)) return c;
   }
-  return calendarPalette[existing.length % calendarPalette.length];
+  return calendarPalette[used.length % calendarPalette.length];
 }
 
 /// An opaque ARGB colour from an ARGB int or a `#rrggbb` / `#rrggbbaa`
