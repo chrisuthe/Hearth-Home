@@ -1,39 +1,45 @@
 # Hearth
 
-Open-source Flutter smart home kiosk — a Google Nest Hub replacement designed for Raspberry Pi 5 with an 11" AMOLED display, running via [flutter-pi](https://github.com/ardera/flutter-pi).
+Open-source Flutter smart home kiosk — a Google Nest Hub replacement. It is built for a Raspberry Pi 5 with an 11" AMOLED display, running via [flutter-pi](https://github.com/ardera/flutter-pi), and also runs as an experimental APK on Android kiosk tablets.
 
 ![hearth](https://github.com/user-attachments/assets/8d2dcddf-fbf3-49e4-9453-9b92bd47c9ea)
 
 https://youtube.com/watch?v=pPN4-EoO-Nc&feature=youtu.be
 
+**User guide: the [Hearth wiki](https://github.com/chrisuthe/Hearth-Home/wiki)** covers setup, every module, and troubleshooting. This README is the project overview and the developer entry point.
+
 ## Features
 
-- **Full-Bleed Photo Display** — Immich memories rotate behind a transparent home screen with clock, weather, and memory labels. Photo sources include "on this day" memories, a chosen album, photos of selected **people**, and free-text **smart search** (CLIP) — e.g. "beach" or "snow". The ambient crop is **face-aware**, biasing toward detected faces so people aren't cut off.
-- **Embedded Web Dashboards** — Render Home Assistant Lovelace dashboards (or any URL) as first-class swipe screens via WPE WebKit. Full touch (tap, long-press, vertical scroll), pipelines suspend when the kiosk goes idle and auto-restart on error, and HA dashboards are **token-injected** so they load already signed in.
-- **Home Assistant Controls** — Lights and climate cards over the HA WebSocket. Pin your most-used entities for quick access.
-- **Weather** — An ambient temperature readout on Home that opens a full-screen forecast: **animated condition scenes** (rain, snow, thunder, fog, sun, clear night), a 24-hour strip, an 8-day row, and per-day detail. Driven by any Home Assistant `weather.*` entity.
-- **Music Assistant** — A cinematic now-playing screen: album-art backdrop, a continuous-drag transport shelf that reveals the **queue** and a multi-player **mixer**, library browse with search, and multi-zone support.
-- **Frigate Cameras** — Live RTSP video streams from go2rtc with a snapshot grid. Tap a camera for full-screen live video; playback suppresses the idle timeout so streams aren't interrupted.
-- **UniFi Protect Cameras** — Protect cameras over the local API key, with the same snapshot grid and full-screen live streams.
-- **Plex Cast** — Hearth advertises itself on the LAN as a Plex player, so Plex apps can cast to the kiosk. Full-screen playback with a scrubbable transport, **Skip Intro** and **Next Episode** markers, and **play-queue** navigation with auto-advance.
-- **Plex Live TV** — Browse your Plex DVR's channel lineup on-device, tune a channel through the HDHomeRun grabber, and watch full-screen with channel up/down. Tuner grabs are torn down on every exit path so a tuner is never leaked.
-- **Cast to Hearth (DLNA)** — Acts as a UPnP/DLNA MediaRenderer, so a control point (BubbleUPnP, Windows "Cast to Device", HA's DLNA DMR integration) can push video to the kiosk.
-- **Notifications** — Push messages to the kiosk over MQTT or HTTP; they surface as a deck over whatever's on screen and wake the display.
-- **Recipes** — Browse and view recipes from Mealie with category filtering.
-- **Alarm Clock** — Scheduled alarms (recurring or one-time), separate from countdown timers, with optional sunrise lights, snooze, and Music Assistant or built-in alarm sounds.
-- **Timers** — Countdown timers with full-screen alerts that show over any screen.
-- **Voice Satellite** — Mute/unmute the mic on a Home Assistant Assist satellite and show a voice-activity pill during interactions.
-- **Home Assistant Device (MQTT)** — Hearth registers itself over [MQTT discovery](docs/home-assistant-mqtt-setup.md) as a single HA device, exposing its current screen, now-playing, timer, next-alarm, and a controllable volume — and reporting its installed version as the device firmware.
-- **Multi-Room Audio (Sendspin)** — Act as a Music Assistant audio player for synchronized multi-room playback, with mDNS auto-discovery.
-- **System Volume** — Quick-access volume slider via configurable swipe menu.
-- **Configurable Gestures** — Top and bottom edge swipes can be mapped to menus, settings, or screen navigation.
-- **Night Mode** — Triggered by clock schedule, HA entity state, or external API call.
-- **Guided Setup** — A first-run wizard walks through the initial configuration before the kiosk shell takes over.
-- **Touch-First Input** — A built-in on-screen keyboard (auto / always / never) so text fields are usable without a keyboard attached, plus an optional touch indicator for demos and screen recordings.
-- **Display Profiles & UI Scale** — Presets for the 11" AMOLED, the official 7" touchscreen, and generic HDMI, with a manual resolution override and a 75–150% UI scale.
-- **Capture Tools** — Optional on-device screenshot and screen recording (ffmpeg `kmsgrab` against the DRM device, capturing the display scanout rather than the Flutter scene — so live video planes are included), with a download gallery in the web portal.
-- **Web Portal** — A full configuration portal at `http://hearth.local:8090` with near-complete parity to the on-device Settings: service setup, HA entity pickers, Immich photo-source pickers, screen enable/reorder, alarm editing, timezone, update source, capture tools, and more.
-- **OTA Updates** — Automatic app-bundle updates from GitHub or Gitea releases, with a selectable update source, manual force-update, a self-refreshing updater, and systemd rollback to the previous bundle on repeated failures.
+**Photos & ambient**
+- [Photo display](https://github.com/chrisuthe/Hearth-Home/wiki/Photos-%26-Ambient-Display) — Immich memories, albums, people, or smart search rotate behind a transparent Home screen, with a face-aware crop.
+- [Weather](https://github.com/chrisuthe/Hearth-Home/wiki/Weather) — ambient temperature on Home and a full-screen animated forecast from any HA `weather.*` entity.
+
+**Home Assistant**
+- [Controls](https://github.com/chrisuthe/Hearth-Home/wiki/Home-Assistant-Controls) — lights and climate cards over the HA WebSocket, with pinned entities.
+- [Calendar](https://github.com/chrisuthe/Hearth-Home/wiki/Calendar) — HA and ICS calendars, read-only, in day, 3-day, week and month views, with an upcoming-events glance on idle Home.
+- [Lists & Chores](https://github.com/chrisuthe/Hearth-Home/wiki/Lists-%26-Chores) — HA to-do lists, a per-person chore chart, and a chore glance on idle Home.
+- [Web dashboards](https://github.com/chrisuthe/Hearth-Home/wiki/Web-Dashboards) — Lovelace dashboards (signed in automatically) or any URL as a swipe screen.
+- [Voice satellite](https://github.com/chrisuthe/Hearth-Home/wiki/Voice-Satellite) — mirrors an Assist satellite's state on the Pi; on Android, Hearth *is* the satellite.
+- [MQTT device](https://github.com/chrisuthe/Hearth-Home/wiki/Home-Assistant-Device-%28MQTT%29) — Hearth appears in HA as one device with screen, now-playing, timer, alarm and volume entities.
+
+**Media**
+- [Music Assistant](https://github.com/chrisuthe/Hearth-Home/wiki/Music-Assistant) — now playing, queue, multi-player mixer and library browse.
+- [Multi-room audio (Sendspin)](https://github.com/chrisuthe/Hearth-Home/wiki/Multi-Room-Audio-%28Sendspin%29) — a synchronized Music Assistant player.
+- [Plex Cast](https://github.com/chrisuthe/Hearth-Home/wiki/Plex-Cast) — cast from Plex apps, with Skip Intro, Next Episode and play-queue auto-advance.
+- [Live TV](https://github.com/chrisuthe/Hearth-Home/wiki/Live-TV-%28Plex%29) — browse and tune your Plex DVR's channels.
+- [Cast to Hearth (DLNA)](https://github.com/chrisuthe/Hearth-Home/wiki/Cast-to-Hearth-%28DLNA%29) — a UPnP/DLNA media renderer.
+
+**Cameras**
+- [Frigate](https://github.com/chrisuthe/Hearth-Home/wiki/Cameras-%28Frigate%29) and [UniFi Protect](https://github.com/chrisuthe/Hearth-Home/wiki/Cameras-%28UniFi-Protect%29) — snapshot grids and full-screen live streams.
+
+**Everything else**
+- [Recipes](https://github.com/chrisuthe/Hearth-Home/wiki/Recipes-%28Mealie%29) from Mealie.
+- [Alarms & timers](https://github.com/chrisuthe/Hearth-Home/wiki/Alarms-%26-Timers) — recurring alarms with sunrise lights and snooze; countdown timers that alert over any screen.
+- [Notifications](https://github.com/chrisuthe/Hearth-Home/wiki/Notifications) pushed over MQTT or HTTP.
+- [Display & night mode](https://github.com/chrisuthe/Hearth-Home/wiki/Display-%26-Night-Mode) — display profiles, UI scale, landscape or portrait orientation, and night mode by clock, HA entity or API.
+- [Navigation & gestures](https://github.com/chrisuthe/Hearth-Home/wiki/Navigation-%26-Gestures) — swipe screens and configurable edge menus.
+- [Web portal](https://github.com/chrisuthe/Hearth-Home/wiki/The-Web-Portal) at `http://hearth.local:8090`, at near-full parity with on-device Settings; on-device screenshot and screen-recording tools.
+- [OTA updates](https://github.com/chrisuthe/Hearth-Home/wiki/Updating) from GitHub or Gitea releases, with rollback on the Pi.
 
 ## Screenshots
 
@@ -42,6 +48,10 @@ Captured from a live Hearth kiosk (Raspberry Pi 5, 11" AMOLED).
 | Home — photo display | Embedded HA dashboard (Webview) |
 | --- | --- |
 | ![Home screen with ambient clock and weather over an Immich photo](docs/screenshots/home.png) | ![Home Assistant Lovelace dashboard rendered as a swipe screen](docs/screenshots/webview-ha-dashboard.png) |
+
+| Calendar | Lists & Chores |
+| --- | --- |
+| ![Calendar week view with events from Home Assistant calendars](docs/screenshots/calendar.png) | ![Lists screen showing Home Assistant to-do lists](docs/screenshots/lists.png) |
 
 | Home Assistant Controls | Music Assistant |
 | --- | --- |
@@ -57,173 +67,87 @@ Captured from a live Hearth kiosk (Raspberry Pi 5, 11" AMOLED).
 
 ## Install on Raspberry Pi
 
-### What You Need
+You need a Raspberry Pi 5 (2 GB+), an 8 GB+ microSD card, a display (11" AMOLED, official 7" touchscreen, or HDMI), and Ethernet or WiFi.
 
-- Raspberry Pi 5 (2GB or more)
-- MicroSD card (8GB+)
-- Display (HDMI monitor, official 7" touchscreen, or 11" AMOLED)
-- Ethernet or WiFi connection
+1. Flash **Raspberry Pi OS Lite (64-bit)** with [Raspberry Pi Imager](https://www.raspberrypi.com/software/), with SSH, a user and (if needed) WiFi set in its settings.
+2. SSH in and run:
 
-### Step 1: Flash Pi OS
+   ```bash
+   curl -sL https://raw.githubusercontent.com/chrisuthe/Hearth-Home/main/scripts/setup-pi.sh | sudo bash
+   ```
 
-Download and flash **Raspberry Pi OS Lite (64-bit)** using [Raspberry Pi Imager](https://www.raspberrypi.com/software/).
+   This installs the dependencies, builds our [flutter-pi fork](https://github.com/chrisuthe/flutter-pi-hearth/tree/hearth), downloads the latest release, and starts Hearth under systemd.
+3. Open `http://hearth.local:8090` from any device on your network and enter the PIN shown on the kiosk.
 
-In the imager settings, configure:
-- **Enable SSH** (so you can connect remotely)
-- **Set username and password**
-- **Configure WiFi** (if not using ethernet)
+The wiki has the details: [Installation](https://github.com/chrisuthe/Hearth-Home/wiki/Installation), [The Web Portal](https://github.com/chrisuthe/Hearth-Home/wiki/The-Web-Portal) and [Updating](https://github.com/chrisuthe/Hearth-Home/wiki/Updating).
 
-### Step 2: Run the Setup Script
+## Install on an Android tablet (experimental)
 
-SSH into the Pi and run:
+Hearth runs on arm64 Android 10+ tablets meant to stay on the wall.
 
-```bash
-curl -sL https://raw.githubusercontent.com/chrisuthe/Hearth-Home/main/scripts/setup-pi.sh | sudo bash
-```
+1. Download `hearth-android-<version>.apk` from the [latest release](https://github.com/chrisuthe/Hearth-Home/releases/latest).
+2. Open it on the tablet and allow installs from that source when Android asks.
+3. Launch Hearth. It declares itself a Home app, so you can set it as the tablet's default launcher.
+4. Open `http://<tablet-ip>:8090` and enter the PIN shown on the tablet.
 
-This does everything automatically:
-- Installs dependencies (GStreamer, Mesa, WPE WebKit, etc.)
-- Builds flutter-pi from the [Hearth fork](https://github.com/chrisuthe/flutter-pi-hearth/tree/hearth) (patched for a live video pipeline)
-- Downloads the latest app bundle from GitHub Releases
-- Configures systemd services — including a rollback service that reverts to the previous bundle if the app fails to start repeatedly — and starts Hearth
+Hearth updates itself from later releases. Grant it **Install unknown apps** when it asks; Android then confirms each update.
 
-The kiosk starts automatically after setup completes.
+**Works:** fullscreen kiosk launch, Calendar, Lists & Chores, web dashboards (system WebView), the built-in voice satellite, Sendspin, MQTT, the web portal, screenshots and screen recording, display orientation, and self-update. Camera streams, Plex casting and Live TV have not been tested on a tablet.
+**Does not work yet:** alarm and timer sounds (a timer rings through the voice satellite when it is running), notification chimes, WiFi management from Hearth, and the timezone setting (the tablet's own timezone is used).
 
-### Step 3: Configure From the Web Portal
-
-Open a browser on any device on your network and go to:
-
-```
-http://hearth.local:8090
-```
-
-Enter the PIN shown on the kiosk display. The portal mirrors the on-device Settings as a plugin sidebar, so almost everything can be set up from the browser:
-
-- **Home Assistant** — WebSocket URL + long-lived access token; pick pinned entities, the voice satellite, and the night-mode entity
-- **Immich** — Server URL + API key, then choose photo sources (memories, albums, people, smart search)
-- **Frigate** — Server URL (for camera streams, optional)
-- **UniFi Protect** — Controller URL + local API key (optional)
-- **Music Assistant** — Server URL + token (optional)
-- **Mealie** — Server URL + token (for recipes, optional)
-- **Plex Cast** — Player name + enable toggle (pairing with plex.tv is on-device only)
-- **Web Dashboards** — Add Home Assistant Lovelace dashboards or arbitrary URLs as swipe screens
-- **MQTT** — Broker URL (+ optional credentials) to expose Hearth as a Home Assistant device (see [docs/home-assistant-mqtt-setup.md](docs/home-assistant-mqtt-setup.md))
-- **Screens & Order** — Enable/disable screens and set their swipe order
-- **Alarms**, **Timezone**, **Update source**, and **Network** (WiFi, PIN, portal URL + QR code)
-
-The PIN gates the portal; an auto-generated API key (in the Pi's `hub_config.json`) lets scripts drive the same `/api/*` endpoints with a `Bearer` token.
-
-### Updating
-
-Hearth checks for updates daily and on boot, from your selected source (GitHub or Gitea). Force an update from the portal's **Updates** panel, or manually:
-
-```bash
-sudo systemctl start hearth-updater.service
-```
-
-Re-running the setup script also updates everything:
-
-```bash
-curl -sL https://raw.githubusercontent.com/chrisuthe/Hearth-Home/main/scripts/setup-pi.sh | sudo bash
-```
+Per-subsystem status: [`docs/specs/2026-10-13-android-apk-requirements.md`](docs/specs/2026-10-13-android-apk-requirements.md).
 
 ## Architecture
 
-### Navigation
+**Layers, not routes.** `HubShell` is a permanent stack: the Immich photo carousel at the bottom, a horizontal `PageView` of screens that fades in on touch, ambient overlays (clock, weather, glances) that fade in when idle, edge-swipe menus, and full-screen overlays on top (notifications, alarms, DLNA and Plex cast, Live TV).
 
-Swipe-based horizontal navigation. The screens and their order are configurable; by default:
+**Modules** are screens (`HearthModule`, `lib/modules/`). The registered ones are Alarm Clock, Music, Calendar, Lists, Controls, Cameras (Frigate), Protect (UniFi), Recipes (Mealie) and Live TV (`lib/modules/module_registry.dart`); one Web Dashboard module is added per configured URL. Each module's `defaultOrder` sets the swipe order around Home:
 
-**Music ← Alarms ← Home → Controls → Live TV → Cameras → Protect → Recipes → Settings**
+**Music ← Alarms ← Home → Calendar → Lists → Controls → Live TV → Cameras → Protect → Recipes → Settings**
 
-Out of the box only **Music, Controls, and Cameras** are enabled; the rest are turned on as you configure them. Any **Web Dashboards** you add appear as additional swipe screens in their configured position. Modules can also be tucked into one of the two edge menus instead of taking a swipe slot. The Home screen is transparent over the photo carousel — photos are always visible — while other screens use a dark background for readability.
+Only Music, Controls and Cameras are enabled out of the box. A module can sit in the swipe row, an edge menu, or both.
 
-Configurable edge swipe menus slide in from top/bottom without dimming the background.
+**Plugins** are settings panels (`lib/plugins/`). Each renders itself twice from one definition — a widget for on-device Settings and HTML for the `:8090` portal — which keeps the two at parity. The portal and the `/api/*` endpoints are served by `LocalApiServer`.
 
-### Module System
+**Plex** plays two roles from one `plex.tv/link` pairing: a GDM-advertised cast sink, and a client that tunes Live TV through the DVR.
 
-Optional screens implement the `HearthModule` interface (`lib/modules/hearth_module.dart`). Each module provides a screen, a settings section, and enable/disable + placement support. The registered modules are **Alarm Clock, Music, Controls, Cameras (Frigate), Protect (UniFi), Recipes (Mealie), and Live TV** (`lib/modules/module_registry.dart`). **Web Dashboards** are dynamic: one `WebviewModule` is synthesized per configured dashboard, so they aren't a fixed entry in the list — they're driven by your config.
+**Video on Pi** uses GStreamer through our flutter-pi fork, whose `hearth` branch fixes a live-pipeline deadlock; web dashboards render with WPE WebKit. Desktop and Android use media_kit.
 
-Modules are placed rather than merely enabled: `modulePlacements` maps a module ID to one or more surfaces (`swipe`, `menu1`, `menu2`), so a screen can live in the swipe row, an edge menu, or both.
+**Android** hosts the voice satellite (our [Ava fork](https://github.com/chrisuthe/Ava-hearth)) and Sendspin ([SendspinDroid](https://github.com/chrisuthe/SendspinDroid)) in one native foreground service, driven from Dart over platform channels.
 
-### Embedded Web Dashboards (WPE)
-
-Webview screens render web content with **WPE WebKit** through a GStreamer `wpevideosrc` pipeline composited into the Flutter scene. Touch is mapped through to the page (tap, long-press, vertical scroll), while horizontal drags pass through to the outer PageView for swipe navigation. Pipelines suspend when the kiosk goes idle and auto-restart after errors. For Home Assistant dashboards, an init script injects the long-lived token into the page's `localStorage` at document start, so the dashboard loads already authenticated.
-
-### Plugin Settings & Web Portal
-
-Settings are organized as **plugins** (`lib/plugins/`). Each plugin renders itself twice from one definition: a Flutter widget for the on-device Settings sidebar and an HTML fragment for the `:8090` web portal — which is why the portal stays at near-full parity with the device. The portal is served by `LocalApiServer` (`lib/services/local_api_server.dart`): the page is PIN-gated, and the `/api/*` endpoints accept either the web-session cookie or a `Bearer` API key.
-
-### Plex: Two Roles, One Pairing
-
-Hearth talks to Plex in two opposite directions, and they share the account token from a single on-device `plex.tv/link` pairing:
-
-- **Cast sink** (`lib/services/plex/`) — Hearth advertises itself over **GDM** as a Plex player. Plex apps push media to it, and Hearth serves the Plex Companion control endpoints. It parses intro and credits markers to drive the **Skip Intro** / **Next Episode** buttons, and follows the **play queue** for prev/next and auto-advance.
-- **Client** (`lib/services/plex/livetv/`) — Live TV *initiates* playback: it resolves the owned server and its DVR from the account token, lists channels, tunes through the HDHomeRun grabber, and plays the result. Every exit path issues the teardown so a tuner isn't leaked.
-
-The transcode path keeps a **local guard that the PMS decision cannot override**: HEVC, 4K, and interlaced sources are transcoded regardless of what the server decides. The two sources of truth can disagree, and letting the server win silently reintroduced an interlaced-playback bug — so each routing decision logs which source produced it.
-
-### Home Assistant Device (MQTT)
-
-When an MQTT broker is configured, Hearth publishes [MQTT discovery](docs/home-assistant-mqtt-setup.md) config so a single **Hearth** device appears in Home Assistant. It exposes its current screen, now-playing, timer state, and next alarm as sensors, plus a controllable **volume** number, and reports its installed app version as the device's firmware version.
-
-### Video on Pi
-
-Live camera streams use GStreamer via flutter-pi's video player plugin. Hearth builds flutter-pi from its own [fork](https://github.com/chrisuthe/flutter-pi-hearth/tree/hearth), whose `hearth` branch patches `player.c` to fix a live pipeline initialization deadlock — custom pipelines go straight to PLAYING state instead of stalling in PAUSED.
-
-### Key Technologies
-
-- **Flutter** + **Riverpod** for UI and state management
-- **flutter-pi** for Raspberry Pi rendering (DRM/KMS + EGL)
-- **GStreamer** for RTSP video playback on Pi; **WPE WebKit** for embedded web dashboards
-- **media_kit** (libmpv) for video on desktop
-- **Home Assistant WebSocket API** for device control and events
+Built with Flutter, Riverpod, flutter-pi, GStreamer, WPE WebKit, media_kit and the Home Assistant WebSocket API. [`CLAUDE.md`](CLAUDE.md) has the architecture in depth, and [`docs/specs/`](docs/specs/) the design records.
 
 ## Development
 
-### Desktop (Windows/Linux)
-
 ```bash
 flutter pub get
-flutter run -d windows   # or -d linux
-```
-
-### Android (experimental)
-
-```bash
-flutter build apk --debug
-```
-
-The APK builds and launches on Android 10+, but most Pi-only subsystems are inert and there is no kiosk mode yet. See [`docs/specs/2026-10-13-android-apk-requirements.md`](docs/specs/2026-10-13-android-apk-requirements.md) for what works and what is still required.
-
-### Run Tests
-
-```bash
-flutter test
+flutter run -d windows        # or -d linux
 flutter analyze
+flutter test
+flutter test test/portrait    # every surface at landscape and portrait sizes
 ```
 
-### Target Hardware
-
-- Raspberry Pi 5
-- 11" AMOLED (2368x1728, rendered at 1184x864 for performance)
-- Also supports: Official RPi 7" touchscreen, generic HDMI monitors
-
-### Releasing
-
-Hearth ships from two remotes and devices update from one or the other, so every
-merge and every release must be pushed to **both** or a platform's devices fall
-behind. The full end-to-end process — branch sync, version bump, tagging, wiki,
-and CI verification — lives in **[docs/RELEASING.md](docs/RELEASING.md)**.
-
-The short version:
+**Android** needs JDK 17 and the Android SDK:
 
 ```bash
-./scripts/sync-remotes.sh          # after a merge: push main to both remotes
-./scripts/release.sh --bump 1.13.3 # cut a release: bump, tag, push the tag to both
+git submodule update --init   # the Ava fork and SendspinDroid
+flutter build apk --debug
+./scripts/build-android-apk.sh   # release arm64 APK, as CI builds it
 ```
+
+**Target hardware:** Raspberry Pi 5 with the 11" AMOLED (2368x1728, rendered at 1184x864). Layouts must also hold in portrait at 864x1184 and 800x1280; `test/portrait/` checks all three. The official 7" touchscreen and HDMI monitors are supported too.
+
+**Releasing:** every merge and release goes to both remotes (GitHub and Gitea), because devices update from either. [`docs/RELEASING.md`](docs/RELEASING.md) has the full process.
+
+```bash
+./scripts/sync-remotes.sh               # after a merge: push main to both remotes
+./scripts/release.sh --bump <version>   # bump, tag, and push the tag to both
+```
+
+Contributions are welcome — see [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## License
 
 MIT
 
-Hearth's builds also ship third-party code, fonts, sounds and models under their own licences, among them our fork of [Ava](https://github.com/chrisuthe/Ava-hearth) (Apache-2.0) in the Android build. [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) lists them, and the app shows the licence texts under Settings → System → Open-source licences.
+Hearth's builds also ship third-party code, fonts, sounds and models under their own licences, among them our fork of [Ava](https://github.com/chrisuthe/Ava-hearth) (Apache-2.0) and [SendspinDroid](https://github.com/chrisuthe/SendspinDroid) (MIT) in the Android build. [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) lists them, and the app shows the licence texts under Settings → System → Open-source licences.
