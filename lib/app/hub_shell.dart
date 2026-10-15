@@ -19,6 +19,7 @@ import '../screens/settings/settings_screen.dart';
 import '../modules/alarm_clock/alarm_alert_overlay.dart';
 import '../modules/alarm_clock/alarm_service.dart';
 import '../modules/alarm_clock/sunrise_controller.dart';
+import '../modules/lists/lists_providers.dart';
 import '../modules/webview/webview_session_pool.dart';
 import '../services/dlna/dlna_cast_overlay.dart';
 import '../services/plex/plex_cast_overlay.dart';
@@ -279,11 +280,22 @@ class _HubShellState extends ConsumerState<HubShell> {
     );
   }
 
-  /// Jumps to the Calendar page; null when it is not in the swipe row.
-  VoidCallback? _calendarTap(
-      List<dynamic> leftModules, List<dynamic> rightModules, int homeIndex) {
-    final left = leftModules.indexWhere((m) => m.id == 'calendar');
-    final right = rightModules.indexWhere((m) => m.id == 'calendar');
+  /// The chore glance's tap: the Lists page, on the chore chart.
+  VoidCallback? _choresTap(List<dynamic> leftModules,
+      List<dynamic> rightModules, int homeIndex) {
+    final tap = _moduleTap('lists', leftModules, rightModules, homeIndex);
+    if (tap == null) return null;
+    return () {
+      ref.read(listsViewProvider.notifier).state = ListsView.chores;
+      tap();
+    };
+  }
+
+  /// Jumps to module [id]'s page; null when it is not in the swipe row.
+  VoidCallback? _moduleTap(String id, List<dynamic> leftModules,
+      List<dynamic> rightModules, int homeIndex) {
+    final left = leftModules.indexWhere((m) => m.id == id);
+    final right = rightModules.indexWhere((m) => m.id == id);
     if (left < 0 && right < 0) return null;
     final index = left >= 0 ? left : homeIndex + 1 + right;
     return () {
@@ -380,7 +392,9 @@ class _HubShellState extends ConsumerState<HubShell> {
             );
           }
         },
-        onCalendarTap: _calendarTap(leftModules, rightModules, homeIndex),
+        onCalendarTap:
+            _moduleTap('calendar', leftModules, rightModules, homeIndex),
+        onListsTap: _choresTap(leftModules, rightModules, homeIndex),
       ),
       ...rightModules.map((m) => m.buildScreen(
           isActive: _currentPage == homeIndex + 1 + rightModules.indexOf(m))),

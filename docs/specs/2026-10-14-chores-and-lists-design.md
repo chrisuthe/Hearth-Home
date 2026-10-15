@@ -1,7 +1,7 @@
 # Chores and Lists — Design
 
 **Date:** 2026-10-14
-**Status:** Design. Child tasks 1 (data layer), 2 (screen), 3 (settings) and 4 (chore chart) built.
+**Status:** Built. Child tasks 1 (data layer), 2 (screen), 3 (settings), 4 (chore chart) and 5 (glance).
 **Goal:** Specify Skylight-style lists and a chore chart on Hearth, built on Home Assistant `todo` entities, and break the work into the tasks the epic will follow.
 **Tracking:** issue 214 (Skylight feature inventory). The Calendar epic did the calendar half; this is the lists and chores half.
 
@@ -380,7 +380,7 @@ The `ListSection` HTML render is read-only (`lib/plugins/framework/list_section.
 
 ## The idle glance
 
-`ChoreGlance`, a `ConsumerWidget` in `HomeScreen`'s bottom column next to `CalendarGlance` (`lib/screens/home/home_screen.dart:69`). It shows only when `todoChoreGlance` is on and a chore list exists:
+`ChoreGlance` (`lib/modules/lists/chore_glance.dart`), a `ConsumerWidget` in `HomeScreen`'s bottom column, just above `CalendarGlance`. It shows only when `todoChoreGlance` is on and a chore list exists:
 
 ```
   ● Ava   Feed the cat · late
@@ -389,8 +389,8 @@ The `ListSection` HTML render is read-only (`lib/plugins/framework/list_section.
 ```
 
 - At most three lines, then "+n more". Draws nothing when nothing is open for today.
-- The person's colour as the dot, the same text shadows as the clock.
-- A tap jumps to the Lists page on the Chores view, when the module is in the swipe row: it sets `listsViewProvider` to `ListsView.chores`, then moves to the page.
+- The person's colour as the dot (their chore list's colour), the same text shadows as the clock.
+- A tap jumps to the Lists page on the Chores view when the module is in the swipe row, and does nothing otherwise. HubShell sets `listsViewProvider` to `ListsView.chores`, then moves to the page.
 - It watches `choresTodayProvider` through `select`, so a push that changes nothing for today does not rebuild it.
 
 ### What counts as today

@@ -126,3 +126,20 @@ TodoItem todo(
       due: due,
       description: description,
     );
+
+const kAvaChores = TodoListConfig(
+    entityId: 'todo.ava', name: 'Ava', color: 0xFFE91E63, person: 'Ava');
+const kBenChores = TodoListConfig(
+    entityId: 'todo.ben', name: 'Ben', color: 0xFF2196F3, person: 'Ben');
+
+/// Ava's and Ben's chore lists plus a plain one, glance on unless [glance].
+HubConfig choreConfig({bool glance = true}) => HubConfig(
+      haUrl: 'http://ha.invalid:8123',
+      haToken: 'token',
+      todoChoreGlance: glance,
+      todoLists: const [
+        kAvaChores,
+        kBenChores,
+        TodoListConfig(entityId: 'todo.groceries', name: 'Groceries'),
+      ],
+    );
