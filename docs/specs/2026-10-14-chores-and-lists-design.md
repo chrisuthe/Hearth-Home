@@ -1,7 +1,7 @@
 # Chores and Lists — Design
 
 **Date:** 2026-10-14
-**Status:** Built. Child tasks 1 (data layer), 2 (screen), 3 (settings), 4 (chore chart) and 5 (glance).
+**Status:** Child tasks 1–5 built (data layer, screen, settings, chore chart, glance); the hardware pass (6) is open.
 **Goal:** Specify Skylight-style lists and a chore chart on Hearth, built on Home Assistant `todo` entities, and break the work into the tasks the epic will follow.
 **Tracking:** issue 214 (Skylight feature inventory). The Calendar epic did the calendar half; this is the lists and chores half.
 
