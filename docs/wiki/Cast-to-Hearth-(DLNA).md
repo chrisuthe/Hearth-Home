@@ -23,12 +23,12 @@ that discovers renderers and sends them a video:
 
 ## Enable DLNA
 
-Open **DLNA Cast** in the [[web portal|The Web Portal]]:
+Open **DLNA Cast** in the [[web portal|The Web Portal]] or on-device **Settings**:
 
 | Field | Example | Notes |
 | --- | --- | --- |
 | **Renderer Name** | `Hearth` | Required. The name that shows up in your casting app's device list. |
-| **Enable DLNA Renderer** | *(toggle)* | Disabled until you've set a Renderer Name. |
+| **Enable DLNA Renderer** | *(toggle)* | Disabled (*"Set a renderer name first"*) until you've set a Renderer Name. |
 
 > **First-time enable must be done on the kiosk.** Toggling *Enable* on-device generates the
 > renderer's unique UPnP ID (UDN) that control points use to find it. The web checkbox doesn't
@@ -52,12 +52,26 @@ worked examples:
 2. Choose **Cast to Device → Hearth**.
 3. Playback controls appear on the PC; the video plays on the kiosk.
 
-The video scales to fill the screen automatically, so SD and HD clips both look right. Use the
-kiosk's on-screen transport bar (tap the video) or your casting app to pause/stop.
+The video goes full-screen and Hearth wakes from idle. It fills the screen when that crops
+only a little of the picture, and letterboxes when it would crop a lot (a wide film, or 16:9
+on a portrait screen).
+
+**On the kiosk** — tap the video to show the transport bar for four seconds: a progress bar,
+play/pause, elapsed / total time, and **Stop**. An **✕** in the top-right corner is always
+there to end the cast.
+
+**From your casting app** — play, pause, stop, seek, volume, and mute all work. Hearth plays
+one item at a time, so the app's next / previous do nothing.
+
+## On Android
+
+On an [[Android tablet|Android Tablet]], a video sent straight to the renderer plays
+full-screen. Whether casting apps can **find** the tablet has not been tested yet, and they may
+not see it.
 
 ## Troubleshooting
 
 - **Hearth isn't in the cast list** — make sure you enabled it **on the device** at least
   once, that you're using an actual control point (BubbleUPnP / Windows "Cast to Device", **not**
   Plex or VLC — see [Which apps work](#which-apps-work)), and that the casting device is on the
-  same network/subnet as the Pi (UPnP discovery is LAN-local). See [[Troubleshooting & FAQ]].
+  same network/subnet as the kiosk (UPnP discovery is LAN-local). See [[Troubleshooting & FAQ]].

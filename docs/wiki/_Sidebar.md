@@ -4,6 +4,7 @@
 
 **Getting started**
 - [[Installation]]
+- [[Android Tablet]]
 - [[The Web Portal]]
 - [[Navigation & Gestures]]
 

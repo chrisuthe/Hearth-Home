@@ -21,9 +21,6 @@ visible gap.
 | `portal-immich.png` | Web portal | [[Photos & Ambient Display]] | The **Immich** panel with all four photo sources visible — Memories on, Album picker, People chips, Smart search box. |
 | `gesture-menu.png` | Kiosk | [[Navigation & Gestures]] | An edge-swipe menu (Menu 1 or Menu 2) mid-slide over the Home photo background. |
 | `alarm-editor.png` | Kiosk (or portal) | [[Alarms & Timers]] | The alarm editor open: time set, a couple of repeat days toggled, sunrise on, a sound chosen. |
-| `livetv.png` | Kiosk | [[Live TV (Plex)]] | The **channel grid** — tiles showing channel number + call sign. Capture *before* tapping a channel. |
-| `plex-skip-intro.png` | Kiosk | [[Plex Cast]] | A cast during an **intro marker**, so the **Skip Intro** button is visible bottom-right. `plex-cast.png` already covers the plain transport bar. |
-| `calendar.png` | Kiosk | [[Calendar]] | Week view with two or three sources in different colours, a few all-day events and timed events, today in view with the now line. Use calendars without personal details. |
 | `chores.png` | Kiosk | [[Lists & Chores]] | The **Chores** view with two or three people, each with a late chore, a couple due today and one done. Use made-up names and chores. |
 
 ## Priority 0 — already captured (reused)
@@ -44,6 +41,8 @@ only if the UI has drifted.
 | `recipes.png` | Kiosk | [[Recipes (Mealie)]] | Recipe grid with photo cards. |
 | `music-browse.png` | Kiosk | [[Music Assistant]] | Browse overlay: search, section tabs, library grid, mini bar. |
 | `livetv-tuning.png` | Kiosk | [[Live TV (Plex)]] | Tuning state — LIVE badge, channel label, spinner. |
+| `calendar.png` | Kiosk | [[Calendar]] | Week view with events from two colour-coded calendars. |
+| `lists.png` | Kiosk | [[Lists & Chores]] | Lists view: a groceries list and two chore lists in the rail. |
 
 ## Priority 2 — recommended additions (strengthen a page)
 
@@ -62,6 +61,10 @@ embedded yet, so they need a one-line placeholder added when captured).
 | `voice-pill.png` | Kiosk | [[Voice Satellite]] | The voice-activity pill during an interaction. |
 | `updates.png` | Web portal | [[Updating]] | System panel update controls (Check / Install / Force). |
 | `portal-plex.png` | Web portal | [[Plex Cast]] | The Plex Cast panel (player name + enable). Note pairing is on-device only. |
+| `livetv.png` | Kiosk | [[Live TV (Plex)]] | The **channel grid** — tiles showing channel number + call sign. Capture *before* tapping a channel. |
+| `plex-skip-intro.png` | Kiosk | [[Plex Cast]] | A cast during an **intro marker**, so the **Skip Intro** button is visible bottom-right. `plex-cast.png` already covers the plain transport bar. |
+| `android-home.png` | Kiosk (Android) | [[Android Tablet]] | Hearth running fullscreen on a tablet, portrait, as the Home app. |
+| `android-voice.png` | Kiosk (Android) | [[Voice Satellite]] | The Voice panel on a tablet with the **Voice satellite** group visible and connected. |
 | `plex-pairing.png` | Kiosk | [[Plex Cast]] | The on-device pairing step showing the `plex.tv/link` code. **Blur or regenerate the code before publishing.** |
 
 ---
@@ -74,6 +77,8 @@ embedded yet, so they need a one-line placeholder added when captured).
 - Captures come from the **display scanout** (`ffmpeg kmsgrab` on `/dev/dri/card1`), not from
   the Flutter scene — so what you get is exactly what the panel is showing, **including live
   video**: camera streams, Plex and DLNA casts, and Live TV all appear in captures.
+- On an **Android tablet**, the same Capture tools work; Android asks once per session for
+  permission to capture the screen — accept the prompt on the tablet.
 - Kiosk render resolution is 1184×864 — captures come out at that size, which is plenty for the
   wiki.
 - For portal shots, a normal browser screenshot of the relevant panel is fine; crop to the

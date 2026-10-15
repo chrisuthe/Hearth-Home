@@ -32,7 +32,8 @@ Each row says what the list can do (*add · edit · reorder · due dates*), read
 Assistant. To point a row at a different list, delete it and add it again.
 
 Then put **Lists** on the swipe row (or a menu) in **Screens & Order** — see
-[[Navigation & Gestures]]. By default it sits right of Calendar.
+[[Navigation & Gestures]]. It isn't placed anywhere until you do. On the swipe row it sits right
+of Calendar unless you reorder it.
 
 ### Options
 
@@ -41,6 +42,8 @@ Then put **Lists** on the swipe row (or a menu) in **Screens & Order** — see
 | **Show today's chores when idle** | The glance on the idle Home screen (below). Off by default |
 
 ## The Lists view
+
+![The Lists screen with a groceries list and two chore lists in the rail](images/lists.png)
 
 - **The left rail** lists every list with its open count. Tap one to open it. On a portrait
   screen the rail becomes a dropdown at the top.
@@ -71,7 +74,8 @@ today. Tap a chore to tick it off; tap again to undo. On a narrow screen columns
 
 ## The idle glance
 
-With **Show today's chores when idle** on, Home shows up to **three** of today's open chores —
+With **Show today's chores when idle** on, the Home screen (where the kiosk returns when idle)
+shows up to **three** of today's open chores —
 late ones first — above the calendar glance, with *+n more* when there are others. Chores with no
 due date are left out. Tap it to open the Chores view (when Lists is on the swipe row). It hides
 itself when nothing is due.
@@ -125,4 +129,9 @@ A chore still open from yesterday stays, marked *late*, next to today's.
 - **A list says *Home Assistant 2023.12 or newer is needed for lists*** — update Home Assistant.
 - **A change made in Google Tasks takes a while to appear** — HA polls Google Tasks every 30
   minutes.
-- **Chores are a day off** — check the kiosk's timezone in [[Network & System]].
+- **Chores are a day off** — check the kiosk's **Timezone** in [[Display & Night Mode]].
+
+## On Android
+
+Lists and chores work the same on an [[Android Tablet]]. Hearth's timezone setting has no
+effect there, so "today" and *late* follow the tablet's own timezone.

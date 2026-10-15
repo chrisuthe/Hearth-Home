@@ -26,8 +26,9 @@ integration with richer data gives you a richer screen.
 ## The ambient readout
 
 On the Home screen, the bottom-right corner shows the current condition icon, the temperature,
-and a `Sunny · H:83° L:67°` line under it. It fades in with the clock when the kiosk goes idle —
-see [[Photos & Ambient Display]].
+and a `Sunny · H:83° L:67°` line under it (the high/low line only when the entity has a daily
+forecast). On a portrait screen it sits above the clock. The kiosk returns to Home when idle, so
+this is what you see from across the room — see [[Photos & Ambient Display]].
 
 If no weather entity is configured or it hasn't reported yet, this shows `--°`.
 

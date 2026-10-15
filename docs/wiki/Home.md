@@ -1,21 +1,24 @@
 # Hearth Wiki
 
 **Hearth** is an open-source smart-home kiosk — a Google Nest Hub replacement built
-for a Raspberry Pi 5 with an 11" AMOLED display. It rotates your Immich photos behind
+for a Raspberry Pi 5 with an 11" AMOLED display, and also available, experimentally, for
+Android tablets. It rotates your Immich photos behind
 an ambient clock and weather, and gives you swipe-away screens for Home Assistant
 controls, Music Assistant playback, Frigate and UniFi Protect cameras, recipes, alarms,
 live TV, and embedded web dashboards.
 
 ![Hearth home screen with ambient clock and weather over an Immich photo](images/home.png)
 
-This wiki is the **end-user guide**: how to install Hearth on a Pi, pair it, and set up
-and use every module. If you want to build or contribute to Hearth, see the
+This wiki is the **end-user guide**: how to install Hearth on a Pi or an Android tablet,
+pair it, and set up and use every module. If you want to build or contribute to Hearth, see the
 [README](https://github.com/chrisuthe/Hearth-Home) instead — this wiki intentionally
 stays out of architecture and dev-setup territory.
 
 ## Start here
 
 - **[[Installation]]** — from a bare Raspberry Pi to a paired, running kiosk.
+- **[[Android Tablet]]** — install the APK, make Hearth the Home app, and what works there
+  so far *(experimental)*.
 - **[[The Web Portal]]** — `http://hearth.local:8090`, where almost all configuration
   happens.
 - **[[Navigation & Gestures]]** — swiping between screens, reordering them, edge menus.
@@ -38,10 +41,10 @@ Each page covers **how to connect it** (which URL/token/key, and where to enter 
 | [[Recipes (Mealie)]] | Browse and view recipes with category filtering |
 | [[Web Dashboards]] | Home Assistant Lovelace or any URL as swipe screens |
 | [[Alarms & Timers]] | Scheduled alarms (sunrise, snooze) and countdown timers |
-| [[Voice Satellite]] | Mute/unmute a Home Assistant Assist satellite |
+| [[Voice Satellite]] | Home Assistant Assist: the voice pill and mic mute; on Android, the tablet is the satellite |
 | [[Home Assistant Device (MQTT)]] | Expose Hearth to Home Assistant as an MQTT device |
 | [[Notifications]] | Push messages to the kiosk over MQTT or HTTP |
-| [[Multi-Room Audio (Sendspin)]] | Use Hearth as a synced Music Assistant player |
+| [[Multi-Room Audio (Sendspin)]] | Use Hearth as a synced Music Assistant player, on the Pi and Android |
 | [[Cast to Hearth (DLNA)]] | Cast video to the kiosk from a phone |
 | [[Plex Cast]] | Cast from Plex apps to the kiosk; skip intro/credits, play queues |
 | [[Live TV (Plex)]] | Browse and watch your Plex DVR's live channels on the kiosk |
@@ -52,7 +55,7 @@ Each page covers **how to connect it** (which URL/token/key, and where to enter 
 | --- | --- |
 | [[Display & Night Mode]] | Night-mode sources, brightness, UI scale |
 | [[Network & System]] | WiFi, PIN, portal URL/QR, timezone, reboot |
-| [[Updating]] | OTA updates, GitHub vs Gitea source, force update, rollback |
+| [[Updating]] | OTA updates, GitHub vs Gitea source, force update, rollback; Android self-update |
 
 ## Help
 
@@ -62,4 +65,5 @@ Each page covers **how to connect it** (which URL/token/key, and where to enter 
 ---
 
 *This wiki is published from `docs/wiki/` in the Hearth repository. See
-[[Contributing to this wiki]] for how the pages are edited and published.*
+[[Contributing to this wiki]] for how the pages are edited and published, and the
+[[screenshot shot list|SHOTLIST]] for the images still to capture.*

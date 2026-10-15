@@ -17,7 +17,7 @@ Open **Sendspin** in the [[web portal|The Web Portal]] or in Settings on the kio
 | **Player Name** | `Kitchen Display` | Required. The name this kiosk shows up as in Music Assistant. |
 | **Enable Sendspin Player** | *(toggle)* | Disabled until you've set a Player Name. |
 | **Server URL** | `ws://192.168.1.x:8927` | Optional. Must start with `ws://`. See below. |
-| **Buffer Size** | `5 seconds` | How much audio the kiosk can hold ahead: 5, 7, or 10 seconds. |
+| **Buffer Size** | `5 seconds` | How much audio the kiosk can hold ahead: 5, 7, or 10 seconds. Not shown on Android. |
 | **Allow unpaired servers** | *(toggle, on)* | Whether a server you haven't paired with may play here. |
 
 **Server URL — two ways to connect:**
@@ -42,6 +42,23 @@ recognises the kiosk by it.
 
 Once enabled, Hearth appears as a player in Music Assistant. Add it to a group or send audio
 to it like any other Music Assistant player.
+
+## On Android
+
+Sendspin works on an [[Android tablet|Android Tablet]] through a built-in native player. The
+settings are the same, with three differences:
+
+- **Leave Server URL blank.** Connecting out to a server isn't supported on Android yet; with
+  a URL set the tablet doesn't announce itself, and the panel shows *"Server URL is not
+  supported on Android yet"*. Let your server find the tablet instead.
+- **No Buffer Size** — the Android player manages its own buffer.
+- The player's **volume** follows the tablet's media volume, so Hearth's volume slider and
+  Music Assistant's both move it.
+
+The **Pair with a server** section (QR code and token) is on the tablet's Settings, as on a
+Pi. If something goes wrong, the panel shows the player's last problem under the toggles. While
+the [[voice satellite|Voice Satellite]] is listening, the Sendspin player mutes on this tablet
+only. Android shows an ongoing notification while the player runs.
 
 ## Upgrading from Hearth 1.20 or earlier
 
