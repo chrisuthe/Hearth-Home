@@ -1,7 +1,7 @@
 # Chores and Lists — Design
 
 **Date:** 2026-10-14
-**Status:** Design. Nothing built yet.
+**Status:** Design. Child task 1 (data layer) built.
 **Goal:** Specify Skylight-style lists and a chore chart on Hearth, built on Home Assistant `todo` entities, and break the work into the tasks the epic will follow.
 **Tracking:** issue 214 (Skylight feature inventory). The Calendar epic did the calendar half; this is the lists and chores half.
 
@@ -265,13 +265,14 @@ todoActionsProvider       Provider<TodoActions>
    │  add / update / remove / clearCompleted / move, each Future<String?>
    │  (null on success, HA's message on failure), through HomeAssistantService.request
    │
-choresTodayProvider       Provider<List<ChoreLine>>
+choresTodayProvider       Provider.autoDispose<List<ChoreLine>>
       watches every chore list; the glance rule below; recomputed at local midnight
+      and when a timed chore falls due
 ```
 
 `TodoListState` is `{List<TodoItem> items, ListStatus status, String? error}`, with `ListStatus` one of `loading`, `ok`, `stale`, `error`. As in Calendar, a lost connection keeps the items and marks them `stale`. `invalid_entity_id` is an `error` ("List not found in Home Assistant") that waits for a config change. `unknown_command` is an `error` naming HA 2023.12.
 
-**autoDispose, on purpose.** Calendar's hardware pass found that a non-autoDispose family kept a disabled source subscribed until restart (`d8ceb00`). Here a list stays subscribed only while a view or the glance watches it, and a list removed from config builds nothing. With the glance on, chore lists are always watched, because Home is always built.
+**autoDispose, on purpose.** Calendar's hardware pass found that a non-autoDispose family kept a disabled source subscribed until restart (`d8ceb00`). Here a list stays subscribed only while a view or the glance watches it, and a list removed from config builds nothing. With the glance on, chore lists are always watched, because Home is always built. `choresTodayProvider` is autoDispose for the same reason: a plain `Provider` read once would keep every chore list subscribed for good.
 
 **Writes and what the user sees.** A write changes nothing locally. The push that follows it is the new truth. To keep a check tap feeling immediate, the screen holds a small **pending map** (uid → the status or text it sent). A row in it draws the new value with a faint spinner. An error reply reverts the entry and shows HA's message in a snackbar. A success reply clears it at the next push, or at once if the last push already shows the change. `call_service` is blocking (**verified**, `websocket_api/commands.py:288`), so the reply comes only after the integration has written: on Google Tasks that includes HA's refresh from Google (`google_tasks/todo.py:130`). `request()`'s 10 s timeout is the only timer, and a timeout reverts like an error ("Couldn't confirm the change"). The write may still have landed, and the next push shows it if it did.
 
@@ -401,7 +402,7 @@ This matches HA's own card, which reads a date-only due as the **end** of that d
 
 **One source of skew.** Local To-do stores the RFC 5545 exclusive `DUE` and hands HA the day before it, so `due` reads as the day the user picked (**verified**, `local_todo/todo.py:47-63`, `:170-176`). CalDAV passes the server's date through unchanged (`caldav/todo.py:87-92`). A CalDAV client that writes an exclusive date would then show a day late (**assumed**; depends on the client, not tested). Hearth uses HA's value as given.
 
-The provider recomputes at local midnight, as Calendar's window moves, so yesterday's chores turn "late" without a push.
+The provider recomputes at local midnight, as Calendar's window moves, so yesterday's chores turn "late" without a push. It also recomputes at the next timed chore's instant, so a chore due at 17:00 turns late at 17:00 rather than at the next push or midnight.
 
 ## Test plan
 
