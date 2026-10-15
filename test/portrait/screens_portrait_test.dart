@@ -102,7 +102,7 @@ void main() {
             end: DateTime(today.year, today.month, today.day + 1, 17).toUtc(),
           ),
       ]);
-      expect(find.text('$kLongSummary (all day)'), findsOneWidget);
+      expect(find.text(kLongSummary), findsOneWidget);
       expect(find.text('Soccer practice 1'), findsOneWidget);
       await unmount(tester);
     });
@@ -133,7 +133,7 @@ void main() {
       });
       expect(find.text('$kLongSummary · late'), findsOneWidget);
       expect(find.text('+1 more'), findsOneWidget);
-      expect(find.text('$kLongSummary (all day)'), findsOneWidget);
+      expect(find.text(kLongSummary), findsOneWidget);
       await unmount(tester);
     });
 

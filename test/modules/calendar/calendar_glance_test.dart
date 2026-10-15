@@ -184,17 +184,20 @@ void main() {
       tester,
     ) async {
       await pump(tester, events: sample);
-      expect(find.text('Today'), findsOneWidget);
-      expect(find.text('Recycling day (all day)'), findsOneWidget);
-      expect(find.text('Tomorrow'), findsOneWidget);
-      expect(find.text('Birthday: Ava (all day)'), findsOneWidget);
-      expect(find.text('Tomorrow 8:00 AM'), findsOneWidget);
+      expect(find.text('TODAY'), findsOneWidget);
+      expect(find.text('Recycling day'), findsOneWidget);
+      expect(find.text('TOMORROW'), findsOneWidget);
+      expect(find.text('Birthday: Ava'), findsOneWidget);
+      expect(find.text('All day'), findsNWidgets(2));
+      expect(find.text('8:00 AM'), findsOneWidget);
       expect(find.text('Breakfast'), findsOneWidget);
       expect(find.text('Dentist'), findsNothing);
 
       final dots = tester
           .widgetList<Container>(find.byType(Container))
-          .map((c) => (c.decoration as BoxDecoration?)?.color)
+          .map((c) => c.decoration as BoxDecoration?)
+          .where((d) => d?.shape == BoxShape.circle)
+          .map((d) => d!.color)
           .whereType<Color>()
           .toSet();
       expect(dots, {Color(kFamily.color), Color(kSchool.color)});

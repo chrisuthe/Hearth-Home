@@ -1,19 +1,16 @@
 import 'dart:async';
+import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/tokens/calendar_tokens.dart';
 import '../../app/tokens/tokens.dart';
 import '../../config/hub_config.dart';
 import '../../utils/time_format.dart';
 import 'calendar_providers.dart';
+import 'calendar_widgets.dart' show NowTag;
 import 'models.dart';
-
-/// Same as the Home clock's, for legibility over full-bleed photos.
-const _textShadows = [
-  Shadow(offset: Offset(0, 2), blurRadius: 8, color: Color(0xB4000000)),
-  Shadow(offset: Offset(0, 1), blurRadius: 3, color: Color(0x82000000)),
-];
 
 /// At most three events that have not ended, from [now] to the end of
 /// tomorrow. Today's all-day events come first; the rest keep [events]'
@@ -34,7 +31,8 @@ List<CalendarEvent> upcomingEvents(List<CalendarEvent> events, DateTime now) {
   return [...todayAllDay, ...rest].take(3).toList();
 }
 
-/// The next events on the idle Home screen, above the timer pill. Draws
+/// The next events on the idle Home screen, above the timer pill, on a
+/// frosted card so they read over any photo. Draws
 /// nothing when the glance is off, no source is enabled, or nothing is left
 /// before the end of tomorrow.
 class CalendarGlance extends ConsumerStatefulWidget {
@@ -99,100 +97,200 @@ class _CalendarGlanceState extends ConsumerState<CalendarGlance> {
     );
     final use24h = ref.watch(hubConfigProvider.select((c) => c.use24HourClock));
     final tomorrow = DateTime(_now.year, _now.month, _now.day + 1);
+    Color colorOf(CalendarEvent e) => Color(
+      sources
+          .firstWhere(
+            (s) => s.id == e.sourceId,
+            orElse: () =>
+                const CalendarSource(id: '', kind: CalendarSourceKind.ha),
+          )
+          .color,
+    );
+    bool isTomorrow(CalendarEvent e) =>
+        !(e.allDay ? e.start : e.start.toLocal()).isBefore(tomorrow);
 
+    final rows = <Widget>[];
+    String? section;
+    for (final e in events) {
+      final label = isTomorrow(e) ? 'TOMORROW' : 'TODAY';
+      if (label != section) {
+        rows.add(_SectionLabel(label: label, divided: section != null));
+        section = label;
+      }
+      final now = !e.allDay && !e.start.isAfter(_now);
+      rows.add(
+        _GlanceRow(
+          event: e,
+          color: colorOf(e),
+          now: now,
+          when: e.allDay ? 'All day' : formatTime(e.start.toLocal(), use24h),
+          until: now ? 'until ${formatTime(e.end.toLocal(), use24h)}' : null,
+        ),
+      );
+    }
+
+    final radius = BorderRadius.circular(CalendarRadii.glance);
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: widget.onTap,
       child: Padding(
-        padding: const EdgeInsets.only(bottom: HearthSpacing.x3),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (final e in events)
-              _GlanceLine(
-                event: e,
-                color: Color(
-                  sources
-                      .firstWhere(
-                        (s) => s.id == e.sourceId,
-                        orElse: () => const CalendarSource(
-                          id: '',
-                          kind: CalendarSourceKind.ha,
-                        ),
-                      )
-                      .color,
+        padding: const EdgeInsets.only(bottom: HearthSpacing.x5),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(
+            minWidth: CalendarSizes.glanceMinWidth,
+            maxWidth: CalendarSizes.glanceMaxWidth,
+          ),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: radius,
+              boxShadow: CalendarShadows.glance,
+            ),
+            child: ClipRRect(
+              borderRadius: radius,
+              child: BackdropFilter(
+                filter: ImageFilter.blur(
+                  sigmaX: CalendarSizes.glanceBlur,
+                  sigmaY: CalendarSizes.glanceBlur,
                 ),
-                when: _whenLabel(e, tomorrow, use24h),
+                child: Container(
+                  padding: const EdgeInsets.fromLTRB(
+                    HearthSpacing.x3,
+                    HearthSpacing.x3,
+                    HearthSpacing.x3,
+                    HearthSpacing.x2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: CalendarColors.glanceCard,
+                    border: Border.all(color: CalendarColors.glanceBorder),
+                    borderRadius: radius,
+                  ),
+                  child: DefaultTextStyle.merge(
+                    style: const TextStyle(
+                      fontFamily: CalendarType.family,
+                      fontFeatures: [FontFeature.tabularFigures()],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      mainAxisSize: MainAxisSize.min,
+                      children: rows,
+                    ),
+                  ),
+                ),
               ),
-          ],
+            ),
+          ),
         ),
       ),
     );
   }
-
-  String _whenLabel(CalendarEvent e, DateTime tomorrow, bool use24h) {
-    final start = e.allDay ? e.start : e.start.toLocal();
-    final isTomorrow = !start.isBefore(tomorrow);
-    if (e.allDay) return isTomorrow ? 'Tomorrow' : 'Today';
-    final time = formatTime(start, use24h);
-    return isTomorrow ? 'Tomorrow $time' : time;
-  }
 }
 
-class _GlanceLine extends StatelessWidget {
+class _SectionLabel extends StatelessWidget {
+  final String label;
+
+  /// A rule above it, between today's events and tomorrow's.
+  final bool divided;
+
+  const _SectionLabel({required this.label, required this.divided});
+
+  @override
+  Widget build(BuildContext context) => Container(
+    margin: EdgeInsets.only(top: divided ? HearthSpacing.x2 : 0),
+    padding: EdgeInsets.fromLTRB(
+      HearthSpacing.x3,
+      divided ? HearthSpacing.x3 : 0,
+      HearthSpacing.x3,
+      HearthSpacing.x1,
+    ),
+    decoration: divided
+        ? const BoxDecoration(
+            border: Border(top: BorderSide(color: CalendarColors.glanceBorder)),
+          )
+        : null,
+    child: Text(
+      label,
+      style: const TextStyle(
+        fontSize: CalendarType.glanceLabel,
+        fontWeight: FontWeight.w700,
+        letterSpacing: CalendarType.glanceTracking,
+        color: CalendarColors.glanceLabel,
+      ),
+    ),
+  );
+}
+
+class _GlanceRow extends StatelessWidget {
   final CalendarEvent event;
   final Color color;
+  final bool now;
   final String when;
+  final String? until;
 
-  const _GlanceLine({
+  const _GlanceRow({
     required this.event,
     required this.color,
+    required this.now,
     required this.when,
+    this.until,
   });
 
   @override
   Widget build(BuildContext context) {
-    final title = event.allDay ? '${event.summary} (all day)' : event.summary;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: HearthSpacing.x1),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 10,
-            height: 10,
-            decoration: BoxDecoration(
-              color: color,
-              shape: BoxShape.circle,
-              boxShadow: const [
-                BoxShadow(blurRadius: 4, color: Color(0x82000000)),
-              ],
+    return SizedBox(
+      height: CalendarSizes.glanceRow,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: HearthSpacing.x3),
+        child: Row(
+          children: [
+            Container(
+              width: CalendarSizes.glanceDot,
+              height: CalendarSizes.glanceDot,
+              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
             ),
-          ),
-          const SizedBox(width: HearthSpacing.x3),
-          Text(
-            when,
-            style: TextStyle(
-              fontSize: HearthFont.title,
-              color: Colors.white.withValues(alpha: 0.8),
-              fontFeatures: const [FontFeature.tabularFigures()],
-              shadows: _textShadows,
-            ),
-          ),
-          const SizedBox(width: HearthSpacing.x3),
-          Flexible(
-            child: Text(
-              title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: HearthFont.title,
-                shadows: _textShadows,
+            const SizedBox(width: HearthSpacing.x3),
+            SizedBox(
+              width: CalendarSizes.glanceTimeWidth,
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: now
+                    ? const NowTag(fontSize: CalendarType.glanceNow)
+                    : Text(
+                        when,
+                        maxLines: 1,
+                        style: const TextStyle(
+                          fontSize: CalendarType.glance,
+                          fontWeight: FontWeight.w500,
+                          color: CalendarColors.glanceTime,
+                        ),
+                      ),
               ),
             ),
-          ),
-        ],
+            const SizedBox(width: HearthSpacing.x3),
+            Expanded(
+              child: Text(
+                event.summary,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: CalendarType.glance,
+                  fontWeight: FontWeight.w600,
+                  color: CalendarColors.text,
+                ),
+              ),
+            ),
+            if (until != null) ...[
+              const SizedBox(width: HearthSpacing.x3),
+              Text(
+                until!,
+                maxLines: 1,
+                style: const TextStyle(
+                  fontSize: CalendarType.glanceMeta,
+                  color: CalendarColors.glanceMeta,
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }

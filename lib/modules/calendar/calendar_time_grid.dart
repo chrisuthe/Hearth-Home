@@ -2,16 +2,18 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../app/tokens/calendar_tokens.dart';
 import '../../app/tokens/tokens.dart';
+import '../../utils/time_format.dart';
 import 'calendar_layout.dart';
 import 'calendar_widgets.dart';
 import 'models.dart';
 
-const _gutter = 56.0;
-const _hourHeight = 56.0;
-const _dayHeaderHeight = 44.0;
-const _bandRowHeight = 24.0;
 const _bandMaxRows = 3;
+
+/// Hours of grid shown above now when today opens, so the morning stays in
+/// view and now sits about a third of the way down.
+const _nowLeadHours = 2;
 
 /// Day columns over an hour grid, with an all-day band above. Used by the
 /// day, 3-day and week views. Scrolls vertically only.
@@ -37,11 +39,13 @@ class _CalendarTimeGridState extends State<CalendarTimeGrid> {
   @override
   void initState() {
     super.initState();
-    // Opens at 7 am, or at the current hour when today is on screen.
+    // Opens at 7 am, or just before the current hour when today is shown.
     final hour = widget.days.contains(widget.ctx.today)
-        ? widget.ctx.now.hour
+        ? math.max(0, widget.ctx.now.hour - _nowLeadHours)
         : 7;
-    _scroll = ScrollController(initialScrollOffset: hour * _hourHeight);
+    _scroll = ScrollController(
+      initialScrollOffset: hour * CalendarSizes.hourHeight,
+    );
   }
 
   @override
@@ -60,26 +64,31 @@ class _CalendarTimeGridState extends State<CalendarTimeGrid> {
     );
     return LayoutBuilder(
       builder: (context, c) {
-        final colWidth = (c.maxWidth - _gutter) / days.length;
+        final colWidth = (c.maxWidth - CalendarSizes.gutter) / days.length;
         return Column(
           children: [
             _dayHeader(colWidth),
             if (band.isNotEmpty) _allDayBand(band, colWidth),
-            const Divider(height: 1, color: Colors.white12),
+            const Divider(height: 1, color: CalendarColors.divider),
             Expanded(
               child: SingleChildScrollView(
                 controller: _scroll,
                 child: SizedBox(
-                  height: 24 * _hourHeight,
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                  height: 24 * CalendarSizes.hourHeight,
+                  child: Stack(
                     children: [
-                      _hourGutter(),
-                      for (final day in days)
-                        SizedBox(
-                          width: colWidth,
-                          child: _dayColumn(day, colWidth),
-                        ),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _hourGutter(),
+                          for (final day in days)
+                            SizedBox(
+                              width: colWidth,
+                              child: _dayColumn(day, colWidth),
+                            ),
+                        ],
+                      ),
+                      ..._nowMarker(colWidth),
                     ],
                   ),
                 ),
@@ -92,10 +101,10 @@ class _CalendarTimeGridState extends State<CalendarTimeGrid> {
   }
 
   Widget _dayHeader(double colWidth) => SizedBox(
-    height: _dayHeaderHeight,
+    height: CalendarSizes.dayHeader,
     child: Row(
       children: [
-        const SizedBox(width: _gutter),
+        const SizedBox(width: CalendarSizes.gutter),
         for (final day in widget.days)
           SizedBox(
             width: colWidth,
@@ -112,34 +121,36 @@ class _CalendarTimeGridState extends State<CalendarTimeGrid> {
       children: [
         Flexible(
           child: Text(
-            weekdayShort(day),
+            weekdayShort(day).toUpperCase(),
             maxLines: 1,
             overflow: TextOverflow.clip,
             style: TextStyle(
-              fontSize: HearthFont.label,
+              fontSize: CalendarType.weekday,
+              fontWeight: FontWeight.w600,
+              letterSpacing: CalendarType.capsTracking,
               color: isToday
-                  ? kCalendarAccent
-                  : Colors.white.withValues(alpha: 0.6),
+                  ? CalendarColors.accentText
+                  : CalendarColors.textMuted,
             ),
           ),
         ),
-        const SizedBox(width: HearthSpacing.x1),
+        const SizedBox(width: HearthSpacing.x2),
         Container(
-          width: 30,
-          height: 30,
+          width: CalendarSizes.dayNumber,
+          height: CalendarSizes.dayNumber,
           alignment: Alignment.center,
           decoration: isToday
               ? const BoxDecoration(
-                  color: kCalendarAccent,
+                  color: CalendarColors.accent,
                   shape: BoxShape.circle,
                 )
               : null,
           child: Text(
             '${day.day}',
             style: const TextStyle(
-              fontSize: HearthFont.body,
+              fontSize: CalendarType.dayNumber,
               fontWeight: FontWeight.w600,
-              color: Colors.white,
+              color: CalendarColors.text,
             ),
           ),
         ),
@@ -158,40 +169,48 @@ class _CalendarTimeGridState extends State<CalendarTimeGrid> {
         hidden[col]++;
       }
     }
+    const inset = (CalendarSizes.bandRow - CalendarSizes.bandBar) / 2;
     return SizedBox(
-      height: rows * _bandRowHeight + HearthSpacing.x1,
+      height: rows * CalendarSizes.bandRow + HearthSpacing.x2,
       child: Stack(
         children: [
           for (final item in items.where((i) => i.lane < shown))
             Positioned(
-              left: _gutter + item.startCol * colWidth + 2,
-              width: (item.endCol - item.startCol) * colWidth - 4,
-              top: item.lane * _bandRowHeight + 2,
-              height: _bandRowHeight - 4,
+              left: CalendarSizes.gutter + item.startCol * colWidth + inset,
+              width: (item.endCol - item.startCol) * colWidth - 2 * inset,
+              top: item.lane * CalendarSizes.bandRow + inset,
+              height: CalendarSizes.bandBar,
               child: _BandBar(event: item.event, ctx: widget.ctx),
             ),
           for (var col = 0; col < hidden.length; col++)
             if (hidden[col] > 0)
               Positioned(
-                left: _gutter + col * colWidth + 2,
-                width: colWidth - 4,
-                top: shown * _bandRowHeight + 2,
-                height: _bandRowHeight - 4,
+                left: CalendarSizes.gutter + col * colWidth + inset,
+                width: colWidth - 2 * inset,
+                top: shown * CalendarSizes.bandRow + inset,
+                height: CalendarSizes.bandBar,
                 child: InkWell(
+                  borderRadius: BorderRadius.circular(CalendarRadii.bar),
                   onTap: () => widget.ctx.openDay(
                     context,
                     widget.days[col],
                     widget.events,
                   ),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      '+${hidden[col]} more',
-                      maxLines: 1,
-                      overflow: TextOverflow.clip,
-                      style: TextStyle(
-                        fontSize: HearthFont.label,
-                        color: Colors.white.withValues(alpha: 0.7),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: HearthSpacing.x2,
+                    ),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        '+${hidden[col]} more',
+                        maxLines: 1,
+                        overflow: TextOverflow.clip,
+                        style: const TextStyle(
+                          fontSize: CalendarType.bar,
+                          fontWeight: FontWeight.w600,
+                          color: CalendarColors.textMuted,
+                        ),
                       ),
                     ),
                   ),
@@ -203,21 +222,21 @@ class _CalendarTimeGridState extends State<CalendarTimeGrid> {
   }
 
   Widget _hourGutter() => SizedBox(
-    width: _gutter,
+    width: CalendarSizes.gutter,
     child: Stack(
       children: [
         for (var h = 1; h < 24; h++)
           Positioned(
-            top: h * _hourHeight - 8,
+            top: h * CalendarSizes.hourHeight - CalendarSizes.hourLabelLift,
             left: 0,
-            right: HearthSpacing.x2,
+            width: CalendarSizes.gutterLabelWidth,
             child: Text(
               hourLabel(h, widget.ctx.use24h),
               textAlign: TextAlign.right,
               maxLines: 1,
-              style: TextStyle(
-                fontSize: HearthFont.caption,
-                color: Colors.white.withValues(alpha: 0.45),
+              style: const TextStyle(
+                fontSize: CalendarType.hourLabel,
+                color: CalendarColors.textDim,
               ),
             ),
           ),
@@ -227,45 +246,86 @@ class _CalendarTimeGridState extends State<CalendarTimeGrid> {
 
   Widget _dayColumn(DateTime day, double colWidth) {
     final slots = layoutDay(widget.events, day);
-    final now = widget.ctx.now;
-    final isToday = day == widget.ctx.today;
-    const pxPerMinute = _hourHeight / 60;
+    const pxPerMinute = CalendarSizes.hourHeight / 60;
     return DecoratedBox(
-      decoration: const BoxDecoration(
-        border: Border(left: BorderSide(color: Colors.white12)),
+      decoration: BoxDecoration(
+        color: day == widget.ctx.today ? CalendarColors.todayTint : null,
+        border: const Border(left: BorderSide(color: CalendarColors.gridLine)),
       ),
       child: Stack(
         children: [
           for (var h = 1; h < 24; h++)
             Positioned(
-              top: h * _hourHeight,
+              top: h * CalendarSizes.hourHeight,
               left: 0,
               right: 0,
-              child: const Divider(height: 1, color: Colors.white10),
+              child: const Divider(height: 1, color: CalendarColors.gridLine),
             ),
           for (final slot in slots)
             Positioned(
               top: slot.startMinute * pxPerMinute + 1,
               height: (slot.endMinute - slot.startMinute) * pxPerMinute - 2,
-              left: colWidth * slot.column / slot.columns + 1,
-              width: colWidth / slot.columns - 2,
+              left: colWidth * slot.column / slot.columns + CalendarSizes.blockGap,
+              width: colWidth / slot.columns - 2 * CalendarSizes.blockGap,
               child: _TimedBlock(
                 event: slot.event,
                 ctx: widget.ctx,
                 height: (slot.endMinute - slot.startMinute) * pxPerMinute - 2,
               ),
             ),
-          if (isToday)
-            Positioned(
-              top: (now.hour * 60 + now.minute) * pxPerMinute - 1,
-              left: 0,
-              right: 0,
-              height: 2,
-              child: const ColoredBox(color: Colors.redAccent),
-            ),
         ],
       ),
     );
+  }
+
+  /// The now line across today's column and its time in the gutter.
+  List<Widget> _nowMarker(double colWidth) {
+    final col = widget.days.indexOf(widget.ctx.today);
+    if (col < 0) return const [];
+    final now = widget.ctx.now;
+    final top =
+        (now.hour * 60 + now.minute) * CalendarSizes.hourHeight / 60;
+    final time = formatTime(now, widget.ctx.use24h).replaceAll(
+      RegExp(r' [AP]M$'),
+      '',
+    );
+    return [
+      Positioned(
+        top: top - CalendarSizes.nowLine / 2,
+        left: CalendarSizes.gutter + col * colWidth,
+        width: colWidth,
+        height: CalendarSizes.nowLine,
+        child: const DecoratedBox(
+          decoration: BoxDecoration(
+            color: CalendarColors.nowLine,
+            boxShadow: CalendarShadows.nowLine,
+          ),
+        ),
+      ),
+      Positioned(
+        top: top - CalendarSizes.nowLabelHeight / 2,
+        left: HearthSpacing.x1,
+        width: CalendarSizes.nowLabelWidth,
+        height: CalendarSizes.nowLabelHeight,
+        child: Container(
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: CalendarColors.accent,
+            borderRadius: BorderRadius.circular(
+              CalendarSizes.nowLabelHeight / 2,
+            ),
+          ),
+          child: Text(
+            time,
+            style: const TextStyle(
+              fontSize: HearthFont.label,
+              fontWeight: FontWeight.w700,
+              color: CalendarColors.text,
+            ),
+          ),
+        ),
+      ),
+    ];
   }
 }
 
@@ -277,27 +337,27 @@ class _BandBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = ctx.colorOf(event.sourceId);
-    return GestureDetector(
+    final bar = GestureDetector(
       onTap: () => ctx.openEvent(context, event),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: HearthSpacing.x2),
+        padding: const EdgeInsets.symmetric(horizontal: HearthSpacing.x3),
         alignment: Alignment.centerLeft,
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: event.tentative ? 0.35 : 0.75),
-          borderRadius: BorderRadius.circular(4),
-        ),
+        decoration: _eventDecoration(event, ctx, CalendarRadii.bar),
         child: Text(
           event.summary,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            fontSize: HearthFont.label,
-            color: Colors.white,
+          style: TextStyle(
+            fontSize: CalendarType.bar,
+            fontWeight: FontWeight.w600,
+            fontStyle: event.tentative ? FontStyle.italic : FontStyle.normal,
+            color: _eventText(event),
           ),
         ),
       ),
     );
+    if (!ctx.isPast(event)) return bar;
+    return Opacity(opacity: CalendarColors.pastOpacity, child: bar);
   }
 }
 
@@ -314,40 +374,74 @@ class _TimedBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = ctx.colorOf(event.sourceId);
-    final lines = math.max(1, ((height - 4) / 16).floor());
-    return GestureDetector(
+    final lines = math.max(
+      1,
+      ((height - 2 * CalendarSizes.blockPadV) /
+              (CalendarType.blockTitle * CalendarType.blockLineHeight))
+          .floor(),
+    );
+    final text = _eventText(event);
+    final location = event.location;
+    final block = GestureDetector(
       onTap: () => ctx.openEvent(context, event),
       child: Container(
-        padding: const EdgeInsets.fromLTRB(6, 2, 4, 2),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: event.tentative ? 0.18 : 0.32),
-          border: Border(left: BorderSide(color: color, width: 3)),
-          borderRadius: BorderRadius.circular(4),
+        padding: EdgeInsets.symmetric(
+          horizontal: CalendarSizes.blockPadH,
+          vertical: height < CalendarSizes.hourHeight / 2
+              ? CalendarSizes.blockPadVTight
+              : CalendarSizes.blockPadV,
         ),
+        decoration: _eventDecoration(event, ctx, CalendarRadii.block),
         child: Text.rich(
           TextSpan(
             children: [
               TextSpan(
                 text: event.summary,
-                style: const TextStyle(fontWeight: FontWeight.w600),
+                style: const TextStyle(
+                  fontSize: CalendarType.blockTitle,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
               if (lines > 1)
                 TextSpan(
                   text: '\n${eventTimeLabel(event, ctx.use24h)}',
-                  style: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
+                  style: const TextStyle(fontSize: CalendarType.blockMeta),
+                ),
+              if (lines > 2 && location != null && location.isNotEmpty)
+                TextSpan(
+                  text: '\n$location',
+                  style: const TextStyle(fontSize: CalendarType.blockMeta),
                 ),
             ],
           ),
           maxLines: lines,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            fontSize: HearthFont.caption,
-            height: 1.3,
-            color: Colors.white,
+          style: TextStyle(
+            height: CalendarType.blockLineHeight,
+            color: text,
+            fontStyle: event.tentative ? FontStyle.italic : FontStyle.normal,
           ),
         ),
       ),
     );
+    if (!ctx.isPast(event)) return block;
+    return Opacity(opacity: CalendarColors.pastOpacity, child: block);
   }
 }
+
+/// A solid fill under dark text; a tentative event is an outline instead.
+BoxDecoration _eventDecoration(
+  CalendarEvent event,
+  CalendarViewContext ctx,
+  double radius,
+) {
+  final fill = ctx.fillOf(event.sourceId);
+  return BoxDecoration(
+    color: event.tentative ? Colors.black : fill,
+    border: event.tentative ? Border.all(color: fill, width: 2) : null,
+    borderRadius: BorderRadius.circular(radius),
+  );
+}
+
+Color _eventText(CalendarEvent event) =>
+    event.tentative ? CalendarColors.text : CalendarColors.onFill;
