@@ -379,7 +379,7 @@ The `ListSection` HTML render is read-only (`lib/plugins/framework/list_section.
 
 ## The idle glance
 
-`ChoreGlance`, a `ConsumerWidget` in `HomeScreen`'s bottom column next to `CalendarGlance` (`lib/screens/home/home_screen.dart:69`). It shows only when `todoChoreGlance` is on and a chore list exists:
+`ChoreGlance` (`lib/modules/lists/chore_glance.dart`), a `ConsumerWidget` in `HomeScreen`'s bottom column, just above `CalendarGlance`. It shows only when `todoChoreGlance` is on and a chore list exists:
 
 ```
   ● Ava   Feed the cat · late
@@ -388,8 +388,8 @@ The `ListSection` HTML render is read-only (`lib/plugins/framework/list_section.
 ```
 
 - At most three lines, then "+n more". Draws nothing when nothing is open for today.
-- The person's colour as the dot, the same text shadows as the clock.
-- A tap jumps to the Lists page on the Chores view, when the module is in the swipe row.
+- The person's colour as the dot (their chore list's colour), the same text shadows as the clock.
+- A tap jumps to the Lists page when the module is in the swipe row, and does nothing otherwise. Landing on the Chores view belongs to the chore chart, which adds that view.
 - It watches `choresTodayProvider` through `select`, so a push that changes nothing for today does not rebuild it.
 
 ### What counts as today
