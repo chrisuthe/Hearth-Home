@@ -33,6 +33,10 @@ class HomeAssistantService {
   /// callers cast to the type they expect.
   final Map<int, Completer<dynamic>> _pendingResponses = {};
 
+  /// Ids in [_pendingResponses] from [request], whose completer gets the
+  /// whole `result` message rather than its unwrapped payload.
+  final Set<int> _rawRequests = {};
+
   /// Live subscriptions from [subscribe], replayed on every `auth_ok`, and
   /// the same keyed by the message id of their current subscribe.
   final Set<_Subscription> _subscriptions = {};
@@ -88,6 +92,7 @@ class HomeAssistantService {
           completer.complete(null);
         }
         _pendingResponses.clear();
+        _rawRequests.clear();
         _scheduleReconnect();
       },
       onDone: () {
@@ -97,6 +102,7 @@ class HomeAssistantService {
           completer.complete(null);
         }
         _pendingResponses.clear();
+        _rawRequests.clear();
         _scheduleReconnect();
       },
     );
@@ -224,7 +230,9 @@ class HomeAssistantService {
     }
     if (id != null && _pendingResponses.containsKey(id)) {
       final completer = _pendingResponses.remove(id)!;
-      if (msg['success'] == true) {
+      if (_rawRequests.remove(id)) {
+        completer.complete(msg);
+      } else if (msg['success'] == true) {
         final result = msg['result'];
         // call_service with return_response nests data under result.response;
         // unwrap that shape when present so callers always see the payload.
@@ -361,6 +369,39 @@ class HomeAssistantService {
     }
   }
 
+  /// Sends [message] and returns HA's `result`: success or the error.
+  /// A dropped connection or a 10 s timeout is an error, never a success,
+  /// unlike [sendCommand], where both look like a `result: null`.
+  Future<HaReply> request(Map<String, dynamic> message) async {
+    if (!_authenticated || _channel == null) {
+      return const HaReply.error('not_connected', 'Not connected to Home Assistant');
+    }
+    final id = _nextId;
+    final completer = Completer<dynamic>();
+    _pendingResponses[id] = completer;
+    _rawRequests.add(id);
+    _send({...message, 'id': id});
+    final dynamic msg;
+    try {
+      msg = await completer.future.timeout(const Duration(seconds: 10));
+    } on TimeoutException {
+      _pendingResponses.remove(id);
+      _rawRequests.remove(id);
+      return const HaReply.error('timeout', 'Home Assistant did not answer');
+    }
+    // The socket closing completes every pending request with null.
+    if (msg is! Map<String, dynamic>) {
+      return const HaReply.error(
+          'not_connected', 'Lost connection to Home Assistant');
+    }
+    if (msg['success'] == true) return HaReply.ok(msg['result']);
+    final error = msg['error'];
+    return HaReply.error(
+      error is Map ? error['code'] as String? : null,
+      error is Map ? error['message'] as String? : null,
+    );
+  }
+
   /// Fetches HA's entity registry. Returns the raw list of registry entries
   /// (one per entity), each a map with `entity_id`, `unique_id`, `platform`,
   /// `device_id`, etc.  Useful when the live state stream's attributes
@@ -440,6 +481,27 @@ class HomeAssistantService {
     _authenticatedController.close();
     _disconnectedController.close();
   }
+}
+
+/// HA's answer to [HomeAssistantService.request].
+class HaReply {
+  final bool success;
+
+  /// The `result` on success; often null.
+  final dynamic result;
+
+  /// HA's `error.code`, or `not_connected` / `timeout`.
+  final String? errorCode;
+  final String? errorMessage;
+
+  const HaReply.ok(this.result)
+      : success = true,
+        errorCode = null,
+        errorMessage = null;
+
+  const HaReply.error(this.errorCode, this.errorMessage)
+      : success = false,
+        result = null;
 }
 
 class _Subscription {

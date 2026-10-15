@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:hearth/services/home_assistant_service.dart';
@@ -427,6 +428,142 @@ void main() {
       });
       await tick();
       expect(error?['code'], 'not_found');
+    });
+  });
+
+  group('HomeAssistantService.request', () {
+    late FakeWebSocketChannel fakeChannel;
+    late HomeAssistantService service;
+
+    setUp(() {
+      fakeChannel = FakeWebSocketChannel();
+      service = HomeAssistantService.withChannel(fakeChannel);
+    });
+
+    tearDown(() async {
+      service.dispose();
+      await fakeChannel.close();
+    });
+
+    Future<void> tick() => Future.delayed(const Duration(milliseconds: 20));
+
+    Map<String, dynamic> lastSent() =>
+        jsonDecode(fakeChannel.sentMessages.last) as Map<String, dynamic>;
+
+    Future<void> connect() async {
+      service.connect('t');
+      fakeChannel.simulateMessage({'type': 'auth_ok'});
+      await tick();
+    }
+
+    const move = {
+      'type': 'todo/item/move',
+      'entity_id': 'todo.groceries',
+      'uid': 'a',
+    };
+
+    test('success with result: null is a success', () async {
+      await connect();
+      final reply = service.request(move);
+      await tick();
+      final sent = lastSent();
+      expect(sent['type'], 'todo/item/move');
+      expect(sent['uid'], 'a');
+      fakeChannel.simulateMessage(
+          {'id': sent['id'], 'type': 'result', 'success': true, 'result': null});
+      final r = await reply;
+      expect(r.success, isTrue);
+      expect(r.result, isNull);
+      expect(r.errorCode, isNull);
+    });
+
+    test('a result payload comes back as sent, not unwrapped', () async {
+      await connect();
+      final reply = service.request(move);
+      await tick();
+      fakeChannel.simulateMessage({
+        'id': lastSent()['id'],
+        'type': 'result',
+        'success': true,
+        'result': {'response': {'x': 1}},
+      });
+      expect((await reply).result, {'response': {'x': 1}});
+    });
+
+    test('success: false carries code and message', () async {
+      await connect();
+      final reply = service.request(move);
+      await tick();
+      fakeChannel.simulateMessage({
+        'id': lastSent()['id'],
+        'type': 'result',
+        'success': false,
+        'error': {
+          'code': 'not_supported',
+          'message': 'To-do list does not support moving',
+        },
+      });
+      final r = await reply;
+      expect(r.success, isFalse);
+      expect(r.errorCode, 'not_supported');
+      expect(r.errorMessage, 'To-do list does not support moving');
+    });
+
+    test('a dropped socket is an error', () async {
+      await connect();
+      final reply = service.request(move);
+      await tick();
+      await fakeChannel.close();
+      final r = await reply;
+      expect(r.success, isFalse);
+      expect(r.errorCode, 'not_connected');
+    });
+
+    test('not connected is an error, and nothing is sent', () async {
+      final r = await service.request(move);
+      expect(r.success, isFalse);
+      expect(r.errorCode, 'not_connected');
+      expect(fakeChannel.sentMessages, isEmpty);
+    });
+
+    test('no answer in 10 s is a timeout error', () {
+      fakeAsync((async) {
+        final channel = FakeWebSocketChannel();
+        final ha = HomeAssistantService.withChannel(channel);
+        ha.connect('t');
+        channel.simulateMessage({'type': 'auth_ok'});
+        async.flushMicrotasks();
+        HaReply? r;
+        ha.request(move).then((v) => r = v);
+        async.elapse(const Duration(seconds: 9));
+        expect(r, isNull);
+        async.elapse(const Duration(seconds: 2));
+        expect(r!.success, isFalse);
+        expect(r!.errorCode, 'timeout');
+        // A late answer for that id is dropped, not misrouted.
+        final id = (jsonDecode(channel.sentMessages.last) as Map)['id'];
+        channel.simulateMessage(
+            {'id': id, 'type': 'result', 'success': true, 'result': null});
+        async.flushMicrotasks();
+        ha.dispose();
+      });
+    });
+
+    test('existing sendCommand still unwraps the payload', () async {
+      await connect();
+      final reply = service.sendCommand({'type': 'config/entity_registry/list'});
+      await tick();
+      fakeChannel.simulateMessage({
+        'id': lastSent()['id'],
+        'type': 'result',
+        'success': true,
+        'result': [
+          {'entity_id': 'todo.a'}
+        ],
+      });
+      expect(await reply, [
+        {'entity_id': 'todo.a'}
+      ]);
     });
   });
 }

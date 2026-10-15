@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hearth/config/hub_config.dart';
 import 'package:hearth/config/webview_config.dart';
 import 'package:hearth/modules/calendar/models.dart';
+import 'package:hearth/modules/lists/models.dart';
 
 void main() {
   _weightTests();
@@ -992,6 +993,62 @@ void main() {
       });
       expect(config.calendarSources.single.entityId, 'calendar.a');
       expect(config.calendarSources.single.enabled, isTrue);
+    });
+  });
+
+  group('HubConfig to-do fields', () {
+    test('defaults', () {
+      const config = HubConfig();
+      expect(config.todoLists, isEmpty);
+      expect(config.todoChoreGlance, isFalse);
+      final fromEmpty = HubConfig.fromJson(const {});
+      expect(fromEmpty.todoLists, isEmpty);
+      expect(fromEmpty.todoChoreGlance, isFalse);
+    });
+
+    test('round-trip through JSON text', () {
+      const config = HubConfig(
+        todoLists: [
+          TodoListConfig(entityId: 'todo.groceries', name: 'Groceries'),
+          TodoListConfig(
+            entityId: 'todo.ava_chores',
+            name: 'Ava',
+            color: 0xFF22AA66,
+            person: 'Ava',
+          ),
+        ],
+        todoChoreGlance: true,
+      );
+      final restored = HubConfig.fromJson(
+          jsonDecode(jsonEncode(config.toJson())) as Map<String, dynamic>);
+      expect(restored.todoLists, config.todoLists);
+      expect(restored.todoLists.last.isChore, isTrue);
+      expect(restored.todoLists.first.isChore, isFalse);
+      expect(restored.todoChoreGlance, isTrue);
+    });
+
+    test('copyWith replaces only what it is given', () {
+      const config = HubConfig(todoChoreGlance: true);
+      final updated = config.copyWith(
+          todoLists: const [TodoListConfig(entityId: 'todo.a')]);
+      expect(updated.todoLists.single.entityId, 'todo.a');
+      expect(updated.todoChoreGlance, isTrue);
+      expect(updated.copyWith(todoChoreGlance: false).todoLists,
+          updated.todoLists);
+    });
+
+    test('a malformed list entry is skipped; missing keys default', () {
+      final config = HubConfig.fromJson(const {
+        'todoLists': [
+          'garbage',
+          {'entityId': 'todo.a'},
+        ],
+      });
+      final list = config.todoLists.single;
+      expect(list.entityId, 'todo.a');
+      expect(list.name, '');
+      expect(list.person, '');
+      expect(list.color, CalendarSource.defaultColor);
     });
   });
 }

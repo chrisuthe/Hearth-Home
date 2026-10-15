@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../utils/logger.dart';
 import '../modules/calendar/models.dart';
+import '../modules/lists/models.dart';
 import 'display_orientation.dart';
 import 'webview_config.dart';
 
@@ -385,6 +386,12 @@ class HubConfig {
   /// `day`, `3day`, `week` or `month`; the view the Calendar screen opens in.
   final String calendarDefaultView;
 
+  /// HA to-do lists, in display order. One with a person is a chore list.
+  final List<TodoListConfig> todoLists;
+
+  /// Show today's open chores on the idle Home screen.
+  final bool todoChoreGlance;
+
   const HubConfig({
     this.apiKey = '',
     this.immichUrl = '',
@@ -468,6 +475,8 @@ class HubConfig {
     this.calendarIcsPollMinutes = 30,
     this.calendarAmbientGlance = true,
     this.calendarDefaultView = 'week',
+    this.todoLists = const [],
+    this.todoChoreGlance = false,
   });
 
   static String generateApiKey() {
@@ -573,6 +582,8 @@ class HubConfig {
     int? calendarIcsPollMinutes,
     bool? calendarAmbientGlance,
     String? calendarDefaultView,
+    List<TodoListConfig>? todoLists,
+    bool? todoChoreGlance,
   }) {
     return HubConfig(
       apiKey: apiKey ?? this.apiKey,
@@ -664,6 +675,8 @@ class HubConfig {
       calendarAmbientGlance:
           calendarAmbientGlance ?? this.calendarAmbientGlance,
       calendarDefaultView: calendarDefaultView ?? this.calendarDefaultView,
+      todoLists: todoLists ?? this.todoLists,
+      todoChoreGlance: todoChoreGlance ?? this.todoChoreGlance,
     );
   }
 
@@ -750,6 +763,8 @@ class HubConfig {
         'calendarIcsPollMinutes': calendarIcsPollMinutes,
         'calendarAmbientGlance': calendarAmbientGlance,
         'calendarDefaultView': calendarDefaultView,
+        'todoLists': todoLists.map((l) => l.toJson()).toList(),
+        'todoChoreGlance': todoChoreGlance,
       };
 
   factory HubConfig.fromJson(Map<String, dynamic> json) => HubConfig(
@@ -873,6 +888,12 @@ class HubConfig {
         calendarDefaultView: calendarViews.contains(json['calendarDefaultView'])
             ? json['calendarDefaultView'] as String
             : 'week',
+        todoLists: (json['todoLists'] as List<dynamic>?)
+                ?.whereType<Map<String, dynamic>>()
+                .map(TodoListConfig.fromJson)
+                .toList() ??
+            const [],
+        todoChoreGlance: json['todoChoreGlance'] as bool? ?? false,
       );
 
   static const calendarViews = ['day', '3day', 'week', 'month'];
