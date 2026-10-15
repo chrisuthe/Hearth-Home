@@ -1,7 +1,7 @@
 # Calendar Module — Design
 
 **Date:** 2026-10-14
-**Status:** Design. No code yet.
+**Status:** Built (epic tasks 1–5). Hardware pass recorded 2026-10-14 — see [Hardware pass](#hardware-pass).
 **Goal:** Specify a read-only Calendar module that shows Home Assistant calendar entities and external ICS/iCal feeds, and break the work into the tasks the Calendar epic will follow.
 **Tracking:** issue 214 (Skylight feature inventory). This builds Path A from that issue, Home Assistant as the source, and adds ICS URLs.
 
@@ -289,7 +289,7 @@ While the socket is down the source keeps its events and shows `stale`; the serv
 
 1. Normalise the URL: `webcal://` → `https://`, `webcals://` → `https://`; other schemes pass through. `webcal` is a de facto scheme (an IANA provisional registration), not part of RFC 5545, and every publisher we know of serves the same resource over HTTPS.
 2. `GET` with `dio`, a 20 s timeout, `If-None-Match` / `If-Modified-Since` from the last good response, and a body cap of 10 MB. A 304 keeps the parsed calendar.
-3. Parse and expand in a background isolate (`Isolate.run`, which initialises the zone database there too), because a large feed with a long-running series is a few hundred milliseconds of work on a Pi 5 (**assumed**; to be measured in the ICS task). The parsed calendar is kept, so a window change re-expands without refetching.
+3. Parse and expand in a background isolate (`Isolate.run`, which initialises the zone database there too), because a large feed with a long-running series is seconds of work on a Pi 5: 2.0–2.1 s for a 5.5 MB feed of 6,000 `VEVENT`s, 23–33 ms for a 317-event holiday feed (**verified** on the Pi, see [Hardware pass](#hardware-pass)). The guess here was a few hundred milliseconds. The parsed calendar is kept, so a window change re-expands without refetching.
 4. Poll every `calendarIcsPollMinutes`. On failure, retry after 1, 2, 4 … minutes capped at the poll interval, keep the last good events, and report `stale` with the error. A 4xx other than 408/429 is `error` and waits a full poll interval: a wrong URL does not get faster by retrying.
 
 ## Time zones
@@ -446,6 +446,79 @@ HA fixtures, captured as JSON in both shapes (WebSocket and REST):
 **Layouts (`test/portrait/module_calendar_portrait_test.dart`)**: `testLayouts` pumps each view at 1184x864, 864x1184 and 800x1280 with a dense week (overlaps, long titles, a three-day all-day event, more than three all-day rows) and asserts no overflow. The glance gets a case in `screens_portrait_test.dart`.
 
 **Hardware pass**: on the Pi and on the Android tablet, with a real HA (a Google calendar and a Local Calendar) and a real ICS feed (a public holiday feed and a Google secret-address feed): events match HA's own calendar panel for the same week, a change made in Google appears within the expected refresh, the socket survives an HA restart and resubscribes, and the week view stays smooth while scrolling.
+
+## Hardware pass
+
+**Date:** 2026-10-14
+**Commit tested:** `28392b9` (this branch: `main` at `3b07e56` plus the fixes below)
+
+**verified** here means observed in this pass, with the evidence named in the row; **not run** gives the reason. Screenshots were taken through the capture plugin for every view; they show household photos and calendars, so they are described here rather than committed.
+
+### Setup
+
+| | |
+|---|---|
+| Pi | `hearthDev`, Raspberry Pi 5, kernel 6.12.47, flutter-pi through `/usr/local/bin/hearth-launch`. Canvas captures at 1920x1200 |
+| Pi bundle | Built on the development host the way `build-pi-image.yml` does it (`prepare-pi-build.sh`, `flutterpi_tool` at the pinned commit, `--release --arch=arm64 --cpu=pi4`), with host Flutter 3.47.6, not the 3.47.7 pin. Three builds as fixes landed; the last is `28392b9`, bundle sha256 `6d0d110a…` |
+| Tablet APK | `flutter build apk --debug --build-name 1.20.0 --build-number 1020000` at `28392b9`, sha256 `7b6cb65e…`. A plain debug build is versionCode 1, which Android refused over the installed 1020000 as a downgrade, even with `adb install -d` |
+| Home Assistant | The house instance, reached as `https://ha.home.chrisuthe.com`. Four `calendar.*` entities from the Google integration: one empty in the window, one of school events (7), one weekly timed series (5) and one of all-day school menus (29) |
+| ICS feeds | Google's public US holidays (`basic.ics`, 317 `VEVENT`s, sends no `ETag` or `Last-Modified`); calendarlabs US holidays (27 `VEVENT`s, static `Last-Modified`); two synthetic feeds served from the host over Wi-Fi, 5.5 MB / 6,000 `VEVENT`s and 11 MB, with `TZID=America/Chicago`, a `VTIMEZONE`, folded lines, unbounded weekly series with `EXDATE` and `COUNT=400` daily series |
+| Bad sources | A Google ICS URL that answers 404, a host that does not resolve (`no-such-host.invalid`), an HA entity that does not exist |
+| Input | The Pi has no touch automation, so touches were written into the touchscreen's evdev node (`/dev/input/event0`, multitouch protocol B) as root. A tap shorter than about 100 ms with no movement did not register; 200 ms with a 1-unit move did |
+
+Sources were added through `POST /api/plugin/hearth.calendar/sources` and the test fetch through `POST /api/plugin/hearth.calendar/test`; the module was enabled and placed through `POST /api/config`. The info-level log lines this pass relies on (`<entity>: N events pushed`, `HTTP 200, … parse+expand N ms`, `not modified (304)`) were added in `d9956b4`.
+
+### Pi results
+
+| Check | Result | Evidence |
+|---|---|---|
+| HA events arrive over the subscription | **verified** | `calendar.<school events>: 7 events pushed`, and 0, 5 and 29 for the other three, within a second of each source being added |
+| They match HA's own API | **verified** | `GET /api/calendars/<entity>` for the default window (2026-10-05 to 2026-12-01 local) returned 0, 7, 5 and 29 events, the same counts as the pushes. In month view the timed events sit at HA's times (school conferences 3:30 PM Oct 5 and 6; practice 7:30 PM Oct 29) and the all-day ones on HA's dates (Oct 9, 12, 28) |
+| DST across a weekly HA series | **verified** | The practice series is `-05:00` before 2026-11-01 and `-06:00` after; month view shows 7:30 PM on Oct 29 and on Nov 5 |
+| Resubscribe after the HA connection drops | **verified** | Hearth's two sockets to HA were shut down from outside the process (`pidfd_getfd` + `shutdown`, as root): `[I/HA] WebSocket closed` 18:57:04, `Reconnected` 18:57:06, all four calendars pushed again with the same counts at 18:57:07. The source status read `ok` at +3 s; the `stale` state in the gap was not caught |
+| HA restart | **not run** | Replaced by the socket drop above; restarting the house HA was not worth the disruption. The kernel has no `SOCK_DESTROY` (`ss -K` closed nothing) and the Pi has no firewall tool, so the drop was forced from inside the process instead |
+| A window change resubscribes | **verified** | Paging month view to November and December: each step pushed all four HA calendars again for the new window (29, 7, 0, 5 became 25, 3, 0, 6 for November and 1, 3, 0, 5 for December). The ICS feeds re-expanded without a fetch: no ICS log line, no request in the server log |
+| ICS fetch and poll | **verified** | `ics:…: HTTP 200, 120663 chars, 317 VEVENTs -> 7 in window, parse+expand 33 ms` at add, and again at the 5-minute poll (poll set to 5 through `/api/config`; the floor) |
+| Conditional GET | **verified** | calendarlabs at the poll: `not modified (304)`, events kept. Google sends no validators, so it answers 200 every time, as expected |
+| ICS parse time on the Pi | **verified** | 5.5 MB synthetic feed: 2083, 2100 and 2028 ms for parse plus expand into 12,000 instances, isolate spawn included. Google's 317-event feed: 23–33 ms. calendarlabs' 27: 2–3 ms. The fetch of the 5.5 MB feed took longer than the parse because the host served it over Wi-Fi (`curl` on the Pi: 11 s for the same file); that is the network, not Hearth |
+| A bad ICS URL errors without a crash | **verified** | 404: `Calendar not found at this URL`, `error`, retried at the poll interval. Unresolvable host: `Can't reach the calendar server`, retried at 1 then 2 minutes. 11 MB feed: `Calendar is larger than 10 MB`, from both the test fetch and the source. A non-ICS URL in the test fetch: `This URL is not an iCalendar feed`; an `ftp://` URL: 400 `Use an http, https or webcal URL`. `NRestarts=0` throughout |
+| A bad HA entity | **verified** | `Entity not found in Home Assistant`, `error` |
+| Duplicate HA source | **verified** | 409 `calendar.<family> is already added` |
+| Status on the portal | **verified** | `GET …/sources` showed `ok` / `Updated 6:54 PM`, the three error messages, and `off` for disabled sources |
+| Disabling a source stops it | **verified** after a fix | Before `d8ceb00` a disabled ICS feed was fetched on the disable and then on its backoff (requests at 18:59:47, 19:00:47, 19:02:47 in the server log). On the fixed build a disabled source made no request |
+| Glance on idle Home | **verified** (landscape and portrait) | Two lines, today's and tomorrow's all-day menu, above the timer pill; in portrait the long line ellipsizes |
+| Four views, landscape | **verified** | Week opens on the current week scrolled to the now line, with all-day rows (one event from each holiday feed in its own colour on Columbus Day), the error banners and the legend. Day shows the time grid and the next days' agenda. 3-Day and Month render; Month shows multi-day all-day bars across weeks (December's winter break) |
+| Four views, portrait | **verified** | After `displayOrientation: portrait` and the Display plugin's restart route (`--rotation 90`, status `inEffect`). Week is greyed and opens as 3-Day; Day, 3-Day and Month render; Day puts the agenda under the grid |
+| Detail sheet | **verified** | Tapping the Oct 29 practice in portrait month view opened the sheet with `Thursday, Oct 29 · 7:30 PM – 8:30 PM`, its location and notes |
+| Header clear of the mic toggle | **verified** after a fix | Before `28392b9` HubShell's mic button covered the header's previous arrow in landscape and the Day segment in portrait; a tap meant for Day muted the microphone. Fixed and re-checked in both orientations |
+| Week view scrolls smoothly | **reported by the human** | See below |
+| A change in Google appears within the refresh | **not run** | The pass stayed read-only toward the household's calendars |
+| A Local Calendar entity | **not run** | The house HA has none |
+| A private Google ICS (secret address) | **not run** | None was supplied |
+| `X-APPLE-CALENDAR-COLOR` and the HA registry colour | **not settled** | Neither public feed carries the colour property, and the HA calendars took palette colours, so both defaults stay **assumed** |
+
+### Tablet and eyes-on checks (the human)
+
+The debug APK above was installed on the Apolosign tablet over adb, keeping its data; it cold-started with Impeller on Vulkan and the local API on 8090, with no `FATAL EXCEPTION` or `E/flutter` in logcat. The human then took a checklist covering adding HA and ICS sources on the tablet, all four views in both orientations, the glance, scrolling in week view, paging through Calendar and the detail sheet, plus on the Pi panel: smooth week scrolling, the glance over photos, whether a quick swipe holds off the idle return, and anything that looked wrong. Their answer, in full: "looks good". No item was reported individually, so each is recorded as passed on their word, not observed here.
+
+### Findings
+
+Fixed on this branch, each with a test that fails without the fix:
+
+- `d8ceb00` — a disabled source kept running. `calendarSourceEventsProvider` is not autoDispose, so once the views stopped watching a disabled source its provider stayed alive: the disable rebuilt it (one more fetch) and an ICS source kept polling, an HA source stayed subscribed, until restart. A disabled source now builds nothing.
+- `28392b9` — the calendar header sat under HubShell's mic toggle (`x6` from the corner, a 48 px button). The header now starts `x20` from the left.
+
+Not fixed, outside calendar code:
+
+- `HomeAssistantService` sets no WebSocket ping, so a silent network drop (no FIN or RST) is noticed only when TCP gives up, minutes later. A drop that closes the socket reconnects in about 2 s, as above.
+- HubShell resets the idle timer from the root `GestureDetector.onTapDown`. An injected swipe that started moving at once did not fire it, and the kiosk went idle 63 s after the first wake despite swipes in between. Not confirmed with a finger; the human reported nothing wrong.
+- The ICS failure log printed `Instance of '_TooLarge'`; the two private exceptions now have a `toString`.
+
+### Device state
+
+**Pi:** `hub_config.json` restored from the pre-pass copy (sha256 `71b1986b…`, byte-identical when copied back). On its next start the new build added default keys for settings that file predates (`calendar*`, `voice*`, `mqttDevice*`) and changed nothing else. Calendar is not enabled, orientation is `auto` (rotation 0), `captureToolsEnabled` is `true` as found, `micMuted` is `true` as found. `/opt/hearth/bundle` is the pass's build of `28392b9`; the bundle it replaced is `/opt/hearth/bundle.pre-cal-test`. `/etc/hearth-version` still says 1.20.0, so the updater will install the next release over it. The backup, the bundles and the helper scripts are in `~/hearth-cal-test`.
+
+**Tablet:** left on the debug APK of `28392b9` with whatever calendar sources the human added.
 
 ## Child tasks
 
