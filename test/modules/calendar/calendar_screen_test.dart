@@ -142,6 +142,27 @@ void main() {
     expect(window.end.isBefore(shown.end), isFalse);
   });
 
+  // HubShell's mic toggle: x6 from the top-left corner, a 48 px IconButton.
+  const mic = Rect.fromLTWH(24, 24, 48, 48);
+  for (final MapEntry(key: name, value: canvas) in kLayoutCanvases.entries) {
+    testWidgets('the header stays clear of the mic toggle ($name)', (
+      tester,
+    ) async {
+      await pump(tester, canvas: canvas);
+      for (final control in [
+        find.byTooltip('Previous'),
+        find.text('Today'),
+        find.byTooltip('Next'),
+        find.text('Day'),
+        find.text('3-Day'),
+        find.text('Month'),
+      ]) {
+        expect(mic.overlaps(tester.getRect(control.first)), isFalse,
+            reason: '$control overlaps the mic toggle');
+      }
+    });
+  }
+
   testWidgets('week shows as 3-day on a narrow screen', (tester) async {
     await pump(tester, view: 'week', canvas: kNarrowPortraitCanvas);
     expect(find.text(label(CalendarView.threeDay, today)), findsOneWidget);

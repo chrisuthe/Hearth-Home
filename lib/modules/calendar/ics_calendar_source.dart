@@ -102,6 +102,7 @@ class IcsCalendarSource {
       );
       if (_disposed) return;
       if (response.statusCode == 304 && _calendar != null) {
+        Log.i('Calendar', '${source.id}: not modified (304)');
         _failures = 0;
         _emit(
           SourceEvents(
@@ -116,6 +117,7 @@ class IcsCalendarSource {
       final body = await _read(response.data!);
       if (_disposed) return;
       final generation = ++_generation;
+      final watch = Stopwatch()..start();
       final (calendar, events) = await _parseAndExpand(
         _worker,
         body,
@@ -123,6 +125,13 @@ class IcsCalendarSource {
         source.id,
       );
       if (_disposed) return;
+      // Isolate spawn included: that is what a refresh costs on the device.
+      Log.i(
+        'Calendar',
+        '${source.id}: HTTP ${response.statusCode}, ${body.length} chars, '
+            '${calendar.events.length} VEVENTs -> ${events.length} in window, '
+            'parse+expand ${watch.elapsedMilliseconds} ms',
+      );
       if (calendar.skipped > 0) {
         Log.w(
           'Calendar',
@@ -320,10 +329,16 @@ class IcsCalendarSource {
 
 class _TooLarge implements Exception {
   const _TooLarge();
+
+  @override
+  String toString() => 'larger than ${IcsCalendarSource.maxBytes} bytes';
 }
 
 class _NotIcs implements Exception {
   const _NotIcs();
+
+  @override
+  String toString() => 'not an iCalendar feed';
 }
 
 /// What a one-shot [IcsCalendarSource.probe] found.

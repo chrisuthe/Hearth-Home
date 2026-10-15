@@ -10,6 +10,7 @@
 **Modules & integrations**
 - [[Photos & Ambient Display]]
 - [[Weather]]
+- [[Calendar]]
 - [[Home Assistant Controls]]
 - [[Music Assistant]]
 - [[Cameras (Frigate)]]

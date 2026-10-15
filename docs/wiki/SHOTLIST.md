@@ -23,6 +23,7 @@ visible gap.
 | `alarm-editor.png` | Kiosk (or portal) | [[Alarms & Timers]] | The alarm editor open: time set, a couple of repeat days toggled, sunrise on, a sound chosen. |
 | `livetv.png` | Kiosk | [[Live TV (Plex)]] | The **channel grid** — tiles showing channel number + call sign. Capture *before* tapping a channel. |
 | `plex-skip-intro.png` | Kiosk | [[Plex Cast]] | A cast during an **intro marker**, so the **Skip Intro** button is visible bottom-right. `plex-cast.png` already covers the plain transport bar. |
+| `calendar.png` | Kiosk | [[Calendar]] | Week view with two or three sources in different colours, a few all-day events and timed events, today in view with the now line. Use calendars without personal details. |
 
 ## Priority 0 — already captured (reused)
 

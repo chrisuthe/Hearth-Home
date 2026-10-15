@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hearth/config/hub_config.dart';
@@ -133,6 +134,35 @@ void main() {
           c.listen(calendarSourceEventsProvider('ha:calendar.family'), (_, _) {});
       await pumpEventQueue();
       expect(sub.read().value?.status, SourceStatus.error);
+    });
+
+    test('disabling an ICS source stops its fetches', () async {
+      var requests = 0;
+      final dio = Dio()
+        ..interceptors.add(InterceptorsWrapper(onRequest: (options, handler) {
+          requests++;
+          handler.reject(DioException(requestOptions: options));
+        }));
+      const ics = CalendarSource(
+        id: 'ics:1',
+        kind: CalendarSourceKind.ics,
+        url: 'https://example.com/cal.ics',
+      );
+      final notifier =
+          _MemoryConfigNotifier(const HubConfig(calendarSources: [ics]));
+      final c = ProviderContainer(overrides: [
+        hubConfigProvider.overrideWith((ref) => notifier),
+        icsDioProvider.overrideWithValue(dio),
+      ]);
+      addTearDown(c.dispose);
+      c.listen(calendarSourceEventsProvider(ics.id), (_, _) {});
+      await pumpEventQueue();
+      expect(requests, 1);
+
+      await notifier.update((cfg) => cfg.copyWith(
+          calendarSources: [ics.copyWith(enabled: false)]));
+      await pumpEventQueue();
+      expect(requests, 1);
     });
   });
 

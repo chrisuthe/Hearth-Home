@@ -62,6 +62,9 @@ final calendarSourceEventsProvider =
     return Stream.value(const SourceEvents(
         status: SourceStatus.error, error: 'Calendar source not configured'));
   }
+  // This provider outlives the views that stop watching a disabled source,
+  // so build nothing for it: no fetch, no poll, no HA subscription.
+  if (!source.enabled) return Stream.value(const SourceEvents());
   final pollMinutes =
       ref.watch(hubConfigProvider.select((c) => c.calendarIcsPollMinutes));
 

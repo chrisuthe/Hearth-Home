@@ -109,7 +109,7 @@ Settings are **plugins** (`lib/plugins/`), a separate registry from modules. A p
 
 Registry is `_firstPartyPlugins` in `lib/plugins/plugin_registry.dart`, sorted by `(category, order)`. `isVisible(config)` gates conditional entries (e.g. Capture only appears when `captureToolsEnabled`); sidebar surfaces watch `visiblePluginsProvider`, not `allPluginsProvider`.
 
-**Modules ≠ plugins.** A module is a *screen*; a plugin is a *settings panel*. Some features have both (Frigate, Mealie, Protect), some only a plugin (Weather, Network, System), and Live TV is a module with no plugin of its own — it's configured by the Plex Cast plugin's pairing.
+**Modules ≠ plugins.** A module is a *screen*; a plugin is a *settings panel*. Some features have both (Calendar, Frigate, Mealie, Protect), some only a plugin (Weather, Network, System), and Live TV is a module with no plugin of its own — it's configured by the Plex Cast plugin's pairing.
 
 Plugin routes are **not** auto-gated by `isVisible` — a hidden plugin's routes still resolve, so each handler must enforce its own gate (see `CapturePlugin._gated`).
 

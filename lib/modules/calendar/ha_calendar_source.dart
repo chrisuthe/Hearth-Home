@@ -31,6 +31,7 @@ class HaCalendarSource {
   Timer? _connectTimer;
   Timer? _pollTimer;
   bool _disposed = false;
+  int? _lastPushed;
 
   HaCalendarSource({
     required HomeAssistantService ha,
@@ -90,6 +91,11 @@ class HaCalendarSource {
       // HA sends null when the integration raised while fetching.
       _emit(_current.stale('Home Assistant could not read the calendar'));
       return;
+    }
+    // HA re-pushes unchanged sets as often as every minute; log changes only.
+    if (events.length != _lastPushed) {
+      Log.i('Calendar', '${source.entityId}: ${events.length} events pushed');
+      _lastPushed = events.length;
     }
     _ok(parseEvents(source.id, events));
   }

@@ -338,9 +338,13 @@ class _Header extends StatelessWidget {
       ],
     );
 
-    const padding = EdgeInsets.symmetric(
-      horizontal: HearthSpacing.x3,
-      vertical: HearthSpacing.x2,
+    // HubShell's mic toggle sits over the top-left corner of every page, so
+    // the header starts clear of it.
+    const padding = EdgeInsets.fromLTRB(
+      HearthSpacing.x20,
+      HearthSpacing.x2,
+      HearthSpacing.x3,
+      HearthSpacing.x2,
     );
     if (narrow) {
       return Padding(
