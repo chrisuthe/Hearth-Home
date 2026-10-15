@@ -1,21 +1,23 @@
 {
-  "_comment": "Hand-written from HA 2026.10.1: 'subscription' is serialize_todo_item (every field, nulls kept; todo/entity.py:45-53), 'get_items' the same items through api_items_factory (nulls dropped, values as strings; todo/entity.py:145-155). 'bag' has no 'completed' key, as before HA 2025.12.",
+  "_comment": "Hand-written from HA 2026.10.1: 'subscription' is serialize_todo_item (every field, nulls kept; todo/entity.py:45-53), 'get_items' the same items through api_items_factory (nulls dropped, values as strings; todo/entity.py:145-155). 'bag' has no 'completed' key, as before HA 2025.12. Checked against real pushes from HA 2026.10.1 on 2026-10-15: Local To-do sends 'completed' in UTC with microseconds ('teeth'); Shopping List keeps 'completed' null on a completed item ('jam').",
   "subscription": [
     {"uid": "milk", "summary": "Milk", "status": "needs_action", "due": null, "description": null, "completed": null},
     {"uid": "eggs", "summary": "Eggs", "status": "needs_action", "due": "2026-10-16", "description": "A dozen", "completed": null},
     {"uid": "bills", "summary": "Pay bills", "status": "needs_action", "due": "2026-10-14T17:00:00-05:00", "description": null, "completed": null},
-    {"uid": "teeth", "summary": "Teeth", "status": "completed", "due": null, "description": null, "completed": "2026-10-14T07:30:00-05:00"},
+    {"uid": "teeth", "summary": "Teeth", "status": "completed", "due": null, "description": null, "completed": "2026-10-14T12:30:00.747356+00:00"},
     {"uid": "bag", "summary": "Pack bag", "status": "completed", "due": "2026-10-13", "description": null},
     {"uid": "odd", "summary": null, "status": null, "due": null, "description": null, "completed": null},
-    {"uid": null, "summary": "No id", "status": "needs_action", "due": null, "description": null, "completed": null}
+    {"uid": null, "summary": "No id", "status": "needs_action", "due": null, "description": null, "completed": null},
+    {"uid": "jam", "summary": "Jam", "status": "completed", "due": null, "description": null, "completed": null}
   ],
   "get_items": [
     {"uid": "milk", "summary": "Milk", "status": "needs_action"},
     {"uid": "eggs", "summary": "Eggs", "status": "needs_action", "due": "2026-10-16", "description": "A dozen"},
     {"uid": "bills", "summary": "Pay bills", "status": "needs_action", "due": "2026-10-14T17:00:00-05:00"},
-    {"uid": "teeth", "summary": "Teeth", "status": "completed", "completed": "2026-10-14T07:30:00-05:00"},
+    {"uid": "teeth", "summary": "Teeth", "status": "completed", "completed": "2026-10-14T12:30:00.747356+00:00"},
     {"uid": "bag", "summary": "Pack bag", "status": "completed", "due": "2026-10-13"},
     {"uid": "odd"},
-    {"summary": "No id", "status": "needs_action"}
+    {"summary": "No id", "status": "needs_action"},
+    {"uid": "jam", "summary": "Jam", "status": "completed"}
   ]
 }
