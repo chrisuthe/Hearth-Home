@@ -142,8 +142,10 @@ class TodoItemRow extends StatelessWidget {
               ),
             ),
             if (late)
+              // Lines up with the chore column's count; chore rows have no
+              // drag handle to sit against.
               const Padding(
-                padding: EdgeInsets.only(left: HearthSpacing.x2),
+                padding: EdgeInsets.symmetric(horizontal: HearthSpacing.x2),
                 child: Text(
                   'late',
                   style: TextStyle(
