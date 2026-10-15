@@ -329,10 +329,16 @@ class IcsCalendarSource {
 
 class _TooLarge implements Exception {
   const _TooLarge();
+
+  @override
+  String toString() => 'larger than ${IcsCalendarSource.maxBytes} bytes';
 }
 
 class _NotIcs implements Exception {
   const _NotIcs();
+
+  @override
+  String toString() => 'not an iCalendar feed';
 }
 
 /// What a one-shot [IcsCalendarSource.probe] found.
