@@ -140,6 +140,12 @@ void main() {
             'enumerate (web shows a hand-off note)',
     'displayWidth': 'device-only: part of the display-profile override',
     'displayHeight': 'device-only: part of the display-profile override',
+
+    // --- Deferred: parity gaps for a later phase ---
+    'todoLists': 'deferred: the hearth.lists plugin, chores-and-lists child '
+        'task 3',
+    'todoChoreGlance': 'deferred: the hearth.lists plugin, chores-and-lists '
+        'child task 3',
   };
 
   /// Fields that ARE web-editable but with a degraded affordance — a plain text
