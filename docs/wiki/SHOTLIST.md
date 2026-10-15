@@ -24,6 +24,7 @@ visible gap.
 | `livetv.png` | Kiosk | [[Live TV (Plex)]] | The **channel grid** — tiles showing channel number + call sign. Capture *before* tapping a channel. |
 | `plex-skip-intro.png` | Kiosk | [[Plex Cast]] | A cast during an **intro marker**, so the **Skip Intro** button is visible bottom-right. `plex-cast.png` already covers the plain transport bar. |
 | `calendar.png` | Kiosk | [[Calendar]] | Week view with two or three sources in different colours, a few all-day events and timed events, today in view with the now line. Use calendars without personal details. |
+| `chores.png` | Kiosk | [[Lists & Chores]] | The **Chores** view with two or three people, each with a late chore, a couple due today and one done. Use made-up names and chores. |
 
 ## Priority 0 — already captured (reused)
 

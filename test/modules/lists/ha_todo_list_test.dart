@@ -71,9 +71,11 @@ void main() {
 
     test('completed present and absent', () {
       expect(items[3].status, TodoStatus.completed);
-      expect(items[3].completed, DateTime.utc(2026, 10, 14, 12, 30));
+      expect(items[3].completed, DateTime.utc(2026, 10, 14, 12, 30, 0, 747, 356));
       expect(items[4].status, TodoStatus.completed);
       expect(items[4].completed, isNull);
+      expect(items[7].status, TodoStatus.completed);
+      expect(items[7].completed, isNull);
     });
 
     test('status and summary null read as open and empty', () {
@@ -248,7 +250,7 @@ void main() {
       await channel.close();
       await _tick();
       expect(list!.current.status, ListStatus.stale);
-      expect(list!.current.items, hasLength(7));
+      expect(list!.current.items, hasLength(_subscriptionItems.length));
 
       final second = FakeWebSocketChannel();
       ha.replaceChannel(second);
@@ -701,7 +703,7 @@ void main() {
         'event': {'items': _subscriptionItems},
       });
       await _tick();
-      expect(sub.read().value?.items, hasLength(7));
+      expect(sub.read().value?.items, hasLength(_subscriptionItems.length));
 
       sub.close();
       await _tick();

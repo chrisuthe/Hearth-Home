@@ -162,6 +162,11 @@ void main() {
     }
     expect(find.text('late'), findsNWidgets(2));
     expect(find.text('1/5'), findsOneWidget);
+    expect(
+      tester.getTopRight(find.text('late').first).dx,
+      tester.getTopRight(find.text('1/5')).dx,
+      reason: 'late tag keeps the header inset, off the column edge',
+    );
     expect(find.text('0/1'), findsOneWidget);
 
     expect(find.text('Yesterday'), findsNothing, reason: 'done before today');

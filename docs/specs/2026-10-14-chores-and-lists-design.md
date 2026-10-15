@@ -1,7 +1,7 @@
 # Chores and Lists — Design
 
 **Date:** 2026-10-14
-**Status:** Child tasks 1–5 built (data layer, screen, settings, chore chart, glance); the hardware pass (6) is open.
+**Status:** Built. Child tasks 1–5 (data layer, screen, settings, chore chart, glance) and the hardware pass (6, [below](#hardware-pass)) are done.
 **Goal:** Specify Skylight-style lists and a chore chart on Hearth, built on Home Assistant `todo` entities, and break the work into the tasks the epic will follow.
 **Tracking:** issue 214 (Skylight feature inventory). The Calendar epic did the calendar half; this is the lists and chores half.
 
@@ -166,7 +166,7 @@ Moves `uid` to just after `previous_uid`; with no `previous_uid` it moves to the
 
 `TodoItem` has no recurrence field (**verified**, `todo/entity.py:17-37`), and no service or command takes one. HA's to-do model cannot express a repeating chore, so "recurrence is whatever backs the list" means something outside the to-do API:
 
-- An HA automation that re-adds chores or sets them back to `needs_action` each morning, using `get_items` and `update_item`. This needs no Hearth code (**assumed** workable; not built).
+- An HA automation that re-adds chores or sets them back to `needs_action` each morning, using `get_items` and `update_item`. This needs no Hearth code. The hardware pass ran one ([the recipe](#repeating-chores-an-automation-recipe)), which adds the day's chores with `add_item`.
 - An integration that repeats tasks on its own side. Whether Google Tasks' repeating tasks survive a completion made through HA was not checked; Google's API is not part of HA's source (**assumed** unknown).
 
 Hearth shows what the list holds and nothing more. The hardware pass tries one automation recipe so the docs can point at it.
@@ -434,6 +434,128 @@ Fixtures in `test/fixtures/lists/`, captured from a real HA where possible.
 - Resubscribe after the socket drops.
 - Typing with the OSK in both orientations.
 - One automation recipe for repeating chores, recorded here.
+
+## Hardware pass
+
+**Date:** 2026-10-15
+**Commit tested:** `60e3b17` (this branch: `main` at `433774d` plus the two commits below). The Pi ran `433774d` for the first half of the pass and `60e3b17` from the late-tag check on; the tablet ran `60e3b17` throughout
+
+**verified** here means observed in this pass, with the evidence named in the row; **not run** gives the reason; **not settled** means looked at without a conclusion. Screenshots were taken for every view, through the capture plugin on the Pi and `adb exec-out screencap` on the tablet; the Home ones show household photos, so they are described here rather than committed.
+
+### Setup
+
+| | |
+|---|---|
+| Pi | `hearthDev`, Raspberry Pi 5, kernel 6.12.47, flutter-pi through `/usr/local/bin/hearth-launch`. Canvas captures at 1920x1200 |
+| Pi bundle | Built on the development host the way `build-pi-image.yml` does it (`prepare-pi-build.sh`, `flutterpi_tool` at the pinned commit, `--release --arch=arm64 --cpu=pi4`), with host Flutter 3.47.6, not the 3.47.7 pin. Two builds: `433774d` (bundle sha256 `1a594505…`) and `60e3b17` (`ebaae220…`) |
+| Tablet APK | `flutter build apk --debug --build-name 1.20.0 --build-number 1020000` at `60e3b17`, sha256 `b6af964c…`, installed over adb keeping its data. Apolosign 21.5", Android 16, 1080x1920 panel |
+| Home Assistant | The house instance, 2026.10.1. It had **no** `todo.*` entity before the pass. Three were created for it, with the human's go-ahead, through the config-flow API: Local To-do `Hearth test` (`todo.hearth_test`, features 127) and `Hearth test 2` (`todo.hearth_test_2`, 127), and the Shopping List integration (`todo.shopping_list`, 15: add, delete, update, move) |
+| Lists on the kiosk | Added through `POST /api/plugin/hearth.lists/lists`: `todo.hearth_test` (person "Test parent" from midway), `todo.shopping_list`, `todo.hearth_test_2` (person "Test kid"), and `todo.nope`, which does not exist. The module was enabled and placed, and the glance switched on, through `POST /api/config` |
+| Changes from HA's side | Made over HA's WebSocket API from the development host (`call_service` for `todo.add_item` / `update_item` / `remove_item`, and `todo/item/move`), the same calls HA's to-do card makes. HA's own UI was not clicked; see the human's checks |
+| Input | Pi: touches written into the touchscreen's evdev node as root, as in the Calendar pass. Tablet: `adb shell input tap` / `swipe` |
+
+### Pi results
+
+| Check | Result | Evidence |
+|---|---|---|
+| Real pushes match the fixtures | **verified** after a fix | Pushes and `get_items` captured from the three lists matched the hand-written shapes field for field, with two details the fixture lacked: Local To-do sends `completed` in UTC with microseconds (`2026-10-15T13:25:22.747356+00:00`), and Shopping List keeps `"completed": null` on a completed item. Both added to `test/fixtures/lists/todo_items.json` in `f97f1b1` |
+| Routes | **verified** | `POST` answered with name, colour, person, status (`3 open`, `All done`) and features (`add · edit · reorder · due dates` for Local To-do, `add · edit · reorder` for Shopping List). A second add: 409 `todo.hearth_test is already added`; `light.kitchen`: 400 `Pick a todo.* entity`; `PUT` with another `entityId`: 400; `name: ""`: 400; an unknown list: 404; `DELETE` removed `todo.nope` |
+| A missing entity | **verified** | `todo.nope` was accepted with status `Not found in Home Assistant`; selecting it shows `List not found in Home Assistant` under the header and an empty body. One `[W/Lists] todo.nope: subscribe failed: invalid_entity_id`, no retry |
+| Lists view | **verified** | Rail with colour, name and open count; add field; rows with due line (`due tomorrow · A dozen`, an overdue `due yesterday 5:00 PM` in red); drag handles; `Completed (n)` folded; `Clear done` |
+| Add (Local To-do) | **verified** | Typed `tea` on the OSK in the add field and pressed Enter: HA's list gained `tea`, the field kept focus for the next item |
+| Edit: description, date, time, clear, rename | **verified** | Description `2l` typed on the OSK and saved: HA `description: "2l"`. The ✕ cleared a due: HA `due: null`. Date picker to Oct 20 then time picker to 6 PM: HA `due: 2026-10-20T18:00:00-05:00`, row `due Tuesday, Oct 20 6:00 PM`. Name `Milk` → `Milks`: HA `summary: "Milks"` |
+| Delete | **verified** | Delete in the sheet removed `Eggs` from HA at once (no confirmation, as specified) |
+| Complete, uncomplete, Clear done | **verified** | Checkbox: HA `completed`; reopening `Jam` under the expanded Completed: HA `needs_action`. Clear done asked `Removes 3 completed items from Hearth test in Home Assistant.`; after Clear, HA held only the three open items |
+| Absent actions | **verified** | Shopping List's sheet has only Name and Delete, no description, date or time, matching features 15 |
+| Reorder on the kiosk | **verified** | Dragging `tea`'s handle to the top: HA's order became `tea, Milk, Eggs, Pay bills` (`get_items` and the subscription, which are the order HA's card draws). Same on Shopping List: `Butter` above `Bread` |
+| Reorder from HA | **verified** | `todo/item/move` of `tea` after `Pay bills`: the kiosk redrew it last within a second |
+| A change from HA shows on the kiosk | **verified** | Reopening `Make bed` from HA at 08:29:16.8: a capture finished at 08:29:17 already showed it open. Adds and completions from HA likewise, Local To-do and Shopping List both |
+| A change on the kiosk shows in HA | **verified** | Completing `Make bed` on the chart: HA's next push had `status: completed` within 1.5 s; every edit above was read back from HA the same way |
+| Chores view | **verified** | One person, then two side by side in config order, each with its count (`0/2`, `1/6`): late first (`Feed cat` due yesterday), then today's, then undated (`Practice piano`), then done today struck through, `Upcoming (1)` folded (`Homework`, due tomorrow) |
+| Glance on idle Home | **verified** (landscape and portrait) | `Test kid Feed cat · late`, `Test kid Make bed`, `Test kid Trash out`; undated and tomorrow's chores left out; with five lines due, three and `+2 more`, late first across both people |
+| Glance tap lands on Chores | **verified** (landscape and portrait) | Tapping the glance opened the Lists page on Chores |
+| A timed chore turns late | **verified** | Midnight was not waited for; timed chores due a few minutes ahead exercise the same recompute. Glance: `Water plants` due 08:37 read `· late` and moved up in a capture at 08:37:02, with no push. Chores screen: `Trash out` due 08:33 was not yet late at 08:33:08 and was late, moved above `Make bed`, at 08:34:02; the screen re-reads the clock once a minute, so it can lag the glance by up to a minute. The date rollover at midnight is the same timer path and is covered by `choresTodayProvider`'s midnight test |
+| Resubscribe after the socket drops | **verified** | Hearth's sockets to HA were shut down from outside the process, as in the Calendar pass: `[I/HA] WebSocket closed` 08:37:46, `Reconnected` 08:37:47. Completing `Feed cat` from HA at 08:37:57 removed it from the glance by 08:37:58 |
+| HA restart | **not run** | Replaced by the socket drop, as for Calendar |
+| OSK, landscape | **verified** | The add field, the description and the name field: the keyboard comes up, the sheet lifts above it, typed text reaches HA |
+| OSK, portrait | **verified** | After `displayOrientation: portrait` and the Display plugin's restart (`inEffect`, 90°): typed `jam` in the add field (reached HA); the edit sheet lifts above the keyboard with the description focused |
+| Portrait layouts | **verified** | Lists swaps the rail for a dropdown in the header; Chores keeps two columns at half width |
+| Late tag position | **verified** after a fix | On `433774d` the chart's `late` sat 8 px from the column edge while the count above sat 16 px in. Fixed in `60e3b17`, re-checked on the Pi and the tablet: the two line up |
+| Settings panel on the device | **verified** | Three rows with colour, person or `List`, `4 open`/`3 open`/`6 open` and the features line; edit and delete buttons; Add; `Show today's chores when idle` on |
+| Portal parity | **verified** | The Pi's portal opened in Chrome on the tablet (PIN from the Network panel): the same three rows, colours, person/kind, counts and features, Edit/Delete, `+ Add list`, the glance checkbox. Edit there changed Shopping list's colour to green; `GET …/lists` returned `#81c784` |
+| Repeating chores recipe | **verified** | The actions of the recipe below, run once through HA's `execute_script` against `todo.hearth_test_2` (nothing installed): `Recipe: make bed` due `2026-10-15` and `Recipe: trash out` due `2026-10-15T19:00:00-05:00` appeared on the chart as `due today` and `due today 7:00 PM`; `remove_completed_items` cleared the two done chores |
+| Logs | **verified** | No `[E/` line from lists code, `NRestarts=0` across the pass |
+| Google Tasks, the 30-minute poll | **not run** | No Google Tasks list was set up for the pass |
+| A list without `update` or `move` | **not run** | Neither integration used lacks them; the absent checkbox and handle are covered by widget tests |
+| An item without a uid | **not run** | No integration here sends one |
+
+### Tablet results
+
+| Check | Result | Evidence |
+|---|---|---|
+| Cold start | **verified** | After the install, `Local API server listening on port 8090`, no `FATAL EXCEPTION` or `E/flutter` in logcat |
+| Glance, portrait and landscape | **verified** | Three chore lines above the calendar glance; tap opened Chores |
+| Chores, both orientations | **verified** | Two columns, late tags lined up with the count |
+| Cross-device | **verified** | `Make bed` completed on the tablet: HA `completed`, and the Pi's chart read `2/6` with it struck through, within 1.5 s |
+| OSK, landscape and portrait | **verified** | `tea` typed on Hearth's keyboard in the add field reached HA; the edit sheet lifts above the keyboard in portrait |
+| Drag reorder | **verified** (by `adb` swipe) | `tea` dragged from last to first: HA's order `tea, Milks, Pay bills, …`. How it feels under a finger is the human's call, below |
+
+### Tablet and eyes-on checks (the human)
+
+The human took this checklist on the tablet and the Pi panel, with the three test lists configured: on the tablet's Chores view, tap a chore row to tick it and again to undo, and judge whether it feels immediate and the pending state looks right; drag an item by its handle with a finger in Lists → Hearth test, then compare the order with HA's to-do panel; add or tick an item in HA's own To-do UI and watch the kiosk; type with the keyboard in both orientations; judge the idle glance's legibility over photos on the Pi and the tablet. Their answer: "All looks good". No item was reported individually, so each is recorded as passed on their word, not observed here.
+
+### Repeating chores: an automation recipe
+
+HA's to-do model has no recurrence, so a repeating chore is an automation that adds it again. This one adds the day's chores just after midnight and clears yesterday's finished ones; HA 2024.10 or newer for this syntax. Replace `todo.ava_chores` with the person's list:
+
+```yaml
+alias: Ava's chores
+triggers:
+  - trigger: time
+    at: "00:05:00"
+actions:
+  - action: todo.remove_completed_items
+    target:
+      entity_id: todo.ava_chores
+  - action: todo.add_item
+    target:
+      entity_id: todo.ava_chores
+    data:
+      item: Make bed
+      due_date: "{{ now().date() }}"
+  - if:
+      - condition: time
+        weekday: [thu]
+    then:
+      - action: todo.add_item
+        target:
+          entity_id: todo.ava_chores
+        data:
+          item: Trash out
+          due_datetime: "{{ today_at('19:00') }}"
+```
+
+An open chore from yesterday stays and shows as late next to today's copy. To replace it instead, remove it first (`todo.remove_item` with its name) before adding. Lists without due dates (Shopping List) take the `item` alone, and then the chore shows on the chart every day rather than in the glance.
+
+### Findings
+
+Fixed on this branch, each with a test that fails without the fix:
+
+- `f97f1b1` — the fixture lacked two shapes real HA sends: microsecond UTC `completed` and a completed item with `completed: null`. Both parse correctly; the fixture and its test now carry them.
+- `60e3b17` — the chart's `late` tag sat against the column edge. It now has the row's right inset and lines up with the count.
+
+Not changed:
+
+- The Chores screen re-reads the clock once a minute, so a timed chore turns late there up to a minute after the glance shows it. Left as it is.
+- HubShell's mic toggle sits over the `FEATURES` heading of the Settings sidebar (seen, not Lists code).
+
+### Device state
+
+**Home Assistant:** the three test lists were emptied, then their config entries deleted through the config-entries API, with the human's go-ahead. HA has no `todo.*` entity again, as before the pass. Removing Shopping List answered `require_restart: true`; the house HA was not restarted. Its now-empty `.shopping_list.json` stays in HA's config directory. No household list existed, and none was read or written.
+
+**Pi:** `hub_config.json` restored from the pre-pass copy (sha256 `643e8b6d…`, byte-identical when copied back, and unchanged after the next start). Lists is not enabled, orientation is `auto`, `captureToolsEnabled` and `micMuted` are `true` as found. `/opt/hearth/bundle` is the pass's build of `60e3b17`; the bundle it replaced is `/opt/hearth/bundle.pre-lists-test`. `/etc/hearth-version` still says 1.20.0, so the updater will install the next release over it. The backup, the bundles and the helper scripts are in `~/hearth-lists-test`.
+
+**Tablet:** left on the debug APK of `60e3b17`, with `hub_config.json` restored from the pre-pass copy (sha256 `10757be0…`, byte-identical).
 
 ## Child tasks
 
