@@ -52,6 +52,7 @@ class TodoItemRow extends StatelessWidget {
     this.onToggle,
     this.onTap,
     this.dragIndex,
+    this.late = false,
   });
 
   final TodoItem item;
@@ -66,6 +67,9 @@ class TodoItemRow extends StatelessWidget {
 
   /// The item's index in the reorderable list; null draws no handle.
   final int? dragIndex;
+
+  /// Tags the row "late", as the chore chart marks an overdue chore.
+  final bool late;
 
   @override
   Widget build(BuildContext context) {
@@ -137,6 +141,17 @@ class TodoItemRow extends StatelessWidget {
                 ),
               ),
             ),
+            if (late)
+              const Padding(
+                padding: EdgeInsets.only(left: HearthSpacing.x2),
+                child: Text(
+                  'late',
+                  style: TextStyle(
+                    fontSize: HearthFont.label,
+                    color: Colors.redAccent,
+                  ),
+                ),
+              ),
             if (busy)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: HearthSpacing.x2),

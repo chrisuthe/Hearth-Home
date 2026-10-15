@@ -5,6 +5,7 @@ import 'package:hearth/app/hub_shell.dart';
 import 'package:hearth/config/hub_config.dart';
 import 'package:hearth/modules/lists/chore_glance.dart';
 import 'package:hearth/modules/lists/lists_providers.dart';
+import 'package:hearth/modules/lists/chores_view.dart';
 import 'package:hearth/modules/lists/lists_screen.dart';
 import 'package:hearth/modules/lists/models.dart';
 import 'package:hearth/screens/home/home_screen.dart';
@@ -246,7 +247,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 400));
     }
 
-    testWidgets('tapping it opens the Lists page in the swipe row', (
+    testWidgets('tapping it opens the Lists page on Chores in the swipe row', (
       tester,
     ) async {
       await pumpShell(tester, placement: const ['swipe']);
@@ -255,6 +256,7 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
       expect(find.byType(ListsScreen), findsOneWidget);
+      expect(find.byType(ChoresView), findsOneWidget);
       await unmount(tester);
     });
 
