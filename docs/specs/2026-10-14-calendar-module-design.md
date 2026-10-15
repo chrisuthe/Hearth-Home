@@ -450,7 +450,7 @@ HA fixtures, captured as JSON in both shapes (WebSocket and REST):
 ## Hardware pass
 
 **Date:** 2026-10-14
-**Commit tested:** `28392b9` (this branch: `main` at `3b07e56` plus the fixes below)
+**Commit tested:** `28392b9` (this branch: `main` at `3b07e56` plus the fixes below). `a501b67` came after the pass and only quiets the HA push log line, which now prints when a calendar's event count changes rather than on every push
 
 **verified** here means observed in this pass, with the evidence named in the row; **not run** gives the reason. Screenshots were taken through the capture plugin for every view; they show household photos and calendars, so they are described here rather than committed.
 
