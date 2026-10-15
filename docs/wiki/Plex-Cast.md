@@ -17,7 +17,7 @@ Open **Plex Cast** in the [[web portal|The Web Portal]] or on-device Settings:
 | Field | Example | Notes |
 | --- | --- | --- |
 | **Player Name** | `Hearth` | Required. The name Plex apps show in their cast list. |
-| **Enable Plex Player** | *(toggle)* | Disabled until you've set a Player Name. |
+| **Enable Plex Player** | *(toggle)* | Disabled (*"Set a player name first"*) until you've set a Player Name. |
 
 > **First-time enable must be done on the kiosk.** Toggling *Enable* on-device generates the
 > stable client ID that Plex uses to identify this player. The web checkbox writes the toggle
@@ -30,12 +30,14 @@ Open **Plex Cast** in the [[web portal|The Web Portal]] or on-device Settings:
 Pairing is **on-device only** — the web portal doesn't offer it.
 
 1. On the kiosk, open **Settings → Plex Cast**.
-2. Tap **Pair with Plex**. A four-character code appears.
+2. Tap **Pair with Plex** (it needs a Player Name first). A four-character code appears.
 3. On any other device, go to **[plex.tv/link](https://plex.tv/link)** and enter the code.
-4. The kiosk polls until you finish, then shows **Paired with Plex**.
+4. The kiosk waits (*"Waiting for you to link…"*) until you finish, then shows **Paired with
+   Plex**.
 
-The code is good for about two minutes. If it expires, tap **Pair with Plex** again. There's an
-**Unpair** button once paired, which clears the stored token.
+The kiosk waits about two minutes, then shows *"Pairing timed out. Please try again."* — tap
+**Pair with Plex** again. **Cancel** stops waiting. There's an **Unpair** button once paired,
+which clears the stored token.
 
 **Do you have to pair?** It depends what you want:
 
@@ -52,8 +54,9 @@ The code is good for about two minutes. If it expires, tap **Pair with Plex** ag
 ## Using it
 
 Start playback from any Plex app and pick your player name from its cast/player selector. The
-video goes full-screen on the kiosk, scaled to fill (aspect preserved, overflow cropped), and
-Hearth wakes from idle automatically.
+video goes full-screen on the kiosk and Hearth wakes from idle automatically. It fills the
+screen when that crops only a little of the picture, and letterboxes when it would crop a lot
+(a wide film, or 16:9 on a portrait screen).
 
 **On-screen controls** — tap the video to reveal the transport bar; it auto-hides after four
 seconds:
@@ -75,6 +78,9 @@ the same corner shows **Next Episode** to jump straight on.
 **Play queue** — when you cast a queue (a season, an album, a playlist), Hearth follows it:
 prev/next navigate it, and playback **auto-advances** to the next item when one finishes.
 
+**From the Plex app** — play, pause, stop, seek, skip forward 30 s / back 15 s, volume, and
+next / previous in the queue all work.
+
 ## Direct play vs. transcode
 
 Hearth asks your Plex Media Server to make a playback decision, but keeps a **local guard**
@@ -86,11 +92,17 @@ The guard wins deliberately — letting the server's decision override it silent
 an interlaced-playback bug. If you're curious which route a given item took, the reason is
 logged; see [the logs page](The-Web-Portal#the-logs-page).
 
+## On Android
+
+Plex casting has not been tested on an [[Android tablet|Android Tablet]] yet, and Plex apps may
+not discover the tablet as a cast target. The portal's **Logs** page doesn't work on a tablet,
+so the log checks below need a Pi.
+
 ## Troubleshooting
 
 - **Hearth doesn't appear in the Plex app's cast list** — confirm you enabled the player
   **on the device** at least once (see the callout above), that the Player Name is set, and
-  that the casting device is on the same network as the Pi. Player discovery is LAN-local
+  that the casting device is on the same network as the kiosk. Player discovery is LAN-local
   until you pair.
 - **"I cast it and nothing happened"** — this is what the logs are for. Cast routing, the
   transcode decision and its source, and a stalled-playback warning are all logged at info /

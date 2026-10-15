@@ -3,6 +3,9 @@
 This page takes you from a **bare Raspberry Pi** to a **paired, running Hearth kiosk**.
 The whole install is a single script — you don't build anything by hand.
 
+> Installing on an **Android tablet** instead? See **[[Android Tablet]]** — it's an APK
+> install, and Steps 3 and 4 below apply once it's running.
+
 ## What you need
 
 - **Raspberry Pi 5** (2 GB or more)

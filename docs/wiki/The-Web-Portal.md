@@ -13,42 +13,66 @@ portal sidebar," this is the surface it means.
 ## Getting in
 
 1. On any device on the same network, browse to `http://hearth.local:8090`.
-   - If `hearth.local` doesn't resolve, use the Pi's IP: `http://<pi-ip>:8090`. The
-     **[[Network|Network & System]]** panel on the kiosk shows the exact URL and a QR code.
-2. Enter the **PIN** shown on the kiosk display.
-3. You're in — your browser holds a session for about a day before asking again.
+   - If `hearth.local` doesn't resolve, use the kiosk's IP address: `http://<kiosk-ip>:8090`.
+     The **[[Network|Network & System]]** panel on the kiosk shows the exact address and a QR
+     code.
+   - On an **[[Android Tablet]]** always use the IP address — `hearth.local` is the Pi's name.
+2. Enter the 4-digit **PIN** shown in the kiosk's **Network** panel.
+3. You're in. Your browser stays signed in for a day, or until Hearth restarts, whichever
+   comes first.
 
 The PIN gates the portal so only someone who can see the kiosk can configure it. A new PIN
-is generated each time the app starts.
+is generated each time Hearth starts.
 
 ## How the sidebar is organized
 
-Plugins are grouped into two categories:
+Plugins are grouped into two categories, in this order:
 
 - **Feature** — external services and features: Home Assistant, Immich, Music Assistant,
-  Frigate, Mealie, Alarm Clock, Sendspin, DLNA, MQTT, Webviews, Weather.
-- **Device** — settings about the kiosk itself: Screens & Order, Voice, Display, Network,
-  System, and (when enabled) Capture.
+  Frigate, UniFi Protect, Calendar, Lists, Mealie, Weather, Alarm Clock, Sendspin, DLNA
+  Cast, Plex Cast, MQTT, Webviews.
+- **Device** — settings about the kiosk itself: Screens & Order, Display, Voice, Network,
+  Capture (when enabled), System.
 
 Each plugin shows a **status dot**: configured, needs setup, partially set up, or an active
-error (e.g. Home Assistant disconnected). Some plugins are **hidden until relevant** — for
-example, **Capture** only appears once you enable *Capture tools* under
-**[[System|Network & System]]**.
+error (e.g. Home Assistant disconnected). **Capture** is hidden until you turn on *Capture
+tools* under **[[System|Network & System]]**.
 
 Everything you change **saves immediately** — there is no save button.
 
+A few things can only be done on the kiosk itself, such as choosing the **Display Profile**
+and the first switch-on of **[[DLNA|Cast to Hearth (DLNA)]]**. The page for each feature
+says so where it applies.
+
 ## The API key (for scripts)
 
-Beyond the PIN-gated browser session, Hearth has an **API key** that lets scripts drive the
-same `/api/*` endpoints with an `Authorization: Bearer <key>` header. It's auto-generated on
-first run and stored in the Pi's `hub_config.json`. The portal shows it only as `••••••••`
-and never lets you overwrite it — it's a read-only credential for automation.
+Beyond the PIN-gated browser session, Hearth has an **API key** that lets scripts and Home
+Assistant call its `/api/*` endpoints with an `Authorization: Bearer <key>` header. It's
+generated on first run and never changes. The portal doesn't display it or let you change it.
 
-You don't need the API key for normal setup; it exists for people who want to script Hearth
-(toggle night mode, push an update, manage alarms) from elsewhere on the network.
+To read it, sign in to the portal, then open this address in the same browser:
+
+```
+http://<kiosk-ip>:8090/api/session/key
+```
+
+It returns `{"apiKey": "…"}`. Treat the key like a password — anyone with it can change
+Hearth's settings.
+
+You don't need the API key for normal setup; it's for people who want to drive Hearth from
+elsewhere on the network — send **[[Notifications]]**, switch
+**[[night mode|Display & Night Mode]]**, start an **[[update|Updating]]**, or manage
+**[[alarms|Alarms & Timers]]**.
 
 ## The logs page
 
-The portal also serves a **logs** view (linked from the portal) showing the kiosk's recent
-`journalctl` output plus live system stats — CPU/GPU temperature, memory, and uptime. It's
-the first place to look when something isn't behaving. See [[Troubleshooting & FAQ]].
+The portal also serves a **logs** page at `http://<kiosk-ip>:8090/logs` — it isn't linked
+from the sidebar, so type the address (you need to be signed in). It shows the kiosk's recent
+log output (50–500 lines, with auto-refresh) plus live system stats: CPU and GPU
+temperature, load, memory, and uptime. It's the first place to look when something isn't
+behaving. Use **Settings** at the top to get back. See [[Troubleshooting & FAQ]].
+
+## On Android
+
+The portal works the same on an Android tablet, at `http://<tablet-ip>:8090`. The **logs**
+page doesn't work there yet, and the system stats show memory only.

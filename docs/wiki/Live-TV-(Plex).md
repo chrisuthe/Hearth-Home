@@ -23,10 +23,10 @@ but Live TV needs the account token to find your server and its DVR — so the s
 
 ## Turn the screen on
 
-Live TV is a module like any other. Open **Screens & Order** in the
-[[web portal|The Web Portal]], enable **Live TV**, and give it a placement (the swipe row, or
-one of the edge menus). By default it sits between **Controls** and **Cameras** — see
-[[Navigation & Gestures]].
+Live TV is a module like any other, and isn't placed anywhere by default. Open **Screens &
+Order** in the [[web portal|The Web Portal]] or on-device Settings, enable **Live TV**, and give
+it a placement (the swipe row, or one of the edge menus). Unless you've reordered your screens,
+it sits between **Controls** and **Cameras** — see [[Navigation & Gestures]].
 
 ## Using it
 
@@ -48,6 +48,8 @@ holding a tuner. If either is hit, the error shows on screen.
 - Three controls sit along the bottom: **previous channel**, **stop**, **next channel**. There's
   no scrubber — it's live.
 - Channel up/down walks the same lineup as the grid, re-tuning each time.
+- The picture fills the screen when that crops only a little, and letterboxes when it would
+  crop a lot (for example 16:9 on a portrait screen).
 
 **Stopping** — tap **stop** to return to the grid. Hearth **tears the tuner grab down on every
 exit path**, including errors and timeouts, so a tuner isn't left allocated after you walk away.
@@ -55,10 +57,16 @@ exit path**, including errors and timeouts, so a tuner isn't left allocated afte
 The screen holds off the [[idle timeout|Navigation & Gestures]] while a channel is playing, so
 a show won't be interrupted by the kiosk returning to Home.
 
+## On Android
+
+Live TV has not been tested on an [[Android tablet|Android Tablet]] yet. The portal's **Logs**
+page doesn't work on a tablet, so the log checks below need a Pi.
+
 ## Troubleshooting
 
 - **The grid is empty / "Pair Plex in Settings"** — Hearth couldn't resolve an owned server or
-  a DVR from your account. Confirm you're **paired** (Settings → Plex Cast shows *Paired with
+  a DVR from your account. It looks these up when the screen first loads, so after fixing the
+  cause, restart Hearth. Confirm you're **paired** (Settings → Plex Cast shows *Paired with
   Plex*), that the Plex account owns the server, and that the server has a working DVR. Both
   failure stages log a distinct warning under `LiveTV` — check the
   [logs page](The-Web-Portal#the-logs-page).

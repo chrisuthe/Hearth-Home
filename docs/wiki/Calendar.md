@@ -29,7 +29,8 @@ Each source has a **name**, a **colour**, and an **on/off** switch. To change a 
 delete the source and add it again.
 
 Then put **Calendar** on the swipe row (or a menu) in **Screens & Order** — see
-[[Navigation & Gestures]]. By default it sits just right of Home.
+[[Navigation & Gestures]]. It isn't placed anywhere until you do. On the swipe row it sits just
+right of Home unless you reorder it.
 
 ### Options
 
@@ -60,8 +61,8 @@ the header saying which source and why (for example *Calendar not found at this 
 
 ## The idle glance
 
-When the kiosk goes idle, Home shows up to **three** upcoming events from now to the end of
-tomorrow, above the timer pill — today's all-day events first. When Calendar is on the swipe
+The Home screen, where the kiosk returns when idle, shows up to **three** upcoming events from
+now to the end of tomorrow, above the timer pill — today's all-day events first. When Calendar is on the swipe
 row, tapping the glance opens it. It hides itself when there's nothing coming up, no source is on, or the option is off.
 
 ## Troubleshooting
@@ -77,4 +78,11 @@ row, tapping the glance opens it. It hides itself when there's nothing coming up
   Hearth keeps the last events it had and retries after 1, 2, 4… minutes.
 - **An ICS source says *Calendar is larger than 10 MB*** — Hearth won't load feeds over 10 MB.
   Many servers can export a shorter range.
-- **Events are at the wrong time** — check the kiosk's timezone in [[Network & System]].
+- **Events are at the wrong time** — check the kiosk's **Timezone** in
+  [[Display & Night Mode]].
+
+## On Android
+
+Calendar works the same on an [[Android Tablet]]. The one difference: Hearth's timezone setting
+has no effect there, so event times follow the tablet's own timezone. Set it in Android's
+settings.

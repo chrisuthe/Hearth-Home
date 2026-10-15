@@ -4,6 +4,9 @@ Hearth updates itself **over the air (OTA)**. It checks for a new release **on b
 daily**, downloads the new app bundle, swaps it in, and restarts — and if a new bundle fails
 to start repeatedly, it **rolls back** to the previous one automatically.
 
+On an **Android tablet** the update is an APK install that Android asks you to confirm — see
+[On Android](#on-android) below.
+
 ## Automatic updates
 
 - Controlled by **Auto-update** under **[[System|Network & System]]** (on by default).
@@ -61,10 +64,31 @@ Each successful update keeps the **previous** bundle as a fallback. If the kiosk
 start several times in a row after an update, a systemd rollback service swaps the previous
 bundle back and restarts — so a bad update doesn't leave you with a dead screen.
 
+## On Android
+
+A tablet updates from the `hearth-android-*.apk` attached to each release, from the same
+**Update Source** (GitHub or Gitea).
+
+- **Auto-update** checks about two minutes after Hearth starts and then daily. When a newer
+  version is out it downloads the APK, checks it against the release's checksum, and hands it
+  to Android.
+- **Android confirms every install.** The first time, Hearth needs permission to **install
+  unknown apps**: it opens that Android settings page for you — turn it on for Hearth. After
+  that Android shows *"Do you want to update this app?"* for each update; tap **Update**. If
+  you tap **Cancel**, Hearth doesn't ask again for that version until it restarts — use
+  **Install Update** in the portal to try again.
+- **Check for Updates**, **Install Update** and **Force Update** in the portal work the same
+  way and end at the same Android prompt.
+- Hearth restarts on the new version with your settings kept.
+- There's **no rollback** on Android: Android won't install an older version over a newer
+  one. The shell commands above are Pi-only.
+
 ## Troubleshooting
 
 - **Update seems stuck** — check the kiosk's logs (linked from the portal) for the updater
   output; confirm the Pi can reach your chosen source (GitHub or Gitea). See
   [[Troubleshooting & FAQ]].
+- **Android: "needs permission"** — turn on **Install unknown apps** for Hearth in Android's
+  settings, then install again. See [[Android Tablet]].
 - **Wrong source** — Gitea updates need **Update Source** set to Gitea (and a token for
   private repos).

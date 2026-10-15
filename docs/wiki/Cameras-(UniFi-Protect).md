@@ -33,7 +33,8 @@ shows a snapshot tile — it just can't expand to live video.
 
 ## Connect Protect
 
-In the [[web portal|The Web Portal]], open **UniFi Protect** and enter:
+In the [[web portal|The Web Portal]] or on-device **Settings**, open **UniFi Protect** and
+enter:
 
 | Field | Example | Notes |
 | --- | --- | --- |
@@ -41,7 +42,8 @@ In the [[web portal|The Web Portal]], open **UniFi Protect** and enter:
 | **API key** | *(the key you created)* | From Settings → Control Plane → Integrations (required) |
 
 Both fields are required — the Integration API rejects any request without a key, so a
-URL alone won't connect. Once both are set, Hearth loads your camera list automatically.
+URL alone won't connect. Once both are set, Hearth loads your camera list automatically,
+sorted by name.
 
 Enter the console's base address only; Hearth appends the API path
 (`/proxy/protect/integration/v1`) for you.
@@ -55,31 +57,38 @@ or use a custom domain.
 
 ## Show the Protect screen
 
-Protect is an optional screen. After connecting, add it to your swipe screens in the
-[[web portal|The Web Portal]] under **Screens & Order** (the same place you place any
-module). By default it sits just right of the Frigate **Cameras** screen. See
+Protect is an optional screen and isn't placed anywhere by default. After connecting, open
+**Screens & Order** (web portal or on-device Settings), enable **Protect**, and place it in
+the swipe row or an edge menu. By default it sits just right of the Frigate **Cameras** screen. See
 [[Navigation & Gestures]] for arranging screens.
 
 ## Using the Protect screen
 
-- **Snapshot grid** — each camera shows a thumbnail that refreshes every few seconds.
-- **Full-screen live** — tap a camera to open its live RTSPS stream. On the Pi this
-  plays through the GStreamer video pipeline.
+- **Snapshot grid** — each camera shows its latest snapshot, refreshed every 3 seconds while
+  the screen is showing.
+- **Full-screen live** — tap a camera to open its live RTSPS stream with a red **LIVE**
+  badge. Tap anywhere to go back to the grid. Swiping to another screen also closes the
+  stream.
 - **Idle suppression** — while you're watching a live stream, Hearth **won't** time out
   and return to Home, so the video isn't interrupted.
 - **Offline handling** — a camera that can't be reached shows a placeholder rather than
   hanging, and if its live stream is unavailable Hearth keeps the snapshot on screen and
-  tells you.
+  shows *"<camera> stream unavailable"*.
+
+## On Android
+
+Protect snapshots and live streams have not been tested on an
+[[Android tablet|Android Tablet]] yet.
 
 ## Troubleshooting
 
-- **No cameras listed** — double-check the Protect URL and API key. The key must be a
+- **No cameras listed** (*"No cameras"*) — double-check the Protect URL and API key. The key must be a
   **Protect** Integration key (Settings → Control Plane → Integrations), not a Network or
   site key.
 - **A tile won't expand to live video** — that camera's RTSP(S) stream isn't shared.
   Enable it under the camera's **Share Livestream** settings in UniFi Protect.
 - **Snapshots load but nothing else** — the API key is working; the issue is per-camera
   streaming (see above) or the video pipeline. See [[Troubleshooting & FAQ]].
-- **Nothing connects** — confirm the console URL is reachable from the Pi (try it in a
+- **Nothing connects** — confirm the console URL is reachable from the kiosk (try it in a
   browser) and that you're on UniFi OS 4.x / Protect 5.x, which the Integration API
   requires.
