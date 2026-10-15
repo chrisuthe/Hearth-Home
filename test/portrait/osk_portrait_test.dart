@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hearth/config/hub_config.dart';
+import 'package:hearth/modules/lists/lists_screen.dart';
 import 'package:hearth/modules/webview/custom_url_editor.dart';
 import 'package:hearth/packages/hearth_osk/hearth_osk.dart';
 import 'package:hearth/packages/hearth_osk/src/osk_widgets.dart';
@@ -11,6 +12,8 @@ import 'package:hearth/services/timezone_service.dart';
 import 'package:hearth/widgets/entity_picker_dialog.dart';
 import 'package:hearth/widgets/timezone_picker_dialog.dart';
 
+import '../modules/lists/lists_fixtures.dart';
+import 'module_support.dart';
 import 'portrait_harness.dart';
 
 /// A finger needs about this much key to hit reliably.
@@ -189,6 +192,50 @@ void main() {
         tester.getRect(find.text('HA Entity ID for Night Mode')).top,
         greaterThanOrEqualTo(0));
   });
+  // Items are typed in one after another, so the add field has to stay
+  // above the keyboard and keep it up after Enter.
+  testLayouts('on-screen keyboard: the Lists add field', (tester, canvas) async {
+    HearthOskControl.resetForTest();
+    addTearDown(HearthOskControl.resetForTest);
+    final control = HearthOskControl.install();
+    const groceries = 'todo.groceries';
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        hubConfigProvider
+            .overrideWith((ref) => MemoryConfigNotifier(listsConfig([groceries]))),
+        ...listsOverrides(
+          entities: [todoEntity(groceries, open: 30, name: 'Groceries')],
+          lists: FakeTodoLists({
+            groceries: [for (var i = 0; i < 30; i++) todo('$i', 'Item $i')],
+          }),
+        ),
+      ],
+      child: MaterialApp(
+        theme: ThemeData.dark(useMaterial3: true),
+        builder: (context, child) => HearthOskScope(
+          control: control,
+          theme: hearthOskTheme,
+          child: child!,
+        ),
+        home: const Scaffold(body: ListsScreen(isActive: true)),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    final field = find.byKey(const Key('lists-add'));
+    await tester.tap(field);
+    await tester.pumpAndSettle();
+    expect(control.visible, isTrue);
+
+    final keyboard = tester.getRect(find.byType(HearthOskOverlay));
+    expect(tester.getRect(field).bottom, lessThanOrEqualTo(keyboard.top));
+
+    await tester.enterText(field, 'Apples');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+    expect(control.visible, isTrue);
+    expect(tester.getRect(field).bottom, lessThanOrEqualTo(keyboard.top));
+  });
+
   // The settings dialogs that carry their own text field: the keyboard takes
   // ~360px off the bottom, most of what a landscape canvas has to spare.
   group('settings dialogs with the keyboard up', () {
