@@ -35,8 +35,8 @@ class _Write {
 }
 
 /// The configured HA to-do lists: complete, add, edit, delete, reorder;
-/// and, once a list has a person, the chore chart. Nothing here uses a horizontal gesture; those belong to HubShell's
-/// PageView.
+/// and, once a list has a person, the chore chart. Nothing here uses a
+/// horizontal gesture; those belong to HubShell's PageView.
 class ListsScreen extends ConsumerStatefulWidget {
   const ListsScreen({super.key, this.isActive = false});
 
