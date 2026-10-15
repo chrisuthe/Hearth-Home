@@ -279,11 +279,11 @@ class _HubShellState extends ConsumerState<HubShell> {
     );
   }
 
-  /// Jumps to the Calendar page; null when it is not in the swipe row.
-  VoidCallback? _calendarTap(
-      List<dynamic> leftModules, List<dynamic> rightModules, int homeIndex) {
-    final left = leftModules.indexWhere((m) => m.id == 'calendar');
-    final right = rightModules.indexWhere((m) => m.id == 'calendar');
+  /// Jumps to module [id]'s page; null when it is not in the swipe row.
+  VoidCallback? _moduleTap(String id, List<dynamic> leftModules,
+      List<dynamic> rightModules, int homeIndex) {
+    final left = leftModules.indexWhere((m) => m.id == id);
+    final right = rightModules.indexWhere((m) => m.id == id);
     if (left < 0 && right < 0) return null;
     final index = left >= 0 ? left : homeIndex + 1 + right;
     return () {
@@ -380,7 +380,9 @@ class _HubShellState extends ConsumerState<HubShell> {
             );
           }
         },
-        onCalendarTap: _calendarTap(leftModules, rightModules, homeIndex),
+        onCalendarTap:
+            _moduleTap('calendar', leftModules, rightModules, homeIndex),
+        onListsTap: _moduleTap('lists', leftModules, rightModules, homeIndex),
       ),
       ...rightModules.map((m) => m.buildScreen(
           isActive: _currentPage == homeIndex + 1 + rightModules.indexOf(m))),

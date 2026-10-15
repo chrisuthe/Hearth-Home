@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/tokens/tokens.dart';
 import '../../config/hub_config.dart';
 import '../../modules/calendar/calendar_glance.dart';
+import '../../modules/lists/chore_glance.dart';
 import '../../services/music_assistant_service.dart';
 import '../../services/weather_service.dart';
 import '../../utils/weather_icon_mapping.dart';
@@ -29,6 +30,7 @@ class HomeScreen extends ConsumerWidget {
   final VoidCallback? onChevronTap;
   final VoidCallback? onNowPlayingTap;
   final VoidCallback? onCalendarTap;
+  final VoidCallback? onListsTap;
 
   const HomeScreen({
     super.key,
@@ -38,6 +40,7 @@ class HomeScreen extends ConsumerWidget {
     this.onChevronTap,
     this.onNowPlayingTap,
     this.onCalendarTap,
+    this.onListsTap,
   });
 
   @override
@@ -65,7 +68,9 @@ class HomeScreen extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Draws nothing (and takes no space) when there is nothing to show.
+              // Each draws nothing (and takes no space) when there is nothing
+              // to show.
+              ChoreGlance(onTap: onListsTap),
               CalendarGlance(onTap: onCalendarTap),
               // Timer pill
               _TimerPill(

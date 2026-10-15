@@ -4,6 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hearth/config/hub_config.dart';
 import 'package:hearth/modules/calendar/calendar_providers.dart';
 import 'package:hearth/modules/calendar/models.dart';
+import 'package:hearth/modules/lists/lists_providers.dart';
+import 'package:hearth/modules/lists/models.dart';
 import 'package:hearth/screens/home/home_screen.dart';
 import 'package:hearth/screens/timer/timer_screen.dart';
 import 'package:hearth/screens/weather/day_detail_screen.dart';
@@ -15,6 +17,7 @@ import 'package:hearth/services/voice_satellite_bridge.dart';
 import 'package:hearth/services/weather_service.dart';
 
 import '../modules/calendar/calendar_fixtures.dart';
+import '../modules/lists/lists_fixtures.dart';
 import 'portrait_fixtures.dart';
 import 'portrait_harness.dart';
 
@@ -25,6 +28,7 @@ void main() {
       required bool populated,
       bool use24h = false,
       List<CalendarEvent>? calendar,
+      Map<String, List<TodoItem>>? chores,
     }) async {
       final timers = TimerService();
       if (populated) {
@@ -34,12 +38,22 @@ void main() {
       }
       await tester.pumpWidget(ProviderScope(
         overrides: [
-          hubConfigProvider.overrideWith((ref) => MemoryConfigNotifier(
-              calendar == null
-                  ? HubConfig(use24HourClock: use24h)
-                  : calendarConfig(use24h: use24h))),
+          hubConfigProvider.overrideWith((ref) {
+            var config = calendar == null
+                ? HubConfig(use24HourClock: use24h)
+                : calendarConfig(use24h: use24h);
+            if (chores != null) {
+              final c = choreConfig();
+              config = config.copyWith(
+                  todoChoreGlance: true, todoLists: c.todoLists);
+            }
+            return MemoryConfigNotifier(config);
+          }),
           if (calendar != null)
             calendarEventsProvider.overrideWithValue(merged(calendar)),
+          if (chores != null)
+            todoListProvider.overrideWith(
+                (ref, id) => FakeTodoLists(chores).stream(id)),
           timerServiceProvider.overrideWith((ref) => timers),
           weatherStateProvider.overrideWith((ref) => populated
               ? Stream.value(sampleWeather('lightning-rainy'))
@@ -90,6 +104,36 @@ void main() {
       ]);
       expect(find.text('$kLongSummary (all day)'), findsOneWidget);
       expect(find.text('Soccer practice 1'), findsOneWidget);
+      await unmount(tester);
+    });
+
+    testLayouts('with the chore glance, the calendar glance and the rest',
+        (tester, canvas) async {
+      final now = DateTime.now();
+      final today = TodoDue.date(now);
+      final yesterday = TodoDue.date(DateTime(now.year, now.month, now.day - 1));
+      await pumpHome(tester, populated: true, calendar: [
+        CalendarEvent(
+          sourceId: kFamily.id,
+          summary: kLongSummary,
+          allDay: true,
+          start: DateTime(now.year, now.month, now.day),
+          end: DateTime(now.year, now.month, now.day + 1),
+        ),
+      ], chores: {
+        'todo.ava': [
+          todo('a1', kLongSummary, due: yesterday),
+          todo('a2', 'Make bed', due: today),
+        ],
+        'todo.ben': [
+          todo('b1', 'Trash out', due: today),
+          todo('b2', 'Feed the fish', due: today),
+        ],
+        'todo.groceries': const [],
+      });
+      expect(find.text('$kLongSummary · late'), findsOneWidget);
+      expect(find.text('+1 more'), findsOneWidget);
+      expect(find.text('$kLongSummary (all day)'), findsOneWidget);
       await unmount(tester);
     });
 
