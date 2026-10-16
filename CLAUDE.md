@@ -83,7 +83,7 @@ No backend or database. Config is a single `hub_config.json` in the OS app-suppo
 
 Night mode has four mutually exclusive sources: `none`, `clock`, `ha_entity`, `api`. Only one is active — no fallback chain.
 
-The look is two fields: `theme` (`classic | bright | warm`, Settings > Theme) and `screenBackground` (`solid | blurred`, a blurred copy of the current photo behind each screen).
+The look is two fields: `theme` (`classic | bright | warm`) and `screenBackground` (`solid | blurred`, a blurred copy of the current photo behind each screen). Their Theme and Background controls are in the Display settings.
 
 ### Display Canvas & Orientation
 

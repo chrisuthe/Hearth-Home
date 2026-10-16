@@ -264,8 +264,8 @@ Two phases, each mergeable alone:
   disposal work.
 - Calendar event-card styling on light themes.
 - Plan ordering within phase 1.
-- Updating `CLAUDE.md` Conventions ("Dark theme with true black background",
-  "Color accent: indigo") to describe theme roles instead.
+- Done: updating `CLAUDE.md` Conventions ("Dark theme with true black
+  background", "Color accent: indigo") to describe theme roles instead.
 
 ## Implementation notes
 
