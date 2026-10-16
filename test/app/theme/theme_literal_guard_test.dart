@@ -54,6 +54,10 @@ const kThemedFiles = <String>[
   'lib/modules/calendar/calendar_widgets.dart',
   'lib/modules/calendar/calendar_time_grid.dart',
   'lib/modules/calendar/calendar_month_view.dart',
+  'lib/modules/lists/lists_screen.dart',
+  'lib/modules/lists/lists_widgets.dart',
+  'lib/modules/lists/chores_view.dart',
+  'lib/modules/lists/todo_edit_dialog.dart',
 ];
 
 final _forbidden = <RegExp>[

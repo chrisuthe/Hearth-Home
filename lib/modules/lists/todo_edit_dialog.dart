@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../app/theme/hearth_colors.dart';
 import '../../app/tokens/tokens.dart';
 import 'lists_widgets.dart';
 import 'models.dart';
@@ -127,7 +128,8 @@ class _TodoEditDialogState extends State<TodoEditDialog> {
     final f = _features;
     final canDue = f.canUpdate && (f.canSetDueDate || f.canSetDueTime);
     final narrow = MediaQuery.sizeOf(context).width < 600;
-    final muted = Colors.white.withValues(alpha: 0.6);
+    final c = context.hearthColors;
+    final muted = c.inkAt(0.6);
 
     return Dialog(
       insetPadding: narrow
@@ -154,10 +156,10 @@ class _TodoEditDialogState extends State<TodoEditDialog> {
               else
                 Text(
                   widget.item.summary,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: HearthFont.title,
                     fontWeight: FontWeight.w600,
-                    color: Colors.white,
+                    color: c.text,
                   ),
                 ),
               if (f.canUpdate && f.canSetDescription) ...[
