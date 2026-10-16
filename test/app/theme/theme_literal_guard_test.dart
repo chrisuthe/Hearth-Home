@@ -58,6 +58,10 @@ const kThemedFiles = <String>[
   'lib/modules/lists/lists_widgets.dart',
   'lib/modules/lists/chores_view.dart',
   'lib/modules/lists/todo_edit_dialog.dart',
+  'lib/modules/alarm_clock/alarm_editor_screen.dart',
+  'lib/screens/timer/timer_screen.dart',
+  'lib/modules/livetv/live_tv_screen.dart',
+  'lib/modules/media/cinematic/cinematic_screen.dart',
 ];
 
 final _forbidden = <RegExp>[
