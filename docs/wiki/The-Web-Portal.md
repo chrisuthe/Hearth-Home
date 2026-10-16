@@ -64,6 +64,34 @@ elsewhere on the network — send **[[Notifications]]**, switch
 **[[night mode|Display & Night Mode]]**, start an **[[update|Updating]]**, or manage
 **[[alarms|Alarms & Timers]]**.
 
+## Backup & Restore
+
+**System** in the portal sidebar has a **Backup & Restore** section. Use it to rebuild a
+kiosk after its SD card dies, or after the tablet is wiped, without setting everything up
+again.
+
+- **Download backup** saves one `.json` file. It holds the whole configuration (servers,
+  people, lists, calendars, webviews and every other setting), your alarms, and the
+  Sendspin pairing keys. With the keys back, Music Assistant still sees the same player.
+- **The file contains every password and token Hearth uses**, in plain text. Keep it
+  somewhere safe.
+- **Restore from file** puts it all back and restarts Hearth. The portal waits for the
+  restart and reloads. Sign in again with the **new PIN** the kiosk shows.
+
+Things to know:
+
+- A restore brings the kiosk back as **the same device**, so Home Assistant, Plex, DLNA and
+  MQTT recognise it. Don't use a backup to set up a *second* kiosk: the two would clash.
+- A backup from a **newer** Hearth version is refused. Update the kiosk first, then
+  restore.
+- Sendspin keys only restore onto the same kind of device. A Pi backup restored onto a
+  tablet brings back everything except Sendspin pairing.
+- Wi-Fi, photos and captures aren't included.
+- Both buttons need the PIN-signed-in portal. The API key alone can't download or restore a
+  backup.
+- The files a restore replaces are kept beside the new ones with a `.pre-restore` suffix,
+  in case you need to undo it by hand.
+
 ## The logs page
 
 The portal also serves a **logs** page at `http://<kiosk-ip>:8090/logs` — it isn't linked

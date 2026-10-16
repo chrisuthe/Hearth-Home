@@ -1,11 +1,13 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../../config/hub_config.dart';
 import '../../modules/alarm_clock/alarm_models.dart';
 import '../../modules/alarm_clock/alarm_service.dart';
+import '../installed_version.dart';
 import '../update_service.dart';
 import 'sendspin_secret_files.dart';
 
@@ -159,3 +161,11 @@ class BackupService {
     }
   }
 }
+
+final backupServiceProvider = Provider<BackupService>((ref) => BackupService(
+      config: ref.read(hubConfigProvider.notifier),
+      alarms: ref.read(alarmServiceProvider),
+      sendspin: FileSendspinSecretFiles(),
+      platform: Platform.operatingSystem,
+      installedVersion: readInstalledVersion,
+    ));
