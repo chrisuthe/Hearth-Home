@@ -16,6 +16,7 @@ Full licence texts are in `assets/licenses/`. **Verified** means we read the lic
 | [Home Assistant Voice Preview Edition sounds](#voice-pe-sounds) | CC-BY-4.0 | android | verified |
 | [SendspinDroid (Android Sendspin player)](#sendspindroid) | MIT | android | verified |
 | [Catppuccin color palette](#catppuccin) | MIT | android, pi, linux, windows | verified |
+| [Tokyo Night color palette](#tokyonight) | Apache-2.0 | android, pi, linux, windows | verified |
 | [Ktor](#ktor) | Apache-2.0 | android | verified |
 | [OkHttp and Okio](#okhttp) | Apache-2.0 | android | verified |
 | [Public Suffix List](#public-suffix-list) | MPL-2.0 | android | verified |
@@ -131,6 +132,18 @@ The Latte, Frappé, Macchiato and Mocha theme palettes.
 - Source: <https://github.com/catppuccin/palette>
 - Platforms: android, pi, linux, windows
 - Status: **verified**. LICENSE and palette.json in the repository, 2026-10-16.
+
+<a id="tokyonight"></a>
+## Tokyo Night color palette
+
+Copyright (c) Folke Lemaitre.
+
+The Night, Storm, Moon and Day theme palettes; only the palette color values are used.
+
+- Licence: Apache-2.0 (`assets/licenses/apache-2.0.txt`)
+- Source: <https://github.com/folke/tokyonight.nvim>
+- Platforms: android, pi, linux, windows
+- Status: **verified**. LICENSE and extras/lua/tokyonight_*.lua in the repository, 2026-10-16; the LICENSE is the unfilled Apache text with no copyright line, so the holder is the repository owner.
 
 <a id="ktor"></a>
 ## Ktor

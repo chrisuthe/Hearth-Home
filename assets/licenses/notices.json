@@ -118,6 +118,21 @@
       "checked": "LICENSE and palette.json in the repository, 2026-10-16"
     },
     {
+      "id": "tokyonight",
+      "name": "Tokyo Night color palette",
+      "license": "Apache-2.0",
+      "licenseFile": "apache-2.0.txt",
+      "attribution": [
+        "Copyright (c) Folke Lemaitre.",
+        "The Night, Storm, Moon and Day theme palettes; only the palette color values are used."
+      ],
+      "platforms": ["android", "pi", "linux", "windows"],
+      "source": "https://github.com/folke/tokyonight.nvim",
+      "covers": ["lib/app/theme/palettes/tokyo_night.dart"],
+      "status": "verified",
+      "checked": "LICENSE and extras/lua/tokyonight_*.lua in the repository, 2026-10-16; the LICENSE is the unfilled Apache text with no copyright line, so the holder is the repository owner"
+    },
+    {
       "id": "ktor",
       "name": "Ktor",
       "license": "Apache-2.0",
