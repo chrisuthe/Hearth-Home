@@ -26,6 +26,15 @@
 import 'package:flutter/material.dart';
 
 import '../app/media_tokens.dart';
+import '../app/theme/hearth_colors.dart';
+
+/// The glass fill and hairline in theme roles, for the cinematic chrome that
+/// also shows idle. Classic lands within a shade of [MediaColors.glassFill]
+/// and [MediaColors.glassBorder]; the dark-glass overlays keep those.
+extension HearthGlass on HearthColors {
+  Color get glassFill => card.withValues(alpha: 0.55);
+  Color get glassBorder => inkAt(0.08);
+}
 
 class GlassPanel extends StatelessWidget {
   /// Used to clip the panel's fill and border to its rounded corners.
@@ -43,12 +52,16 @@ class GlassPanel extends StatelessWidget {
   /// Whether to draw the 1 px hairline border. Defaults to true.
   final bool border;
 
+  /// Override the hairline colour. Defaults to [MediaColors.glassBorder].
+  final Color? borderColor;
+
   const GlassPanel({
     super.key,
     required this.borderRadius,
     required this.child,
     this.fill,
     this.border = true,
+    this.borderColor,
   });
 
   @override
@@ -58,7 +71,8 @@ class GlassPanel extends StatelessWidget {
         color: fill ?? MediaColors.glassFill,
         borderRadius: borderRadius,
         border: border
-            ? Border.all(color: MediaColors.glassBorder, width: 1)
+            ? Border.all(
+                color: borderColor ?? MediaColors.glassBorder, width: 1)
             : null,
       ),
       child: ClipRRect(

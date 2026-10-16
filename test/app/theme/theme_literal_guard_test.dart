@@ -62,6 +62,12 @@ const kThemedFiles = <String>[
   'lib/screens/timer/timer_screen.dart',
   'lib/modules/livetv/live_tv_screen.dart',
   'lib/modules/media/cinematic/cinematic_screen.dart',
+  'lib/modules/media/cinematic/top_chrome.dart',
+  'lib/modules/media/cinematic/cinematic_bottom_shelf.dart',
+  'lib/modules/media/cinematic/transport_row.dart',
+  'lib/modules/media/cinematic/queue_lane.dart',
+  'lib/modules/media/cinematic/browse_shelves.dart',
+  'lib/modules/media/cinematic/mini_bar.dart',
 ];
 
 final _forbidden = <RegExp>[

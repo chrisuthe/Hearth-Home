@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../app/media_tokens.dart';
+import '../../../app/theme/hearth_colors.dart';
 import '../../../app/tokens/tokens.dart';
 import '../../../models/music_state.dart';
 import 'drawer_state.dart';
@@ -193,7 +194,7 @@ class _ProgressAndTimes extends StatelessWidget {
                   alignment: Alignment.centerLeft,
                   child: Text(
                     '${_formatDur(position)} / ${_formatDur(duration)}',
-                    style: _timeStyle,
+                    style: _timeStyle(context),
                   ),
                 ),
               ),
@@ -212,8 +213,8 @@ class _ProgressAndTimes extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(_formatDur(position), style: _timeStyle),
-            Text(_formatDur(duration), style: _timeStyle),
+            Text(_formatDur(position), style: _timeStyle(context)),
+            Text(_formatDur(duration), style: _timeStyle(context)),
           ],
         ),
       ],
@@ -221,12 +222,12 @@ class _ProgressAndTimes extends StatelessWidget {
   }
 }
 
-final TextStyle _timeStyle = MediaTextStyles.tabular(
-  HearthFont.caption,
-  weight: FontWeight.w400,
-  color: const Color.fromRGBO(255, 255, 255, MediaTextOpacity.eyebrow),
-  letterSpacing: 0.5,
-);
+TextStyle _timeStyle(BuildContext context) => MediaTextStyles.tabular(
+      HearthFont.caption,
+      weight: FontWeight.w400,
+      color: context.hearthColors.textMuted,
+      letterSpacing: 0.5,
+    );
 
 class _ProgressBar extends StatelessWidget {
   final double progress;
@@ -234,6 +235,7 @@ class _ProgressBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.hearthColors;
     return SizedBox(
       height: 11,
       child: LayoutBuilder(
@@ -249,7 +251,7 @@ class _ProgressBar extends StatelessWidget {
                 child: Container(
                   height: 3,
                   decoration: BoxDecoration(
-                    color: const Color.fromRGBO(255, 255, 255, 0.15),
+                    color: c.inkAt(0.15),
                     borderRadius: BorderRadius.circular(MediaRadii.progress),
                   ),
                 ),
@@ -261,7 +263,7 @@ class _ProgressBar extends StatelessWidget {
                   height: 3,
                   width: width * progress,
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: c.ink,
                     borderRadius: BorderRadius.circular(MediaRadii.progress),
                   ),
                 ),
@@ -272,10 +274,10 @@ class _ProgressBar extends StatelessWidget {
                 child: Container(
                   width: 11,
                   height: 11,
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
+                  decoration: BoxDecoration(
+                    color: c.ink,
                     shape: BoxShape.circle,
-                    boxShadow: MediaShadows.progressThumb,
+                    boxShadow: MediaShadows.progressThumb, // theme-exempt: media player
                   ),
                 ),
               ),
@@ -313,6 +315,7 @@ class _Controls extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.hearthColors;
     final repeatActive = state.repeatMode != 'off';
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -344,7 +347,7 @@ class _Controls extends StatelessWidget {
         Container(
           width: 1,
           height: 32,
-          color: const Color.fromRGBO(255, 255, 255, 0.15),
+          color: c.inkAt(0.15),
         ),
         const SizedBox(width: HearthSpacing.x3),
         _VolumeIcon(volume: state.volume, muted: state.muted),
@@ -379,9 +382,8 @@ class _CIconBtn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = dim
-        ? const Color.fromRGBO(255, 255, 255, MediaTextOpacity.section)
-        : Colors.white;
+    final c = context.hearthColors;
+    final color = dim ? c.textMuted : c.text;
     return InkResponse(
       onTap: onTap,
       radius: 32,
@@ -403,10 +405,11 @@ class _PlayPauseButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.hearthColors;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: HearthSpacing.x1),
       child: Material(
-        color: Colors.white,
+        color: c.ink,
         shape: const CircleBorder(),
         elevation: 0,
         child: InkWell(
@@ -415,15 +418,15 @@ class _PlayPauseButton extends StatelessWidget {
           child: Ink(
             width: HearthSpacing.x20,
             height: HearthSpacing.x20,
-            decoration: const BoxDecoration(
-              color: Colors.white,
+            decoration: BoxDecoration(
+              color: c.ink,
               shape: BoxShape.circle,
-              boxShadow: MediaShadows.playButton,
+              boxShadow: MediaShadows.playButton, // theme-exempt: media player
             ),
             child: Icon(
               playing ? Icons.pause : Icons.play_arrow,
               size: 44,
-              color: Colors.black,
+              color: c.canvas,
             ),
           ),
         ),
@@ -450,7 +453,7 @@ class _VolumeIcon extends StatelessWidget {
     } else {
       icon = Icons.volume_up;
     }
-    return Icon(icon, size: 44, color: Colors.white);
+    return Icon(icon, size: 44, color: context.hearthColors.text);
   }
 }
 
@@ -472,6 +475,7 @@ class _VolumeBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.hearthColors;
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth;
@@ -487,7 +491,7 @@ class _VolumeBar extends StatelessWidget {
                 Container(
                   height: 3,
                   decoration: BoxDecoration(
-                    color: const Color.fromRGBO(255, 255, 255, 0.15),
+                    color: c.inkAt(0.15),
                     borderRadius: BorderRadius.circular(MediaRadii.progress),
                   ),
                 ),
@@ -495,7 +499,7 @@ class _VolumeBar extends StatelessWidget {
                   height: 3,
                   width: width * value.clamp(0.0, 1.0),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: c.ink,
                     borderRadius: BorderRadius.circular(MediaRadii.progress),
                   ),
                 ),

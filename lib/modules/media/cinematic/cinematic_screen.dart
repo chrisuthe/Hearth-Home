@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../app/media_tokens.dart';
+import '../../../app/theme/classic_theme_scope.dart';
 import '../../../app/theme/hearth_colors.dart';
 import '../../../app/tokens/tokens.dart';
 import '../../../config/hub_config.dart';
@@ -124,8 +124,13 @@ class _CinematicScreenState extends ConsumerState<CinematicScreen>
       return const _NotConnected();
     }
 
+    // The player is Classic while a track is on; with none, the chrome
+    // follows the app theme. The dark-glass overlays are pinned Classic.
+    Widget themed(Widget screen) =>
+        state?.currentTrack != null ? ClassicThemeScope(child: screen) : screen;
+
     if (_browseOpen) {
-      return Stack(
+      return themed(Stack(
         fit: StackFit.expand,
         children: [
           _backdrop(state),
@@ -134,9 +139,11 @@ class _CinematicScreenState extends ConsumerState<CinematicScreen>
             left: 18,
             right: 18,
             bottom: 108,
-            child: BrowseOverlay(
-              playerId: playerId,
-              onClose: _toggleBrowse,
+            child: ClassicThemeScope(
+              child: BrowseOverlay(
+                playerId: playerId,
+                onClose: _toggleBrowse,
+              ),
             ),
           ),
           if (state != null)
@@ -160,14 +167,14 @@ class _CinematicScreenState extends ConsumerState<CinematicScreen>
               ),
             ),
           if (_playersOpen)
-            PlayersPopover(onClose: _togglePlayers),
+            ClassicThemeScope(child: PlayersPopover(onClose: _togglePlayers)),
         ],
-      );
+      ));
     }
 
     final metrics = DrawerMetrics.fromShelfHeight(_shelfHeight);
 
-    return Stack(
+    return themed(Stack(
       fit: StackFit.expand,
       children: [
         _backdrop(state),
@@ -219,9 +226,9 @@ class _CinematicScreenState extends ConsumerState<CinematicScreen>
             ),
           ),
         if (_playersOpen)
-          PlayersPopover(onClose: _togglePlayers),
+          ClassicThemeScope(child: PlayersPopover(onClose: _togglePlayers)),
       ],
-    );
+    ));
   }
 }
 
@@ -241,7 +248,7 @@ class _NotConnected extends StatelessWidget {
               Icon(
                 Icons.music_off,
                 size: HearthIcon.xl,
-                color: c.inkAt(MediaTextOpacity.section),
+                color: c.textMuted,
               ),
               const SizedBox(height: 18),
               Text(
@@ -249,7 +256,7 @@ class _NotConnected extends StatelessWidget {
                 style: TextStyle(
                   fontSize: HearthFont.bodyLg,
                   fontWeight: FontWeight.w500,
-                  color: c.inkAt(MediaTextOpacity.secondary),
+                  color: c.textSecondary,
                 ),
               ),
               const SizedBox(height: HearthSpacing.x2),
@@ -258,7 +265,7 @@ class _NotConnected extends StatelessWidget {
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: HearthFont.label,
-                  color: c.inkAt(MediaTextOpacity.section),
+                  color: c.textMuted,
                 ),
               ),
             ],
