@@ -6,6 +6,7 @@ import 'package:hearth/app/theme/classic_theme_scope.dart';
 import 'package:hearth/app/theme/hearth_colors.dart';
 import 'package:hearth/app/theme/hearth_theme.dart';
 import 'package:hearth/app/theme/memories_accent_scope.dart';
+import 'package:hearth/app/theme/memories_accent_scope_widget.dart';
 import 'package:hearth/app/theme/theme_providers.dart';
 import 'package:hearth/app/tokens/calendar_tokens.dart';
 import 'package:hearth/config/hub_config.dart';
@@ -178,6 +179,21 @@ void main() {
 
     await tester.pump(const Duration(milliseconds: 850));
     expect(_accent, red);
+  });
+
+  testWidgets('a fade publishes only colors that changed', (tester) async {
+    final c = await _pump(tester);
+    final notifier = tester
+        .widget<MemoriesAccentScope>(find.byType(MemoriesAccentScope))
+        .notifier!;
+    var published = 0;
+    notifier.addListener(() => published++);
+    // The fade starts at t = 0, which is the palette already on screen.
+    await _show(tester, c, _red);
+    expect(published, 0);
+
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(published, greaterThan(0));
   });
 
   testWidgets('holds while hidden', (tester) async {

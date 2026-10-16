@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../config/hearth_theme_id.dart';
+import '../../screens/ambient/photo_carousel.dart' show PhotoFrame;
 import '../../services/memories_accent.dart';
 import '../../services/photo_providers.dart';
+import '../../utils/logger.dart';
 import '../page_visibility.dart';
 import 'hearth_colors.dart';
 import 'memories_accent_scope_widget.dart';
@@ -49,6 +51,17 @@ class _MemoriesAccentHostState extends ConsumerState<MemoriesAccentHost>
   MemoriesAccent _to = kMemoriesFallback;
   MemoriesAccent _target = kMemoriesFallback;
 
+  /// The accent set last put in [_colors], so a tick that would publish the
+  /// same colors (every fade's first, at t = 0) doesn't rebuild dependents.
+  MemoriesAccent _published = kMemoriesFallback;
+
+  /// For the Pi check: when the displayed photo's crossfade started and when
+  /// a seed last came ready, logged once per photo as the lag between them.
+  final _clock = Stopwatch()..start();
+  Duration _shownAt = Duration.zero;
+  Duration _seedAt = Duration.zero;
+  PhotoFrame? _lagLogged;
+
   @override
   void initState() {
     super.initState();
@@ -57,8 +70,14 @@ class _MemoriesAccentHostState extends ConsumerState<MemoriesAccentHost>
       (_, memories) => _setActive(memories),
       fireImmediately: true,
     );
-    ref.listenManual(displayedPhotoProvider, (_, _) => _resolveTarget());
-    ref.listenManual(memoriesSeedProvider, (_, _) => _resolveTarget());
+    ref.listenManual(displayedPhotoProvider, (_, _) {
+      _shownAt = _clock.elapsed;
+      _resolveTarget();
+    });
+    ref.listenManual(memoriesSeedProvider, (_, next) {
+      if (next.hasValue && !next.isLoading) _seedAt = _clock.elapsed;
+      _resolveTarget();
+    });
     ref.listenManual(photoVisibleProvider, (_, visible) {
       if (visible) _fadeToTarget();
     });
@@ -74,7 +93,7 @@ class _MemoriesAccentHostState extends ConsumerState<MemoriesAccentHost>
   void _setActive(bool active) {
     _active = active;
     _controller.stop();
-    _from = _to = _target = kMemoriesFallback;
+    _from = _to = _target = _published = kMemoriesFallback;
     _colors.value = HearthColors.memories;
     if (active) _resolveTarget();
   }
@@ -87,6 +106,12 @@ class _MemoriesAccentHostState extends ConsumerState<MemoriesAccentHost>
     final seeded = ref.read(memoriesSeedProvider).valueOrNull;
     // Not ready yet, or still the previous photo's: its listener comes back.
     if (seeded == null || seeded.frame != frame) return;
+    if (_lagLogged != frame) {
+      _lagLogged = frame;
+      // Negative: the seed was ready before the crossfade started.
+      Log.d('Memories', 'seed ready '
+          '${(_seedAt - _shownAt).inMilliseconds} ms after crossfade start');
+    }
     _target = deriveMemoriesAccent(seeded.seed);
     if (ref.read(photoVisibleProvider)) _fadeToTarget();
   }
@@ -110,8 +135,12 @@ class _MemoriesAccentHostState extends ConsumerState<MemoriesAccentHost>
     );
   }
 
-  void _tick() =>
-      _colors.value = HearthColors.memories.withMemoriesAccent(_current());
+  void _tick() {
+    final accent = _current();
+    if (accent == _published) return;
+    _published = accent;
+    _colors.value = HearthColors.memories.withMemoriesAccent(accent);
+  }
 
   @override
   Widget build(BuildContext context) =>
