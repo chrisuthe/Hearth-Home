@@ -19,9 +19,21 @@ typedef PhotoFrame = ({String path, FocalPoint focal});
 class PhotoCarousel extends StatefulWidget {
   final Stream<PhotoFrame?> photoStream;
 
+  /// Called when a photo starts to become visible: for the first photo when
+  /// it is shown, and for later ones when their crossfade begins (after the
+  /// photo has decoded).
+  final ValueChanged<PhotoFrame>? onCrossfadeStart;
+
+  /// Builds the provider a frame is drawn and precached with, at [cacheWidth]
+  /// pixels wide. Defaults to the file or network image; tests inject one.
+  final ImageProvider Function(PhotoFrame frame, int cacheWidth)?
+      imageProviderFor;
+
   const PhotoCarousel({
     super.key,
     required this.photoStream,
+    this.onCrossfadeStart,
+    this.imageProviderFor,
   });
 
   @override
@@ -34,6 +46,7 @@ class _PhotoCarouselState extends State<PhotoCarousel>
   PhotoFrame? _next;
   late AnimationController _crossfadeController;
   StreamSubscription<PhotoFrame?>? _photoSub;
+  int _generation = 0;
 
   @override
   void initState() {
@@ -43,20 +56,43 @@ class _PhotoCarouselState extends State<PhotoCarousel>
       duration: const Duration(milliseconds: 1500),
     );
 
-    _photoSub = widget.photoStream.listen((frame) {
-      if (frame == null) return;
-      if (_current == null) {
-        setState(() => _current = frame);
-      } else {
-        _next = frame;
-        _crossfadeController.forward(from: 0.0).then((_) {
-          setState(() {
-            _current = _next;
-            _next = null;
-          });
-        });
-      }
+    _photoSub = widget.photoStream.listen(_onFrame);
+  }
+
+  Future<void> _onFrame(PhotoFrame? frame) async {
+    if (frame == null) return;
+    final generation = ++_generation;
+    if (_current == null) {
+      setState(() => _current = frame);
+      widget.onCrossfadeStart?.call(frame);
+      return;
+    }
+    // Decode first, so the fade shows pixels instead of a half-loaded image.
+    await precacheImage(_providerFor(frame), context, onError: (_, _) {});
+    // A newer frame arrived while this one decoded: it wins.
+    if (!mounted || generation != _generation) return;
+    setState(() => _next = frame);
+    widget.onCrossfadeStart?.call(frame);
+    await _crossfadeController.forward(from: 0.0);
+    // A newer frame replaced this one mid-fade; its own fade will promote it.
+    if (!mounted || _next != frame) return;
+    setState(() {
+      _current = frame;
+      _next = null;
     });
+  }
+
+  ImageProvider _providerFor(PhotoFrame frame) {
+    final mediaQuery = MediaQuery.of(context);
+    final cacheWidth =
+        (mediaQuery.size.width * mediaQuery.devicePixelRatio).round();
+    final custom = widget.imageProviderFor;
+    if (custom != null) return custom(frame, cacheWidth);
+    final source = frame.path;
+    final ImageProvider raw = (kIsWeb || source.startsWith('http'))
+        ? NetworkImage(source)
+        : FileImage(File(source));
+    return ResizeImage(raw, width: cacheWidth);
   }
 
   @override
@@ -73,22 +109,10 @@ class _PhotoCarouselState extends State<PhotoCarousel>
       Alignment(focal.x * 2 - 1, focal.y * 2 - 1);
 
   Widget _buildImage(PhotoFrame frame) {
-    final source = frame.path;
-    final alignment = _alignmentFor(frame.focal);
-    if (kIsWeb || source.startsWith('http')) {
-      return Image.network(
-        source,
-        fit: BoxFit.cover,
-        alignment: alignment,
-        width: double.infinity,
-        height: double.infinity,
-        errorBuilder: (_, __, ___) => const SizedBox.expand(),
-      );
-    }
-    return Image.file(
-      File(source),
+    return Image(
+      image: _providerFor(frame),
       fit: BoxFit.cover,
-      alignment: alignment,
+      alignment: _alignmentFor(frame.focal),
       width: double.infinity,
       height: double.infinity,
       errorBuilder: (_, __, ___) => const SizedBox.expand(),

@@ -13,6 +13,10 @@ import 'photo_blur.dart';
 /// can sit over a blur of it.
 final currentPhotoProvider = StateProvider<PhotoFrame?>((ref) => null);
 
+/// The photo whose crossfade has started (visible or becoming visible), as
+/// opposed to [currentPhotoProvider], which is set as soon as a photo loads.
+final displayedPhotoProvider = StateProvider<PhotoFrame?>((ref) => null);
+
 /// How a photo is blurred; a seam so tests can control when a blur finishes.
 final photoBlurProvider =
     Provider<Future<ui.Image> Function(Uint8List bytes)>((ref) => decodeAndBlur);

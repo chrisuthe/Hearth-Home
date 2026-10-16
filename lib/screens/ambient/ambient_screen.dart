@@ -119,6 +119,8 @@ class AmbientScreenState extends ConsumerState<AmbientScreen> {
       color: Colors.black,
       child: PhotoCarousel(
         photoStream: _photoController.stream,
+        onCrossfadeStart: (f) =>
+            ref.read(displayedPhotoProvider.notifier).state = f,
       ),
     );
   }
