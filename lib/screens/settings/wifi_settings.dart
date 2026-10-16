@@ -5,6 +5,9 @@ import '../../services/wifi_service.dart';
 import '../../app/tokens/tokens.dart';
 
 /// Displays the current WiFi connection and lets the user scan and connect.
+///
+/// Where the OS owns Wi-Fi ([wifiManagedBySystem]) Hearth cannot read the
+/// connection, so the tile opens the system Wi-Fi page instead.
 class WifiSettingsSection extends ConsumerStatefulWidget {
   const WifiSettingsSection({super.key});
 
@@ -19,7 +22,7 @@ class _WifiSettingsSectionState extends ConsumerState<WifiSettingsSection> {
   @override
   void initState() {
     super.initState();
-    _refreshConnection();
+    if (!wifiManagedBySystem) _refreshConnection();
   }
 
   Future<void> _refreshConnection() async {
@@ -47,6 +50,22 @@ class _WifiSettingsSectionState extends ConsumerState<WifiSettingsSection> {
 
   @override
   Widget build(BuildContext context) {
+    if (wifiManagedBySystem) {
+      return ListTile(
+        leading: const Icon(Icons.wifi, color: Colors.white54, size: HearthIcon.md),
+        title: const Text('Wi-Fi', style: TextStyle(fontSize: HearthFont.body)),
+        subtitle: Text(
+          'Open Android Wi-Fi settings',
+          style: TextStyle(
+            fontSize: HearthFont.label,
+            color: Colors.white.withValues(alpha: 0.5),
+          ),
+        ),
+        trailing: const Icon(Icons.open_in_new, color: Colors.white24),
+        onTap: () => ref.read(wifiServiceProvider).openSystemSettings(),
+        contentPadding: const EdgeInsets.symmetric(horizontal: HearthSpacing.x2),
+      );
+    }
     final connected = _connectedSsid != null && _connectedSsid!.isNotEmpty;
     final subtitle = _loading
         ? 'Checking...'
