@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../sendspin/sendspin_stores.dart';
@@ -64,4 +65,22 @@ class FileSendspinSecretFiles implements SendspinSecretFiles {
       }
     }
   }
+}
+
+/// Android's files, which `SendspinSecrets.kt` keeps under `filesDir/sendspin/`
+/// and reads and writes natively over `com.hearth/sendspin`.
+class AndroidSendspinSecretFiles implements SendspinSecretFiles {
+  final MethodChannel _methods;
+
+  AndroidSendspinSecretFiles({MethodChannel? methods})
+      : _methods = methods ?? const MethodChannel('com.hearth/sendspin');
+
+  @override
+  Future<Map<String, String>> read() async =>
+      (await _methods.invokeMapMethod<String, String>('exportSecrets')) ??
+      const {};
+
+  @override
+  Future<void> write(Map<String, String> files) =>
+      _methods.invokeMethod<void>('importSecrets', files);
 }

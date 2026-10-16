@@ -8,6 +8,7 @@ import '../../config/hub_config.dart';
 import '../../modules/alarm_clock/alarm_models.dart';
 import '../../modules/alarm_clock/alarm_service.dart';
 import '../installed_version.dart';
+import '../sendspin/android_sendspin_service.dart' show sendspinNative;
 import '../update_service.dart';
 import 'sendspin_secret_files.dart';
 
@@ -165,7 +166,9 @@ class BackupService {
 final backupServiceProvider = Provider<BackupService>((ref) => BackupService(
       config: ref.read(hubConfigProvider.notifier),
       alarms: ref.read(alarmServiceProvider),
-      sendspin: FileSendspinSecretFiles(),
+      sendspin: sendspinNative
+          ? AndroidSendspinSecretFiles()
+          : FileSendspinSecretFiles(),
       platform: Platform.operatingSystem,
       installedVersion: readInstalledVersion,
     ));

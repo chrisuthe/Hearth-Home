@@ -59,6 +59,31 @@ class SendspinChannel(
                 }
                 result.success(info)
             }
+            // A backup's copy of the secrets, and a restore's writing them back.
+            "exportSecrets" -> scope.launch {
+                val files = withContext(Dispatchers.IO) {
+                    runCatching { SendspinSecrets.exportFiles(activity) }
+                        .onFailure { Timber.e(it, "Sendspin secrets export failed") }
+                        .getOrNull()
+                }
+                result.success(files)
+            }
+            "importSecrets" -> {
+                val files = (call.arguments as? Map<*, *>).orEmpty().entries
+                    .mapNotNull { (k, v) -> if (k is String && v is String) k to v else null }
+                    .toMap()
+                scope.launch {
+                    val error = withContext(Dispatchers.IO) {
+                        runCatching { SendspinSecrets.importFiles(activity, files) }.exceptionOrNull()
+                    }
+                    if (error == null) {
+                        result.success(null)
+                    } else {
+                        Timber.e(error, "Sendspin secrets import failed")
+                        result.error("import_failed", error.toString(), null)
+                    }
+                }
+            }
             else -> result.notImplemented()
         }
     }

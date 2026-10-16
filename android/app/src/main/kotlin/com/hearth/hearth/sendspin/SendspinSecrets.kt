@@ -2,6 +2,7 @@ package com.hearth.hearth.sendspin
 
 import android.content.Context
 import android.util.AtomicFile
+import android.util.Base64
 import com.sendspindroid.sendspin.crypto.Base64Url
 import com.sendspindroid.sendspin.crypto.ClientIdentity
 import com.sendspindroid.sendspin.crypto.InMemoryTrustStore
@@ -92,40 +93,71 @@ class SendspinSecrets private constructor(dir: File) {
         return fresh
     }
 
-    /** Null when there is no file; AtomicFile restores an interrupted write's backup. */
-    private fun read(file: File): String? {
-        val atomic = AtomicFile(file)
-        if (!atomic.baseFile.exists() && !File(file.path + ".bak").exists()) return null
-        return String(atomic.readFully(), Charsets.UTF_8)
-    }
-
-    /** Synced before it replaces the old file, so a power cut cannot leave it empty. */
-    private fun writeAtomically(file: File, text: String): Boolean {
-        val atomic = AtomicFile(file)
-        val out = try {
-            atomic.startWrite()
-        } catch (e: IOException) {
-            Timber.e(e, "Cannot write ${file.name}")
-            return false
-        }
-        return try {
-            out.write(text.toByteArray(Charsets.UTF_8))
-            atomic.finishWrite(out)
-            true
-        } catch (e: IOException) {
-            atomic.failWrite(out)
-            Timber.e(e, "Cannot write ${file.name}")
-            false
-        }
-    }
-
     companion object {
         @Volatile
         private var instance: SendspinSecrets? = null
 
         fun get(context: Context): SendspinSecrets = instance ?: synchronized(this) {
-            instance ?: SendspinSecrets(File(context.applicationContext.filesDir, "sendspin"))
-                .also { instance = it }
+            instance ?: SendspinSecrets(directory(context)).also { instance = it }
+        }
+
+        private fun directory(context: Context) = File(context.applicationContext.filesDir, "sendspin")
+
+        /** The files a backup carries, by name. */
+        private val FILE_NAMES = listOf("identity", "pairing_psk", "trust.json")
+
+        /**
+         * Every secret file that exists, as base64. Read directly, never
+         * through [get], whose identity would mint one.
+         */
+        fun exportFiles(context: Context): Map<String, String> {
+            val dir = directory(context)
+            return FILE_NAMES.mapNotNull { name ->
+                read(File(dir, name))?.let { name to Base64.encodeToString(it.toByteArray(Charsets.UTF_8), Base64.NO_WRAP) }
+            }.toMap()
+        }
+
+        /**
+         * Writes a restore's files, copying each one it replaces to
+         * `<name>.pre-restore` first. The running instance keeps what it
+         * loaded until the restart that follows.
+         */
+        fun importFiles(context: Context, files: Map<String, String>) {
+            val dir = directory(context).apply { mkdirs() }
+            for (name in FILE_NAMES) {
+                val encoded = files[name] ?: continue
+                val file = File(dir, name)
+                read(file)?.let { File(dir, "$name.pre-restore").writeText(it, Charsets.UTF_8) }
+                val text = String(Base64.decode(encoded, Base64.NO_WRAP), Charsets.UTF_8)
+                if (!writeAtomically(file, text)) throw IOException("cannot write $name")
+            }
+        }
+
+        /** Null when there is no file; AtomicFile restores an interrupted write's backup. */
+        private fun read(file: File): String? {
+            val atomic = AtomicFile(file)
+            if (!atomic.baseFile.exists() && !File(file.path + ".bak").exists()) return null
+            return String(atomic.readFully(), Charsets.UTF_8)
+        }
+
+        /** Synced before it replaces the old file, so a power cut cannot leave it empty. */
+        private fun writeAtomically(file: File, text: String): Boolean {
+            val atomic = AtomicFile(file)
+            val out = try {
+                atomic.startWrite()
+            } catch (e: IOException) {
+                Timber.e(e, "Cannot write ${file.name}")
+                return false
+            }
+            return try {
+                out.write(text.toByteArray(Charsets.UTF_8))
+                atomic.finishWrite(out)
+                true
+            } catch (e: IOException) {
+                atomic.failWrite(out)
+                Timber.e(e, "Cannot write ${file.name}")
+                false
+            }
         }
     }
 }
