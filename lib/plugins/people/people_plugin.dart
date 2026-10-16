@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -139,16 +141,31 @@ class PeoplePlugin extends HearthPlugin {
       if (!ha.isConnected) {
         return req.respondError(503, "Can't reach Home Assistant");
       }
-      final added =
-          importablePeople(req.config.people, ha, nextFreePaletteColor);
-      if (added.isNotEmpty) {
-        await req.updateConfig((c) => c.withPeople([...c.people, ...added]));
+      // One import at a time: each reads the people the last one saved, so
+      // a double-click can't link an HA person twice.
+      final previous = _importing;
+      final done = Completer<void>();
+      _importing = done.future;
+      await previous;
+      final List<Person> added;
+      try {
+        // Live, not req.config: that snapshot predates the wait.
+        added = importablePeople(
+            req.configNotifier.current.people, ha, nextFreePaletteColor);
+        if (added.isNotEmpty) {
+          await req
+              .updateConfig((c) => c.withPeople([...c.people, ...added]));
+        }
+      } finally {
+        done.complete();
       }
       await req.respondJson({
         'added': [for (final p in added) personJson(p, req.config, ha)],
       });
     });
   }
+
+  static Future<void> _importing = Future.value();
 
   /// Why [entityId] can't be linked to the person [selfId] (null for a new
   /// one): another person already links it. Null when it can.
@@ -459,8 +476,11 @@ const _peopleScript = r'''
   }
 
   function runImport() {
+    var btn = $('ppl-import');
+    if (btn.disabled) return;
+    btn.disabled = true;
     $('ppl-import-result').textContent = 'Importing…';
-    call('POST', 'import').then(function (d) {
+    call('POST', 'import').finally(function () { btn.disabled = false; }).then(function (d) {
       var n = (d.added || []).length;
       $('ppl-import-result').textContent = n
         ? 'Added ' + n + (n === 1 ? ' person.' : ' people.')

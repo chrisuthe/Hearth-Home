@@ -795,8 +795,12 @@ class HubConfig {
         'todoChoreGlance': todoChoreGlance,
       };
 
-  factory HubConfig.fromJson(Map<String, dynamic> json) =>
-      HubConfig._fromJson(migrateLegacyPeople(json));
+  /// Also clears any personId whose person is missing, so a config written
+  /// whole (the portal's `POST /api/config`) can't leave one dangling.
+  factory HubConfig.fromJson(Map<String, dynamic> json) {
+    final config = HubConfig._fromJson(migrateLegacyPeople(json));
+    return config.withPeople(config.people);
+  }
 
   factory HubConfig._fromJson(Map<String, dynamic> json) => HubConfig(
         apiKey: json['apiKey'] as String? ?? '',
@@ -1037,16 +1041,25 @@ class HubConfigNotifier extends StateNotifier<HubConfig> {
     if (kIsWeb) return;
     final dir = await getApplicationSupportDirectory();
     final file = File('${dir.path}/hub_config.json');
+    var migrated = false;
     if (await file.exists()) {
       try {
         final json =
             jsonDecode(await file.readAsString()) as Map<String, dynamic>;
         state = HubConfig.fromJson(json);
-        // Saved now, so the migrated ids are the ones on disk.
-        if (HubConfig.needsPeopleMigration(json)) await update((c) => c);
+        migrated = HubConfig.needsPeopleMigration(json);
       } catch (e) {
         Log.e('Config', 'Failed to parse hub_config.json, resetting to defaults: $e');
         state = const HubConfig();
+      }
+    }
+    // Saved now, so the migrated ids are the ones on disk. Outside the parse
+    // guard: a failed write must not reset the config.
+    if (migrated) {
+      try {
+        await update((c) => c);
+      } catch (e) {
+        Log.e('Config', 'Failed to save the migrated people: $e');
       }
     }
     if (state.apiKey.isEmpty) {

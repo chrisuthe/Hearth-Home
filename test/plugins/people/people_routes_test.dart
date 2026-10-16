@@ -277,6 +277,16 @@ void main() {
       expect(links.toSet(), hasLength(links.length));
     });
 
+    test('two imports at once still link each entity once', () async {
+      await startWith(const HubConfig());
+      configNotifier.writeDelay = const Duration(milliseconds: 50);
+      final results =
+          await Future.wait([send('POST', 'import'), send('POST', 'import')]);
+      expect(results.map((r) => r.$1), [200, 200]);
+      expect(people().map((p) => p.haPersonEntityId),
+          ['person.alex', 'person.jo', 'person.sam']);
+    });
+
     test('503 while HA is not connected', () async {
       await startWith(const HubConfig(), connected: false);
       expect((await send('POST', 'import')).$1, 503);
@@ -298,8 +308,13 @@ class _FakeHa extends HomeAssistantService {
 }
 
 class _MemoryHubConfigNotifier extends HubConfigNotifier {
+  /// Like the real notifier, state lands only after the (simulated) write.
+  Duration writeDelay = Duration.zero;
+
   @override
   Future<void> update(HubConfig Function(HubConfig) updater) async {
-    state = updater(state);
+    final updated = updater(state);
+    if (writeDelay > Duration.zero) await Future<void>.delayed(writeDelay);
+    state = updated;
   }
 }

@@ -4,10 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hearth/config/hub_config.dart';
 import 'package:hearth/config/person.dart';
+import 'package:hearth/models/ha_entity.dart';
 import 'package:hearth/modules/lists/chores_view.dart';
 import 'package:hearth/modules/lists/lists_providers.dart';
 import 'package:hearth/modules/lists/lists_screen.dart';
 import 'package:hearth/modules/lists/models.dart';
+import 'package:hearth/widgets/person_avatar.dart';
 
 import '../../portrait/module_support.dart';
 import '../../portrait/portrait_harness.dart';
@@ -181,6 +183,43 @@ void main() {
     await tester.tap(find.text('Upcoming (1)'));
     await tester.pumpAndSettle();
     expect(find.text('Laundry'), findsOneWidget);
+  });
+
+  testWidgets('a linked person heads their column with avatar and presence',
+      (tester) async {
+    final linked = config.copyWith(people: [
+      config.people[0].copyWith(haPersonEntityId: 'person.ava'),
+      config.people[1],
+    ]);
+    await useCanvas(tester, kLandscapeCanvas);
+    await pumpModule(
+      tester,
+      const ListsScreen(isActive: true),
+      config: linked,
+      overrides: [
+        ...listsOverrides(
+          entities: [
+            todoEntity(_ava, name: 'Ava chores'),
+            todoEntity(_avaGarden, name: 'Garden'),
+            todoEntity(_ben, name: 'Ben chores'),
+            HaEntity(
+              entityId: 'person.ava',
+              state: 'home',
+              attributes: const {'friendly_name': 'Ava R'},
+              lastChanged: DateTime(2026),
+            ),
+          ],
+          lists: lists,
+          actions: actions,
+        ),
+        todoNowProvider.overrideWithValue(() => _now),
+        listsViewProvider.overrideWith((ref) => ListsView.chores),
+      ],
+    );
+    expect(find.text('Ava'), findsOneWidget, reason: 'the local name');
+    expect(find.byType(PersonAvatar), findsOneWidget, reason: 'Ava only');
+    expect(find.byKey(const ValueKey('presence-dot')), findsOneWidget);
+    expect(find.text('A'), findsOneWidget, reason: 'no picture: the initial');
   });
 
   test('choreColumns keeps a person with nothing today', () {

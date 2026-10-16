@@ -1009,6 +1009,7 @@ void main() {
 
     test('round-trip through JSON text', () {
       const config = HubConfig(
+        people: [Person(id: 'person:ava', name: 'Ava')],
         todoLists: [
           TodoListConfig(entityId: 'todo.groceries', name: 'Groceries'),
           TodoListConfig(
@@ -1188,6 +1189,21 @@ void main() {
         expect(config.people, [alex]);
         expect(config.todoLists.single.personId, alex.id);
       });
+    });
+
+    test('loading clears a personId whose person is missing', () {
+      final config = HubConfig.fromJson({
+        'people': [alex.toJson()],
+        'todoLists': [
+          {'entityId': 'todo.a', 'personId': 'person:gone'},
+          {'entityId': 'todo.b', 'personId': alex.id},
+        ],
+        'calendarSources': [
+          {'id': 'ha:calendar.a', 'kind': 'ha', 'personId': 'person:gone'},
+        ],
+      });
+      expect(config.todoLists.map((l) => l.personId), ['', alex.id]);
+      expect(config.calendarSources.single.personId, '');
     });
 
     test('withPeople clears every list and calendar of a removed person', () {

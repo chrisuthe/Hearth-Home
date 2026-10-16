@@ -50,6 +50,10 @@ void main() {
       expect(personAvatarUrl(_person('home'), 'http://ha'), isNull);
       expect(personAvatarUrl(_person('home', picture: ''), 'http://ha'), isNull);
       expect(personAvatarUrl(_person('home', picture: '/api/x'), ''), isNull);
+      expect(personAvatarUrl(_person('home', picture: '/p.png'), 'wss://ha:8123'),
+          'https://ha:8123/p.png');
+      expect(personAvatarUrl(_person('home', picture: '/p.png'), 'ws://ha'),
+          'http://ha/p.png');
     });
   });
 

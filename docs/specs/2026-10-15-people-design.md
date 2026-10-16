@@ -68,7 +68,7 @@ These are ordinary state attributes, written through `async_write_ha_state` (`en
 - **An admin can set any string** (**verified**, `person/__init__.py:170,180`, `Any(str, None)`; YAML `cv.string`, `:79`). So `entity_picture` may also be an absolute external URL. The self-service `person/update_own_profile` path accepts only uploaded-image paths (`:402-412`).
 - **The frontend resolves it against the HA base URL** (**verified**, `state/connection-mixin.ts:101-104`, `new URL(path, auth.data.hassUrl)`; used by `components/entity/state-badge.ts:212-218` and `components/user/ha-person-badge.ts:29`). An absolute URL passes through `new URL` unchanged.
 
-Hearth does the same in `personAvatarUrl`: an absolute URL is used as is, and a relative one is resolved against `config.haUrl` with `Uri.resolveUri`. Without a usable `haUrl` a relative picture gives no avatar. The avatar falls back to the person's initial on their colour when there is no picture or it fails to load.
+Hearth does the same in `personAvatarUrl`: an absolute URL is used as is, and a relative one is resolved against `config.haUrl` with `Uri.resolveUri`, after mapping a `ws`/`wss` HA URL (which the connection accepts) to `http`/`https`. Without a usable `haUrl` a relative picture gives no avatar. The avatar falls back to the person's initial on their colour when there is no picture or it fails to load.
 
 On the portal the browser loads the same URL straight from HA, so the picture shows only when the browser can reach HA (**assumed**: no proxy is added; the `<img>` falls back to the initial on error).
 
@@ -96,7 +96,7 @@ References, by id:
 | `TodoListConfig.personId` | `person`, a free-text name | `''` for a plain list; a person id makes it a chore list. `isChore` is `personId.isNotEmpty` |
 | `CalendarSource.personId` | — | `''` for none; else the one owner |
 
-Neither list nor source may point at a person not in the registry. `HubConfig.withPeople(people)` is the only way the registry changes (both surfaces and every route use it): it sets `people` and clears `personId` on every list and source whose person is gone. The Lists and Calendar routes reject an unknown `personId` with 400. Chore columns skip a list whose person is not found, defensively.
+Neither list nor source may point at a person not in the registry. `HubConfig.withPeople(people)` is the only way the registry changes (both surfaces and every route use it): it sets `people` and clears `personId` on every list and source whose person is gone. `HubConfig.fromJson` also runs `withPeople` on what it loads, so a config written whole (the portal's `POST /api/config`) can't leave a dangling id either. The Lists and Calendar routes reject an unknown `personId` with 400. Chore columns skip a list whose person is not found, defensively.
 
 ### Presence and avatar: `PersonView`
 
@@ -122,7 +122,7 @@ Neither list nor source may point at a person not in the registry. `HubConfig.wi
 
 `lib/plugins/people/`, id `hearth.people`, category `feature`, order 44 (just before Calendar's 45), always visible.
 
-- **Device** (`people_settings_section.dart`): a `ListSection<Person>`. Each row shows the avatar, the name, and a status line: "Not linked to Home Assistant", or `person.sam · Home`, or why HA can't say (not configured, can't reach, not found). The add/edit dialog has the name, a **Home Assistant person** dropdown (*Not linked*, then each `person.*` not linked to someone else) and the colour picker (`CalendarColorPicker`). Picking an entity fills a blank name, or one that was the previous link's name; a typed name is kept. Below the list: **Import from Home Assistant**, with a one-line result.
+- **Device** (`people_settings_section.dart`): a `ListSection<Person>`. Each row shows the avatar, the name, and a status line: "Not linked to Home Assistant", or `person.sam · Home`, or why HA can't say (not configured, can't reach, not found). The add/edit dialog has the name, a **Home Assistant person** dropdown (*Not linked*, then each `person.*` not linked to someone else) and the colour picker (`CalendarColorPicker`). Picking an entity fills a blank name, or one that was the previous link's name; a typed name is kept. Below the list: **Import from Home Assistant**, with a one-line result. The button is disabled while an import saves, because the notifier publishes the new people only after the write.
 - **Portal** (`people_plugin.dart`): a custom fragment with `data-config-path="people"` (the parity marker, on a `<div>` the auto-save binder ignores). One add/edit form: name, an `HaEntityPickerField.form` with `domains=person`, swatches. Plus an import button.
 
 Routes, under `/api/plugin/hearth.people/`:
@@ -133,7 +133,7 @@ Routes, under `/api/plugin/hearth.people/`:
 | `POST people` | adds one; a blank name with a link is named from HA; no colour → next free | 400 no name, bad colour, a non-`person.*` link, a non-string field; 409 the entity is linked to someone else |
 | `PUT people/:id` | name, colour, link (`''` unlinks) | 404 unknown id; 400 as above or an empty name; 409 as above |
 | `DELETE people/:id` | removes them via `withPeople` | 404 unknown id |
-| `POST import` | one person per unlinked `person.*`; `{added: [...]}` | 503 when HA is not connected |
+| `POST import` | one person per unlinked `person.*`; `{added: [...]}`. Imports run one at a time and read the live config, so a double-click links nobody twice | 503 when HA is not connected |
 
 As with every plugin, the routes enforce their own rules; none is gated by `isVisible`.
 
@@ -151,7 +151,7 @@ As with every plugin, the routes enforce their own rules; none is gated by `isVi
 2. Otherwise, each distinct trimmed name becomes one `Person`, with a fresh id and **the colour of the first list that names it**, appended to any `people` already there. A name already in `people` is reused, not duplicated. Each such list gets `personId` and loses `person`. A list that has both keeps its `personId`.
 3. The list keeps its own colour; only the person takes it.
 
-`HubConfigNotifier.load()` saves straight after a migrating load, so the generated ids are the ones on disk. Without this, the next start would migrate again with new ids, and a portal holding the old ids would point at nobody.
+`HubConfigNotifier.load()` saves straight after a migrating load, so the generated ids are the ones on disk. Without this, the next start would migrate again with new ids, and a portal holding the old ids would point at nobody. The save sits outside the parse guard: a failed write is logged and keeps the migrated config in memory, rather than resetting to defaults.
 
 ## Deleting a person
 

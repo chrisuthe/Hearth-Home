@@ -72,7 +72,13 @@ String? personAvatarUrl(HaEntity entity, String haUrl) {
   if (ref == null) return null;
   if (ref.hasScheme) return picture;
   if (base == null || !base.hasScheme) return null;
-  return base.resolveUri(ref).toString();
+  // The HA URL may be typed as its WebSocket; pictures are plain HTTP.
+  final http = switch (base.scheme) {
+    'ws' => base.replace(scheme: 'http'),
+    'wss' => base.replace(scheme: 'https'),
+    _ => base,
+  };
+  return http.resolveUri(ref).toString();
 }
 
 /// A person entity's state as presence. HA copies the winning tracker's

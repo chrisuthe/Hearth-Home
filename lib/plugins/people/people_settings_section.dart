@@ -96,18 +96,27 @@ class _ImportButton extends ConsumerStatefulWidget {
 class _ImportButtonState extends ConsumerState<_ImportButton> {
   String? _result;
 
+  /// Held while an import saves: until the write lands the config still
+  /// lacks the new people, so a second tap would add them again.
+  bool _busy = false;
+
   Future<void> _import() async {
     final ha = ref.read(homeAssistantServiceProvider);
     if (!ha.isConnected) {
       setState(() => _result = "Can't reach Home Assistant");
       return;
     }
+    setState(() => _busy = true);
     final added = importablePeople(
         ref.read(hubConfigProvider).people, ha, nextFreePaletteColor);
-    if (added.isNotEmpty) {
-      await ref
-          .read(hubConfigProvider.notifier)
-          .update((c) => c.withPeople([...c.people, ...added]));
+    try {
+      if (added.isNotEmpty) {
+        await ref
+            .read(hubConfigProvider.notifier)
+            .update((c) => c.withPeople([...c.people, ...added]));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
     if (!mounted) return;
     setState(() => _result = added.isEmpty
@@ -128,7 +137,7 @@ class _ImportButtonState extends ConsumerState<_ImportButton> {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(color: _accent)),
-            onPressed: _import,
+            onPressed: _busy ? null : _import,
           ),
           if (_result != null)
             Text(
