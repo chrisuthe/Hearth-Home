@@ -22,6 +22,7 @@ import java.io.File
  * Installs a downloaded Hearth APK over the running app through a
  * PackageInstaller session. Android shows its own "update this app?" prompt
  * for each install; the session's status comes back on "installStatus".
+ * Also relaunches the app on "restartApp", which a restore uses.
  */
 class AppUpdateChannel(private val activity: Activity, messenger: BinaryMessenger) :
     MethodChannel.MethodCallHandler {
@@ -68,6 +69,11 @@ class AppUpdateChannel(private val activity: Activity, messenger: BinaryMessenge
                 result.success(null)
             }
             "install" -> install(call.argument<String>("path")!!, result)
+            "restartApp" -> {
+                result.success(true)
+                // Let the reply reach Dart before the process goes.
+                main.postDelayed({ RestartActivity.restart(activity) }, RESTART_DELAY_MS)
+            }
             else -> result.notImplemented()
         }
     }
@@ -128,5 +134,6 @@ class AppUpdateChannel(private val activity: Activity, messenger: BinaryMessenge
 
     companion object {
         private const val ACTION_STATUS = "com.hearth.hearth.INSTALL_STATUS"
+        private const val RESTART_DELAY_MS = 300L
     }
 }

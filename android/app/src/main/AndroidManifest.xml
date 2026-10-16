@@ -54,6 +54,15 @@
                 <category android:name="android.intent.category.DEFAULT"/>
             </intent-filter>
         </activity>
+        <!-- Relaunches Hearth after a restore. Its own process, so it outlives
+             the one it restarts. -->
+        <activity
+            android:name=".RestartActivity"
+            android:exported="false"
+            android:process=":restart"
+            android:noHistory="true"
+            android:excludeFromRecents="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
         <!-- Started only by Dart over com.hearth/voice or com.hearth/sendspin,
              from the visible activity. No boot receiver: the HOME role
              relaunches Hearth. -->
