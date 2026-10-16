@@ -299,6 +299,7 @@ class _ListsScreenState extends ConsumerState<ListsScreen>
   Widget _buildChores(List<TodoListConfig> lists, _ViewSwitch switcher) {
     final use24h = ref.watch(hubConfigProvider.select((c) => c.use24HourClock));
     final chores = [for (final l in lists) if (l.isChore) l];
+    final people = ref.watch(hubConfigProvider.select((c) => c.people));
     _shown = {for (final l in chores) l.entityId};
     final watched = {for (final l in chores) l.entityId: _watchList(l.entityId)};
     final features = {
@@ -354,8 +355,8 @@ class _ListsScreenState extends ConsumerState<ListsScreen>
           child: loading
               ? const Center(child: CircularProgressIndicator())
               : ChoresView(
-                  columns: choreColumns(
-                      chores, (id) => watched[id]!.items, _now),
+                  columns: choreColumns(chores, people,
+                      (id) => watched[id]!.items, _now),
                   row: row,
                 ),
         ),

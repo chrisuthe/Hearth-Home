@@ -1,8 +1,12 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/tokens/tokens.dart';
+import '../../config/person.dart';
+import '../../services/people.dart';
+import '../../widgets/person_avatar.dart';
 import 'lists_providers.dart';
 import 'models.dart';
 
@@ -11,12 +15,11 @@ const kChoreColumnWidth = 260.0;
 
 /// One person's chores, sorted into the chart's sections.
 class ChoreColumn {
-  ChoreColumn(this.person, this.color);
+  ChoreColumn(this.person);
 
-  final String person;
+  final Person person;
 
-  /// The person's first list's colour.
-  final Color color;
+  Color get color => Color(person.color);
 
   /// Open and due today or late; late first.
   final due = <ChoreLine>[];
@@ -31,22 +34,22 @@ class ChoreColumn {
   int get total => due.length + undated.length + doneToday.length;
 }
 
-/// One column per person, in config order, merging that person's lists.
-/// A completed item without a `completed` time is left out; the Lists view
-/// has it.
+/// One column per person, in the order their first list comes, merging that
+/// person's lists. A list whose person is not in [people] is left out, as is
+/// a completed item without a `completed` time; the Lists view has both.
 List<ChoreColumn> choreColumns(
   List<TodoListConfig> lists,
+  List<Person> people,
   List<TodoItem> Function(String entityId) items,
   DateTime now,
 ) {
   final columns = <String, ChoreColumn>{};
   final today = <String, List<ChoreLine>>{};
   for (final list in lists.where((l) => l.isChore)) {
-    final column = columns[list.person] ??= ChoreColumn(
-      list.person,
-      Color(list.color),
-    );
-    final dueToday = today[list.person] ??= [];
+    final person = personById(people, list.personId);
+    if (person == null) continue;
+    final column = columns[person.id] ??= ChoreColumn(person);
+    final dueToday = today[person.id] ??= [];
     for (final item in items(list.entityId)) {
       if (item.status == TodoStatus.completed) {
         final at = item.completed?.toLocal();
@@ -69,7 +72,7 @@ List<ChoreColumn> choreColumns(
     }
   }
   for (final column in columns.values) {
-    final lines = today[column.person]!;
+    final lines = today[column.person.id]!;
     column.due
       ..addAll(lines.where((l) => l.late))
       ..addAll(lines.where((l) => !l.late));
@@ -133,7 +136,8 @@ class _ChoresViewState extends State<ChoresView> {
 
   Widget _column(ChoreColumn column) {
     final muted = Colors.white.withValues(alpha: 0.5);
-    final open = _expanded.contains(column.person);
+    final id = column.person.id;
+    final open = _expanded.contains(id);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -146,18 +150,11 @@ class _ChoresViewState extends State<ChoresView> {
           ),
           child: Row(
             children: [
-              Container(
-                width: 12,
-                height: 12,
-                decoration: BoxDecoration(
-                  color: column.color,
-                  shape: BoxShape.circle,
-                ),
-              ),
+              ChorePersonMark(person: column.person, size: 28),
               const SizedBox(width: HearthSpacing.x3),
               Expanded(
                 child: Text(
-                  column.person,
+                  column.person.name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -190,8 +187,8 @@ class _ChoresViewState extends State<ChoresView> {
           InkWell(
             onTap: () => setState(
               () => open
-                  ? _expanded.remove(column.person)
-                  : _expanded.add(column.person),
+                  ? _expanded.remove(id)
+                  : _expanded.add(id),
             ),
             child: Padding(
               padding: const EdgeInsets.all(HearthSpacing.x3),
@@ -217,6 +214,35 @@ class _ChoresViewState extends State<ChoresView> {
             for (final line in column.upcoming) widget.row(line),
         ],
       ],
+    );
+  }
+}
+
+/// A linked person's avatar and presence; an unlinked person's colour dot.
+class ChorePersonMark extends ConsumerWidget {
+  const ChorePersonMark({super.key, required this.person, required this.size});
+
+  final Person person;
+
+  /// The avatar's; the dot is less than half of it.
+  final double size;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (person.isLinked) {
+      final view = ref.watch(personViewProvider(person.id));
+      return PersonAvatar(view: view ?? PersonView(person), size: size);
+    }
+    final dot = (size * 0.43).roundToDouble();
+    return SizedBox(
+      width: dot,
+      height: dot,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: Color(person.color),
+          shape: BoxShape.circle,
+        ),
+      ),
     );
   }
 }

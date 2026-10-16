@@ -33,6 +33,7 @@ Each page covers **how to connect it** (which URL/token/key, and where to enter 
 | [[Photos & Ambient Display]] | Immich photo memories, albums, people, smart search; clock + weather overlays |
 | [[Weather]] | The ambient readout and the full-screen animated forecast |
 | [[Calendar]] | Home Assistant calendars and ICS feeds in day, week and month views; upcoming events when idle |
+| [[People]] | The household: who calendars and chore lists belong to, linked to Home Assistant people for pictures and presence |
 | [[Lists & Chores]] | Home Assistant to-do lists you can tick, add to and reorder; a chore chart per person; today's chores when idle |
 | [[Home Assistant Controls]] | Lights & climate cards over the HA WebSocket; pinned entities |
 | [[Music Assistant]] | Cinematic now-playing, drag-up transport shelf, library browse, multi-zone |

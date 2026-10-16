@@ -6,17 +6,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hearth/app/scale/hearth_scale.dart';
 import 'package:hearth/config/hub_config.dart';
+import 'package:hearth/config/person.dart';
 import 'package:hearth/config/webview_config.dart';
 import 'package:hearth/models/ha_entity.dart';
 import 'package:hearth/models/immich_album.dart';
 import 'package:hearth/models/immich_person.dart';
 import 'package:hearth/modules/alarm_clock/alarm_models.dart';
 import 'package:hearth/modules/alarm_clock/alarm_service.dart';
+import 'package:hearth/modules/calendar/models.dart';
 import 'package:hearth/modules/lists/models.dart';
 import 'package:hearth/modules/webview/custom_url_editor.dart';
 import 'package:hearth/plugins/framework/plugin_panel.dart';
 import 'package:hearth/plugins/framework/plugin_sidebar.dart';
 import 'package:hearth/plugins/network/network_plugin.dart';
+import 'package:hearth/plugins/people/people_plugin.dart';
 import 'package:hearth/plugins/plugin_registry.dart';
 import 'package:hearth/screens/settings/settings_screen.dart';
 import 'package:hearth/screens/settings/update_settings.dart';
@@ -100,13 +103,32 @@ final _config = HubConfig.fromJson({
     smartSearchEnabled: true,
     smartSearchQuery: 'golden hour on the beach with the whole family',
   ).toJson(),
+  'people': [
+    for (var i = 0; i < 4; i++)
+      Person(
+        id: 'person:$i',
+        name: 'Someone With A Long Name $i',
+        color: 0xFF646CFF,
+        haPersonEntityId: i.isEven ? 'person.someone_with_a_long_name_$i' : '',
+      ).toJson(),
+  ],
+  'calendarSources': [
+    for (var i = 0; i < 2; i++)
+      CalendarSource(
+        id: 'ha:calendar.a_long_family_calendar_$i',
+        kind: CalendarSourceKind.ha,
+        entityId: 'calendar.a_long_family_calendar_$i',
+        name: 'A calendar with a long display name $i',
+        personId: 'person:$i',
+      ).toJson(),
+  ],
   'todoLists': [
     for (var i = 0; i < 4; i++)
       TodoListConfig(
         entityId: 'todo.a_long_shared_household_list_entity_$i',
         name: 'A to-do list with a long display name $i',
         color: 0xFF646CFF,
-        person: i.isEven ? 'Someone With A Long Name $i' : '',
+        personId: i.isEven ? 'person:$i' : '',
       ).toJson(),
   ],
   'todoChoreGlance': true,
@@ -504,6 +526,30 @@ void main() {
       await tester.tap(find.byIcon(Icons.edit).first);
       await _settle(tester);
       expect(find.byType(Dialog), findsOneWidget);
+    });
+
+    testLayouts('people panel, add and edit', (tester, canvas) async {
+      await tester.pumpWidget(ProviderScope(
+        overrides: _overrides(),
+        child: hostScreen(SingleChildScrollView(
+          child: Consumer(
+              builder: (_, ref, _) => PeoplePlugin().buildSettingsWidget(ref)),
+        )),
+      ));
+      await _settle(tester);
+      expectNoLayoutErrors(tester, 'people panel at $canvas');
+
+      await tester.tap(find.text('Add'));
+      await _settle(tester);
+      expect(find.text('Add person'), findsOneWidget);
+      expectNoLayoutErrors(tester, 'add person dialog at $canvas');
+      await tester.tap(find.text('Cancel'));
+      await _settle(tester);
+
+      await tester.tap(find.byIcon(Icons.edit).first);
+      await _settle(tester);
+      expect(find.text('Edit person'), findsOneWidget);
+      expectNoLayoutErrors(tester, 'edit person dialog at $canvas');
     });
   });
   // Opened the way a user does: from the real panel, at the panel's width.

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hearth/config/hub_config.dart';
+import 'package:hearth/config/person.dart';
 import 'package:hearth/models/ha_entity.dart';
 import 'package:hearth/modules/lists/lists_providers.dart';
 import 'package:hearth/modules/lists/models.dart';
@@ -127,16 +128,20 @@ TodoItem todo(
       description: description,
     );
 
+const kAva = Person(id: 'person:ava', name: 'Ava', color: 0xFFE91E63);
+const kBen = Person(id: 'person:ben', name: 'Ben', color: 0xFF2196F3);
+
 const kAvaChores = TodoListConfig(
-    entityId: 'todo.ava', name: 'Ava', color: 0xFFE91E63, person: 'Ava');
+    entityId: 'todo.ava', name: 'Ava', color: 0xFFE91E63, personId: 'person:ava');
 const kBenChores = TodoListConfig(
-    entityId: 'todo.ben', name: 'Ben', color: 0xFF2196F3, person: 'Ben');
+    entityId: 'todo.ben', name: 'Ben', color: 0xFF2196F3, personId: 'person:ben');
 
 /// Ava's and Ben's chore lists plus a plain one, glance on unless [glance].
 HubConfig choreConfig({bool glance = true}) => HubConfig(
       haUrl: 'http://ha.invalid:8123',
       haToken: 'token',
       todoChoreGlance: glance,
+      people: const [kAva, kBen],
       todoLists: const [
         kAvaChores,
         kBenChores,

@@ -58,7 +58,7 @@ class ListsPlugin extends HearthPlugin {
   /// Routes backing the portal's list:
   ///   * GET    lists              — the lists with live status and features
   ///   * POST   lists              — add one; name defaults from HA
-  ///   * PUT    lists/:entityId    — name, colour, person
+  ///   * PUT    lists/:entityId    — name, colour, person id
   ///   * DELETE lists/:entityId
   @override
   void registerHttpRoutes(PluginRouter router) {
@@ -66,6 +66,9 @@ class ListsPlugin extends HearthPlugin {
       final ha = req.readProvider(homeAssistantServiceProvider);
       await req.respondJson({
         'palette': [for (final c in calendarPalette) calendarColorHex(c)],
+        'people': [
+          for (final p in req.config.people) {'id': p.id, 'name': p.name},
+        ],
         'lists': [
           for (final l in req.config.todoLists) _listJson(l, req.config, ha),
         ],
@@ -83,7 +86,7 @@ class ListsPlugin extends HearthPlugin {
       if (req.config.todoLists.any((l) => l.entityId == entityId)) {
         return req.respondError(409, '$entityId is already added');
       }
-      final fields = _parseFields(body);
+      final fields = _parseFields(body, req.config);
       if (fields.error != null) return req.respondError(400, fields.error!);
 
       final ha = req.readProvider(homeAssistantServiceProvider);
@@ -99,7 +102,7 @@ class ListsPlugin extends HearthPlugin {
             nextFreePaletteColor([
               for (final l in req.config.todoLists) l.color,
             ]),
-        person: fields.person ?? '',
+        personId: fields.personId ?? '',
       );
       await req.updateConfig(
         (c) => c.copyWith(todoLists: [...c.todoLists, list]),
@@ -120,7 +123,7 @@ class ListsPlugin extends HearthPlugin {
           "entityId can't change; delete the list and add it again",
         );
       }
-      final fields = _parseFields(body);
+      final fields = _parseFields(body, req.config);
       if (fields.error != null) return req.respondError(400, fields.error!);
       if (fields.name != null && fields.name!.isEmpty) {
         return req.respondError(400, 'name must not be empty');
@@ -128,7 +131,7 @@ class ListsPlugin extends HearthPlugin {
       final updated = existing.copyWith(
         name: fields.name,
         color: fields.color,
-        person: fields.person,
+        personId: fields.personId,
       );
       await req.updateConfig(
         (c) => c.copyWith(
@@ -160,21 +163,21 @@ class ListsPlugin extends HearthPlugin {
     });
   }
 
-  /// The optional name, colour and person of a POST or PUT body, trimmed;
-  /// null where absent.
-  static ({String? name, int? color, String? person, String? error})
-  _parseFields(Map<String, dynamic> body) {
+  /// The optional name, colour and person id of a POST or PUT body,
+  /// trimmed; null where absent. A person id must be in the registry.
+  static ({String? name, int? color, String? personId, String? error})
+  _parseFields(Map<String, dynamic> body, HubConfig config) {
     String? text(String key) {
       final v = body[key];
       return v is String ? v.trim() : null;
     }
 
-    for (final key in ['name', 'person']) {
+    for (final key in ['name', 'personId']) {
       if (body[key] != null && body[key] is! String) {
         return (
           name: null,
           color: null,
-          person: null,
+          personId: null,
           error: '$key must be a string',
         );
       }
@@ -185,14 +188,21 @@ class ListsPlugin extends HearthPlugin {
       return (
         name: null,
         color: null,
-        person: null,
+        personId: null,
         error: 'color must be #rrggbb',
       );
+    }
+    final personId = text('personId');
+    final badPerson = personId == null
+        ? null
+        : validateListPersonId(personId, config.people);
+    if (badPerson != null) {
+      return (name: null, color: null, personId: null, error: badPerson);
     }
     return (
       name: text('name'),
       color: color,
-      person: text('person'),
+      personId: personId,
       error: null,
     );
   }
@@ -207,8 +217,8 @@ class ListsPlugin extends HearthPlugin {
       'entityId': l.entityId,
       'name': l.name,
       'color': calendarColorHex(l.color),
-      'person': l.person,
-      'kindLabel': todoListKindLabel(l),
+      'personId': l.personId,
+      'kindLabel': todoListKindLabel(l, config.people),
       'status': status.label,
       'bad': status.bad,
       'features': todoFeaturesLabel(TodoFeatures.of(ha.entities[l.entityId])),
@@ -244,7 +254,7 @@ String _listsHtml(String haPicker) =>
     background: #161618; border: 1px solid #333; border-radius: 6px;
     padding: 12px; margin-bottom: 8px;
   }
-  .lst-form input[type="text"] { width: 100%; margin-bottom: 8px; }
+  .lst-form input[type="text"], .lst-form select { width: 100%; margin-bottom: 8px; }
   .lst-form .lst-actions {
     display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px;
   }
@@ -274,7 +284,7 @@ String _listsHtml(String haPicker) =>
   <div class="lst-form" id="lst-add-form" hidden>
     $haPicker
     <input type="text" id="lst-add-name" placeholder="Name (blank: the name in Home Assistant)">
-    <input type="text" id="lst-add-person" placeholder="Person (blank for a plain list)">
+    <select id="lst-add-person" class="lst-person"></select>
     <div class="lst-swatches" id="lst-add-colors"></div>
     <div class="lst-result" id="lst-add-result"></div>
     <div class="lst-actions">
@@ -287,7 +297,7 @@ String _listsHtml(String haPicker) =>
     <div class="lst-hint" id="lst-edit-what"></div>
     <div class="lst-hint">To change the list itself, delete it and add it again.</div>
     <input type="text" id="lst-edit-name" placeholder="Name">
-    <input type="text" id="lst-edit-person" placeholder="Person (blank for a plain list)">
+    <select id="lst-edit-person" class="lst-person"></select>
     <div class="lst-swatches" id="lst-edit-colors"></div>
     <div class="lst-result" id="lst-edit-result"></div>
     <div class="lst-actions">
@@ -295,7 +305,7 @@ String _listsHtml(String haPicker) =>
       <button type="button" class="lst-save" id="lst-edit-save">Save</button>
     </div>
   </div>
-  <div class="lst-hint">A list with a person is that person's chore list.</div>
+  <div class="lst-hint">A list with a person is that person's chore list. People are added on the People panel.</div>
 </div>
 <script>$_listsScript</script>
 ''';
@@ -306,6 +316,7 @@ const _listsScript = r'''
   var panel = document.getElementById('lists-panel');
   if (!panel) return;
   var palette = [];
+  var people = [];
   var lists = [];
   var editing = null;
   var picked = { add: null, edit: null };
@@ -360,6 +371,20 @@ const _listsScript = r'''
     return palette[lists.length % palette.length];
   }
 
+  function personOptions(key, selected) {
+    var sel = $('lst-' + key + '-person');
+    sel.textContent = '';
+    var none = elem('option', null, 'No one (a plain list)');
+    none.value = '';
+    sel.appendChild(none);
+    people.forEach(function (p) {
+      var o = elem('option', null, p.name + '’s chores');
+      o.value = p.id;
+      sel.appendChild(o);
+    });
+    sel.value = selected || '';
+  }
+
   function closeForms() {
     $('lst-add-form').hidden = true;
     $('lst-edit-form').hidden = true;
@@ -402,6 +427,7 @@ const _listsScript = r'''
   function load() {
     return call('GET', 'lists').then(function (d) {
       palette = d.palette || [];
+      people = d.people || [];
       lists = d.lists || [];
       render();
     }).catch(function () { panel.textContent = 'Failed to load lists.'; });
@@ -411,7 +437,7 @@ const _listsScript = r'''
     closeForms();
     picked.add = nextColor();
     $('lst-add-name').value = '';
-    $('lst-add-person').value = '';
+    personOptions('add', '');
     var entity = $('haep-lists-entity-input');
     if (entity) entity.value = '';
     $('lst-add-result').textContent = '';
@@ -424,7 +450,7 @@ const _listsScript = r'''
     call('POST', 'lists', {
       entityId: entity ? entity.value.trim() : '',
       name: $('lst-add-name').value.trim(),
-      person: $('lst-add-person').value.trim(),
+      personId: $('lst-add-person').value,
       color: picked.add,
     }).then(function () {
       closeForms();
@@ -438,7 +464,7 @@ const _listsScript = r'''
     picked.edit = l.color;
     $('lst-edit-what').textContent = l.entityId;
     $('lst-edit-name').value = l.name;
-    $('lst-edit-person').value = l.person;
+    personOptions('edit', l.personId);
     $('lst-edit-result').textContent = '';
     swatches('edit');
     $('lst-edit-form').hidden = false;
@@ -448,7 +474,7 @@ const _listsScript = r'''
     if (!editing) return;
     call('PUT', 'lists/' + encodeURIComponent(editing.entityId), {
       name: $('lst-edit-name').value.trim(),
-      person: $('lst-edit-person').value.trim(),
+      personId: $('lst-edit-person').value,
       color: picked.edit,
     }).then(function () {
       closeForms();

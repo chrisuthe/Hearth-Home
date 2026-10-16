@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hearth/config/hub_config.dart';
+import 'package:hearth/config/person.dart';
 import 'package:hearth/config/webview_config.dart';
 import 'package:hearth/modules/calendar/models.dart';
 import 'package:hearth/modules/lists/models.dart';
@@ -1014,7 +1015,7 @@ void main() {
             entityId: 'todo.ava_chores',
             name: 'Ava',
             color: 0xFF22AA66,
-            person: 'Ava',
+            personId: 'person:ava',
           ),
         ],
         todoChoreGlance: true,
@@ -1047,8 +1048,182 @@ void main() {
       final list = config.todoLists.single;
       expect(list.entityId, 'todo.a');
       expect(list.name, '');
-      expect(list.person, '');
+      expect(list.personId, '');
       expect(list.color, CalendarSource.defaultColor);
+    });
+  });
+  group('HubConfig people', () {
+    const sam = Person(
+      id: 'person:0011223344556677',
+      name: 'Sam',
+      color: 0xFFE57373,
+      haPersonEntityId: 'person.sam',
+    );
+    const alex = Person(id: 'person:8899aabbccddeeff', name: 'Alex');
+
+    test('defaults', () {
+      expect(const HubConfig().people, isEmpty);
+      expect(HubConfig.fromJson(const {}).people, isEmpty);
+    });
+
+    test('people, calendar owners and chore people round-trip', () {
+      const config = HubConfig(
+        people: [sam, alex],
+        calendarSources: [
+          CalendarSource(
+            id: 'ha:calendar.sam',
+            kind: CalendarSourceKind.ha,
+            entityId: 'calendar.sam',
+            personId: 'person:0011223344556677',
+          ),
+        ],
+        todoLists: [
+          TodoListConfig(
+              entityId: 'todo.alex', personId: 'person:8899aabbccddeeff'),
+        ],
+      );
+      final restored = HubConfig.fromJson(
+          jsonDecode(jsonEncode(config.toJson())) as Map<String, dynamic>);
+      expect(restored.people, config.people);
+      expect(restored.calendarSources, config.calendarSources);
+      expect(restored.todoLists, config.todoLists);
+      expect(restored.todoLists.single.isChore, isTrue);
+    });
+
+    test('missing keys default to empty; an entry without an id is skipped',
+        () {
+      final config = HubConfig.fromJson(const {
+        'people': [
+          'garbage',
+          {'name': 'No id'},
+          {'id': 'person:1'},
+        ],
+        'calendarSources': [
+          {'id': 'ha:calendar.a', 'kind': 'ha', 'entityId': 'calendar.a'},
+        ],
+        'todoLists': [
+          {'entityId': 'todo.a'},
+        ],
+      });
+      final person = config.people.single;
+      expect(person.id, 'person:1');
+      expect(person.name, '');
+      expect(person.color, Person.defaultColor);
+      expect(person.haPersonEntityId, '');
+      expect(person.isLinked, isFalse);
+      expect(config.calendarSources.single.personId, '');
+      expect(config.todoLists.single.personId, '');
+    });
+
+    test('newPersonId is person: and 16 hex digits, unique', () {
+      final ids = {for (var i = 0; i < 50; i++) newPersonId()};
+      expect(ids, hasLength(50));
+      for (final id in ids) {
+        expect(id, matches(RegExp(r'^person:[0-9a-f]{16}$')));
+      }
+    });
+
+    group('legacy free-text person', () {
+      final legacy = <String, dynamic>{
+        'todoLists': [
+          {'entityId': 'todo.groceries', 'name': 'Groceries', 'person': ''},
+          {
+            'entityId': 'todo.sam_chores',
+            'color': 0xFFE57373,
+            'person': 'Sam',
+          },
+          {'entityId': 'todo.alex', 'color': 0xFF4DB6AC, 'person': 'Alex'},
+          {'entityId': 'todo.sam_garden', 'color': 0xFF81C784, 'person': 'Sam '},
+        ],
+      };
+
+      test('becomes one person per name, coloured from the first list', () {
+        final config = HubConfig.fromJson(legacy);
+        expect(config.people.map((p) => p.name), ['Sam', 'Alex']);
+        final samP = config.people[0];
+        final alexP = config.people[1];
+        expect(samP.color, 0xFFE57373);
+        expect(alexP.color, 0xFF4DB6AC);
+        expect(samP.isLinked, isFalse);
+        expect(samP.id, matches(RegExp(r'^person:[0-9a-f]{16}$')));
+        final byEntity = {for (final l in config.todoLists) l.entityId: l};
+        expect(byEntity['todo.groceries']!.isChore, isFalse);
+        expect(byEntity['todo.sam_chores']!.personId, samP.id);
+        expect(byEntity['todo.sam_garden']!.personId, samP.id);
+        expect(byEntity['todo.alex']!.personId, alexP.id);
+        // The list keeps its own colour.
+        expect(byEntity['todo.sam_garden']!.color, 0xFF81C784);
+        expect(HubConfig.needsPeopleMigration(legacy), isTrue);
+      });
+
+      test('loading the result again changes nothing', () {
+        final once = HubConfig.fromJson(legacy);
+        final json = jsonDecode(jsonEncode(once.toJson())) as Map<String, dynamic>;
+        expect(HubConfig.needsPeopleMigration(json), isFalse);
+        expect(identical(HubConfig.migrateLegacyPeople(json), json), isTrue);
+        final twice = HubConfig.fromJson(json);
+        expect(twice.people, once.people);
+        expect(twice.todoLists, once.todoLists);
+        expect(jsonEncode(twice.toJson()), jsonEncode(once.toJson()));
+      });
+
+      test('a name already in people is reused, not duplicated', () {
+        final config = HubConfig.fromJson({
+          'people': [alex.toJson()],
+          'todoLists': [
+            {'entityId': 'todo.alex', 'person': 'Alex'},
+          ],
+        });
+        expect(config.people, [alex]);
+        expect(config.todoLists.single.personId, alex.id);
+      });
+
+      test('a list that already has a personId keeps it', () {
+        final config = HubConfig.fromJson({
+          'people': [alex.toJson()],
+          'todoLists': [
+            {'entityId': 'todo.alex', 'person': 'Sam', 'personId': alex.id},
+          ],
+        });
+        expect(config.people, [alex]);
+        expect(config.todoLists.single.personId, alex.id);
+      });
+    });
+
+    test('withPeople clears every list and calendar of a removed person', () {
+      const config = HubConfig(
+        people: [sam, alex],
+        calendarSources: [
+          CalendarSource(
+              id: 'ha:calendar.sam',
+              kind: CalendarSourceKind.ha,
+              personId: 'person:0011223344556677'),
+          CalendarSource(
+              id: 'ha:calendar.alex',
+              kind: CalendarSourceKind.ha,
+              personId: 'person:8899aabbccddeeff'),
+        ],
+        todoLists: [
+          TodoListConfig(
+              entityId: 'todo.sam', personId: 'person:0011223344556677'),
+          TodoListConfig(
+              entityId: 'todo.sam2', personId: 'person:0011223344556677'),
+          TodoListConfig(
+              entityId: 'todo.alex', personId: 'person:8899aabbccddeeff'),
+          TodoListConfig(entityId: 'todo.groceries'),
+        ],
+      );
+      final updated = config.withPeople(const [alex]);
+      expect(updated.people, [alex]);
+      final ids = {
+        for (final l in updated.todoLists) l.personId,
+        for (final s in updated.calendarSources) s.personId,
+      };
+      expect(ids, {'', alex.id}, reason: 'no dangling id');
+      expect(updated.todoLists.map((l) => l.personId),
+          ['', '', alex.id, '']);
+      expect(updated.calendarSources.map((s) => s.personId), ['', alex.id]);
+      expect(config.withPeople(config.people).todoLists, config.todoLists);
     });
   });
 }

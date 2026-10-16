@@ -24,9 +24,13 @@ Any integration that makes a `todo.*` entity works; these are the common ones:
 Then, in the [[web portal|The Web Portal]] or on-device Settings, open **Lists** and **Add** each
 one. Each list has a **name** (it defaults to HA's), a **colour**, and a **person**:
 
-- Leave **person** blank for an ordinary list (shopping, packing).
-- Give it a name — *Ava* — to make it that person's **chore list**. A person can have more than
-  one; their chores are shown together.
+- Leave **person** at *No one* for an ordinary list (shopping, packing).
+- Pick someone — *Ava's chores* — to make it that person's **chore list**. A person can have more
+  than one; their chores are shown together.
+
+The person list comes from [[People]], so add the household there first. A config from before
+People had the person typed as a name; Hearth turns each name into a person when it starts, so
+nothing needs redoing.
 
 Each row says what the list can do (*add · edit · reorder · due dates*), read from Home
 Assistant. To point a row at a different list, delete it and add it again.
@@ -69,8 +73,9 @@ gets a column showing, in order:
 3. chores with **no due date** (they show every day);
 4. chores **done today**, struck through.
 
-Chores due later wait under **Upcoming (n)**. The count beside the name is done over total for
-today. Tap a chore to tick it off; tap again to undo. On a narrow screen columns wrap into rows.
+Chores due later wait under **Upcoming (n)**. Each column takes its name and colour from the
+person; someone linked to Home Assistant shows their picture and a dot for whether they're home.
+The count beside the name is done over total for today. Tap a chore to tick it off; tap again to undo. On a narrow screen columns wrap into rows.
 
 ## The idle glance
 

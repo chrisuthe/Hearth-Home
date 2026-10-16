@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hearth/config/hub_config.dart';
+import 'package:hearth/config/person.dart';
 import 'package:hearth/models/ha_entity.dart';
 import 'package:hearth/modules/lists/models.dart';
 import 'package:hearth/plugins/calendar/calendar_sources.dart';
@@ -22,10 +23,17 @@ const _alex = TodoListConfig(
   entityId: 'todo.alex',
   name: 'Alex chores',
   color: 0xFFE57373,
-  person: 'Alex',
+  personId: 'person:alex',
 );
 
-const _haConfig = HubConfig(haUrl: 'http://ha', haToken: 't');
+const _alexP = Person(id: 'person:alex', name: 'Alex');
+const _samP = Person(id: 'person:sam', name: 'Sam');
+
+const _haConfig = HubConfig(
+  haUrl: 'http://ha',
+  haToken: 't',
+  people: [_alexP, _samP],
+);
 
 String _html(HubConfig config) => ListsPlugin().buildSettingsHtml(
   WebContext(
@@ -117,8 +125,9 @@ void main() {
     });
 
     test('todoListKindLabel is the person or "List"', () {
-      expect(todoListKindLabel(_groceries), 'List');
-      expect(todoListKindLabel(_alex), 'Alex');
+      expect(todoListKindLabel(_groceries, const [_alexP]), 'List');
+      expect(todoListKindLabel(_alex, const [_alexP]), 'Alex');
+      expect(todoListKindLabel(_alex, const []), 'List');
     });
   });
 
@@ -251,14 +260,14 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Sam list (todo.sam)').last);
       await tester.pumpAndSettle();
-      await tester.enterText(
-        find.byKey(const ValueKey('list-person')),
-        ' Sam ',
-      );
+      await tester.tap(find.byKey(const ValueKey('list-person')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text("Sam's chores").last);
+      await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(ElevatedButton, 'Add'));
       await tester.pumpAndSettle();
 
-      expect(notifier.state.todoLists.single.person, 'Sam');
+      expect(notifier.state.todoLists.single.personId, 'person:sam');
       expect(notifier.state.todoLists.single.isChore, isTrue);
     });
 
@@ -273,7 +282,10 @@ void main() {
       expect(find.text('todo.alex'), findsOneWidget);
 
       await tester.enterText(find.byKey(const ValueKey('list-name')), 'Jobs');
-      await tester.enterText(find.byKey(const ValueKey('list-person')), '');
+      await tester.tap(find.byKey(const ValueKey('list-person')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('No one (a plain list)').last);
+      await tester.pumpAndSettle();
       await tester.tap(
         find.byKey(ValueKey('swatch-${calendarColorHex(calendarPalette[3])}')),
       );

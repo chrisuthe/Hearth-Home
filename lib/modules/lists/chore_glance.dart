@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/tokens/tokens.dart';
 import '../../config/hub_config.dart';
+import '../../config/person.dart';
+import 'chores_view.dart' show ChorePersonMark;
 import 'lists_providers.dart';
 
 /// Same as the Home clock's, for legibility over full-bleed photos.
@@ -42,6 +44,7 @@ class ChoreGlance extends ConsumerWidget {
         ),
       ),
     );
+    final people = ref.watch(hubConfigProvider.select((c) => c.people));
     final lines = [next.$1, next.$2, next.$3].nonNulls.toList();
     if (lines.isEmpty) return const SizedBox.shrink();
     final more = next.$4 - lines.length;
@@ -56,7 +59,11 @@ class ChoreGlance extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             for (final (i, line) in lines.indexed)
-              _GlanceLine(line: line, more: i == lines.length - 1 ? more : 0),
+              _GlanceLine(
+                line: line,
+                person: personById(people, line.list.personId),
+                more: i == lines.length - 1 ? more : 0,
+              ),
           ],
         ),
       ),
@@ -66,9 +73,16 @@ class ChoreGlance extends ConsumerWidget {
 
 class _GlanceLine extends StatelessWidget {
   final ChoreLine line;
+
+  /// Null only for a list whose person has just been removed.
+  final Person? person;
   final int more;
 
-  const _GlanceLine({required this.line, required this.more});
+  const _GlanceLine({
+    required this.line,
+    required this.person,
+    required this.more,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -78,23 +92,26 @@ class _GlanceLine extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            width: 10,
-            height: 10,
-            decoration: BoxDecoration(
-              color: Color(line.list.color),
-              shape: BoxShape.circle,
-              boxShadow: const [
-                BoxShadow(blurRadius: 4, color: Color(0x82000000)),
-              ],
+          if (person?.isLinked ?? false)
+            ChorePersonMark(person: person!, size: 24)
+          else
+            Container(
+              width: 10,
+              height: 10,
+              decoration: BoxDecoration(
+                color: Color(person?.color ?? line.list.color),
+                shape: BoxShape.circle,
+                boxShadow: const [
+                  BoxShadow(blurRadius: 4, color: Color(0x82000000)),
+                ],
+              ),
             ),
-          ),
           const SizedBox(width: HearthSpacing.x3),
           // A long name gives way to the summary rather than overflowing.
           ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 200),
             child: Text(
-              line.list.person,
+              person?.name ?? line.list.name,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(

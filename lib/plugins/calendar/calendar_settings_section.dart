@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../config/hub_config.dart';
+import '../../config/person.dart';
 import '../../models/ha_entity.dart';
 import '../../modules/calendar/calendar_providers.dart';
 import '../../modules/calendar/ics_calendar_source.dart';
@@ -137,10 +138,12 @@ class _SourceStatusLine extends ConsumerWidget {
     final use24 = ref.watch(hubConfigProvider.select((c) => c.use24HourClock));
     final label = calendarStatusLabel(status,
         enabled: source.enabled, use24Hour: use24);
+    final owner = ref.watch(hubConfigProvider
+        .select((c) => personById(c.people, source.personId)?.name));
     final bad = status?.status == SourceStatus.error ||
         status?.status == SourceStatus.stale;
     return Text(
-      '${calendarKindLabel(source.kind)} · $label',
+      [calendarKindLabel(source.kind), ?owner, label].join(' · '),
       maxLines: 2,
       overflow: TextOverflow.ellipsis,
       style: TextStyle(
@@ -234,6 +237,36 @@ Widget _colorRow(int selected, ValueChanged<int> onChanged) => Column(
       ],
     );
 
+/// The optional owner, from the People registry.
+Widget _ownerRow(
+        List<Person> people, String personId, ValueChanged<String> onChanged) =>
+    Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 16),
+        const Text('Belongs to', style: _labelStyle),
+        DropdownButton<String>(
+          key: const ValueKey('calendar-owner'),
+          value: personById(people, personId) == null ? '' : personId,
+          isExpanded: true,
+          dropdownColor: _dialogBackground,
+          style: const TextStyle(color: Colors.white),
+          items: [
+            const DropdownMenuItem(value: '', child: Text('No one')),
+            for (final p in people)
+              DropdownMenuItem(value: p.id, child: Text(p.name)),
+          ],
+          onChanged: (v) {
+            if (v != null) onChanged(v);
+          },
+        ),
+      ],
+    );
+
+/// [personId] when it is still someone in [people], else ''.
+String _owner(List<Person> people, String personId) =>
+    personById(people, personId) == null ? '' : personId;
+
 AlertDialog _dialog(
   BuildContext context, {
   required String title,
@@ -279,6 +312,7 @@ class _AddHaDialogState extends ConsumerState<_AddHaDialog> {
   HaEntity? _entity;
   late int _color;
   bool _colorPicked = false;
+  String _personId = '';
 
   @override
   void initState() {
@@ -319,6 +353,7 @@ class _AddHaDialogState extends ConsumerState<_AddHaDialog> {
         .toList()
       ..sort((a, b) => a.name.compareTo(b.name));
     final entity = _entity;
+    final people = ref.watch(hubConfigProvider.select((c) => c.people));
     return _dialog(
       context,
       title: 'Add Home Assistant calendar',
@@ -333,6 +368,7 @@ class _AddHaDialogState extends ConsumerState<_AddHaDialog> {
                 entityId: entity.entityId,
                 name: name.isEmpty ? entity.name : name,
                 color: _color,
+                personId: _owner(people, _personId),
               ));
             },
       children: [
@@ -360,6 +396,7 @@ class _AddHaDialogState extends ConsumerState<_AddHaDialog> {
             },
           ),
         _nameField(_name),
+        _ownerRow(people, _personId, (id) => setState(() => _personId = id)),
         _colorRow(_color, (c) => setState(() {
               _color = c;
               _colorPicked = true;
@@ -387,6 +424,7 @@ class _AddIcsDialogState extends ConsumerState<_AddIcsDialog> {
   bool _testing = false;
   String? _result;
   bool _failed = false;
+  String _personId = '';
 
   @override
   void initState() {
@@ -451,12 +489,14 @@ class _AddIcsDialogState extends ConsumerState<_AddIcsDialog> {
       url: url,
       name: name.isEmpty ? icsFallbackName(url) : name,
       color: _color,
+      personId: _owner(ref.read(hubConfigProvider).people, _personId),
     ));
   }
 
   @override
   Widget build(BuildContext context) {
     final tested = _tested != null && _tested == _url.text.trim();
+    final people = ref.watch(hubConfigProvider.select((c) => c.people));
     return _dialog(
       context,
       title: 'Add ICS URL',
@@ -494,6 +534,7 @@ class _AddIcsDialogState extends ConsumerState<_AddIcsDialog> {
             ),
           ),
         _nameField(_name),
+        _ownerRow(people, _personId, (id) => setState(() => _personId = id)),
         _colorRow(_color, (c) => setState(() {
               _color = c;
               _colorPicked = true;
@@ -503,18 +544,19 @@ class _AddIcsDialogState extends ConsumerState<_AddIcsDialog> {
   }
 }
 
-class _EditSourceDialog extends StatefulWidget {
+class _EditSourceDialog extends ConsumerStatefulWidget {
   final CalendarSource source;
   const _EditSourceDialog({required this.source});
 
   @override
-  State<_EditSourceDialog> createState() => _EditSourceDialogState();
+  ConsumerState<_EditSourceDialog> createState() => _EditSourceDialogState();
 }
 
-class _EditSourceDialogState extends State<_EditSourceDialog> {
+class _EditSourceDialogState extends ConsumerState<_EditSourceDialog> {
   late final _name = TextEditingController(text: widget.source.name);
   late int _color = widget.source.color;
   late bool _enabled = widget.source.enabled;
+  late String _personId = widget.source.personId;
 
   @override
   void dispose() {
@@ -525,6 +567,7 @@ class _EditSourceDialogState extends State<_EditSourceDialog> {
   @override
   Widget build(BuildContext context) {
     final source = widget.source;
+    final people = ref.watch(hubConfigProvider.select((c) => c.people));
     return _dialog(
       context,
       title: 'Edit calendar',
@@ -532,8 +575,11 @@ class _EditSourceDialogState extends State<_EditSourceDialog> {
       onAction: () {
         final name = _name.text.trim();
         if (name.isEmpty) return;
-        Navigator.of(context).pop(
-            source.copyWith(name: name, color: _color, enabled: _enabled));
+        Navigator.of(context).pop(source.copyWith(
+            name: name,
+            color: _color,
+            enabled: _enabled,
+            personId: _owner(people, _personId)));
       },
       children: [
         Text(
@@ -547,6 +593,7 @@ class _EditSourceDialogState extends State<_EditSourceDialog> {
           style: TextStyle(color: Colors.white38, fontSize: 12),
         ),
         _nameField(_name),
+        _ownerRow(people, _personId, (id) => setState(() => _personId = id)),
         _colorRow(_color, (c) => setState(() => _color = c)),
         const SizedBox(height: 8),
         SwitchListTile(

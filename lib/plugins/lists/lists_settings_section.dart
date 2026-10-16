@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../config/hub_config.dart';
+import '../../config/person.dart';
 import '../../models/ha_entity.dart';
 import '../../modules/lists/lists_providers.dart';
 import '../../modules/lists/models.dart';
@@ -62,6 +63,7 @@ class _ListStatusLine extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     ref.watch(haEntitiesProvider);
     final config = ref.watch(hubConfigProvider);
+    final kind = todoListKindLabel(list, config.people);
     final status = todoListStatus(
       config,
       ref.watch(homeAssistantServiceProvider),
@@ -74,7 +76,7 @@ class _ListStatusLine extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          '${todoListKindLabel(list)} · ${status.label}',
+          '$kind · ${status.label}',
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
@@ -97,7 +99,9 @@ class _ListStatusLine extends ConsumerWidget {
 /// Name, person and colour: the fields add and edit share.
 List<Widget> _fields({
   required TextEditingController name,
-  required TextEditingController person,
+  required List<Person> people,
+  required String personId,
+  required ValueChanged<String> onPerson,
   required int color,
   required ValueChanged<int> onColor,
 }) => [
@@ -110,19 +114,28 @@ List<Widget> _fields({
       labelStyle: _labelStyle,
     ),
   ),
-  TextField(
+  const SizedBox(height: 16),
+  const Text('Person', style: _labelStyle),
+  DropdownButton<String>(
     key: const ValueKey('list-person'),
-    controller: person,
+    value: personById(people, personId) == null ? '' : personId,
+    isExpanded: true,
+    dropdownColor: _dialogBackground,
     style: const TextStyle(color: Colors.white),
-    decoration: const InputDecoration(
-      labelText: 'Person',
-      helperText:
-          "Blank for a plain list; a name makes it that "
-          "person's chores",
-      labelStyle: _labelStyle,
-      helperStyle: TextStyle(color: Colors.white38),
-    ),
+    items: [
+      const DropdownMenuItem(value: '', child: Text('No one (a plain list)')),
+      for (final p in people)
+        DropdownMenuItem(value: p.id, child: Text("${p.name}'s chores")),
+    ],
+    onChanged: (v) {
+      if (v != null) onPerson(v);
+    },
   ),
+  if (people.isEmpty)
+    const Text(
+      'Add people on the People panel to make chore lists.',
+      style: TextStyle(color: Colors.white38, fontSize: 12),
+    ),
   const SizedBox(height: 16),
   const Text('Colour', style: _labelStyle),
   const SizedBox(height: 6),
@@ -170,7 +183,7 @@ class _AddListDialog extends ConsumerStatefulWidget {
 
 class _AddListDialogState extends ConsumerState<_AddListDialog> {
   final _name = TextEditingController();
-  final _person = TextEditingController();
+  String _personId = '';
   HaEntity? _entity;
   late int _color;
 
@@ -185,12 +198,12 @@ class _AddListDialogState extends ConsumerState<_AddListDialog> {
   @override
   void dispose() {
     _name.dispose();
-    _person.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final people = ref.watch(hubConfigProvider.select((c) => c.people));
     final added = {
       for (final l in ref.read(hubConfigProvider).todoLists) l.entityId,
     };
@@ -216,7 +229,7 @@ class _AddListDialogState extends ConsumerState<_AddListDialog> {
                   entityId: entity.entityId,
                   name: name.isEmpty ? entity.name : name,
                   color: _color,
-                  person: _person.text.trim(),
+                  personId: _personId,
                 ),
               );
             },
@@ -253,7 +266,9 @@ class _AddListDialogState extends ConsumerState<_AddListDialog> {
           ),
         ..._fields(
           name: _name,
-          person: _person,
+          people: people,
+          personId: _personId,
+          onPerson: (id) => setState(() => _personId = id),
           color: _color,
           onColor: (c) => setState(() => _color = c),
         ),
@@ -262,28 +277,28 @@ class _AddListDialogState extends ConsumerState<_AddListDialog> {
   }
 }
 
-class _EditListDialog extends StatefulWidget {
+class _EditListDialog extends ConsumerStatefulWidget {
   final TodoListConfig list;
   const _EditListDialog({required this.list});
 
   @override
-  State<_EditListDialog> createState() => _EditListDialogState();
+  ConsumerState<_EditListDialog> createState() => _EditListDialogState();
 }
 
-class _EditListDialogState extends State<_EditListDialog> {
+class _EditListDialogState extends ConsumerState<_EditListDialog> {
   late final _name = TextEditingController(text: widget.list.name);
-  late final _person = TextEditingController(text: widget.list.person);
+  late String _personId = widget.list.personId;
   late int _color = widget.list.color;
 
   @override
   void dispose() {
     _name.dispose();
-    _person.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final people = ref.watch(hubConfigProvider.select((c) => c.people));
     return _dialog(
       context,
       title: 'Edit list',
@@ -295,7 +310,7 @@ class _EditListDialogState extends State<_EditListDialog> {
           widget.list.copyWith(
             name: name,
             color: _color,
-            person: _person.text.trim(),
+            personId: personById(people, _personId) == null ? '' : _personId,
           ),
         );
       },
@@ -310,7 +325,9 @@ class _EditListDialogState extends State<_EditListDialog> {
         ),
         ..._fields(
           name: _name,
-          person: _person,
+          people: people,
+          personId: _personId,
+          onPerson: (id) => setState(() => _personId = id),
           color: _color,
           onColor: (c) => setState(() => _color = c),
         ),

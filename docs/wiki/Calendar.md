@@ -25,8 +25,9 @@ There are two kinds:
   event count, and the button then becomes **Add**. A feed's URL can contain a secret (Google's
   "secret address" does); Hearth never shows it again after it's saved.
 
-Each source has a **name**, a **colour**, and an **on/off** switch. To change a URL or entity,
-delete the source and add it again.
+Each source has a **name**, a **colour**, an **on/off** switch and, optionally, the person it
+**belongs to** (from [[People]]). The owner is stored for now and shown in Settings; the Calendar
+screen doesn't filter by person yet. To change a URL or entity, delete the source and add it again.
 
 Then put **Calendar** on the swipe row (or a menu) in **Screens & Order** — see
 [[Navigation & Gestures]]. It isn't placed anywhere until you do. On the swipe row it sits just

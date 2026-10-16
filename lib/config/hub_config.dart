@@ -6,6 +6,7 @@ import '../utils/logger.dart';
 import '../modules/calendar/models.dart';
 import '../modules/lists/models.dart';
 import 'display_orientation.dart';
+import 'person.dart';
 import 'webview_config.dart';
 
 // dart:io and path_provider compile to stubs on web — guarded by kIsWeb at runtime.
@@ -374,6 +375,11 @@ class HubConfig {
   /// as additional pages in HubShell's PageView via the webview module.
   final List<WebviewConfig> webviews;
 
+  /// The household, in display order. Calendar sources and chore lists
+  /// point at a person by id; see [withPeople]. Unrelated to Immich's
+  /// photo people in [photoSources].
+  final List<Person> people;
+
   /// Calendars, in display order (legend and tie-break order).
   final List<CalendarSource> calendarSources;
 
@@ -386,7 +392,7 @@ class HubConfig {
   /// `day`, `3day`, `week` or `month`; the view the Calendar screen opens in.
   final String calendarDefaultView;
 
-  /// HA to-do lists, in display order. One with a person is a chore list.
+  /// HA to-do lists, in display order. One with a personId is a chore list.
   final List<TodoListConfig> todoLists;
 
   /// Show today's open chores on the idle Home screen.
@@ -471,6 +477,7 @@ class HubConfig {
     this.photoSources = const PhotoSourcesConfig(),
     this.uiScale = 1.0,
     this.webviews = const [],
+    this.people = const [],
     this.calendarSources = const [],
     this.calendarIcsPollMinutes = 30,
     this.calendarAmbientGlance = true,
@@ -578,6 +585,7 @@ class HubConfig {
     PhotoSourcesConfig? photoSources,
     double? uiScale,
     List<WebviewConfig>? webviews,
+    List<Person>? people,
     List<CalendarSource>? calendarSources,
     int? calendarIcsPollMinutes,
     bool? calendarAmbientGlance,
@@ -669,6 +677,7 @@ class HubConfig {
       photoSources: photoSources ?? this.photoSources,
       uiScale: uiScale ?? this.uiScale,
       webviews: webviews ?? this.webviews,
+      people: people ?? this.people,
       calendarSources: calendarSources ?? this.calendarSources,
       calendarIcsPollMinutes:
           calendarIcsPollMinutes ?? this.calendarIcsPollMinutes,
@@ -677,6 +686,24 @@ class HubConfig {
       calendarDefaultView: calendarDefaultView ?? this.calendarDefaultView,
       todoLists: todoLists ?? this.todoLists,
       todoChoreGlance: todoChoreGlance ?? this.todoChoreGlance,
+    );
+  }
+
+  /// [people] as the registry, clearing the owner of every list and calendar
+  /// source whose person is no longer in it, so no id dangles.
+  HubConfig withPeople(List<Person> people) {
+    final ids = {for (final p in people) p.id};
+    bool gone(String id) => id.isNotEmpty && !ids.contains(id);
+    return copyWith(
+      people: people,
+      todoLists: [
+        for (final l in todoLists)
+          gone(l.personId) ? l.copyWith(personId: '') : l,
+      ],
+      calendarSources: [
+        for (final s in calendarSources)
+          gone(s.personId) ? s.copyWith(personId: '') : s,
+      ],
     );
   }
 
@@ -759,6 +786,7 @@ class HubConfig {
         'photoSources': photoSources.toJson(),
         'uiScale': uiScale,
         'webviews': webviews.map((w) => w.toJson()).toList(),
+        'people': people.map((p) => p.toJson()).toList(),
         'calendarSources': calendarSources.map((s) => s.toJson()).toList(),
         'calendarIcsPollMinutes': calendarIcsPollMinutes,
         'calendarAmbientGlance': calendarAmbientGlance,
@@ -767,7 +795,10 @@ class HubConfig {
         'todoChoreGlance': todoChoreGlance,
       };
 
-  factory HubConfig.fromJson(Map<String, dynamic> json) => HubConfig(
+  factory HubConfig.fromJson(Map<String, dynamic> json) =>
+      HubConfig._fromJson(migrateLegacyPeople(json));
+
+  factory HubConfig._fromJson(Map<String, dynamic> json) => HubConfig(
         apiKey: json['apiKey'] as String? ?? '',
         immichUrl: json['immichUrl'] as String? ?? '',
         immichApiKey: json['immichApiKey'] as String? ?? '',
@@ -877,6 +908,12 @@ class HubConfig {
                     WebviewConfig.fromJson(j as Map<String, dynamic>))
                 .toList() ??
             const [],
+        people: (json['people'] as List<dynamic>?)
+                ?.whereType<Map<String, dynamic>>()
+                .map(Person.fromJson)
+                .where((p) => p.id.isNotEmpty)
+                .toList() ??
+            const [],
         calendarSources: (json['calendarSources'] as List<dynamic>?)
                 ?.whereType<Map<String, dynamic>>()
                 .map(CalendarSource.fromJson)
@@ -897,6 +934,58 @@ class HubConfig {
       );
 
   static const calendarViews = ['day', '3day', 'week', 'month'];
+
+  /// Whether [json] has a to-do list still naming its person as free text,
+  /// from before the People registry.
+  static bool needsPeopleMigration(Map<String, dynamic> json) {
+    final lists = json['todoLists'];
+    return lists is List && lists.any(_legacyPerson);
+  }
+
+  static bool _legacyPerson(Object? list) =>
+      list is Map &&
+      list['person'] is String &&
+      (list['person'] as String).trim().isNotEmpty &&
+      ((list['personId'] as Object?) is! String ||
+          (list['personId'] as String).isEmpty);
+
+  /// Turns each distinct free-text `person` on [json]'s to-do lists into a
+  /// [Person], coloured from its first list, and points the lists at it. A
+  /// name already in `people` is reused. Without a legacy `person` the json
+  /// comes back unchanged, so loading twice changes nothing.
+  static Map<String, dynamic> migrateLegacyPeople(Map<String, dynamic> json) {
+    if (!needsPeopleMigration(json)) return json;
+    final people = [
+      for (final p in json['people'] as List<dynamic>? ?? const [])
+        if (p is Map<String, dynamic>) p,
+    ];
+    final idByName = <String, String>{
+      for (final p in people)
+        if (p['name'] is String && p['id'] is String)
+          p['name'] as String: p['id'] as String,
+    };
+    final lists = <Object?>[];
+    for (final l in json['todoLists'] as List) {
+      if (!_legacyPerson(l)) {
+        lists.add(l);
+        continue;
+      }
+      l as Map;
+      final name = (l['person'] as String).trim();
+      final id = idByName[name] ??= () {
+        final person = Person(
+          id: newPersonId(),
+          name: name,
+          color: l['color'] as int? ?? Person.defaultColor,
+        );
+        people.add(person.toJson());
+        return person.id;
+      }();
+      lists.add(<String, dynamic>{...l.cast<String, dynamic>(), 'personId': id}
+        ..remove('person'));
+    }
+    return {...json, 'people': people, 'todoLists': lists};
+  }
 
   /// Matches the Pi's Linux Voice Assistant default.
   static const defaultVoiceWakeWords = ['okay_nabu'];
@@ -953,6 +1042,8 @@ class HubConfigNotifier extends StateNotifier<HubConfig> {
         final json =
             jsonDecode(await file.readAsString()) as Map<String, dynamic>;
         state = HubConfig.fromJson(json);
+        // Saved now, so the migrated ids are the ones on disk.
+        if (HubConfig.needsPeopleMigration(json)) await update((c) => c);
       } catch (e) {
         Log.e('Config', 'Failed to parse hub_config.json, resetting to defaults: $e');
         state = const HubConfig();

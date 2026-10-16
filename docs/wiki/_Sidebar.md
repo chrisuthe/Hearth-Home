@@ -11,6 +11,7 @@
 **Modules & integrations**
 - [[Photos & Ambient Display]]
 - [[Weather]]
+- [[People]]
 - [[Calendar]]
 - [[Lists & Chores]]
 - [[Home Assistant Controls]]

@@ -12,38 +12,38 @@ class TodoListConfig {
   /// ARGB.
   final int color;
 
-  /// '' for a plain list; a name makes it that person's chore list.
-  final String person;
+  /// '' for a plain list; a person id makes it that person's chore list.
+  final String personId;
 
   const TodoListConfig({
     required this.entityId,
     this.name = '',
     this.color = CalendarSource.defaultColor,
-    this.person = '',
+    this.personId = '',
   });
 
-  bool get isChore => person.isNotEmpty;
+  bool get isChore => personId.isNotEmpty;
 
-  TodoListConfig copyWith({String? name, int? color, String? person}) =>
+  TodoListConfig copyWith({String? name, int? color, String? personId}) =>
       TodoListConfig(
         entityId: entityId,
         name: name ?? this.name,
         color: color ?? this.color,
-        person: person ?? this.person,
+        personId: personId ?? this.personId,
       );
 
   Map<String, dynamic> toJson() => {
         'entityId': entityId,
         'name': name,
         'color': color,
-        'person': person,
+        'personId': personId,
       };
 
   factory TodoListConfig.fromJson(Map<String, dynamic> json) => TodoListConfig(
         entityId: json['entityId'] as String? ?? '',
         name: json['name'] as String? ?? '',
         color: json['color'] as int? ?? CalendarSource.defaultColor,
-        person: json['person'] as String? ?? '',
+        personId: json['personId'] as String? ?? '',
       );
 
   @override
@@ -52,10 +52,10 @@ class TodoListConfig {
       other.entityId == entityId &&
       other.name == name &&
       other.color == color &&
-      other.person == person;
+      other.personId == personId;
 
   @override
-  int get hashCode => Object.hash(entityId, name, color, person);
+  int get hashCode => Object.hash(entityId, name, color, personId);
 }
 
 enum TodoStatus { needsAction, completed }
