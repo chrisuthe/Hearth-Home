@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../app/theme/classic_theme_scope.dart';
 import '../../app/tokens/tokens.dart';
 import '../../config/hub_config.dart';
 import '../../modules/calendar/calendar_glance.dart';
@@ -49,70 +50,72 @@ class HomeScreen extends ConsumerWidget {
     final weatherAsync = ref.watch(weatherStateProvider);
     final weather = weatherAsync.valueOrNull;
 
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        // Now playing — top right with album art
-        Positioned(
-          top: HearthSpacing.x4,
-          right: HearthSpacing.x4,
-          child: _NowPlayingPill(onTap: onNowPlayingTap),
-        ),
-
-        // Bottom content — single Column so elements don't overlap
-        Positioned(
-          left: HearthSpacing.x6,
-          right: HearthSpacing.x6,
-          bottom: HearthSpacing.x5,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Each draws nothing (and takes no space) when there is nothing
-              // to show.
-              ChoreGlance(onTap: onListsTap),
-              CalendarGlance(onTap: onCalendarTap),
-              // Timer pill
-              _TimerPill(
-                timerService: timerService,
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const TimerScreen()),
-                ),
-              ),
-              const SizedBox(height: HearthSpacing.x4),
-              // Clock + date + memory label | Weather. Side by side they
-              // need more width than a portrait panel has, so stack them.
-              if (MediaQuery.orientationOf(context) == Orientation.portrait) ...[
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: _WeatherDisplay(weather: weather),
+    return ClassicThemeScope(
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          // Now playing — top right with album art
+          Positioned(
+            top: HearthSpacing.x4,
+            right: HearthSpacing.x4,
+            child: _NowPlayingPill(onTap: onNowPlayingTap),
+          ),
+  
+          // Bottom content — single Column so elements don't overlap
+          Positioned(
+            left: HearthSpacing.x6,
+            right: HearthSpacing.x6,
+            bottom: HearthSpacing.x5,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Each draws nothing (and takes no space) when there is nothing
+                // to show.
+                ChoreGlance(onTap: onListsTap),
+                CalendarGlance(onTap: onCalendarTap),
+                // Timer pill
+                _TimerPill(
+                  timerService: timerService,
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const TimerScreen()),
+                  ),
                 ),
                 const SizedBox(height: HearthSpacing.x4),
-                _ClockDisplay(dateLabel: dateLabel),
-              ] else
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Expanded(child: _ClockDisplay(dateLabel: dateLabel)),
-                    _WeatherDisplay(weather: weather),
-                  ],
-                ),
-            ],
+                // Clock + date + memory label | Weather. Side by side they
+                // need more width than a portrait panel has, so stack them.
+                if (MediaQuery.orientationOf(context) == Orientation.portrait) ...[
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: _WeatherDisplay(weather: weather),
+                  ),
+                  const SizedBox(height: HearthSpacing.x4),
+                  _ClockDisplay(dateLabel: dateLabel),
+                ] else
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Expanded(child: _ClockDisplay(dateLabel: dateLabel)),
+                      _WeatherDisplay(weather: weather),
+                    ],
+                  ),
+              ],
+            ),
           ),
-        ),
-
-        // Photo chevrons — pass through taps when hidden
-        _ChevronOverlay(
-          onSkipForward: () {
-            onChevronTap?.call();
-            onSkipPhoto?.call();
-          },
-          onSkipBack: () {
-            onChevronTap?.call();
-            onSkipPhotoBack?.call();
-          },
-        ),
-      ],
+  
+          // Photo chevrons — pass through taps when hidden
+          _ChevronOverlay(
+            onSkipForward: () {
+              onChevronTap?.call();
+              onSkipPhoto?.call();
+            },
+            onSkipBack: () {
+              onChevronTap?.call();
+              onSkipPhotoBack?.call();
+            },
+          ),
+        ],
+      ),
     );
   }
 }
