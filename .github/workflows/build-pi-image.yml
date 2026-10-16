@@ -49,6 +49,13 @@ jobs:
         run: flutter pub get
 
       - name: Cross-compile for Pi 5
+        # flutterpi_tool fetches its engine artifacts through the GitHub API.
+        # Unauthenticated, that shares a 60/hour limit with every job on the
+        # runner's IP and failed the v2.0.1 build; it reads GITHUB_TOKEN from
+        # the environment. Not mirrored to .gitea/: there the token is
+        # Gitea's, which github.com would reject.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           export PATH="$PATH:$HOME/.pub-cache/bin"
           flutterpi_tool build --release --arch=arm64 --cpu=pi4
