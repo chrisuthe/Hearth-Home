@@ -4,6 +4,7 @@ import '../../config/hearth_theme_id.dart';
 import '../../packages/hearth_osk/hearth_osk.dart';
 import '../tokens/calendar_tokens.dart';
 import 'osk_themes.dart';
+import 'palettes/catppuccin.dart';
 
 /// How strongly a screen scrim darkens the photo behind it.
 enum TintStrength { light, medium, heavy }
@@ -183,7 +184,11 @@ class HearthColors extends ThemeExtension<HearthColors> {
         HearthThemeId.classic => classic,
         HearthThemeId.bright => bright,
         HearthThemeId.warm => warm,
-        // Temporary: the new palettes land in later tasks.
+        HearthThemeId.catppuccinLatte => CatppuccinPalettes.latte,
+        HearthThemeId.catppuccinFrappe => CatppuccinPalettes.frappe,
+        HearthThemeId.catppuccinMacchiato => CatppuccinPalettes.macchiato,
+        HearthThemeId.catppuccinMocha => CatppuccinPalettes.mocha,
+        // Temporary: the remaining palettes land in later tasks.
         _ => classic,
       };
 

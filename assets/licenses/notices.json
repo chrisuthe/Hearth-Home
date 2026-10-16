@@ -103,6 +103,21 @@
       "checked": "LICENSE in the submodule at 0e6c67c5"
     },
     {
+      "id": "catppuccin",
+      "name": "Catppuccin color palette",
+      "license": "MIT",
+      "licenseFile": "catppuccin-mit.txt",
+      "attribution": [
+        "Copyright (c) 2021 Catppuccin.",
+        "The Latte, Frappé, Macchiato and Mocha theme palettes."
+      ],
+      "platforms": ["android", "pi", "linux", "windows"],
+      "source": "https://github.com/catppuccin/palette",
+      "covers": ["lib/app/theme/palettes/catppuccin.dart"],
+      "status": "verified",
+      "checked": "LICENSE and palette.json in the repository, 2026-10-16"
+    },
+    {
       "id": "ktor",
       "name": "Ktor",
       "license": "Apache-2.0",

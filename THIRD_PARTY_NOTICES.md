@@ -15,6 +15,7 @@ Full licence texts are in `assets/licenses/`. **Verified** means we read the lic
 | [microWakeWord models: okay_nabu, hey_jarvis, stop](#microwakeword-models) | Apache-2.0 | android | verified |
 | [Home Assistant Voice Preview Edition sounds](#voice-pe-sounds) | CC-BY-4.0 | android | verified |
 | [SendspinDroid (Android Sendspin player)](#sendspindroid) | MIT | android | verified |
+| [Catppuccin color palette](#catppuccin) | MIT | android, pi, linux, windows | verified |
 | [Ktor](#ktor) | Apache-2.0 | android | verified |
 | [OkHttp and Okio](#okhttp) | Apache-2.0 | android | verified |
 | [Public Suffix List](#public-suffix-list) | MPL-2.0 | android | verified |
@@ -118,6 +119,18 @@ Hearth builds SendspinDroid's :shared and :player modules, the protocol client a
 - Source: <https://github.com/chrisuthe/SendspinDroid>
 - Platforms: android
 - Status: **verified**. LICENSE in the submodule at 0e6c67c5.
+
+<a id="catppuccin"></a>
+## Catppuccin color palette
+
+Copyright (c) 2021 Catppuccin.
+
+The Latte, Frappé, Macchiato and Mocha theme palettes.
+
+- Licence: MIT (`assets/licenses/catppuccin-mit.txt`)
+- Source: <https://github.com/catppuccin/palette>
+- Platforms: android, pi, linux, windows
+- Status: **verified**. LICENSE and palette.json in the repository, 2026-10-16.
 
 <a id="ktor"></a>
 ## Ktor
