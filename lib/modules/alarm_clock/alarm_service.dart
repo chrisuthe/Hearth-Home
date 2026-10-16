@@ -15,6 +15,16 @@ import 'package:path_provider/path_provider.dart';
 /// persisted to `alarms.json` in the app support directory. A 30-second
 /// periodic ticker checks whether any enabled alarm should fire.
 class AlarmService extends ChangeNotifier {
+  /// Where `alarms.json` lives. Defaults to the app support directory;
+  /// injectable so tests can point it at a temp directory.
+  final Future<String> Function() _directory;
+
+  AlarmService({Future<String> Function()? directory})
+      : _directory = directory ?? _supportDirectory;
+
+  static Future<String> _supportDirectory() async =>
+      (await getApplicationSupportDirectory()).path;
+
   List<Alarm> _alarms = [];
   Alarm? _firedAlarm;
   DateTime? _snoozedUntil;
@@ -59,8 +69,7 @@ class AlarmService extends ChangeNotifier {
   Future<void> load() async {
     if (kIsWeb) return;
     try {
-      final dir = await getApplicationSupportDirectory();
-      final file = File('${dir.path}/alarms.json');
+      final file = File('${await _directory()}/alarms.json');
       if (await file.exists()) {
         final raw = await file.readAsString();
         final list = jsonDecode(raw) as List<dynamic>;
@@ -79,8 +88,7 @@ class AlarmService extends ChangeNotifier {
   Future<void> _save() async {
     if (kIsWeb) return;
     try {
-      final dir = await getApplicationSupportDirectory();
-      final file = File('${dir.path}/alarms.json');
+      final file = File('${await _directory()}/alarms.json');
       await file.writeAsString(jsonEncode(_alarms.map((a) => a.toJson()).toList()));
     } catch (e) {
       Log.e('AlarmService', 'Failed to save alarms.json: $e');
@@ -105,6 +113,19 @@ class AlarmService extends ChangeNotifier {
       _save();
       notifyListeners();
     }
+  }
+
+  /// Replaces every alarm, as a restore does, and waits for the save.
+  Future<void> replaceAll(List<Alarm> alarms) async {
+    _alarms = [...alarms];
+    _alreadyFired.clear();
+    await _save();
+    if (_alarms.isEmpty) {
+      _stopTicking();
+    } else {
+      _ensureTicking();
+    }
+    notifyListeners();
   }
 
   void deleteAlarm(String id) {

@@ -86,24 +86,29 @@ class UpdateInfo {
   /// Returns true when [other] is empty.
   bool isNewerThan(String other) {
     if (other.isEmpty) return true;
-
-    final thisParts = _parseSemver(version);
-    final otherParts = _parseSemver(other);
-
-    for (var i = 0; i < 3; i++) {
-      if (thisParts[i] > otherParts[i]) return true;
-      if (thisParts[i] < otherParts[i]) return false;
-    }
-    return false; // equal
+    return semverIsNewer(version, other);
   }
+}
 
-  static List<int> _parseSemver(String v) {
-    final parts = v.split('.');
-    return List.generate(3, (i) {
-      if (i >= parts.length) return 0;
-      return int.tryParse(parts[i]) ?? 0;
-    });
+/// True if [version] is newer than [other], comparing major.minor.patch.
+/// A missing or non-numeric part counts as 0.
+bool semverIsNewer(String version, String other) {
+  final thisParts = _parseSemver(version);
+  final otherParts = _parseSemver(other);
+
+  for (var i = 0; i < 3; i++) {
+    if (thisParts[i] > otherParts[i]) return true;
+    if (thisParts[i] < otherParts[i]) return false;
   }
+  return false; // equal
+}
+
+List<int> _parseSemver(String v) {
+  final parts = v.split('.');
+  return List.generate(3, (i) {
+    if (i >= parts.length) return 0;
+    return int.tryParse(parts[i]) ?? 0;
+  });
 }
 
 /// Checks GitHub or Gitea Releases for the latest Hearth update.
