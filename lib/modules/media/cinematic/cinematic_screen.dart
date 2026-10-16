@@ -5,6 +5,7 @@ import '../../../app/media_tokens.dart';
 import '../../../app/theme/hearth_colors.dart';
 import '../../../app/tokens/tokens.dart';
 import '../../../config/hub_config.dart';
+import '../../../models/music_state.dart';
 import '../../../services/music_assistant_service.dart';
 import '../../../widgets/themed_background.dart';
 import 'browse_overlay.dart';
@@ -92,14 +93,17 @@ class _CinematicScreenState extends ConsumerState<CinematicScreen>
     setState(() => _browseOpen = !_browseOpen);
   }
 
-  /// With no artwork the backdrop is just its black base under a vignette
-  /// that is invisible on black, so the idle state sits on the theme's
-  /// screen background instead.
-  Widget _backdrop(String? imageUrl) {
-    if (imageUrl == null) {
+  /// With no current track the backdrop is just its black base under a
+  /// vignette that is invisible on black, so the idle state sits on the
+  /// theme's screen background instead. Any track, with art or without,
+  /// keeps the cinematic backdrop.
+  Widget _backdrop(MusicPlayerState? player) {
+    if (player?.currentTrack == null) {
       return const ThemedBackground.screen(child: SizedBox.expand());
     }
-    return RepaintBoundary(child: CinematicBackdrop(imageUrl: imageUrl));
+    return RepaintBoundary(
+      child: CinematicBackdrop(imageUrl: player!.currentTrack!.imageUrl),
+    );
   }
 
   @override
@@ -124,7 +128,7 @@ class _CinematicScreenState extends ConsumerState<CinematicScreen>
       return Stack(
         fit: StackFit.expand,
         children: [
-          _backdrop(state?.currentTrack?.imageUrl),
+          _backdrop(state),
           Positioned(
             top: 18,
             left: 18,
@@ -166,7 +170,7 @@ class _CinematicScreenState extends ConsumerState<CinematicScreen>
     return Stack(
       fit: StackFit.expand,
       children: [
-        _backdrop(state?.currentTrack?.imageUrl),
+        _backdrop(state),
         Positioned(
           top: 0,
           left: 0,
