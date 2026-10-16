@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../app/theme/hearth_colors.dart';
 import '../../config/hub_config.dart';
 import '../../config/webview_config.dart';
 
@@ -54,6 +55,7 @@ class CustomUrlList extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.hearthColors;
     final config = ref.watch(hubConfigProvider);
     final customs = config.webviews
         .where((w) => w.source == WebviewSource.customUrl)
@@ -63,47 +65,47 @@ class CustomUrlList extends ConsumerWidget {
       children: [
         Row(
           children: [
-            const Icon(Icons.link, color: Colors.white70, size: 18),
+            Icon(Icons.link, color: c.textSecondary, size: 18),
             const SizedBox(width: 8),
-            const Expanded(
+            Expanded(
               child: Text('Custom URLs',
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                      color: Colors.white, fontWeight: FontWeight.w600)),
+                      color: c.text, fontWeight: FontWeight.w600)),
             ),
             TextButton.icon(
-              icon: const Icon(Icons.add, color: Color(0xFF646CFF)),
-              label: const Text('Add', style: TextStyle(color: Color(0xFF646CFF))),
+              icon: Icon(Icons.add, color: c.accentText),
+              label: Text('Add', style: TextStyle(color: c.accentText)),
               onPressed: () => _showEditor(context, ref),
             ),
           ],
         ),
         if (customs.isEmpty)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
             child: Text('No custom URLs yet.',
-                style: TextStyle(color: Colors.white54, fontStyle: FontStyle.italic)),
+                style: TextStyle(color: c.textMuted, fontStyle: FontStyle.italic)),
           )
         else
           Column(
-            children: customs.map((c) {
+            children: customs.map((w) {
               return ListTile(
                 contentPadding: EdgeInsets.zero,
-                leading: Icon(c.icon, color: Colors.white70),
-                title: Text(c.name, style: const TextStyle(color: Colors.white)),
-                subtitle: Text(c.url,
-                    style: const TextStyle(color: Colors.white54, fontSize: 12),
+                leading: Icon(w.icon, color: c.textSecondary),
+                title: Text(w.name, style: TextStyle(color: c.text)),
+                subtitle: Text(w.url,
+                    style: TextStyle(color: c.textMuted, fontSize: 12),
                     maxLines: 1, overflow: TextOverflow.ellipsis),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     IconButton(
-                      icon: const Icon(Icons.edit, color: Colors.white54),
-                      onPressed: () => _showEditor(context, ref, existing: c),
+                      icon: Icon(Icons.edit, color: c.textMuted),
+                      onPressed: () => _showEditor(context, ref, existing: w),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-                      onPressed: () => _remove(ref, c),
+                      icon: Icon(Icons.delete_outline, color: c.danger),
+                      onPressed: () => _remove(ref, w),
                     ),
                   ],
                 ),
@@ -165,11 +167,12 @@ class _UrlEditorDialogState extends State<_UrlEditorDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.hearthColors;
     final isEdit = widget.existing != null;
     return AlertDialog(
-      backgroundColor: const Color(0xFF1A1A1A),
+      backgroundColor: c.menu,
       title: Text(isEdit ? 'Edit webview' : 'Add webview',
-          style: const TextStyle(color: Colors.white)),
+          style: TextStyle(color: c.text)),
       content: SizedBox(
         width: 400,
         child: Column(
@@ -177,29 +180,29 @@ class _UrlEditorDialogState extends State<_UrlEditorDialog> {
           children: [
             TextField(
               controller: _nameCtrl,
-              style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(
+              style: TextStyle(color: c.text),
+              decoration: InputDecoration(
                 labelText: 'Name',
-                labelStyle: TextStyle(color: Colors.white54),
+                labelStyle: TextStyle(color: c.textMuted),
               ),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: _urlCtrl,
-              style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(
+              style: TextStyle(color: c.text),
+              decoration: InputDecoration(
                 labelText: 'URL',
                 hintText: 'https://…',
-                labelStyle: TextStyle(color: Colors.white54),
-                hintStyle: TextStyle(color: Colors.white24),
+                labelStyle: TextStyle(color: c.textMuted),
+                hintStyle: TextStyle(color: c.textMuted),
               ),
               keyboardType: TextInputType.url,
               autocorrect: false,
             ),
             const SizedBox(height: 16),
-            const Align(
+            Align(
               alignment: Alignment.centerLeft,
-              child: Text('Icon', style: TextStyle(color: Colors.white54)),
+              child: Text('Icon', style: TextStyle(color: c.textMuted)),
             ),
             const SizedBox(height: 4),
             Wrap(
@@ -212,11 +215,11 @@ class _UrlEditorDialogState extends State<_UrlEditorDialog> {
                   child: Container(
                     width: 40, height: 40,
                     decoration: BoxDecoration(
-                      color: selected ? const Color(0xFF646CFF).withValues(alpha: 0.3) : Colors.white12,
+                      color: selected ? c.accent.withValues(alpha: 0.3) : c.inkAt(0.12),
                       borderRadius: BorderRadius.circular(8),
-                      border: selected ? Border.all(color: const Color(0xFF646CFF)) : null,
+                      border: selected ? Border.all(color: c.accent) : null,
                     ),
-                    child: Icon(i, color: Colors.white),
+                    child: Icon(i, color: c.text),
                   ),
                 );
               }).toList(),
@@ -227,10 +230,11 @@ class _UrlEditorDialogState extends State<_UrlEditorDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+          child: Text('Cancel', style: TextStyle(color: c.textMuted)),
         ),
         ElevatedButton(
-          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF646CFF)),
+          style: ElevatedButton.styleFrom(
+              backgroundColor: c.accentFill, foregroundColor: c.onAccent),
           onPressed: () {
             final url = _urlCtrl.text.trim();
             final name = _nameCtrl.text.trim();

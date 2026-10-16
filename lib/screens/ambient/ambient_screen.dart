@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../config/hub_config.dart';
 import '../../models/photo_memory.dart';
 import '../../services/immich_service.dart';
+import '../../services/photo_providers.dart';
 import '../../utils/logger.dart';
 import 'photo_carousel.dart';
 
@@ -96,7 +97,9 @@ class AmbientScreenState extends ConsumerState<AmbientScreen> {
           ? Future.value(cachedPath)
           : immich.cachePhoto(memory);
       final focalFuture = immich.resolveFocalPoint(memory.assetId);
-      _photoController.add((path: await pathFuture, focal: await focalFuture));
+      final frame = (path: await pathFuture, focal: await focalFuture);
+      _photoController.add(frame);
+      ref.read(currentPhotoProvider.notifier).state = frame;
     } catch (e) {
       Log.w('Immich', 'Photo load failed: $e');
     }

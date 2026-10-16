@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../app/theme/hearth_colors.dart';
 import '../app/tokens/tokens.dart';
 import '../config/hub_config.dart';
 import '../modules/hearth_module.dart';
@@ -25,8 +26,9 @@ class ModulePlacementTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final placements =
         List<String>.from(config.modulePlacements[module.id] ?? const []);
+    final colors = context.hearthColors;
     return ListTile(
-      leading: Icon(module.icon, color: Colors.white54),
+      leading: Icon(module.icon, color: colors.textMuted),
       title: Text(module.name),
       subtitle: Wrap(
         spacing: 6,
@@ -60,12 +62,12 @@ class ModulePlacementTile extends ConsumerWidget {
                       (c) => c.copyWith(modulePlacements: updated),
                     );
               },
-              selectedColor: const Color(0xFF646CFF),
-              backgroundColor: const Color(0xFF1E1E1E),
+              selectedColor: colors.accentFill,
+              backgroundColor: colors.raised,
               labelStyle: TextStyle(
                 color: placements.contains(placement)
-                    ? Colors.white
-                    : Colors.white70,
+                    ? colors.text
+                    : colors.textSecondary,
                 fontSize: HearthFont.caption,
               ),
               side: BorderSide.none,

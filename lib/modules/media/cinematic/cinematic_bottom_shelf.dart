@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/media_tokens.dart';
+import '../../../app/theme/hearth_colors.dart';
 import '../../../app/tokens/tokens.dart';
 import '../../../models/music_state.dart';
 import '../../../widgets/glass_panel.dart';
@@ -48,6 +49,7 @@ class CinematicBottomShelf extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.hearthColors;
     final radius = BorderRadius.only(
       topLeft: const Radius.circular(MediaRadii.shelf),
       topRight: const Radius.circular(MediaRadii.shelf),
@@ -56,10 +58,12 @@ class CinematicBottomShelf extends StatelessWidget {
     );
     return DecoratedBox(
       decoration: BoxDecoration(
-        boxShadow: MediaShadows.shelf,
+        boxShadow: MediaShadows.shelf, // theme-exempt: media player
         borderRadius: radius,
       ),
       child: GlassPanel(
+        fill: c.glassFill,
+        borderColor: c.glassBorder,
         borderRadius: radius,
         child: SizedBox(
           height: metrics.shelfHeight,
@@ -132,13 +136,13 @@ class _DrawerHandle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const SizedBox(
+    return SizedBox(
       width: HearthSpacing.x8,
       height: HearthSpacing.x1,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: Color.fromRGBO(255, 255, 255, 0.25),
-          borderRadius: BorderRadius.all(Radius.circular(2)),
+          color: context.hearthColors.inkAt(0.25),
+          borderRadius: const BorderRadius.all(Radius.circular(2)),
         ),
       ),
     );
@@ -170,7 +174,7 @@ class _DrawerBody extends StatelessWidget {
         const SizedBox(width: HearthSpacing.x6),
         Container(
           width: 1,
-          color: MediaColors.glassBorder,
+          color: context.hearthColors.glassBorder,
         ),
         const SizedBox(width: HearthSpacing.x6),
         Expanded(

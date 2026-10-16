@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/theme/hearth_colors.dart';
 import '../../config/hub_config.dart';
 import '../../services/mqtt_service.dart';
 import '../framework/fields/password_setting_field.dart';
@@ -102,6 +103,7 @@ class _MqttPanel extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.hearthColors;
     final config = ref.watch(hubConfigProvider);
     final status = ref.watch(mqttServiceProvider).status;
 
@@ -143,11 +145,11 @@ class _MqttPanel extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Device ID',
-                  style: TextStyle(color: Colors.white70, fontSize: 13)),
+              Text('Device ID',
+                  style: TextStyle(color: c.textSecondary, fontSize: 13)),
               const SizedBox(height: 4),
               SelectableText(_deviceIdLabel(config),
-                  style: const TextStyle(color: Colors.white)),
+                  style: TextStyle(color: c.text)),
             ],
           ),
         ),
@@ -163,12 +165,13 @@ class _StatusRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.hearthColors;
     final (color, label) = switch (status) {
-      MqttStatus.connected => (Colors.green, 'Connected'),
-      MqttStatus.connecting => (Colors.amber, 'Connecting…'),
+      MqttStatus.connected => (c.success, 'Connected'),
+      MqttStatus.connecting => (c.warning, 'Connecting…'),
       MqttStatus.disconnected => configured
-          ? (Colors.redAccent, 'Disconnected')
-          : (Colors.white38, 'Not configured'),
+          ? (c.danger, 'Disconnected')
+          : (c.textMuted, 'Not configured'),
     };
     return Row(
       children: [
@@ -178,7 +181,7 @@ class _StatusRow extends StatelessWidget {
           decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
         const SizedBox(width: 8),
-        Text(label, style: const TextStyle(color: Colors.white70, fontSize: 13)),
+        Text(label, style: TextStyle(color: c.textSecondary, fontSize: 13)),
       ],
     );
   }

@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../app/theme/hearth_colors.dart';
 import '../services/people.dart';
 
-const kPresenceHome = Color(0xFF66BB6A);
-const kPresenceAway = Color(0xFF9E9E9E);
-const kPresenceZone = Color(0xFFFFB74D);
+const kPresenceHome = Color(0xFF66BB6A); // theme-exempt: data color
+const kPresenceAway = Color(0xFF9E9E9E); // theme-exempt: data color
+const kPresenceZone = Color(0xFFFFB74D); // theme-exempt: data color
 
 /// A person's `entity_picture`, or their initial on their colour, with a
 /// presence dot when HA knows where they are.
@@ -51,7 +52,7 @@ class PersonAvatar extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: presenceColor(presence),
                     shape: BoxShape.circle,
-                    border: Border.all(color: Colors.black, width: 1.5),
+                    border: Border.all(color: context.hearthColors.canvas, width: 1.5),
                   ),
                 ),
               ),
@@ -82,7 +83,7 @@ class _Initial extends StatelessWidget {
         child: Text(
           view.initial,
           style: TextStyle(
-            color: Colors.white,
+            color: Colors.white, // theme-exempt: data color
             fontSize: size * 0.5,
             fontWeight: FontWeight.w600,
             height: 1,

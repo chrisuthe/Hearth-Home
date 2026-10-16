@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/media_tokens.dart';
+import '../../../app/theme/hearth_colors.dart';
 import '../../../app/tokens/tokens.dart';
 import '../../../models/music_state.dart';
 import '../../../services/music_assistant_service.dart';
@@ -65,10 +66,9 @@ class _TabPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.hearthColors;
     return Material(
-      color: active
-          ? const Color.fromRGBO(255, 255, 255, 0.18)
-          : const Color.fromRGBO(255, 255, 255, 0.04),
+      color: active ? c.inkAt(0.18) : c.inkAt(0.04),
       borderRadius: BorderRadius.circular(MediaRadii.pill),
       child: InkWell(
         borderRadius: BorderRadius.circular(MediaRadii.pill),
@@ -81,9 +81,7 @@ class _TabPill extends StatelessWidget {
               fontSize: HearthFont.caption,
               fontWeight: FontWeight.w600,
               letterSpacing: 0.4,
-              color: active
-                  ? Colors.white
-                  : const Color.fromRGBO(255, 255, 255, MediaTextOpacity.eyebrow),
+              color: active ? c.text : c.textMuted,
             ),
           ),
         ),
@@ -107,23 +105,24 @@ class _MixerPane extends ConsumerWidget {
     final players = allPlayers.values
         .where((p) => p.activeZoneId != null && p.available)
         .toList();
+    final c = context.hearthColors;
     if (players.isEmpty) {
-      return const Center(
+      return Center(
         child: Text(
           'No players',
           style: TextStyle(
             fontSize: HearthFont.caption,
-            color: Color.fromRGBO(255, 255, 255, MediaTextOpacity.section),
+            color: c.textMuted,
           ),
         ),
       );
     }
     return ListView.separated(
       itemCount: players.length,
-      separatorBuilder: (_, _) => const Divider(
+      separatorBuilder: (_, _) => Divider(
         height: 1,
         thickness: 1,
-        color: Color.fromRGBO(255, 255, 255, 0.05),
+        color: c.inkAt(0.05),
       ),
       itemBuilder: (_, i) {
         final p = players[i];
@@ -150,6 +149,7 @@ class _MixerRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.hearthColors;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: HearthSpacing.x2),
       child: Row(
@@ -160,7 +160,7 @@ class _MixerRow extends StatelessWidget {
             decoration: BoxDecoration(
               color: player.isPlaying
                   ? MediaColors.sendspinGreen
-                  : const Color.fromRGBO(255, 255, 255, 0.25),
+                  : c.inkAt(0.25),
               shape: BoxShape.circle,
             ),
           ),
@@ -173,10 +173,10 @@ class _MixerRow extends StatelessWidget {
                     player.activeZoneName ?? player.activeZoneId ?? '?',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: HearthFont.caption,
                       fontWeight: FontWeight.w600,
-                      color: Colors.white,
+                      color: c.text,
                     ),
                   ),
                 ),
@@ -195,7 +195,7 @@ class _MixerRow extends StatelessWidget {
               textAlign: TextAlign.right,
               style: MediaTextStyles.tabular(
                 HearthFont.caption,
-                color: const Color.fromRGBO(255, 255, 255, MediaTextOpacity.tertiary),
+                color: c.textSecondary,
               ),
             ),
           ),
@@ -217,7 +217,7 @@ class _MixerRow extends StatelessWidget {
               child: Icon(
                 player.isPlaying ? Icons.pause : Icons.play_arrow,
                 size: HearthIcon.xs,
-                color: Colors.white,
+                color: c.text,
               ),
             ),
           ),
@@ -244,7 +244,7 @@ class _SendspinBadge extends StatelessWidget {
           fontSize: 8,
           fontWeight: FontWeight.w700,
           letterSpacing: 0.5,
-          color: Colors.black,
+          color: Colors.black, // theme-exempt: media player
         ),
       ),
     );
@@ -259,6 +259,7 @@ class _ThinVolumeBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.hearthColors;
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth;
@@ -276,7 +277,7 @@ class _ThinVolumeBar extends StatelessWidget {
                 Container(
                   height: 3,
                   decoration: BoxDecoration(
-                    color: const Color.fromRGBO(255, 255, 255, 0.12),
+                    color: c.inkAt(0.12),
                     borderRadius: BorderRadius.circular(MediaRadii.progress),
                   ),
                 ),
@@ -284,7 +285,7 @@ class _ThinVolumeBar extends StatelessWidget {
                   height: 3,
                   width: width * value.clamp(0.0, 1.0),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: c.ink,
                     borderRadius: BorderRadius.circular(MediaRadii.progress),
                   ),
                 ),
@@ -305,7 +306,8 @@ class _LyricsPlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
+    final c = context.hearthColors;
+    return Center(
       child: Padding(
         padding: HearthSpacing.allX5,
         child: Column(
@@ -314,15 +316,15 @@ class _LyricsPlaceholder extends StatelessWidget {
             Icon(
               Icons.lyrics_outlined,
               size: HearthSpacing.x10,
-              color: Color.fromRGBO(255, 255, 255, MediaTextOpacity.section),
+              color: c.textMuted,
             ),
-            SizedBox(height: HearthSpacing.x3),
+            const SizedBox(height: HearthSpacing.x3),
             Text(
               'Lyrics not yet wired',
               style: TextStyle(
                 fontSize: HearthFont.label,
                 fontWeight: FontWeight.w500,
-                color: Color.fromRGBO(255, 255, 255, MediaTextOpacity.tertiary),
+                color: c.textSecondary,
               ),
             ),
           ],

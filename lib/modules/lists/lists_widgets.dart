@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../../app/theme/hearth_colors.dart';
 import '../../app/tokens/tokens.dart';
 import '../../models/ha_entity.dart';
 import '../../utils/time_format.dart';
 import 'models.dart';
-
-const kListsAccent = Color(0xFF646CFF);
 
 /// The configured name, else the entity's friendly_name.
 String todoListName(TodoListConfig list, HaEntity? entity) =>
@@ -76,13 +75,14 @@ class TodoItemRow extends StatelessWidget {
     final done = item.status == TodoStatus.completed;
     final due = item.due;
     final description = item.description?.split('\n').first.trim() ?? '';
-    final muted = Colors.white.withValues(alpha: 0.5);
+    final c = context.hearthColors;
+    final muted = c.textMuted;
     final dueColor = due == null || done
         ? muted
         : todoOverdue(due, now)
-            ? Colors.redAccent
+            ? c.danger
             : todoDueToday(due, now)
-                ? kListsAccent
+                ? c.accentText
                 : muted;
 
     return InkWell(
@@ -97,7 +97,7 @@ class TodoItemRow extends StatelessWidget {
             if (showCheckbox)
               Checkbox(
                 value: done,
-                activeColor: kListsAccent,
+                activeColor: c.accentFill,
                 onChanged: onToggle == null ? null : (_) => onToggle!(),
               )
             else
@@ -116,7 +116,7 @@ class TodoItemRow extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: HearthFont.bodyLg,
-                        color: done ? muted : Colors.white,
+                        color: done ? muted : c.text,
                         decoration: done ? TextDecoration.lineThrough : null,
                       ),
                     ),
@@ -144,13 +144,13 @@ class TodoItemRow extends StatelessWidget {
             if (late)
               // Lines up with the chore column's count; chore rows have no
               // drag handle to sit against.
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: HearthSpacing.x2),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: HearthSpacing.x2),
                 child: Text(
                   'late',
                   style: TextStyle(
                     fontSize: HearthFont.label,
-                    color: Colors.redAccent,
+                    color: c.danger,
                   ),
                 ),
               ),
@@ -162,7 +162,7 @@ class TodoItemRow extends StatelessWidget {
                   height: HearthIcon.xs,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    color: Colors.white.withValues(alpha: 0.4),
+                    color: c.inkAt(0.4), // theme-exempt: decoration
                   ),
                 ),
               ),

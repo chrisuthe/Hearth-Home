@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/theme/hearth_colors.dart';
 import '../../app/tokens/tokens.dart';
 import '../../config/person.dart';
 import '../../services/people.dart';
@@ -110,7 +111,8 @@ class _ChoresViewState extends State<ChoresView> {
           padding: const EdgeInsets.only(bottom: HearthSpacing.x8),
           children: [
             for (var start = 0; start < columns.length; start += across) ...[
-              if (start > 0) const Divider(height: 1, color: Colors.white12),
+              if (start > 0)
+                Divider(height: 1, color: context.hearthColors.inkAt(0.12)),
               IntrinsicHeight(
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -121,7 +123,7 @@ class _ChoresViewState extends State<ChoresView> {
                       i++
                     ) ...[
                       if (i > start)
-                        const VerticalDivider(width: 1, color: Colors.white12),
+                        VerticalDivider(width: 1, color: context.hearthColors.inkAt(0.12)),
                       Expanded(child: _column(columns[i])),
                     ],
                   ],
@@ -135,7 +137,8 @@ class _ChoresViewState extends State<ChoresView> {
   }
 
   Widget _column(ChoreColumn column) {
-    final muted = Colors.white.withValues(alpha: 0.5);
+    final hc = context.hearthColors;
+    final muted = hc.textMuted;
     final id = column.person.id;
     final open = _expanded.contains(id);
     return Column(
@@ -157,10 +160,10 @@ class _ChoresViewState extends State<ChoresView> {
                   column.person.name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: HearthFont.bodyLg,
                     fontWeight: FontWeight.w600,
-                    color: Colors.white,
+                    color: hc.text,
                   ),
                 ),
               ),
@@ -196,14 +199,14 @@ class _ChoresViewState extends State<ChoresView> {
                 children: [
                   Icon(
                     open ? Icons.expand_more : Icons.chevron_right,
-                    color: Colors.white54,
+                    color: hc.textMuted,
                   ),
                   const SizedBox(width: HearthSpacing.x2),
                   Text(
                     'Upcoming (${column.upcoming.length})',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: HearthFont.body,
-                      color: Colors.white70,
+                      color: hc.textSecondary,
                     ),
                   ),
                 ],

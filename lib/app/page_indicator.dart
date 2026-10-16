@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'theme/hearth_colors.dart';
 
 /// A row of small dots indicating the current page in a PageView.
 ///
@@ -86,8 +87,8 @@ class _PageIndicatorState extends State<PageIndicator>
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: isActive
-                      ? const Color(0xFF646CFF)
-                      : Colors.white.withValues(alpha: 0.3),
+                      ? context.hearthColors.accent
+                      : context.hearthColors.inkAt(0.3),
                 ),
               ),
             );

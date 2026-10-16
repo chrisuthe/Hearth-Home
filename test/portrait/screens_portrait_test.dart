@@ -208,8 +208,16 @@ void main() {
           notificationServiceProvider.overrideWith((ref) => notifications),
           timerServiceProvider.overrideWith((ref) => timers),
         ],
-        child: const MaterialApp(home: TimerScreen()),
+        child: MaterialApp(
+          theme: harnessTheme(),
+          home: const Scaffold(),
+        ),
       ));
+      // The app pushes the Timer as an opaque route over the themed shell.
+      tester
+          .state<NavigatorState>(find.byType(Navigator))
+          .push(MaterialPageRoute<void>(builder: (_) => const TimerScreen()));
+      await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
       return timers;
     }

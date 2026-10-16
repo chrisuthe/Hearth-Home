@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/media_tokens.dart';
+import '../../../app/theme/hearth_colors.dart';
 import '../../../app/tokens/tokens.dart';
 import '../../../models/music_state.dart';
 import '../../../widgets/glass_panel.dart';
@@ -26,6 +27,7 @@ class TopChrome extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.hearthColors;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 28, vertical: HearthSpacing.x5),
       child: Row(
@@ -33,17 +35,17 @@ class TopChrome extends StatelessWidget {
         children: [
           _GlassChip(
             onTap: onSearchTap,
-            children: const [
-              Icon(Icons.search, size: HearthIcon.xs, color: Colors.white),
-              SizedBox(width: 6),
-              Text('Search & Browse', style: _chipTextStyle),
+            children: [
+              Icon(Icons.search, size: HearthIcon.xs, color: c.text),
+              const SizedBox(width: 6),
+              Text('Search & Browse', style: _chipTextStyle(context)),
             ],
           ),
           const SizedBox(width: HearthSpacing.x2),
           _GlassChip(
             onTap: onSleepTap,
-            children: const [
-              Icon(Icons.bedtime_outlined, size: HearthIcon.xs, color: Colors.white),
+            children: [
+              Icon(Icons.bedtime_outlined, size: HearthIcon.xs, color: c.text),
             ],
           ),
           const SizedBox(width: HearthSpacing.x2),
@@ -61,11 +63,11 @@ class TopChrome extends StatelessWidget {
   }
 }
 
-const TextStyle _chipTextStyle = TextStyle(
-  fontSize: HearthFont.caption,
-  fontWeight: FontWeight.w600,
-  color: Colors.white,
-);
+TextStyle _chipTextStyle(BuildContext context) => TextStyle(
+      fontSize: HearthFont.caption,
+      fontWeight: FontWeight.w600,
+      color: context.hearthColors.text,
+    );
 
 class _GlassChip extends StatelessWidget {
   final List<Widget> children;
@@ -75,7 +77,10 @@ class _GlassChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.hearthColors;
     return GlassPanel(
+      fill: c.glassFill,
+      borderColor: c.glassBorder,
       borderRadius: BorderRadius.circular(MediaRadii.pill),
       child: InkWell(
         onTap: onTap,
@@ -100,6 +105,7 @@ class _PlayersChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.hearthColors;
     final ap = activePlayer;
     final name = ap?.activeZoneName ?? 'No player';
     final extras = (ap?.isSyncLeader ?? false)
@@ -109,24 +115,24 @@ class _PlayersChip extends StatelessWidget {
     return _GlassChip(
       onTap: onTap,
       children: [
-        const Icon(Icons.speaker_group, size: HearthIcon.xs, color: Colors.white),
+        Icon(Icons.speaker_group, size: HearthIcon.xs, color: c.text),
         const SizedBox(width: 6),
         Flexible(
           child: Text(
             name,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: _chipTextStyle,
+            style: _chipTextStyle(context),
           ),
         ),
         if (extras > 0) ...[
           const SizedBox(width: 6),
           Text(
             '+$extras',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: HearthFont.caption,
               fontWeight: FontWeight.w600,
-              color: Color.fromRGBO(255, 255, 255, MediaTextOpacity.eyebrow),
+              color: c.textMuted,
             ),
           ),
         ],
@@ -136,7 +142,7 @@ class _PlayersChip extends StatelessWidget {
             width: 6,
             height: 6,
             decoration: const BoxDecoration(
-              color: MediaColors.sendspinGreen,
+              color: MediaColors.sendspinGreen, // theme-exempt: media player
               shape: BoxShape.circle,
             ),
           ),

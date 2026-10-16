@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../app/theme/hearth_colors.dart';
 
 /// N-entry list primitive: ADD button at the header, each row has summary
 /// + edit + delete actions. Plugin owns the item type [T] and provides
@@ -118,6 +119,7 @@ class _ListSectionWidgetState<T> extends ConsumerState<_ListSectionWidget<T>> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.hearthColors;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Column(
@@ -127,25 +129,23 @@ class _ListSectionWidgetState<T> extends ConsumerState<_ListSectionWidget<T>> {
             children: [
               Text(
                 widget.section.label,
-                style: const TextStyle(color: Colors.white70, fontSize: 13),
+                style: TextStyle(color: c.textSecondary, fontSize: 13),
               ),
               const Spacer(),
               TextButton.icon(
-                icon: const Icon(Icons.add,
-                    color: Color(0xFF646cff), size: 16),
-                label: const Text('Add',
-                    style: TextStyle(color: Color(0xFF646cff))),
+                icon: Icon(Icons.add, color: c.accentText, size: 16),
+                label: Text('Add', style: TextStyle(color: c.accentText)),
                 onPressed: _addItem,
               ),
             ],
           ),
           if (widget.section.items.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
               child: Text(
                 'No items yet.',
                 style: TextStyle(
-                  color: Colors.white54,
+                  color: c.textMuted,
                   fontStyle: FontStyle.italic,
                 ),
               ),
@@ -160,18 +160,18 @@ class _ListSectionWidgetState<T> extends ConsumerState<_ListSectionWidget<T>> {
                     ?.call(widget.section.items[i]),
                 title: Text(
                   widget.section.summaryFor(widget.section.items[i]),
-                  style: const TextStyle(color: Colors.white),
+                  style: TextStyle(color: c.text),
                 ),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     IconButton(
-                      icon: const Icon(Icons.edit, color: Colors.white54),
+                      icon: Icon(Icons.edit, color: c.textMuted),
                       onPressed: () => _editItem(i),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.delete_outline,
-                          color: Colors.redAccent),
+                      icon: Icon(Icons.delete_outline,
+                          color: c.danger),
                       onPressed: () => _deleteItem(i),
                     ),
                   ],

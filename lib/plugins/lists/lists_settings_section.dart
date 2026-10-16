@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/theme/hearth_colors.dart';
 import '../../config/hub_config.dart';
 import '../../config/person.dart';
 import '../../models/ha_entity.dart';
@@ -14,9 +15,6 @@ import '../framework/fields/bool_setting_field.dart';
 import '../framework/list_section.dart';
 import 'todo_lists.dart';
 
-const _accent = Color(0xFF646CFF);
-const _dialogBackground = Color(0xFF1A1A1A);
-const _labelStyle = TextStyle(color: Colors.white54);
 
 const todoChoreGlanceField = BoolSettingField(
   label: "Show today's chores when idle",
@@ -61,6 +59,7 @@ class _ListStatusLine extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.hearthColors;
     ref.watch(haEntitiesProvider);
     final config = ref.watch(hubConfigProvider);
     final kind = todoListKindLabel(list, config.people);
@@ -80,7 +79,7 @@ class _ListStatusLine extends ConsumerWidget {
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
-            color: status.bad ? Colors.orangeAccent : Colors.white54,
+            color: status.bad ? c.warning : c.textMuted,
             fontSize: 12,
           ),
         ),
@@ -89,7 +88,7 @@ class _ListStatusLine extends ConsumerWidget {
             features,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(color: Colors.white38, fontSize: 12),
+            style: TextStyle(color: c.textMuted, fontSize: 12),
           ),
       ],
     );
@@ -98,6 +97,7 @@ class _ListStatusLine extends ConsumerWidget {
 
 /// Name, person and colour: the fields add and edit share.
 List<Widget> _fields({
+  required HearthColors c,
   required TextEditingController name,
   required List<Person> people,
   required String personId,
@@ -108,20 +108,20 @@ List<Widget> _fields({
   TextField(
     key: const ValueKey('list-name'),
     controller: name,
-    style: const TextStyle(color: Colors.white),
-    decoration: const InputDecoration(
+    style: TextStyle(color: c.text),
+    decoration: InputDecoration(
       labelText: 'Name',
-      labelStyle: _labelStyle,
+      labelStyle: TextStyle(color: c.textMuted),
     ),
   ),
   const SizedBox(height: 16),
-  const Text('Person', style: _labelStyle),
+  Text('Person', style: TextStyle(color: c.textMuted)),
   DropdownButton<String>(
     key: const ValueKey('list-person'),
     value: personById(people, personId) == null ? '' : personId,
     isExpanded: true,
-    dropdownColor: _dialogBackground,
-    style: const TextStyle(color: Colors.white),
+    dropdownColor: c.menu,
+    style: TextStyle(color: c.text),
     items: [
       const DropdownMenuItem(value: '', child: Text('No one (a plain list)')),
       for (final p in people)
@@ -132,12 +132,12 @@ List<Widget> _fields({
     },
   ),
   if (people.isEmpty)
-    const Text(
+    Text(
       'Add people on the People panel to make chore lists.',
-      style: TextStyle(color: Colors.white38, fontSize: 12),
+      style: TextStyle(color: c.textMuted, fontSize: 12),
     ),
   const SizedBox(height: 16),
-  const Text('Colour', style: _labelStyle),
+  Text('Colour', style: TextStyle(color: c.textMuted)),
   const SizedBox(height: 6),
   CalendarColorPicker(selected: color, onChanged: onColor),
 ];
@@ -148,9 +148,11 @@ AlertDialog _dialog(
   required List<Widget> children,
   required String action,
   required VoidCallback? onAction,
-}) => AlertDialog(
-  backgroundColor: _dialogBackground,
-  title: Text(title, style: const TextStyle(color: Colors.white)),
+}) {
+  final c = context.hearthColors;
+  return AlertDialog(
+  backgroundColor: c.menu,
+  title: Text(title, style: TextStyle(color: c.text)),
   content: SizedBox(
     width: 420,
     child: SingleChildScrollView(
@@ -164,15 +166,16 @@ AlertDialog _dialog(
   actions: [
     TextButton(
       onPressed: () => Navigator.of(context).pop(),
-      child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+      child: Text('Cancel', style: TextStyle(color: c.textMuted)),
     ),
     ElevatedButton(
-      style: ElevatedButton.styleFrom(backgroundColor: _accent),
+      style: ElevatedButton.styleFrom(backgroundColor: c.accentFill),
       onPressed: onAction,
       child: Text(action),
     ),
   ],
 );
+}
 
 class _AddListDialog extends ConsumerStatefulWidget {
   const _AddListDialog();
@@ -203,6 +206,7 @@ class _AddListDialogState extends ConsumerState<_AddListDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.hearthColors;
     final people = ref.watch(hubConfigProvider.select((c) => c.people));
     final added = {
       for (final l in ref.read(hubConfigProvider).todoLists) l.entityId,
@@ -235,19 +239,19 @@ class _AddListDialogState extends ConsumerState<_AddListDialog> {
             },
       children: [
         if (entities.isEmpty)
-          const Text(
+          Text(
             'No lists to add. Is Home Assistant connected, and does it have '
             'to-do entities?',
-            style: TextStyle(color: Colors.white70),
+            style: TextStyle(color: c.textSecondary),
           )
         else
           DropdownButton<HaEntity>(
             key: const ValueKey('list-entity'),
             value: entity,
             isExpanded: true,
-            hint: const Text('To-do entity', style: _labelStyle),
-            dropdownColor: _dialogBackground,
-            style: const TextStyle(color: Colors.white),
+            hint: Text('To-do entity', style: TextStyle(color: c.textMuted)),
+            dropdownColor: c.menu,
+            style: TextStyle(color: c.text),
             items: [
               for (final e in entities)
                 DropdownMenuItem(
@@ -265,6 +269,7 @@ class _AddListDialogState extends ConsumerState<_AddListDialog> {
             },
           ),
         ..._fields(
+          c: c,
           name: _name,
           people: people,
           personId: _personId,
@@ -298,6 +303,7 @@ class _EditListDialogState extends ConsumerState<_EditListDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.hearthColors;
     final people = ref.watch(hubConfigProvider.select((c) => c.people));
     return _dialog(
       context,
@@ -317,13 +323,14 @@ class _EditListDialogState extends ConsumerState<_EditListDialog> {
       children: [
         Text(
           widget.list.entityId,
-          style: const TextStyle(color: Colors.white70),
+          style: TextStyle(color: c.textSecondary),
         ),
-        const Text(
+        Text(
           'To change the list itself, delete it and add it again.',
-          style: TextStyle(color: Colors.white38, fontSize: 12),
+          style: TextStyle(color: c.textMuted, fontSize: 12),
         ),
         ..._fields(
+          c: c,
           name: _name,
           people: people,
           personId: _personId,

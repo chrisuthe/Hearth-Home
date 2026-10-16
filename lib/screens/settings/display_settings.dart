@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../app/app.dart' show kDialogBackground;
+import '../../app/theme/hearth_colors.dart';
 import '../../config/hub_config.dart';
 import '../../app/tokens/tokens.dart';
 
@@ -23,7 +23,7 @@ class DisplaySettingsSection extends ConsumerWidget {
     final result = await showDialog<String>(
       context: context,
       builder: (ctx) => SimpleDialog(
-        backgroundColor: kDialogBackground,
+        backgroundColor: context.hearthColors.raised,
         title: const Text('Display Profile'),
         children: _profiles.entries.map((entry) {
           return SimpleDialogOption(
@@ -31,7 +31,9 @@ class DisplaySettingsSection extends ConsumerWidget {
             child: Row(
               children: [
                 if (entry.key == current)
-                  const Icon(Icons.check, size: HearthIcon.xs, color: Colors.amber)
+                  Icon(Icons.check,
+                      size: HearthIcon.xs,
+                      color: context.hearthColors.accentText)
                 else
                   const SizedBox(width: HearthIcon.xs),
                 const SizedBox(width: HearthSpacing.x3),
@@ -51,20 +53,21 @@ class DisplaySettingsSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.hearthColors;
     final config = ref.watch(hubConfigProvider);
     final label = _profiles[config.displayProfile] ?? config.displayProfile;
 
     return ListTile(
-      leading: const Icon(Icons.monitor, color: Colors.white54, size: HearthIcon.md),
+      leading: Icon(Icons.monitor, color: c.textMuted, size: HearthIcon.md),
       title: const Text('Display Profile', style: TextStyle(fontSize: HearthFont.body)),
       subtitle: Text(
         label,
         style: TextStyle(
           fontSize: HearthFont.label,
-          color: Colors.white.withValues(alpha: 0.5),
+          color: c.textMuted,
         ),
       ),
-      trailing: const Icon(Icons.chevron_right, color: Colors.white24),
+      trailing: Icon(Icons.chevron_right, color: c.inkAt(0.24)),
       onTap: () => _showProfilePicker(context, ref, config.displayProfile),
       contentPadding: const EdgeInsets.symmetric(horizontal: HearthSpacing.x2),
     );
@@ -82,6 +85,7 @@ class UiScaleSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.hearthColors;
     final scale = ref.watch(hubConfigProvider).uiScale;
     final percent = (scale * 100).round();
 
@@ -101,7 +105,7 @@ class UiScaleSection extends ConsumerWidget {
                 '$percent%',
                 style: TextStyle(
                   fontSize: HearthFont.label,
-                  color: Colors.white.withValues(alpha: 0.5),
+                  color: c.textMuted,
                 ),
               ),
             ],

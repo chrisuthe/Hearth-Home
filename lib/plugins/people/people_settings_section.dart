@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/theme/hearth_colors.dart';
 import '../../config/hub_config.dart';
 import '../../config/person.dart';
 import '../../models/ha_entity.dart';
@@ -12,9 +13,6 @@ import '../calendar/calendar_sources.dart';
 import '../framework/list_section.dart';
 import 'people_plugin.dart' show personStatusLabel;
 
-const _accent = Color(0xFF646CFF);
-const _dialogBackground = Color(0xFF1A1A1A);
-const _labelStyle = TextStyle(color: Colors.white54);
 
 /// The People plugin's on-device panel.
 class PeopleSettingsSection extends ConsumerWidget {
@@ -22,6 +20,7 @@ class PeopleSettingsSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.hearthColors;
     final people = ref.watch(hubConfigProvider.select((c) => c.people));
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -41,12 +40,12 @@ class PeopleSettingsSection extends ConsumerWidget {
           ),
         ).buildWidget(context, ref),
         const _ImportButton(),
-        const Padding(
-          padding: EdgeInsets.only(top: 4),
+        Padding(
+          padding: const EdgeInsets.only(top: 4),
           child: Text(
             'Calendars and chore lists are assigned to people on the '
             'Calendar and Lists panels.',
-            style: TextStyle(color: Colors.white38, fontSize: 12),
+            style: TextStyle(color: c.textMuted, fontSize: 12),
           ),
         ),
       ],
@@ -73,6 +72,7 @@ class _PersonStatusLine extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.hearthColors;
     final view = ref.watch(personViewProvider(personId));
     if (view == null) return const SizedBox.shrink();
     final config = ref.watch(hubConfigProvider);
@@ -81,7 +81,7 @@ class _PersonStatusLine extends ConsumerWidget {
           ref.watch(homeAssistantServiceProvider)),
       maxLines: 2,
       overflow: TextOverflow.ellipsis,
-      style: const TextStyle(color: Colors.white54, fontSize: 12),
+      style: TextStyle(color: c.textMuted, fontSize: 12),
     );
   }
 }
@@ -126,26 +126,29 @@ class _ImportButtonState extends ConsumerState<_ImportButton> {
 
   @override
   // A Wrap, so the result drops under the button on a narrow panel.
-  Widget build(BuildContext context) => Wrap(
+  Widget build(BuildContext context) {
+    final c = context.hearthColors;
+    return Wrap(
         crossAxisAlignment: WrapCrossAlignment.center,
         spacing: 8,
         children: [
           TextButton.icon(
             key: const ValueKey('people-import'),
-            icon: const Icon(Icons.download, color: _accent, size: 16),
-            label: const Text('Import from Home Assistant',
+            icon: Icon(Icons.download, color: c.accentText, size: 16),
+            label: Text('Import from Home Assistant',
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(color: _accent)),
+                style: TextStyle(color: c.accentText)),
             onPressed: _busy ? null : _import,
           ),
           if (_result != null)
             Text(
               _result!,
-              style: const TextStyle(color: Colors.white54, fontSize: 12),
+              style: TextStyle(color: c.textMuted, fontSize: 12),
             ),
         ],
       );
+  }
 }
 
 /// Add (when [person] is null) or edit one person.
@@ -205,6 +208,7 @@ class _PersonDialogState extends ConsumerState<_PersonDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.hearthColors;
     final editing = widget.person;
     final linkedElsewhere = {
       for (final p in ref.read(hubConfigProvider).people)
@@ -216,9 +220,9 @@ class _PersonDialogState extends ConsumerState<_PersonDialog> {
     final known = entities.any((e) => e.entityId == _entityId);
     final name = _name.text.trim();
     return AlertDialog(
-      backgroundColor: _dialogBackground,
+      backgroundColor: c.menu,
       title: Text(editing == null ? 'Add person' : 'Edit person',
-          style: const TextStyle(color: Colors.white)),
+          style: TextStyle(color: c.text)),
       content: SizedBox(
         width: 420,
         child: SingleChildScrollView(
@@ -229,18 +233,18 @@ class _PersonDialogState extends ConsumerState<_PersonDialog> {
               TextField(
                 key: const ValueKey('person-name'),
                 controller: _name,
-                style: const TextStyle(color: Colors.white),
-                decoration: const InputDecoration(
-                    labelText: 'Name', labelStyle: _labelStyle),
+                style: TextStyle(color: c.text),
+                decoration: InputDecoration(
+                    labelText: 'Name', labelStyle: TextStyle(color: c.textMuted)),
               ),
               const SizedBox(height: 16),
-              const Text('Home Assistant person', style: _labelStyle),
+              Text('Home Assistant person', style: TextStyle(color: c.textMuted)),
               DropdownButton<String>(
                 key: const ValueKey('person-entity'),
                 value: _entityId,
                 isExpanded: true,
-                dropdownColor: _dialogBackground,
-                style: const TextStyle(color: Colors.white),
+                dropdownColor: c.menu,
+                style: TextStyle(color: c.text),
                 items: [
                   const DropdownMenuItem(value: '', child: Text('Not linked')),
                   for (final e in entities)
@@ -257,12 +261,12 @@ class _PersonDialogState extends ConsumerState<_PersonDialog> {
                 },
               ),
               if (entities.isEmpty)
-                const Text(
+                Text(
                   'No people in Home Assistant to link. Is it connected?',
-                  style: TextStyle(color: Colors.white38, fontSize: 12),
+                  style: TextStyle(color: c.textMuted, fontSize: 12),
                 ),
               const SizedBox(height: 16),
-              const Text('Colour', style: _labelStyle),
+              Text('Colour', style: TextStyle(color: c.textMuted)),
               const SizedBox(height: 6),
               CalendarColorPicker(
                   selected: _color,
@@ -274,10 +278,10 @@ class _PersonDialogState extends ConsumerState<_PersonDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+          child: Text('Cancel', style: TextStyle(color: c.textMuted)),
         ),
         ElevatedButton(
-          style: ElevatedButton.styleFrom(backgroundColor: _accent),
+          style: ElevatedButton.styleFrom(backgroundColor: c.accentFill),
           onPressed: name.isEmpty ? null : _save,
           child: Text(editing == null ? 'Add' : 'Save'),
         ),

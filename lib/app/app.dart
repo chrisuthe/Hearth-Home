@@ -8,6 +8,9 @@ import '../services/osk_integration.dart';
 import '../widgets/touch_indicator_overlay.dart';
 import 'hub_shell.dart';
 import 'scale/hearth_scale.dart';
+import 'theme/hearth_colors.dart';
+import 'theme/hearth_theme.dart';
+import 'theme/theme_providers.dart';
 
 /// Root widget for the Hearth application.
 ///
@@ -34,14 +37,9 @@ class HearthApp extends ConsumerWidget {
       title: 'Hearth',
       debugShowCheckedModeBanner: false,
       scrollBehavior: const _TouchScrollBehavior(),
-      theme: ThemeData(
-        brightness: Brightness.dark,
-        scaffoldBackgroundColor: Colors.black,
-        colorSchemeSeed: const Color(0xFF646CFF),
-        useMaterial3: true,
-        fontFamily: 'Roboto',
-        dialogTheme: const DialogThemeData(backgroundColor: kDialogBackground),
-      ),
+      theme: buildHearthTheme(ref.watch(hearthColorsProvider)),
+      // HearthColors.lerp snaps, so an animated change would flicker.
+      themeAnimationDuration: Duration.zero,
       builder: (context, child) {
         final control = HearthOskControl.instance;
         if (control == null || child == null) {
@@ -49,7 +47,7 @@ class HearthApp extends ConsumerWidget {
         }
         return HearthOskScope(
           control: control,
-          theme: hearthOskTheme,
+          theme: HearthColors.of(context).osk,
           child: child,
         );
       },

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../app/app.dart' show kDialogBackground;
+import '../app/theme/hearth_colors.dart';
 import '../app/tokens/tokens.dart';
 import '../services/timezone_service.dart';
 
@@ -38,6 +38,7 @@ class _TimezonePickerDialogState extends State<TimezonePickerDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.hearthColors;
     // Build filtered list: common timezones first, then the rest.
     final lowerFilter = _filter.toLowerCase();
     final common = TimezoneService.commonTimezones
@@ -49,7 +50,7 @@ class _TimezonePickerDialogState extends State<TimezonePickerDialog> {
         .toList();
 
     return AlertDialog(
-      backgroundColor: kDialogBackground,
+      backgroundColor: c.raised,
       title: const Text('Timezone'),
       content: SizedBox(
         width: double.maxFinite,
@@ -81,7 +82,7 @@ class _TimezonePickerDialogState extends State<TimezonePickerDialog> {
                         style: TextStyle(
                           fontSize: HearthFont.caption,
                           fontWeight: FontWeight.w500,
-                          color: Colors.white.withValues(alpha: 0.4),
+                          color: c.textMuted,
                         ),
                       ),
                     ),
@@ -95,7 +96,7 @@ class _TimezonePickerDialogState extends State<TimezonePickerDialog> {
                         style: TextStyle(
                           fontSize: HearthFont.caption,
                           fontWeight: FontWeight.w500,
-                          color: Colors.white.withValues(alpha: 0.4),
+                          color: c.textMuted,
                         ),
                       ),
                     ),
@@ -122,7 +123,7 @@ class _TimezonePickerDialogState extends State<TimezonePickerDialog> {
       dense: true,
       visualDensity: VisualDensity.compact,
       leading: isSelected
-          ? const Icon(Icons.check, size: HearthIcon.xs, color: Colors.amber)
+          ? Icon(Icons.check, size: HearthIcon.xs, color: context.hearthColors.accentText)
           : const SizedBox(width: HearthIcon.xs),
       title: Text(label, style: const TextStyle(fontSize: HearthFont.body)),
       onTap: () => Navigator.pop(context, value),

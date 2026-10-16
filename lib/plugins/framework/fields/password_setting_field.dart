@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../config/hub_config.dart';
 import '../web_context.dart';
 import 'setting_field.dart';
+import '../../../app/theme/hearth_colors.dart';
 
 /// Password / token input. Maps 1:1 to a string field on HubConfig via
 /// configPath. Same auto-save semantics as [TextSettingField] but renders
@@ -106,24 +107,25 @@ class _PasswordFieldRowState extends ConsumerState<_PasswordFieldRow> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.hearthColors;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(widget.field.label,
-              style: const TextStyle(color: Colors.white70, fontSize: 13)),
+              style: TextStyle(color: c.textSecondary, fontSize: 13)),
           const SizedBox(height: 4),
           TextField(
             controller: _controller,
             obscureText: _obscured,
-            style: const TextStyle(color: Colors.white),
+            style: TextStyle(color: c.text),
             decoration: InputDecoration(
               hintText: widget.field.hint,
-              hintStyle: const TextStyle(color: Colors.white38),
+              hintStyle: TextStyle(color: c.textMuted),
               errorText: _error,
               filled: true,
-              fillColor: const Color(0xFF161618),
+              fillColor: c.card,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(6),
                 borderSide: BorderSide.none,
@@ -131,7 +133,7 @@ class _PasswordFieldRowState extends ConsumerState<_PasswordFieldRow> {
               suffixIcon: IconButton(
                 icon: Icon(
                   _obscured ? Icons.visibility_off : Icons.visibility,
-                  color: Colors.white54,
+                  color: c.textMuted,
                 ),
                 onPressed: () => setState(() => _obscured = !_obscured),
               ),

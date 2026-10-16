@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../app/theme/hearth_colors.dart';
 import '../app/tokens/tokens.dart';
 import '../config/hub_config.dart';
 import '../modules/hearth_module.dart';
@@ -75,6 +76,7 @@ class _ModuleReorderListState extends State<ModuleReorderList> {
     if (_order.isEmpty) return const SizedBox.shrink();
 
     final hasCustomOrder = widget.config.moduleOrder.isNotEmpty;
+    final c = context.hearthColors;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -91,7 +93,7 @@ class _ModuleReorderListState extends State<ModuleReorderList> {
                   style: TextStyle(
                     fontSize: HearthFont.caption,
                     fontWeight: FontWeight.w500,
-                    color: Colors.white.withValues(alpha: 0.5),
+                    color: c.textMuted,
                   ),
                 ),
               ),
@@ -106,7 +108,7 @@ class _ModuleReorderListState extends State<ModuleReorderList> {
                       'Reset to Default',
                       style: TextStyle(
                         fontSize: HearthFont.caption,
-                        color: Colors.white.withValues(alpha: 0.5),
+                        color: c.textMuted,
                       ),
                     ),
                   ),
@@ -116,7 +118,7 @@ class _ModuleReorderListState extends State<ModuleReorderList> {
         ),
         Container(
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.04),
+            color: c.inkAt(0.04),
             borderRadius: BorderRadius.circular(8),
           ),
           clipBehavior: Clip.antiAlias,
@@ -127,7 +129,7 @@ class _ModuleReorderListState extends State<ModuleReorderList> {
             itemCount: _order.length,
             proxyDecorator: (child, index, animation) {
               return Material(
-                color: Colors.white.withValues(alpha: 0.08),
+                color: c.inkAt(0.08),
                 borderRadius: BorderRadius.circular(8),
                 elevation: 4,
                 child: child,
@@ -149,15 +151,14 @@ class _ModuleReorderListState extends State<ModuleReorderList> {
                 key: ValueKey(moduleId),
                 dense: true,
                 leading: Icon(module.icon,
-                    color: Colors.white38, size: HearthIcon.sm),
+                    color: c.textFaint, size: HearthIcon.sm),
                 title: Text(
                   module.name,
                   style: const TextStyle(fontSize: HearthFont.body),
                 ),
                 trailing: ReorderableDragStartListener(
                   index: index,
-                  child:
-                      const Icon(Icons.drag_handle, color: Colors.white24),
+                  child: Icon(Icons.drag_handle, color: c.inkAt(0.24)),
                 ),
                 contentPadding: const EdgeInsets.symmetric(
                     horizontal: HearthSpacing.x3),

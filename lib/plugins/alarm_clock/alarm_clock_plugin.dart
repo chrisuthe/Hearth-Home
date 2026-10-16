@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/theme/hearth_colors.dart';
 import '../../config/hub_config.dart';
 import '../../modules/alarm_clock/alarm_editor_screen.dart';
 import '../../modules/alarm_clock/alarm_models.dart';
@@ -122,18 +123,19 @@ class _AlarmClockPanel extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.hearthColors;
     final service = ref.watch(alarmServiceProvider);
     final alarms = service.alarms;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (alarms.isEmpty)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 16),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
             child: Text(
               'No alarms set. Tap "Open Alarm Editor" below to add one.',
               style: TextStyle(
-                color: Colors.white54,
+                color: c.textMuted,
                 fontStyle: FontStyle.italic,
               ),
             ),
@@ -144,12 +146,12 @@ class _AlarmClockPanel extends ConsumerWidget {
               contentPadding: EdgeInsets.zero,
               leading: Icon(
                 Icons.alarm,
-                color: alarm.enabled ? Colors.white : Colors.white38,
+                color: alarm.enabled ? c.text : c.textFaint,
               ),
               title: Text(
                 alarm.time,
                 style: TextStyle(
-                  color: alarm.enabled ? Colors.white : Colors.white54,
+                  color: alarm.enabled ? c.text : c.textMuted,
                   fontSize: 18,
                 ),
               ),
@@ -157,7 +159,7 @@ class _AlarmClockPanel extends ConsumerWidget {
                 alarm.label.isEmpty
                     ? alarm.daySummary
                     : '${alarm.label} • ${alarm.daySummary}',
-                style: const TextStyle(color: Colors.white54),
+                style: TextStyle(color: c.textMuted),
               ),
             ),
         const SizedBox(height: 16),
@@ -174,8 +176,8 @@ class _AlarmClockPanel extends ConsumerWidget {
               );
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF646cff),
-              foregroundColor: Colors.white,
+              backgroundColor: c.accentFill,
+              foregroundColor: c.onAccent,
             ),
           ),
         ),

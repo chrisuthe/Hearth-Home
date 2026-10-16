@@ -4,7 +4,9 @@ import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/theme/hearth_colors.dart';
 import '../../app/tokens/tokens.dart';
+import '../../widgets/themed_background.dart';
 import '../../config/hub_config.dart';
 import '../../services/home_assistant_service.dart';
 import '../../utils/time_format.dart';
@@ -288,8 +290,7 @@ class _ListsScreenState extends ConsumerState<ListsScreen>
           ? (v) => ref.read(listsViewProvider.notifier).state = v
           : null,
     );
-    return ColoredBox(
-      color: Colors.black,
+    return ThemedBackground.screen(
       child: view == ListsView.chores
           ? _buildChores(lists, switcher)
           : _buildLists(lists, switcher),
@@ -345,12 +346,12 @@ class _ListsScreenState extends ConsumerState<ListsScreen>
             textAlign: TextAlign.end,
             style: TextStyle(
               fontSize: HearthFont.bodyLg,
-              color: Colors.white.withValues(alpha: 0.7),
+              color: context.hearthColors.textSecondary,
             ),
           ),
         ),
         _StatusNote(state: note),
-        const Divider(height: 1, color: Colors.white12),
+        Divider(height: 1, color: context.hearthColors.inkAt(0.12)),
         Expanded(
           child: loading
               ? const Center(child: CircularProgressIndicator())
@@ -430,7 +431,7 @@ class _ListsScreenState extends ConsumerState<ListsScreen>
               itemBuilder: (context, i) => row(open[i], i, reorderable: true),
               onReorderItem: (from, to) => _reorder(entityId, open, from, to),
               proxyDecorator: (child, _, _) => Material(
-                color: const Color(0xFF1E1E1E),
+                color: context.hearthColors.raised,
                 elevation: 4,
                 child: child,
               ),
@@ -447,14 +448,14 @@ class _ListsScreenState extends ConsumerState<ListsScreen>
                           _showCompleted
                               ? Icons.expand_more
                               : Icons.chevron_right,
-                          color: Colors.white54,
+                          color: context.hearthColors.textMuted,
                         ),
                         const SizedBox(width: HearthSpacing.x2),
                         Text(
                           'Completed (${done.length})',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: HearthFont.body,
-                            color: Colors.white70,
+                            color: context.hearthColors.textSecondary,
                           ),
                         ),
                       ],
@@ -483,9 +484,9 @@ class _ListsScreenState extends ConsumerState<ListsScreen>
                 name,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: HearthFont.title,
-                  color: Colors.white,
+                  color: context.hearthColors.text,
                 ),
               );
 
@@ -501,7 +502,7 @@ class _ListsScreenState extends ConsumerState<ListsScreen>
                   : null,
             ),
             _StatusNote(state: state),
-            const Divider(height: 1, color: Colors.white12),
+            Divider(height: 1, color: context.hearthColors.inkAt(0.12)),
             Expanded(
               child: narrow
                   ? body
@@ -516,7 +517,7 @@ class _ListsScreenState extends ConsumerState<ListsScreen>
                             onSelect: (id) => setState(() => _selected = id),
                           ),
                         ),
-                        const VerticalDivider(width: 1, color: Colors.white12),
+                        VerticalDivider(width: 1, color: context.hearthColors.inkAt(0.12)),
                         Expanded(child: body),
                       ],
                     ),
@@ -532,8 +533,7 @@ class _NotConfigured extends StatelessWidget {
   const _NotConfigured();
 
   @override
-  Widget build(BuildContext context) => ColoredBox(
-        color: Colors.black,
+  Widget build(BuildContext context) => ThemedBackground.screen(
         child: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -541,14 +541,14 @@ class _NotConfigured extends StatelessWidget {
               Icon(
                 Icons.checklist,
                 size: HearthIcon.xxl,
-                color: Colors.white.withValues(alpha: 0.2),
+                color: context.hearthColors.inkAt(0.2),
               ),
               const SizedBox(height: HearthSpacing.x4),
               Text(
                 'Lists not configured',
                 style: TextStyle(
                   fontSize: HearthFont.bodyLg,
-                  color: Colors.white.withValues(alpha: 0.4),
+                  color: context.hearthColors.textMuted,
                 ),
               ),
               const SizedBox(height: HearthSpacing.x2),
@@ -557,7 +557,7 @@ class _NotConfigured extends StatelessWidget {
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 14,
-                  color: Colors.white.withValues(alpha: 0.3),
+                  color: context.hearthColors.textMuted,
                 ),
               ),
             ],
@@ -579,7 +579,7 @@ class _Empty extends StatelessWidget {
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: HearthFont.body,
-            color: Colors.white.withValues(alpha: 0.4),
+            color: context.hearthColors.textMuted,
           ),
         ),
       );
@@ -651,12 +651,12 @@ class _ViewSwitch extends StatelessWidget {
   Widget build(BuildContext context) {
     final onChanged = this.onChanged;
     if (onChanged == null) {
-      return const Text(
+      return Text(
         'Lists',
         style: TextStyle(
           fontSize: HearthFont.title,
           fontWeight: FontWeight.w600,
-          color: Colors.white,
+          color: context.hearthColors.text,
         ),
       );
     }
@@ -691,7 +691,7 @@ class _ListDropdown extends ConsumerWidget {
       value: selected,
       isExpanded: true,
       underline: const SizedBox.shrink(),
-      dropdownColor: const Color(0xFF1E1E1E),
+      dropdownColor: context.hearthColors.raised,
       onChanged: (id) {
         if (id != null) onSelect(id);
       },
@@ -730,9 +730,9 @@ class _ListLabel extends StatelessWidget {
               name,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: HearthFont.bodyLg,
-                color: Colors.white,
+                color: context.hearthColors.text,
               ),
             ),
           ),
@@ -742,7 +742,7 @@ class _ListLabel extends StatelessWidget {
               '$count',
               style: TextStyle(
                 fontSize: HearthFont.body,
-                color: Colors.white.withValues(alpha: 0.5),
+                color: context.hearthColors.textMuted,
               ),
             ),
           ],
@@ -778,7 +778,7 @@ class _Rail extends ConsumerWidget {
             ),
             child: Material(
               color: l.entityId == selected
-                  ? Colors.white.withValues(alpha: 0.1)
+                  ? context.hearthColors.inkAt(0.1)
                   : Colors.transparent,
               borderRadius: BorderRadius.circular(HearthSpacing.x2),
               child: InkWell(
@@ -855,16 +855,17 @@ class _StatusNote extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.hearthColors;
     final (icon, color, text) = switch (state.status) {
       ListStatus.loading || ListStatus.ok => (null, null, null),
       ListStatus.stale => (
           Icons.history,
-          Colors.amber,
+          c.warning,
           "Can't reach Home Assistant; showing the last items it sent",
         ),
       ListStatus.error => (
           Icons.error_outline,
-          Colors.redAccent,
+          c.danger,
           state.error ?? "Can't load this list",
         ),
     };

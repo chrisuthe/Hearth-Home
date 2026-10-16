@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../config/hub_config.dart';
 import '../web_context.dart';
 import 'setting_field.dart';
+import '../../../app/theme/hearth_colors.dart';
 
 /// Dropdown selection field. Maps 1:1 to a string field on HubConfig via
 /// configPath by default, but accepts optional [readOverride] /
@@ -59,39 +60,42 @@ class SelectSettingField extends SettingField<String> {
   Widget buildWidget(WidgetRef ref) {
     final config = ref.watch(hubConfigProvider);
     final current = readValue(config) ?? options.keys.first;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label,
-              style: const TextStyle(color: Colors.white70, fontSize: 13)),
-          const SizedBox(height: 4),
-          Container(
-            decoration: BoxDecoration(
-              color: const Color(0xFF161618),
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                value: current,
-                isExpanded: true,
-                dropdownColor: const Color(0xFF1a1a1a),
-                style: const TextStyle(color: Colors.white),
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                items: options.entries.map((e) {
-                  return DropdownMenuItem(
-                      value: e.key, child: Text(e.value));
-                }).toList(),
-                onChanged: (v) {
-                  if (v != null) writeValue(ref, v);
-                },
+    return Builder(builder: (context) {
+      final c = context.hearthColors;
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label,
+                style: TextStyle(color: c.textSecondary, fontSize: 13)),
+            const SizedBox(height: 4),
+            Container(
+              decoration: BoxDecoration(
+                color: c.card,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: current,
+                  isExpanded: true,
+                  dropdownColor: c.menu,
+                  style: TextStyle(color: c.text),
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  items: options.entries.map((e) {
+                    return DropdownMenuItem(
+                        value: e.key, child: Text(e.value));
+                  }).toList(),
+                  onChanged: (v) {
+                    if (v != null) writeValue(ref, v);
+                  },
+                ),
               ),
             ),
-          ),
-        ],
-      ),
-    );
+          ],
+        ),
+      );
+    });
   }
 
   @override

@@ -10,6 +10,8 @@ import '../../services/video/hearth_video_player.dart';
 import '../../utils/logger.dart';
 import '../cameras/cameras_screen.dart' show cameraGridColumns;
 import 'protect_service.dart';
+import '../../app/theme/hearth_colors.dart';
+import '../../widgets/themed_background.dart';
 
 /// UniFi Protect camera grid with live video expansion.
 ///
@@ -97,24 +99,25 @@ class _ProtectScreenState extends ConsumerState<ProtectScreen> {
 
     // --- Empty state ---
     if (cameras.isEmpty) {
-      return Container(
-        color: Colors.black.withValues(alpha: 0.7),
+      final c = context.hearthColors;
+      return ThemedBackground.photo(
+        strength: TintStrength.medium,
         child: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(Icons.videocam_off, size: HearthIcon.xxl,
-                  color: Colors.white.withValues(alpha: 0.2)),
+                  color: c.inkAt(0.2)),
               const SizedBox(height: HearthSpacing.x4),
               Text('No cameras',
                   style: TextStyle(
                       fontSize: HearthFont.bodyLg,
-                      color: Colors.white.withValues(alpha: 0.5))),
+                      color: c.textMuted)),
               const SizedBox(height: HearthSpacing.x2),
               Text('Connect UniFi Protect in settings',
                   style: TextStyle(
                       fontSize: 14,
-                      color: Colors.white.withValues(alpha: 0.5))),
+                      color: c.textMuted)),
             ],
           ),
         ),
@@ -126,7 +129,7 @@ class _ProtectScreenState extends ConsumerState<ProtectScreen> {
       return GestureDetector(
         onTap: _collapseCamera,
         child: Container(
-          color: Colors.black,
+          color: Colors.black, // theme-exempt: video
           child: Stack(
             fit: StackFit.expand,
             children: [
@@ -147,18 +150,18 @@ class _ProtectScreenState extends ConsumerState<ProtectScreen> {
                   padding: const EdgeInsets.symmetric(
                       horizontal: HearthSpacing.x3, vertical: 6),
                   decoration: BoxDecoration(
-                    color: Colors.black54,
+                    color: Colors.black54, // theme-exempt: video
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       const Icon(Icons.arrow_back,
-                          size: HearthIcon.xs, color: Colors.white70),
+                          size: HearthIcon.xs, color: Colors.white70), // theme-exempt: video
                       const SizedBox(width: 6),
                       Text(_expandedCamera!.name,
                           style: const TextStyle(
-                              fontSize: 14, color: Colors.white70)),
+                              fontSize: 14, color: Colors.white70)), // theme-exempt: video
                     ],
                   ),
                 ),
@@ -172,19 +175,19 @@ class _ProtectScreenState extends ConsumerState<ProtectScreen> {
                     padding: const EdgeInsets.symmetric(
                         horizontal: HearthSpacing.x2, vertical: HearthSpacing.x1),
                     decoration: BoxDecoration(
-                      color: Colors.red.withValues(alpha: 0.8),
+                      color: Colors.red.withValues(alpha: 0.8), // theme-exempt: video
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.circle, size: 8, color: Colors.white),
+                        Icon(Icons.circle, size: 8, color: Colors.white), // theme-exempt: video
                         SizedBox(width: HearthSpacing.x1),
                         Text('LIVE',
                             style: TextStyle(
                                 fontSize: HearthFont.caption,
                                 fontWeight: FontWeight.w600,
-                                color: Colors.white)),
+                                color: Colors.white)), // theme-exempt: video
                       ],
                     ),
                   ),
@@ -196,8 +199,9 @@ class _ProtectScreenState extends ConsumerState<ProtectScreen> {
     }
 
     // --- Grid view: auto-refreshing snapshot tiles ---
-    return Container(
-      color: Colors.black.withValues(alpha: 0.7),
+    final c = context.hearthColors;
+    return ThemedBackground.photo(
+      strength: TintStrength.medium,
       child: LayoutBuilder(builder: (context, constraints) => GridView.builder(
         padding: const EdgeInsets.all(HearthSpacing.x4),
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
@@ -215,7 +219,7 @@ class _ProtectScreenState extends ConsumerState<ProtectScreen> {
               color: Colors.transparent,
               child: InkWell(
                 onTap: () => _expandCamera(camera),
-                splashColor: Colors.white24,
+                splashColor: c.inkAt(0.24),
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
@@ -226,7 +230,7 @@ class _ProtectScreenState extends ConsumerState<ProtectScreen> {
                     Center(
                       child: Icon(Icons.play_circle_outline,
                           size: 40,
-                          color: Colors.white.withValues(alpha: 0.5)),
+                          color: c.textMuted),
                     ),
                     Positioned(
                       bottom: 0,
@@ -241,13 +245,13 @@ class _ProtectScreenState extends ConsumerState<ProtectScreen> {
                             end: Alignment.bottomCenter,
                             colors: [
                               Colors.transparent,
-                              Colors.black.withValues(alpha: 0.7),
+                              c.canvasAt(0.7),
                             ],
                           ),
                         ),
                         child: Text(camera.name,
-                            style: const TextStyle(
-                                fontSize: 12, color: Colors.white70)),
+                            style: TextStyle(
+                                fontSize: 12, color: c.textSecondary)),
                       ),
                     ),
                   ],
@@ -335,9 +339,10 @@ class _ProtectSnapshotTileState extends ConsumerState<_ProtectSnapshotTile> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.hearthColors;
     final bytes = _bytes;
     if (bytes == null) {
-      return Container(color: Colors.white.withValues(alpha: 0.05));
+      return Container(color: c.inkAt(0.05));
     }
     return Image.memory(
       bytes,
@@ -345,9 +350,9 @@ class _ProtectSnapshotTileState extends ConsumerState<_ProtectSnapshotTile> {
       gaplessPlayback: true,
       cacheWidth: 300,
       errorBuilder: (_, _, _) => Container(
-        color: Colors.white.withValues(alpha: 0.05),
-        child: const Center(
-          child: Icon(Icons.videocam_off, color: Colors.white24),
+        color: c.inkAt(0.05),
+        child: Center(
+          child: Icon(Icons.videocam_off, color: c.inkAt(0.24)),
         ),
       ),
     );

@@ -1,9 +1,9 @@
 import 'dart:io';
 
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../config/hub_config.dart';
+import '../app/theme/osk_themes.dart';
 import '../packages/hearth_osk/hearth_osk.dart';
 import '../utils/logger.dart';
 
@@ -49,18 +49,9 @@ enum OnScreenKeyboardMode {
       };
 }
 
-/// Hearth's dark AMOLED theme for the OSK. Matches the indigo `0xFF646CFF`
-/// accent and true-black backgrounds used elsewhere in the app.
-const hearthOskTheme = HearthOskTheme(
-  background: Color(0xFF0A0A0A),
-  keyFill: Color(0xFF1E1E1E),
-  modifierFill: Color(0xFF262626),
-  modifierActiveFill: Color(0xFF2F355E),
-  accent: Color(0xFF646CFF),
-  keyLabel: Colors.white,
-  modifierActiveLabel: Colors.white,
-  keyHeight: 64,
-);
+/// Hearth's dark AMOLED theme for the OSK (Classic's value; the active theme
+/// supplies it through `HearthColors.osk`).
+const hearthOskTheme = classicOskTheme;
 
 /// Scans `/proc/bus/input/devices` for an attached USB keyboard.
 ///

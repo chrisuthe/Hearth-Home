@@ -1,8 +1,10 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../app/theme/hearth_colors.dart';
 import '../../app/tokens/tokens.dart';
 import '../../services/timer_service.dart';
+import '../../widgets/themed_background.dart';
 
 /// Full-screen timer interface inspired by the Google Nest Hub.
 ///
@@ -52,8 +54,8 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
       _showPicker = true;
     }
 
-    return Material(
-      color: Colors.black.withValues(alpha: 0.85),
+    final c = context.hearthColors;
+    return ThemedBackground.screen(
       child: Column(
         children: [
           // Header with back button and add timer
@@ -62,20 +64,20 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
             child: Row(
               children: [
                 IconButton(
-                  icon: const Icon(Icons.arrow_back, color: Colors.white70),
+                  icon: Icon(Icons.arrow_back, color: c.textSecondary),
                   onPressed: () => Navigator.of(context).pop(),
                 ),
                 const Spacer(),
-                const Text('Timers',
+                Text('Timers',
                     style: TextStyle(
                         fontSize: HearthFont.bodyLg,
                         fontWeight: FontWeight.w300,
-                        color: Colors.white)),
+                        color: c.text)),
                 const Spacer(),
                 if (!_showPicker && timers.isNotEmpty)
                   IconButton(
-                    icon: const Icon(Icons.add_circle_outline,
-                        color: Colors.white70),
+                    icon: Icon(Icons.add_circle_outline,
+                        color: c.textSecondary),
                     onPressed: () => setState(() => _showPicker = true),
                   )
                 else
@@ -93,15 +95,16 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
   }
 
   Widget _buildPicker() {
+    final c = context.hearthColors;
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text('Set a timer',
+          Text('Set a timer',
               style: TextStyle(
                   fontSize: HearthFont.titleLg,
                   fontWeight: FontWeight.w200,
-                  color: Colors.white70)),
+                  color: c.textSecondary)),
           const SizedBox(height: HearthSpacing.x8),
           SizedBox(
             height: 180,
@@ -133,18 +136,18 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
           ),
           const SizedBox(height: HearthSpacing.x8),
           Material(
-            color: const Color(0xFF646CFF),
+            color: c.accentFill,
             borderRadius: BorderRadius.circular(28),
             child: InkWell(
               onTap: _startTimer,
               borderRadius: BorderRadius.circular(28),
-              child: const Padding(
-                padding: EdgeInsets.symmetric(horizontal: HearthSpacing.x12, vertical: HearthSpacing.x3),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: HearthSpacing.x12, vertical: HearthSpacing.x3),
                 child: Text('Start',
                     style: TextStyle(
                         fontSize: HearthFont.bodyLg,
                         fontWeight: FontWeight.w500,
-                        color: Colors.white)),
+                        color: c.onAccent)),
               ),
             ),
           ),
@@ -225,6 +228,7 @@ class TimerDisplay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.hearthColors;
     final isDone = timer.isDone;
 
     return GestureDetector(
@@ -243,6 +247,7 @@ class TimerDisplay extends StatelessWidget {
                 painter: _RingPainter(
                   progress: timer.progress,
                   isDone: isDone,
+                  colors: c,
                 ),
               ),
             ),
@@ -252,7 +257,7 @@ class TimerDisplay extends StatelessWidget {
               children: [
                 if (isDone) ...[
                   Icon(Icons.timer,
-                      size: size * 0.15, color: const Color(0xFFFF9800)),
+                      size: size * 0.15, color: c.warning),
                   const SizedBox(height: HearthSpacing.x1),
                 ],
                 if (timer.name.isNotEmpty)
@@ -263,7 +268,7 @@ class TimerDisplay extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                          fontSize: size * 0.06, color: Colors.white70),
+                          fontSize: size * 0.06, color: c.textSecondary),
                     ),
                   ),
                 Text(
@@ -271,17 +276,17 @@ class TimerDisplay extends StatelessWidget {
                   style: TextStyle(
                     fontSize: isDone ? size * 0.1 : size * 0.18,
                     fontWeight: FontWeight.w200,
-                    color: isDone ? const Color(0xFFFF9800) : Colors.white,
+                    color: isDone ? c.warning : c.text,
                   ),
                 ),
                 if (timer.isPaused && !isDone)
                   Text('Paused',
                       style: TextStyle(
-                          fontSize: size * 0.05, color: Colors.white38)),
+                          fontSize: size * 0.05, color: c.textMuted)),
                 if (isDone)
                   Text('Tap to dismiss',
                       style: TextStyle(
-                          fontSize: size * 0.05, color: Colors.white38)),
+                          fontSize: size * 0.05, color: c.textMuted)),
               ],
             ),
           ],
@@ -295,8 +300,10 @@ class TimerDisplay extends StatelessWidget {
 class _RingPainter extends CustomPainter {
   final double progress;
   final bool isDone;
+  final HearthColors colors;
 
-  _RingPainter({required this.progress, required this.isDone});
+  _RingPainter(
+      {required this.progress, required this.isDone, required this.colors});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -309,14 +316,14 @@ class _RingPainter extends CustomPainter {
       center,
       radius,
       Paint()
-        ..color = Colors.white.withValues(alpha: 0.1)
+        ..color = colors.inkAt(0.1)
         ..style = PaintingStyle.stroke
         ..strokeWidth = strokeWidth,
     );
 
     // Progress arc — blue while counting, orange when done
     final progressColor =
-        isDone ? const Color(0xFFFF9800) : const Color(0xFF646CFF);
+        isDone ? colors.warning : colors.accent;
     final sweepAngle = progress * 2 * pi;
     canvas.drawArc(
       Rect.fromCircle(center: center, radius: radius),
@@ -333,7 +340,9 @@ class _RingPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_RingPainter oldDelegate) =>
-      oldDelegate.progress != progress || oldDelegate.isDone != isDone;
+      oldDelegate.progress != progress ||
+      oldDelegate.isDone != isDone ||
+      oldDelegate.colors != colors;
 }
 
 /// Scroll wheel for picking hours, minutes, or seconds.
@@ -374,11 +383,12 @@ class _ScrollWheelState extends State<_ScrollWheel> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.hearthColors;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(widget.label,
-            style: const TextStyle(fontSize: HearthFont.caption, color: Colors.white38)),
+            style: TextStyle(fontSize: HearthFont.caption, color: c.textMuted)),
         const SizedBox(height: HearthSpacing.x1),
         SizedBox(
           width: HearthSpacing.x16,
@@ -403,8 +413,8 @@ class _ScrollWheelState extends State<_ScrollWheel> {
                       fontSize: HearthFont.display,
                       fontWeight: FontWeight.w200,
                       color: index == _selectedIndex
-                          ? Colors.white
-                          : Colors.white38,
+                          ? c.text
+                          : c.textMuted,
                     ),
                   ),
                 );
@@ -426,8 +436,9 @@ class _PresetChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.hearthColors;
     return Material(
-      color: Colors.white.withValues(alpha: 0.08),
+      color: c.inkAt(0.08),
       borderRadius: BorderRadius.circular(20),
       child: InkWell(
         onTap: onTap,
@@ -435,7 +446,7 @@ class _PresetChip extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: HearthSpacing.x4, vertical: HearthSpacing.x2),
           child: Text(label,
-              style: const TextStyle(fontSize: HearthFont.label, color: Colors.white70)),
+              style: TextStyle(fontSize: HearthFont.label, color: c.textSecondary)),
         ),
       ),
     );

@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../app/theme/hearth_colors.dart';
 import '../../app/tokens/calendar_tokens.dart';
 import '../../app/tokens/tokens.dart';
 import 'calendar_layout.dart';
@@ -56,11 +57,11 @@ class _CalendarMonthViewState extends State<CalendarMonthView> {
                       child: Center(
                         child: Text(
                           weekdayShort(addDays(first, i)).toUpperCase(),
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: CalendarType.weekday,
                             fontWeight: FontWeight.w700,
                             letterSpacing: CalendarType.capsTracking,
-                            color: CalendarColors.textMuted,
+                            color: CalendarColors.of(context).textMuted,
                           ),
                         ),
                       ),
@@ -89,7 +90,7 @@ class _CalendarMonthViewState extends State<CalendarMonthView> {
         return Column(
           children: [
             Expanded(flex: 3, child: grid),
-            const Divider(height: 1, color: CalendarColors.divider),
+            Divider(height: 1, color: CalendarColors.of(context).divider),
             Expanded(
               flex: 2,
               child: CalendarDayList(
@@ -230,8 +231,8 @@ class _DayCell extends StatelessWidget {
       height: size,
       alignment: Alignment.center,
       decoration: isToday
-          ? const BoxDecoration(
-              color: CalendarColors.accent,
+          ? BoxDecoration(
+              color: CalendarColors.of(context).accent,
               shape: BoxShape.circle,
             )
           : null,
@@ -241,25 +242,25 @@ class _DayCell extends StatelessWidget {
           fontSize: CalendarType.monthNumber,
           fontWeight: isToday ? FontWeight.w700 : FontWeight.w500,
           color: inMonth || isToday
-              ? CalendarColors.text
-              : CalendarColors.textFaint,
+              ? CalendarColors.of(context).text
+              : CalendarColors.of(context).textFaint,
         ),
       ),
     );
     return Material(
-      textStyle: CalendarType.base,
+      textStyle: CalendarType.of(context),
       color: isSelected
-          ? CalendarColors.todayTint
+          ? CalendarColors.of(context).todayTint
           : weekend
-          ? CalendarColors.weekendTint
+          ? CalendarColors.of(context).weekendTint
           : Colors.transparent,
       child: InkWell(
         onTap: onTap,
         child: Container(
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             border: Border(
-              top: BorderSide(color: CalendarColors.gridLine),
-              left: BorderSide(color: CalendarColors.divider),
+              top: BorderSide(color: CalendarColors.of(context).gridLine),
+              left: BorderSide(color: CalendarColors.of(context).divider),
             ),
           ),
           child: Stack(
@@ -302,10 +303,10 @@ class _DayCell extends StatelessWidget {
                     '+$more more',
                     maxLines: 1,
                     overflow: TextOverflow.clip,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: CalendarType.monthMore,
                       fontWeight: FontWeight.w600,
-                      color: CalendarColors.textMuted,
+                      color: CalendarColors.of(context).textMuted,
                     ),
                   ),
                 ),
@@ -334,7 +335,7 @@ class _Chip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: HearthSpacing.x2),
         alignment: Alignment.centerLeft,
         decoration: BoxDecoration(
-          color: event.tentative ? Colors.black : fill,
+          color: event.tentative ? context.hearthColors.canvas : fill,
           border: event.tentative
               ? Border.all(color: fill, width: CalendarSizes.outline)
               : null,
@@ -350,8 +351,8 @@ class _Chip extends StatelessWidget {
             fontWeight: FontWeight.w600,
             fontStyle: event.tentative ? FontStyle.italic : FontStyle.normal,
             color: event.tentative
-                ? CalendarColors.text
-                : CalendarColors.onFill,
+                ? CalendarColors.of(context).text
+                : CalendarColors.of(context).onFill,
           ),
         ),
       );
@@ -378,7 +379,7 @@ class _Chip extends StatelessWidget {
                   fontStyle: event.tentative
                       ? FontStyle.italic
                       : FontStyle.normal,
-                  color: CalendarColors.text,
+                  color: CalendarColors.of(context).text,
                 ),
               ),
             ),

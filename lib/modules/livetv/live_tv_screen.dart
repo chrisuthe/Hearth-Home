@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../app/theme/hearth_colors.dart';
 import '../../app/tokens/tokens.dart';
 import '../../services/plex/livetv/plex_livetv_service.dart';
 import '../../services/plex/livetv/plex_livetv_state.dart';
 import '../../services/plex/livetv/plex_livetv_wire.dart';
+import '../../widgets/themed_background.dart';
 
 /// Live TV channel grid. Tapping a channel tunes it; the actual playback is
 /// rendered by [LiveTvOverlay] (mounted in HubShell), driven off the same
@@ -43,24 +45,25 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
       );
     }
 
-    return Container(
-      color: Colors.black,
-      padding: const EdgeInsets.all(HearthSpacing.x4),
-      child: GridView.builder(
-        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-          maxCrossAxisExtent: 200,
-          childAspectRatio: 1.6,
-          crossAxisSpacing: HearthSpacing.x3,
-          mainAxisSpacing: HearthSpacing.x3,
+    return ThemedBackground.screen(
+      child: Padding(
+        padding: const EdgeInsets.all(HearthSpacing.x4),
+        child: GridView.builder(
+          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+            maxCrossAxisExtent: 200,
+            childAspectRatio: 1.6,
+            crossAxisSpacing: HearthSpacing.x3,
+            mainAxisSpacing: HearthSpacing.x3,
+          ),
+          itemCount: state.channels.length,
+          itemBuilder: (context, i) {
+            final ch = state.channels[i];
+            return _ChannelTile(
+              channel: ch,
+              onTap: () => ref.read(plexLiveTvServiceProvider).tune(ch),
+            );
+          },
         ),
-        itemCount: state.channels.length,
-        itemBuilder: (context, i) {
-          final ch = state.channels[i];
-          return _ChannelTile(
-            channel: ch,
-            onTap: () => ref.read(plexLiveTvServiceProvider).tune(ch),
-          );
-        },
       ),
     );
   }
@@ -73,8 +76,9 @@ class _ChannelTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.hearthColors;
     return Material(
-      color: const Color(0xFF14141A),
+      color: c.card,
       borderRadius: const BorderRadius.all(Radius.circular(10)),
       child: InkWell(
         borderRadius: const BorderRadius.all(Radius.circular(10)),
@@ -86,8 +90,8 @@ class _ChannelTile extends StatelessWidget {
             children: [
               Text(
                 channel.number,
-                style: const TextStyle(
-                  color: Color(0xFF646CFF),
+                style: TextStyle(
+                  color: c.accentText,
                   fontSize: HearthFont.title,
                   fontWeight: FontWeight.w600,
                 ),
@@ -97,8 +101,10 @@ class _ChannelTile extends StatelessWidget {
                 channel.callSign,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                    color: Colors.white70, fontSize: HearthFont.label),
+                style: TextStyle(
+                  color: c.textSecondary,
+                  fontSize: HearthFont.label,
+                ),
               ),
             ],
           ),
@@ -115,18 +121,20 @@ class _Centered extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: Colors.black,
-      alignment: Alignment.center,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: Colors.white24, size: HearthIcon.xl),
-          const SizedBox(height: HearthSpacing.x4),
-          Text(text,
-              style: const TextStyle(
-                  color: Colors.white54, fontSize: HearthFont.body)),
-        ],
+    final c = context.hearthColors;
+    return ThemedBackground.screen(
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: c.inkAt(0.24), size: HearthIcon.xl),
+            const SizedBox(height: HearthSpacing.x4),
+            Text(
+              text,
+              style: TextStyle(color: c.textMuted, fontSize: HearthFont.body),
+            ),
+          ],
+        ),
       ),
     );
   }

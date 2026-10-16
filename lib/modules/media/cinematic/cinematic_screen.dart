@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../app/media_tokens.dart';
+import '../../../app/theme/classic_theme_scope.dart';
+import '../../../app/theme/hearth_colors.dart';
 import '../../../app/tokens/tokens.dart';
 import '../../../config/hub_config.dart';
+import '../../../models/music_state.dart';
 import '../../../services/music_assistant_service.dart';
+import '../../../widgets/themed_background.dart';
 import 'browse_overlay.dart';
 import 'cinematic_backdrop.dart';
 import 'cinematic_bottom_shelf.dart';
@@ -90,6 +93,19 @@ class _CinematicScreenState extends ConsumerState<CinematicScreen>
     setState(() => _browseOpen = !_browseOpen);
   }
 
+  /// With no current track the backdrop is just its black base under a
+  /// vignette that is invisible on black, so the idle state sits on the
+  /// theme's screen background instead. Any track, with art or without,
+  /// keeps the cinematic backdrop.
+  Widget _backdrop(MusicPlayerState? player) {
+    if (player?.currentTrack == null) {
+      return const ThemedBackground.screen(child: SizedBox.expand());
+    }
+    return RepaintBoundary(
+      child: CinematicBackdrop(imageUrl: player!.currentTrack!.imageUrl),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final music = ref.watch(musicAssistantServiceProvider);
@@ -108,23 +124,26 @@ class _CinematicScreenState extends ConsumerState<CinematicScreen>
       return const _NotConnected();
     }
 
+    // The player is Classic while a track is on; with none, the chrome
+    // follows the app theme. The dark-glass overlays are pinned Classic.
+    Widget themed(Widget screen) => ClassicThemeScope(
+        pinned: state?.currentTrack != null, child: screen);
+
     if (_browseOpen) {
-      return Stack(
+      return themed(Stack(
         fit: StackFit.expand,
         children: [
-          RepaintBoundary(
-            child: CinematicBackdrop(
-              imageUrl: state?.currentTrack?.imageUrl,
-            ),
-          ),
+          _backdrop(state),
           Positioned(
             top: 18,
             left: 18,
             right: 18,
             bottom: 108,
-            child: BrowseOverlay(
-              playerId: playerId,
-              onClose: _toggleBrowse,
+            child: ClassicThemeScope(
+              child: BrowseOverlay(
+                playerId: playerId,
+                onClose: _toggleBrowse,
+              ),
             ),
           ),
           if (state != null)
@@ -148,19 +167,17 @@ class _CinematicScreenState extends ConsumerState<CinematicScreen>
               ),
             ),
           if (_playersOpen)
-            PlayersPopover(onClose: _togglePlayers),
+            ClassicThemeScope(child: PlayersPopover(onClose: _togglePlayers)),
         ],
-      );
+      ));
     }
 
     final metrics = DrawerMetrics.fromShelfHeight(_shelfHeight);
 
-    return Stack(
+    return themed(Stack(
       fit: StackFit.expand,
       children: [
-        RepaintBoundary(
-          child: CinematicBackdrop(imageUrl: state?.currentTrack?.imageUrl),
-        ),
+        _backdrop(state),
         Positioned(
           top: 0,
           left: 0,
@@ -209,9 +226,9 @@ class _CinematicScreenState extends ConsumerState<CinematicScreen>
             ),
           ),
         if (_playersOpen)
-          PlayersPopover(onClose: _togglePlayers),
+          ClassicThemeScope(child: PlayersPopover(onClose: _togglePlayers)),
       ],
-    );
+    ));
   }
 }
 
@@ -220,35 +237,35 @@ class _NotConnected extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const ColoredBox(
-      color: MediaColors.base,
+    final c = context.hearthColors;
+    return ThemedBackground.screen(
       child: Center(
         child: Padding(
-          padding: EdgeInsets.all(HearthSpacing.x10),
+          padding: const EdgeInsets.all(HearthSpacing.x10),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
                 Icons.music_off,
                 size: HearthIcon.xl,
-                color: Color.fromRGBO(255, 255, 255, MediaTextOpacity.section),
+                color: c.textMuted,
               ),
-              SizedBox(height: 18),
+              const SizedBox(height: 18),
               Text(
                 'Music Assistant not connected',
                 style: TextStyle(
                   fontSize: HearthFont.bodyLg,
                   fontWeight: FontWeight.w500,
-                  color: Color.fromRGBO(255, 255, 255, MediaTextOpacity.secondary),
+                  color: c.textSecondary,
                 ),
               ),
-              SizedBox(height: HearthSpacing.x2),
+              const SizedBox(height: HearthSpacing.x2),
               Text(
                 'Configure the MA URL in Settings to connect.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: HearthFont.label,
-                  color: Color.fromRGBO(255, 255, 255, MediaTextOpacity.section),
+                  color: c.textMuted,
                 ),
               ),
             ],

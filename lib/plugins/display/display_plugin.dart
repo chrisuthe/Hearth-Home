@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../app/app.dart' show kDialogBackground;
+import '../../app/theme/hearth_colors.dart';
 import '../../config/display_orientation.dart';
+import '../../config/hearth_theme_id.dart';
 import '../../config/hub_config.dart';
 import '../../screens/settings/display_settings.dart';
 import '../../services/display_rotation_service.dart';
@@ -148,6 +149,18 @@ class DisplayPlugin extends HearthPlugin {
       htmlDisplaySuffix: '%',
     ).buildHtml(ctx);
 
+    final themeHtml = SelectSettingField(
+      configPath: 'theme',
+      label: 'Theme',
+      options: _themeOptions,
+    ).buildHtml(ctx);
+
+    final backgroundHtml = const SelectSettingField(
+      configPath: 'screenBackground',
+      label: 'Background',
+      options: _backgroundOptions,
+    ).buildHtml(ctx);
+
     const displayProfileNote =
         '<div class="field"><label>Display Profile</label>'
         '<div class="hint" style="font-size:12px;color:#888;">'
@@ -235,6 +248,8 @@ class DisplayPlugin extends HearthPlugin {
         timezoneHtml +
         idleHtml +
         uiScaleHtml +
+        themeHtml +
+        backgroundHtml +
         displayProfileNote +
         orientationHtml +
         oskHtml +
@@ -274,6 +289,12 @@ class DisplayPlugin extends HearthPlugin {
 ''';
   }
 }
+
+final _themeOptions = {
+  for (final t in HearthThemeId.values) t.wire: t.label,
+};
+
+const _backgroundOptions = {'solid': 'Solid', 'blurred': 'Blurred photo'};
 
 final _orientationOptions = {
   for (final o in DisplayOrientation.values) o.wire: o.label,
@@ -367,6 +388,16 @@ class _DisplayPanel extends ConsumerWidget {
           },
         ).buildWidget(ref),
         const UiScaleSection(),
+        SelectSettingField(
+          configPath: 'theme',
+          label: 'Theme',
+          options: _themeOptions,
+        ).buildWidget(ref),
+        const SelectSettingField(
+          configPath: 'screenBackground',
+          label: 'Background',
+          options: _backgroundOptions,
+        ).buildWidget(ref),
         const DisplaySettingsSection(),
         SelectSettingField(
           configPath: 'displayOrientation',
@@ -479,11 +510,12 @@ class _RotationStatusTileState extends ConsumerState<_RotationStatusTile> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.hearthColors;
     final status = ref
         .watch(displayRotationServiceProvider)
         .statusFor(widget.orientation);
     final hintStyle =
-        TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.5));
+        TextStyle(fontSize: 12, color: c.textMuted);
     switch (status) {
       case RotationStatus.inEffect:
         return const SizedBox.shrink();
@@ -539,16 +571,17 @@ class _TimezoneTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.hearthColors;
     final subtitle =
         currentTimezone.isEmpty ? 'System default' : currentTimezone;
     return ListTile(
-      leading: const Icon(Icons.public, color: Colors.white54),
+      leading: Icon(Icons.public, color: c.textMuted),
       title: const Text('Timezone'),
       subtitle: Text(
         subtitle,
-        style: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
+        style: TextStyle(color: c.textMuted),
       ),
-      trailing: const Icon(Icons.chevron_right, color: Colors.white24),
+      trailing: Icon(Icons.chevron_right, color: c.inkAt(0.24)),
       onTap: () => _openPicker(context, ref),
       contentPadding: EdgeInsets.zero,
     );
@@ -565,7 +598,7 @@ class _NightModeEntityTile extends ConsumerWidget {
     final result = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: kDialogBackground,
+        backgroundColor: context.hearthColors.raised,
         title: const Text('HA Entity ID for Night Mode'),
         content: TextField(
           controller: controller,
@@ -595,14 +628,15 @@ class _NightModeEntityTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.hearthColors;
     return ListTile(
-      leading: const Icon(Icons.developer_board, color: Colors.white54),
+      leading: Icon(Icons.developer_board, color: c.textMuted),
       title: const Text('Night Mode Entity'),
       subtitle: Text(
         currentValue.isEmpty ? 'Not set' : currentValue,
-        style: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
+        style: TextStyle(color: c.textMuted),
       ),
-      trailing: const Icon(Icons.chevron_right, color: Colors.white24),
+      trailing: Icon(Icons.chevron_right, color: c.inkAt(0.24)),
       onTap: () => _openDialog(context, ref),
       contentPadding: EdgeInsets.zero,
     );
@@ -628,7 +662,7 @@ class _NightModeClockTile extends StatelessWidget {
     final result = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: kDialogBackground,
+        backgroundColor: context.hearthColors.raised,
         title: Text('$label (HH:MM)'),
         content: TextField(
           controller: controller,
@@ -663,14 +697,15 @@ class _NightModeClockTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.hearthColors;
     return ListTile(
-      leading: const Icon(Icons.schedule, color: Colors.white54),
+      leading: Icon(Icons.schedule, color: c.textMuted),
       title: Text(label),
       subtitle: Text(
         currentValue,
-        style: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
+        style: TextStyle(color: c.textMuted),
       ),
-      trailing: const Icon(Icons.chevron_right, color: Colors.white24),
+      trailing: Icon(Icons.chevron_right, color: c.inkAt(0.24)),
       onTap: () => _openDialog(context),
       contentPadding: EdgeInsets.zero,
     );

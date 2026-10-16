@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/theme/hearth_colors.dart';
 import '../../config/hub_config.dart';
 import '../../models/ha_entity.dart';
 import '../../services/home_assistant_service.dart';
@@ -329,6 +330,7 @@ class _PinnedEntitiesRow extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.hearthColors;
     final label = pinnedCount == 0
         ? 'No devices selected'
         : '$pinnedCount device${pinnedCount == 1 ? "" : "s"}';
@@ -337,17 +339,17 @@ class _PinnedEntitiesRow extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Pinned Devices',
-            style: TextStyle(color: Colors.white70, fontSize: 13),
+            style: TextStyle(color: c.textSecondary, fontSize: 13),
           ),
           const SizedBox(height: 4),
           ListTile(
             contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.devices, color: Colors.white54),
+            leading: Icon(Icons.devices, color: c.textMuted),
             title: Text(
               label,
-              style: const TextStyle(color: Colors.white),
+              style: TextStyle(color: c.text),
             ),
             trailing: ElevatedButton.icon(
               icon: const Icon(Icons.edit, size: 16),
@@ -357,8 +359,8 @@ class _PinnedEntitiesRow extends ConsumerWidget {
                 builder: (_) => const EntityPickerDialog(),
               ),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF646cff),
-                foregroundColor: Colors.white,
+                backgroundColor: c.accentFill,
+                foregroundColor: c.onAccent,
               ),
             ),
           ),

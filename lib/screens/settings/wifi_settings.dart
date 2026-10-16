@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../app/app.dart' show kDialogBackground;
+import '../../app/theme/hearth_colors.dart';
 import '../../services/wifi_service.dart';
 import '../../app/tokens/tokens.dart';
 
@@ -50,18 +50,19 @@ class _WifiSettingsSectionState extends ConsumerState<WifiSettingsSection> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.hearthColors;
     if (wifiManagedBySystem) {
       return ListTile(
-        leading: const Icon(Icons.wifi, color: Colors.white54, size: HearthIcon.md),
+        leading: Icon(Icons.wifi, color: c.textMuted, size: HearthIcon.md),
         title: const Text('Wi-Fi', style: TextStyle(fontSize: HearthFont.body)),
         subtitle: Text(
           'Open Android Wi-Fi settings',
           style: TextStyle(
             fontSize: HearthFont.label,
-            color: Colors.white.withValues(alpha: 0.5),
+            color: c.textMuted,
           ),
         ),
-        trailing: const Icon(Icons.open_in_new, color: Colors.white24),
+        trailing: Icon(Icons.open_in_new, color: c.inkAt(0.24)),
         onTap: () => ref.read(wifiServiceProvider).openSystemSettings(),
         contentPadding: const EdgeInsets.symmetric(horizontal: HearthSpacing.x2),
       );
@@ -76,7 +77,7 @@ class _WifiSettingsSectionState extends ConsumerState<WifiSettingsSection> {
     return ListTile(
       leading: Icon(
         connected ? Icons.wifi : Icons.wifi_off,
-        color: Colors.white54,
+        color: c.textMuted,
         size: HearthIcon.md,
       ),
       title: const Text('Wi-Fi', style: TextStyle(fontSize: HearthFont.body)),
@@ -84,10 +85,10 @@ class _WifiSettingsSectionState extends ConsumerState<WifiSettingsSection> {
         subtitle,
         style: TextStyle(
           fontSize: HearthFont.label,
-          color: Colors.white.withValues(alpha: 0.5),
+          color: c.textMuted,
         ),
       ),
-      trailing: const Icon(Icons.chevron_right, color: Colors.white24),
+      trailing: Icon(Icons.chevron_right, color: c.inkAt(0.24)),
       onTap: _openPicker,
       contentPadding: const EdgeInsets.symmetric(horizontal: HearthSpacing.x2),
     );
@@ -162,7 +163,7 @@ class _WifiPickerDialogState extends State<_WifiPickerDialog> {
     return showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: kDialogBackground,
+        backgroundColor: context.hearthColors.raised,
         title: Text('Connect to $ssid'),
         content: TextField(
           controller: controller,
@@ -187,8 +188,9 @@ class _WifiPickerDialogState extends State<_WifiPickerDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.hearthColors;
     return AlertDialog(
-      backgroundColor: kDialogBackground,
+      backgroundColor: c.raised,
       title: Row(
         children: [
           const Expanded(child: Text('Wi-Fi Networks')),
@@ -208,7 +210,7 @@ class _WifiPickerDialogState extends State<_WifiPickerDialog> {
             if (_statusMessage != null) ...[
               Text(
                 _statusMessage!,
-                style: const TextStyle(fontSize: HearthFont.label, color: Colors.amber),
+                style: TextStyle(fontSize: HearthFont.label, color: c.warning),
               ),
               const SizedBox(height: HearthSpacing.x2),
             ],
@@ -220,7 +222,7 @@ class _WifiPickerDialogState extends State<_WifiPickerDialog> {
                           child: Text(
                             'No networks found',
                             style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.5),
+                              color: c.textMuted,
                             ),
                           ),
                         )
@@ -235,23 +237,23 @@ class _WifiPickerDialogState extends State<_WifiPickerDialog> {
                                 n.isSecured ? Icons.lock : Icons.wifi,
                                 size: HearthIcon.xs,
                                 color: isActive
-                                    ? const Color(0xFF646CFF)
-                                    : Colors.white54,
+                                    ? c.accentText
+                                    : c.textMuted,
                               ),
                               title: Text(
                                 n.ssid,
                                 style: TextStyle(
                                   fontSize: HearthFont.body,
                                   color: isActive
-                                      ? const Color(0xFF646CFF)
-                                      : Colors.white,
+                                      ? c.accentText
+                                      : c.text,
                                 ),
                               ),
                               subtitle: Text(
                                 '${n.signalStrength}%${n.isSecured ? '  \u{1F512}' : ''}',
                                 style: TextStyle(
                                   fontSize: HearthFont.caption,
-                                  color: Colors.white.withValues(alpha: 0.5),
+                                  color: c.textMuted,
                                 ),
                               ),
                               onTap: () => _connectTo(n),

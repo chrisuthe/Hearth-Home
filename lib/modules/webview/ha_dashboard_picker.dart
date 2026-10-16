@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../app/theme/hearth_colors.dart';
 import '../../config/hub_config.dart';
 import '../../config/webview_config.dart';
 import '../../services/ha_lovelace_service.dart';
@@ -76,19 +77,20 @@ class _HaDashboardPickerState extends ConsumerState<HaDashboardPicker> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.hearthColors;
     final config = ref.watch(hubConfigProvider);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Row(
           children: [
-            const Icon(Icons.dashboard, color: Color(0xFF03A9F4), size: 18),
+            const Icon(Icons.dashboard, color: Color(0xFF03A9F4), size: 18), // theme-exempt: brand color (Home Assistant blue)
             const SizedBox(width: 8),
-            const Expanded(
+            Expanded(
               child: Text('Home Assistant dashboards',
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                      color: Colors.white, fontWeight: FontWeight.w600)),
+                      color: c.text, fontWeight: FontWeight.w600)),
             ),
             TextButton(
               onPressed: () => setState(_refresh),
@@ -100,20 +102,20 @@ class _HaDashboardPickerState extends ConsumerState<HaDashboardPicker> {
           future: _dashboardsFuture,
           builder: (context, snapshot) {
             if (snapshot.connectionState != ConnectionState.done) {
-              return const Padding(
-                padding: EdgeInsets.symmetric(vertical: 8),
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
                 child: Center(
                     child: CircularProgressIndicator(
-                        color: Color(0xFF646CFF))),
+                        color: c.accent)),
               );
             }
             final dashboards = snapshot.data ?? const [];
             if (dashboards.isEmpty) {
-              return const Padding(
-                padding: EdgeInsets.symmetric(vertical: 8),
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
                 child: Text(
                     'No dashboards found. Check HA connection in settings.',
-                    style: TextStyle(color: Colors.white54)),
+                    style: TextStyle(color: c.textMuted)),
               );
             }
             return Column(
@@ -124,10 +126,10 @@ class _HaDashboardPickerState extends ConsumerState<HaDashboardPicker> {
                 return SwitchListTile(
                   contentPadding: EdgeInsets.zero,
                   title: Text(d.title,
-                      style: const TextStyle(color: Colors.white)),
+                      style: TextStyle(color: c.text)),
                   subtitle: Text(d.urlPath,
-                      style: const TextStyle(
-                          color: Colors.white54, fontSize: 12)),
+                      style: TextStyle(
+                          color: c.textMuted, fontSize: 12)),
                   value: enabled,
                   onChanged: (v) => _toggle(d, v),
                 );

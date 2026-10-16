@@ -160,8 +160,8 @@ class _CalendarGlanceState extends ConsumerState<CalendarGlance> {
                     HearthSpacing.x2,
                   ),
                   decoration: BoxDecoration(
-                    color: CalendarColors.glanceCard,
-                    border: Border.all(color: CalendarColors.glanceBorder),
+                    color: CalendarColors.classic.glanceCard,
+                    border: Border.all(color: CalendarColors.classic.glanceBorder),
                     borderRadius: radius,
                   ),
                   child: DefaultTextStyle.merge(
@@ -200,17 +200,17 @@ class _SectionLabel extends StatelessWidget {
       HearthSpacing.x1,
     ),
     decoration: divided
-        ? const BoxDecoration(
-            border: Border(top: BorderSide(color: CalendarColors.glanceBorder)),
+        ? BoxDecoration(
+            border: Border(top: BorderSide(color: CalendarColors.classic.glanceBorder)),
           )
         : null,
     child: Text(
       label,
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: CalendarType.glanceLabel,
         fontWeight: FontWeight.w700,
         letterSpacing: CalendarType.glanceTracking,
-        color: CalendarColors.glanceLabel,
+        color: CalendarColors.classic.glanceLabel,
       ),
     ),
   );
@@ -254,10 +254,10 @@ class _GlanceRow extends StatelessWidget {
                     : Text(
                         when,
                         maxLines: 1,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: CalendarType.glance,
                           fontWeight: FontWeight.w500,
-                          color: CalendarColors.glanceTime,
+                          color: CalendarColors.classic.glanceTime,
                         ),
                       ),
               ),
@@ -268,10 +268,10 @@ class _GlanceRow extends StatelessWidget {
                 event.summary,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: CalendarType.glance,
                   fontWeight: FontWeight.w600,
-                  color: CalendarColors.text,
+                  color: CalendarColors.classic.text,
                 ),
               ),
             ),
@@ -280,9 +280,9 @@ class _GlanceRow extends StatelessWidget {
               Text(
                 until!,
                 maxLines: 1,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: CalendarType.glanceMeta,
-                  color: CalendarColors.glanceMeta,
+                  color: CalendarColors.classic.glanceMeta,
                 ),
               ),
             ],

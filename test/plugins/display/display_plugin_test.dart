@@ -75,6 +75,8 @@ void main() {
       expect(html, contains('UI Scale'));
       // UI Scale is now an editable slider on web (Enabler A typed writes).
       expect(html, contains('data-config-path="uiScale"'));
+      expect(html, contains('data-config-path="theme"'));
+      expect(html, contains('data-config-path="screenBackground"'));
       expect(html, contains('data-config-path="onScreenKeyboardMode"'));
       expect(html, contains('data-config-path="nightModeSource"'));
       expect(html, contains('data-config-path="nightModeHaEntity"'));

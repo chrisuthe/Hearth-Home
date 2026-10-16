@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../app/app.dart' show kDialogBackground;
+import '../app/theme/hearth_colors.dart';
 import '../app/tokens/tokens.dart';
 import '../config/hub_config.dart';
 import '../models/ha_entity.dart';
@@ -36,6 +36,7 @@ class _EntityPickerDialogState extends ConsumerState<EntityPickerDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.hearthColors;
     final ha = ref.read(homeAssistantServiceProvider);
     final allEntities = ha.entities.values
         .where((e) => const [
@@ -52,11 +53,11 @@ class _EntityPickerDialogState extends ConsumerState<EntityPickerDialog> {
 
     if (allEntities.isEmpty) {
       return AlertDialog(
-        backgroundColor: kDialogBackground,
+        backgroundColor: c.raised,
         title: const Text('Select Devices'),
-        content: const Text(
+        content: Text(
           'No entities available. Is Home Assistant connected?',
-          style: TextStyle(color: Colors.white70),
+          style: TextStyle(color: c.textSecondary),
         ),
         actions: [
           TextButton(
@@ -74,7 +75,7 @@ class _EntityPickerDialogState extends ConsumerState<EntityPickerDialog> {
         .toList();
 
     return AlertDialog(
-      backgroundColor: kDialogBackground,
+      backgroundColor: c.raised,
       title: const Text('Select Devices'),
       content: SizedBox(
         width: double.maxFinite,
@@ -82,9 +83,9 @@ class _EntityPickerDialogState extends ConsumerState<EntityPickerDialog> {
         child: Column(
           children: [
             TextField(
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 hintText: 'Search entities...',
-                prefixIcon: Icon(Icons.search, color: Colors.white38),
+                prefixIcon: Icon(Icons.search, color: c.textFaint),
               ),
               onChanged: (v) => setState(() => _search = v),
             ),
@@ -105,7 +106,7 @@ class _EntityPickerDialogState extends ConsumerState<EntityPickerDialog> {
                       entity.entityId,
                       style: TextStyle(
                         fontSize: HearthFont.caption,
-                        color: Colors.white.withValues(alpha: 0.5),
+                        color: c.textMuted,
                       ),
                     ),
                     value: isSelected,

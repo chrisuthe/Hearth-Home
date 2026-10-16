@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../app/tokens/tokens.dart';
 import '../../models/ha_entity.dart';
+import '../../app/theme/hearth_colors.dart';
 
 /// Card for controlling a single light entity.
 ///
@@ -20,6 +21,7 @@ class LightCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.hearthColors;
     final brightness = entity.brightness;
     final brightnessPercent =
         brightness != null ? (brightness / 255 * 100).round() : 0;
@@ -28,8 +30,8 @@ class LightCard extends StatelessWidget {
       padding: const EdgeInsets.all(HearthSpacing.x4),
       decoration: BoxDecoration(
         color: entity.isOn
-            ? Colors.amber.withValues(alpha: 0.12)
-            : Colors.white.withValues(alpha: 0.05),
+            ? c.warning.withValues(alpha: 0.12)
+            : c.inkAt(0.05),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
@@ -39,7 +41,7 @@ class LightCard extends StatelessWidget {
             children: [
               Icon(
                 Icons.lightbulb,
-                color: entity.isOn ? Colors.amber : Colors.white38,
+                color: entity.isOn ? c.warning : c.textFaint,
                 size: HearthIcon.sm,
               ),
               const SizedBox(width: HearthSpacing.x2),
@@ -53,7 +55,7 @@ class LightCard extends StatelessWidget {
               Switch(
                 value: entity.isOn,
                 onChanged: onToggle,
-                activeColor: Colors.amber,
+                activeColor: c.warning,
               ),
             ],
           ),
@@ -61,20 +63,20 @@ class LightCard extends StatelessWidget {
             const SizedBox(height: HearthSpacing.x2),
             Row(
               children: [
-                const Icon(Icons.brightness_low, size: HearthIcon.xs, color: Colors.white38),
+                Icon(Icons.brightness_low, size: HearthIcon.xs, color: c.textFaint),
                 Expanded(
                   child: Slider(
                     value: brightness.toDouble(),
                     min: 0,
                     max: 255,
                     onChanged: onBrightnessChanged,
-                    activeColor: Colors.amber,
-                    inactiveColor: Colors.white.withValues(alpha: 0.1),
+                    activeColor: c.warning,
+                    inactiveColor: c.inkAt(0.1),
                   ),
                 ),
                 Text(
                   '$brightnessPercent%',
-                  style: const TextStyle(fontSize: HearthFont.caption, color: Colors.white54),
+                  style: TextStyle(fontSize: HearthFont.caption, color: c.textMuted),
                 ),
               ],
             ),

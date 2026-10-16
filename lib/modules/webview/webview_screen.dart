@@ -13,6 +13,8 @@ import 'ha_token_injector.dart';
 import 'webview_geometry.dart';
 import 'webview_session.dart';
 import 'webview_session_pool.dart';
+import '../../app/theme/hearth_colors.dart';
+import '../../widgets/themed_background.dart';
 
 /// Maps a tap at [local] (in display-box pixels) back to webview viewport
 /// pixels, inverting the `BoxFit.contain` transform the [FittedBox] applies
@@ -180,7 +182,7 @@ class _WebviewScreenState extends ConsumerState<WebviewScreen> {
             if (session.state == WebviewSessionState.loading ||
                 session.state == WebviewSessionState.error)
               ColoredBox(
-                color: Colors.black,
+                color: context.hearthColors.canvas,
                 child: session.state == WebviewSessionState.error
                     ? _Placeholder.error(
                         config: widget.config,
@@ -237,38 +239,37 @@ class _Placeholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: Colors.black.withValues(alpha: 0.6),
-      alignment: Alignment.center,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            isError ? Icons.error_outline : config.icon,
-            color: isError ? Colors.redAccent : Colors.white70,
-            size: 48,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            isError ? 'Reconnecting to ${config.name}…' : config.name,
-            style: const TextStyle(color: Colors.white, fontSize: 18),
-          ),
-          if (isError && message != null) ...[
-            const SizedBox(height: 8),
-            Text(
-              message!,
-              style: const TextStyle(color: Colors.white54, fontSize: 12),
+    final c = context.hearthColors;
+    return ThemedBackground.photo(
+      strength: TintStrength.light,
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isError ? Icons.error_outline : config.icon,
+              color: isError ? c.danger : c.textSecondary,
+              size: 48,
             ),
             const SizedBox(height: 16),
-            TextButton(
-              onPressed: onRetry,
-              child: const Text('Retry'),
+            Text(
+              isError ? 'Reconnecting to ${config.name}…' : config.name,
+              style: TextStyle(color: c.text, fontSize: 18),
             ),
-          ] else ...[
-            const SizedBox(height: 8),
-            const CircularProgressIndicator(color: Color(0xFF646CFF)),
+            if (isError && message != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                message!,
+                style: TextStyle(color: c.textMuted, fontSize: 12),
+              ),
+              const SizedBox(height: 16),
+              TextButton(onPressed: onRetry, child: const Text('Retry')),
+            ] else ...[
+              const SizedBox(height: 8),
+              CircularProgressIndicator(color: c.accent),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }

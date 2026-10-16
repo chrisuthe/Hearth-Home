@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/theme/hearth_colors.dart';
 import '../../config/hub_config.dart';
 import '../../services/plex/plex_tv_auth.dart';
 import '../framework/fields/bool_setting_field.dart';
@@ -199,13 +200,14 @@ class _PlexPairingSectionState extends ConsumerState<PlexPairingSection> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.hearthColors;
     final config = ref.watch(hubConfigProvider);
     final paired = config.plexAuthToken.isNotEmpty;
 
     if (paired) {
       return Row(
         children: [
-          const Icon(Icons.check_circle, color: Color(0xFF4CAF50)),
+          Icon(Icons.check_circle, color: c.success),
           const SizedBox(width: 8),
           const Expanded(child: Text('Paired with Plex')),
           TextButton(onPressed: _unpair, child: const Text('Unpair')),
@@ -221,11 +223,11 @@ class _PlexPairingSectionState extends ConsumerState<PlexPairingSection> {
           const SizedBox(height: 8),
           Text(
             _code!,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 28,
               fontWeight: FontWeight.bold,
               letterSpacing: 6,
-              color: Color(0xFF646CFF),
+              color: c.accentText,
             ),
           ),
           const SizedBox(height: 8),
@@ -256,7 +258,7 @@ class _PlexPairingSectionState extends ConsumerState<PlexPairingSection> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (_error != null) ...[
-          Text(_error!, style: const TextStyle(color: Color(0xFFE57373))),
+          Text(_error!, style: TextStyle(color: c.danger)),
           const SizedBox(height: 8),
         ],
         // Wrap, not Row: on a narrow panel the button drops under the text

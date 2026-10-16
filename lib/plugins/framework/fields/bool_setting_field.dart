@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../config/hub_config.dart';
 import '../web_context.dart';
 import 'setting_field.dart';
+import '../../../app/theme/hearth_colors.dart';
 
 /// On/off toggle field. Maps 1:1 to a bool field on HubConfig via configPath
 /// by default, but accepts optional [readOverride] / [writeOverride] callbacks
@@ -66,16 +67,19 @@ class BoolSettingField extends SettingField<bool> {
     final config = ref.watch(hubConfigProvider);
     final value = readValue(config) ?? false;
     final disabled = disabledReason?.call(config);
-    return SwitchListTile(
-      secondary: icon != null ? Icon(icon, color: Colors.white54) : null,
-      title: Text(label),
-      subtitle: Text(
-        disabled ?? subtitle ?? (value ? 'Enabled' : 'Disabled'),
-        style: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
-      ),
-      value: value,
-      onChanged: disabled != null ? null : (v) => writeValue(ref, v),
-    );
+    return Builder(builder: (context) {
+      final c = context.hearthColors;
+      return SwitchListTile(
+        secondary: icon != null ? Icon(icon, color: c.textMuted) : null,
+        title: Text(label),
+        subtitle: Text(
+          disabled ?? subtitle ?? (value ? 'Enabled' : 'Disabled'),
+          style: TextStyle(color: c.textMuted),
+        ),
+        value: value,
+        onChanged: disabled != null ? null : (v) => writeValue(ref, v),
+      );
+    });
   }
 
   @override

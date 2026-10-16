@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/media_tokens.dart';
+import '../../../app/theme/hearth_colors.dart';
 import '../../../app/tokens/tokens.dart';
 import '../../../models/music_state.dart';
 import '../../../widgets/glass_panel.dart';
@@ -29,6 +30,7 @@ class MiniBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.hearthColors;
     final track = state.currentTrack;
     final duration = track?.duration ?? Duration.zero;
     final progress = duration.inSeconds > 0
@@ -40,6 +42,8 @@ class MiniBar extends StatelessWidget {
         borderRadius: BorderRadius.circular(MediaRadii.miniBar),
       ),
       child: GlassPanel(
+        fill: c.glassFill,
+        borderColor: c.glassBorder,
         borderRadius: BorderRadius.circular(MediaRadii.miniBar),
         child: SizedBox(
           height: 72,
@@ -67,11 +71,11 @@ class MiniBar extends StatelessWidget {
                 Container(
                   width: 1,
                   height: 20,
-                  color: const Color.fromRGBO(255, 255, 255, 0.15),
+                  color: c.inkAt(0.15),
                 ),
                 const SizedBox(width: HearthSpacing.x3),
                 IconButton(
-                  icon: const Icon(Icons.speaker_group, size: HearthIcon.sm, color: Colors.white),
+                  icon: Icon(Icons.speaker_group, size: HearthIcon.sm, color: c.text),
                   onPressed: onPlayersTap,
                   visualDensity: VisualDensity.compact,
                   constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
@@ -94,6 +98,7 @@ class _Art extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.hearthColors;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(MediaRadii.smallArt),
@@ -101,26 +106,26 @@ class _Art extends StatelessWidget {
         width: HearthSpacing.x12,
         height: HearthSpacing.x12,
         decoration: BoxDecoration(
-          color: const Color.fromRGBO(255, 255, 255, 0.04),
+          color: c.inkAt(0.04),
           borderRadius: BorderRadius.circular(MediaRadii.smallArt),
         ),
         clipBehavior: Clip.antiAlias,
         child: track?.imageUrl == null
-            ? const Center(
+            ? Center(
                 child: Icon(
                   Icons.music_note,
                   size: HearthIcon.sm,
-                  color: Color.fromRGBO(255, 255, 255, MediaTextOpacity.section),
+                  color: c.textMuted,
                 ),
               )
             : Image.network(
                 track!.imageUrl!,
                 fit: BoxFit.cover,
                 cacheWidth: 96,
-                errorBuilder: (_, _, _) => const Icon(
+                errorBuilder: (_, _, _) => Icon(
                   Icons.broken_image,
                   size: HearthIcon.sm,
-                  color: Color.fromRGBO(255, 255, 255, MediaTextOpacity.section),
+                  color: c.textMuted,
                 ),
               ),
       ),
@@ -136,6 +141,7 @@ class _TitleAndProgress extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.hearthColors;
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -144,10 +150,10 @@ class _TitleAndProgress extends StatelessWidget {
           track?.title ?? 'Nothing playing',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: HearthFont.label,
             fontWeight: FontWeight.w600,
-            color: Colors.white,
+            color: c.text,
           ),
         ),
         const SizedBox(height: 2),
@@ -155,10 +161,10 @@ class _TitleAndProgress extends StatelessWidget {
           track?.artist ?? '',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: HearthFont.caption,
             fontWeight: FontWeight.w400,
-            color: Color.fromRGBO(255, 255, 255, MediaTextOpacity.meta),
+            color: c.textMuted,
           ),
         ),
         const SizedBox(height: 6),
@@ -169,7 +175,7 @@ class _TitleAndProgress extends StatelessWidget {
             children: [
               Container(
                 decoration: BoxDecoration(
-                  color: const Color.fromRGBO(255, 255, 255, 0.15),
+                  color: c.inkAt(0.15),
                   borderRadius: BorderRadius.circular(MediaRadii.progress),
                 ),
               ),
@@ -177,7 +183,7 @@ class _TitleAndProgress extends StatelessWidget {
                 widthFactor: progress,
                 child: Container(
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: c.ink,
                     borderRadius: BorderRadius.circular(MediaRadii.progress),
                   ),
                 ),
@@ -205,18 +211,19 @@ class _Controls extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.hearthColors;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         IconButton(
-          icon: const Icon(Icons.skip_previous, size: HearthIcon.sm, color: Colors.white),
+          icon: Icon(Icons.skip_previous, size: HearthIcon.sm, color: c.text),
           onPressed: onPrev,
           visualDensity: VisualDensity.compact,
           constraints: const BoxConstraints(minWidth: HearthSpacing.x10, minHeight: HearthSpacing.x10),
           padding: EdgeInsets.zero,
         ),
         Material(
-          color: Colors.white,
+          color: c.ink,
           shape: const CircleBorder(),
           child: InkWell(
             customBorder: const CircleBorder(),
@@ -224,20 +231,20 @@ class _Controls extends StatelessWidget {
             child: Ink(
               width: HearthSpacing.x10,
               height: HearthSpacing.x10,
-              decoration: const BoxDecoration(
-                color: Colors.white,
+              decoration: BoxDecoration(
+                color: c.ink,
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 isPlaying ? Icons.pause : Icons.play_arrow,
                 size: HearthIcon.sm,
-                color: Colors.black,
+                color: c.canvas,
               ),
             ),
           ),
         ),
         IconButton(
-          icon: const Icon(Icons.skip_next, size: HearthIcon.sm, color: Colors.white),
+          icon: Icon(Icons.skip_next, size: HearthIcon.sm, color: c.text),
           onPressed: onNext,
           visualDensity: VisualDensity.compact,
           constraints: const BoxConstraints(minWidth: HearthSpacing.x10, minHeight: HearthSpacing.x10),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/theme/hearth_colors.dart';
 import '../../config/hub_config.dart';
 import '../../services/toast_service.dart';
 import '../../services/voice_assistant_service.dart';
@@ -271,6 +272,7 @@ class _SatellitePanel extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.hearthColors;
     final config = ref.watch(hubConfigProvider);
     final bridge = ref.watch(voiceSatelliteBridgeProvider);
     final status =
@@ -344,10 +346,10 @@ class _SatellitePanel extends ConsumerWidget {
           value:
               health == null ? 'None' : '${health.label}: ${health.message}',
         ),
-        const Padding(
-          padding: EdgeInsets.symmetric(vertical: 8),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
           child: Text(_firstRunNote,
-              style: TextStyle(color: Colors.white54, fontSize: 12)),
+              style: TextStyle(color: c.textMuted, fontSize: 12)),
         ),
       ],
     );
@@ -372,15 +374,16 @@ class _ReadOnlyRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.hearthColors;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(label,
-              style: const TextStyle(color: Colors.white70, fontSize: 13)),
+              style: TextStyle(color: c.textSecondary, fontSize: 13)),
           const SizedBox(height: 4),
-          Text(value, style: const TextStyle(color: Colors.white)),
+          Text(value, style: TextStyle(color: c.text)),
         ],
       ),
     );

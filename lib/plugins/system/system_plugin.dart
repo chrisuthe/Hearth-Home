@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/theme/hearth_colors.dart';
 import '../../app/tokens/tokens.dart';
 import '../../config/hub_config.dart';
 import '../../screens/settings/update_settings.dart';
@@ -375,13 +376,14 @@ class _LicensesTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.hearthColors;
     final version = ref.watch(installedVersionProvider).valueOrNull ?? '';
     return ListTile(
-      leading: const Icon(Icons.gavel_outlined,
-          color: Colors.white54, size: HearthIcon.md),
+      leading: Icon(Icons.gavel_outlined,
+          color: c.textMuted, size: HearthIcon.md),
       title: const Text('Open-source licences',
           style: TextStyle(fontSize: HearthFont.body)),
-      trailing: const Icon(Icons.chevron_right, color: Colors.white54),
+      trailing: Icon(Icons.chevron_right, color: c.textMuted),
       contentPadding: const EdgeInsets.symmetric(horizontal: HearthSpacing.x2),
       onTap: () => showLicensePage(
         context: context,

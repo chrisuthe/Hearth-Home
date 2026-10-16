@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/media_tokens.dart';
+import '../../../app/theme/hearth_colors.dart';
 import '../../../app/tokens/tokens.dart';
 import '../../../models/music_state.dart';
 import '../../../services/music_assistant_service.dart';
@@ -60,6 +61,7 @@ class _QueueLaneState extends ConsumerState<QueueLane> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.hearthColors;
     // Fixed-height content in a shelf whose height follows the finger: while
     // the drawer is partway open the lane is taller than its slot, so let the
     // viewport clip it instead of the column overflowing.
@@ -77,13 +79,13 @@ class _QueueLaneState extends ConsumerState<QueueLane> {
             future: _future,
             builder: (context, snap) {
               if (snap.connectionState != ConnectionState.done) {
-                return const Center(
+                return Center(
                   child: SizedBox(
                     height: 18,
                     width: 18,
                     child: CircularProgressIndicator(
                       strokeWidth: 1.5,
-                      color: Color.fromRGBO(255, 255, 255, MediaTextOpacity.section),
+                      color: c.textMuted,
                     ),
                   ),
                 );
@@ -91,12 +93,12 @@ class _QueueLaneState extends ConsumerState<QueueLane> {
               final items = snap.data ?? const <MaQueueItem>[];
               final upcoming = _upcomingFromQueue(items);
               if (upcoming.isEmpty) {
-                return const Center(
+                return Center(
                   child: Text(
                     'Nothing queued',
                     style: TextStyle(
                       fontSize: HearthFont.caption,
-                      color: Color.fromRGBO(255, 255, 255, MediaTextOpacity.section),
+                      color: c.textMuted,
                     ),
                   ),
                 );
@@ -136,7 +138,7 @@ class _QueueLaneState extends ConsumerState<QueueLane> {
 class _Header extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return const Row(
+    return Row(
       children: [
         Text(
           'UP NEXT',
@@ -144,7 +146,7 @@ class _Header extends StatelessWidget {
             fontSize: HearthFont.caption,
             fontWeight: FontWeight.w700,
             letterSpacing: 1.4,
-            color: Color.fromRGBO(255, 255, 255, MediaTextOpacity.eyebrow),
+            color: context.hearthColors.textMuted,
           ),
         ),
       ],
@@ -160,6 +162,7 @@ class _QueueCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.hearthColors;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(MediaRadii.smallArt),
@@ -173,26 +176,26 @@ class _QueueCard extends StatelessWidget {
             width: 130,
             height: 130,
             decoration: BoxDecoration(
-              color: const Color.fromRGBO(255, 255, 255, 0.04),
+              color: c.inkAt(0.04),
               borderRadius: BorderRadius.circular(MediaRadii.smallArt),
             ),
             clipBehavior: Clip.antiAlias,
             child: item.imageUrl == null
-                ? const Center(
+                ? Center(
                     child: Icon(
                       Icons.music_note,
                       size: HearthSpacing.x8,
-                      color: Color.fromRGBO(255, 255, 255, MediaTextOpacity.section),
+                      color: c.textMuted,
                     ),
                   )
                 : Image.network(
                     item.imageUrl!,
                     fit: BoxFit.cover,
                     cacheWidth: 260,
-                    errorBuilder: (_, _, _) => const Icon(
+                    errorBuilder: (_, _, _) => Icon(
                       Icons.broken_image,
                       size: HearthSpacing.x8,
-                      color: Color.fromRGBO(255, 255, 255, MediaTextOpacity.section),
+                      color: c.textMuted,
                     ),
                   ),
           ),
@@ -201,10 +204,10 @@ class _QueueCard extends StatelessWidget {
             item.title,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: HearthFont.label,
               fontWeight: FontWeight.w500,
-              color: Colors.white,
+              color: c.text,
             ),
           ),
           const SizedBox(height: 2),
@@ -212,10 +215,10 @@ class _QueueCard extends StatelessWidget {
             item.artist,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: HearthFont.caption,
               fontWeight: FontWeight.w500,
-              color: Color.fromRGBO(255, 255, 255, MediaTextOpacity.meta),
+              color: c.textMuted,
             ),
           ),
         ],
