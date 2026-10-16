@@ -21,7 +21,14 @@ final blurredPhotoProvider = FutureProvider<ui.Image?>((ref) async {
   final frame = ref.watch(currentPhotoProvider);
   if (frame == null || frame.path.startsWith('http')) return null;
 
+  // A change mid-decode disposes this run; onDispose can't be registered after that.
+  var disposed = false;
+  ref.onDispose(() => disposed = true);
   final image = await decodeAndBlur(await File(frame.path).readAsBytes());
+  if (disposed) {
+    image.dispose();
+    return null;
+  }
   ref.onDispose(image.dispose);
   return image;
 });

@@ -7,7 +7,7 @@ import 'package:hearth/config/screen_background.dart';
 import 'package:hearth/services/immich_service.dart' show kCenterFocalPoint;
 import 'package:hearth/services/photo_providers.dart';
 
-import 'photo_blur_test.dart' show redBluePng;
+import 'photo_fixture.dart';
 
 ProviderContainer _container(ScreenBackground background) {
   final c = ProviderContainer(
@@ -71,6 +71,28 @@ void main() {
       final second = (await c.read(blurredPhotoProvider.future))!;
       expect(first.debugDisposed, isTrue);
       expect(second.debugDisposed, isFalse);
+    });
+  });
+
+  testWidgets('a change mid-decode neither throws nor leaks', (tester) async {
+    await tester.runAsync(() async {
+      final c = _container(ScreenBackground.blurred);
+      final notifier = c.read(currentPhotoProvider.notifier);
+      notifier.state =
+          (path: await writePhoto('a.png'), focal: kCenterFocalPoint);
+      c.read(blurredPhotoProvider.future).ignore();
+
+      notifier.state =
+          (path: await writePhoto('b.png'), focal: kCenterFocalPoint);
+      final fresh = c.read(blurredPhotoProvider.future);
+
+      // Let the superseded decode settle too. Before the fix it threw
+      // Riverpod's "onDispose after dispose" StateError, which the test
+      // zone reports as an uncaught error.
+      final image = await fresh;
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      expect(image!.width, 300);
+      expect(image.debugDisposed, isFalse);
     });
   });
 }
