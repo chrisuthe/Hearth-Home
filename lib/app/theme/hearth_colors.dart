@@ -183,6 +183,8 @@ class HearthColors extends ThemeExtension<HearthColors> {
         HearthThemeId.classic => classic,
         HearthThemeId.bright => bright,
         HearthThemeId.warm => warm,
+        // Temporary: the new palettes land in later tasks.
+        _ => classic,
       };
 
   static HearthColors of(BuildContext context) =>
