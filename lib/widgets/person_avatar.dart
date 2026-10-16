@@ -83,7 +83,7 @@ class _Initial extends StatelessWidget {
         child: Text(
           view.initial,
           style: TextStyle(
-            color: context.hearthColors.text,
+            color: Colors.white, // theme-exempt: data color
             fontSize: size * 0.5,
             fontWeight: FontWeight.w600,
             height: 1,

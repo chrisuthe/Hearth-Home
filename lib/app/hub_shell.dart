@@ -252,7 +252,7 @@ class _HubShellState extends ConsumerState<HubShell> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text('Volume', style: TextStyle(fontSize: HearthFont.caption, color: Colors.white54)), // theme-exempt: menu content, outside the Task 3 migration scope
+          Text('Volume', style: TextStyle(fontSize: HearthFont.caption, color: context.hearthColors.textMuted)),
           const SizedBox(height: HearthSpacing.x1),
           const _SystemVolumeSlider(),
           if (menu2Items.isNotEmpty) ...[
@@ -473,7 +473,7 @@ class _HubShellState extends ConsumerState<HubShell> {
                 return IconButton(
                   icon: Icon(
                     muted ? Icons.mic_off : Icons.mic,
-                    color: muted ? Colors.red : Colors.white38, // theme-exempt: menu content, outside the Task 3 migration scope
+                    color: muted ? Colors.red : context.hearthColors.textFaint, // theme-exempt: status hue (phase 2)
                     size: HearthIcon.lg,
                   ),
                   onPressed: () {
@@ -595,23 +595,24 @@ class _QuickAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.hearthColors;
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(16),
-        splashColor: Colors.white24, // theme-exempt: menu content, outside the Task 3 migration scope
+        splashColor: c.inkAt(0.24),
         child: Container(
           width: 88,
           height: 88,
           decoration: BoxDecoration(
             color: active
-                ? const Color(0xFF646CFF).withValues(alpha: 0.2) // theme-exempt: menu content, outside the Task 3 migration scope
-                : Colors.white.withValues(alpha: 0.08), // theme-exempt: menu content, outside the Task 3 migration scope
+                ? c.accent.withValues(alpha: 0.2)
+                : c.inkAt(0.08),
             borderRadius: BorderRadius.circular(16),
             border: active
                 ? Border.all(
-                    color: const Color(0xFF646CFF).withValues(alpha: 0.5)) // theme-exempt: menu content, outside the Task 3 migration scope
+                    color: c.accent.withValues(alpha: 0.5))
                 : null,
           ),
           child: Column(
@@ -619,11 +620,11 @@ class _QuickAction extends StatelessWidget {
             children: [
               Icon(icon,
                   size: 28,
-                  color: active ? const Color(0xFF646CFF) : Colors.white70), // theme-exempt: menu content, outside the Task 3 migration scope
+                  color: active ? c.accent : c.textSecondary),
               const SizedBox(height: 6),
               Text(
                 label,
-                style: const TextStyle(fontSize: HearthFont.caption, color: Colors.white70), // theme-exempt: menu content, outside the Task 3 migration scope
+                style: TextStyle(fontSize: HearthFont.caption, color: c.textSecondary),
                 overflow: TextOverflow.ellipsis,
               ),
             ],
@@ -791,18 +792,19 @@ class _SystemVolumeSliderState extends ConsumerState<_SystemVolumeSlider> {
       }
     }
 
+    final c = context.hearthColors;
     return Row(
       children: [
-        const Icon(Icons.volume_down, color: Colors.white54, size: HearthIcon.sm), // theme-exempt: menu content, outside the Task 3 migration scope
+        Icon(Icons.volume_down, color: c.textMuted, size: HearthIcon.sm),
         Expanded(
           child: Slider(
             value: _volume,
             onChanged: _onChanged,
-            activeColor: Colors.white70, // theme-exempt: menu content, outside the Task 3 migration scope
-            inactiveColor: Colors.white.withValues(alpha: 0.1), // theme-exempt: menu content, outside the Task 3 migration scope
+            activeColor: c.textSecondary,
+            inactiveColor: c.inkAt(0.1),
           ),
         ),
-        const Icon(Icons.volume_up, color: Colors.white54, size: HearthIcon.sm), // theme-exempt: menu content, outside the Task 3 migration scope
+        Icon(Icons.volume_up, color: c.textMuted, size: HearthIcon.sm),
       ],
     );
   }
