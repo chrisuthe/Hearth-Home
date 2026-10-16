@@ -6,6 +6,28 @@ import 'package:hearth/screens/ambient/photo_carousel.dart';
 import 'package:hearth/services/immich_service.dart';
 
 void main() {
+  test('photoDecodeWidth is the longer physical side', () {
+    expect(photoDecodeWidth(const Size(2368, 1728)), 2368);
+    expect(photoDecodeWidth(const Size(1728, 2368)), 2368);
+    expect(photoDecodeWidth(const Size(1184, 864)), 1184);
+  });
+
+  testWidgets('default provider is a ResizeImage at the decode width',
+      (tester) async {
+    final controller = StreamController<PhotoFrame?>.broadcast();
+    addTearDown(controller.close);
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(body: PhotoCarousel(photoStream: controller.stream)),
+    ));
+    controller.add((path: 'http://x/a.jpg', focal: kCenterFocalPoint));
+    await tester.pump();
+
+    final provider = tester.widget<Image>(find.byType(Image)).image;
+    expect(provider, isA<ResizeImage>());
+    final view = tester.view;
+    expect((provider as ResizeImage).width, photoDecodeWidth(view.physicalSize));
+  });
+
   _decodeGateTests();
   group('PhotoCarousel', () {
     testWidgets('shows placeholder when no photos are available', (tester) async {

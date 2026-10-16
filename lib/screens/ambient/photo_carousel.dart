@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../app/tokens/tokens.dart';
@@ -10,6 +11,12 @@ import 'dart:io' if (dart.library.html) 'dart:io';
 /// toward. [path] is a local file path (native) or network URL (web);
 /// [focal] keeps faces in frame under [BoxFit.cover] (see [_alignmentFor]).
 typedef PhotoFrame = ({String path, FocalPoint focal});
+
+/// Pixel width to decode a photo at: the panel's longer physical side, so a
+/// cover-fitted landscape photo is sharp on a portrait canvas too. Physical
+/// size ignores the UI scale, which only changes logical layout.
+int photoDecodeWidth(Size physicalSize) =>
+    max(physicalSize.width, physicalSize.height).round();
 
 /// Displays a stream of photos with crossfade transitions.
 ///
@@ -83,9 +90,7 @@ class _PhotoCarouselState extends State<PhotoCarousel>
   }
 
   ImageProvider _providerFor(PhotoFrame frame) {
-    final mediaQuery = MediaQuery.of(context);
-    final cacheWidth =
-        (mediaQuery.size.width * mediaQuery.devicePixelRatio).round();
+    final cacheWidth = photoDecodeWidth(View.of(context).physicalSize);
     final custom = widget.imageProviderFor;
     if (custom != null) return custom(frame, cacheWidth);
     final source = frame.path;
@@ -111,6 +116,7 @@ class _PhotoCarouselState extends State<PhotoCarousel>
   Widget _buildImage(PhotoFrame frame) {
     return Image(
       image: _providerFor(frame),
+      gaplessPlayback: true,
       fit: BoxFit.cover,
       alignment: _alignmentFor(frame.focal),
       width: double.infinity,
