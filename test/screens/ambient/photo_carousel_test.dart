@@ -228,5 +228,23 @@ void _decodeGateTests() {
       final image = tester.widget<Image>(find.byType(Image));
       expect((image.image as _GatedImage).path, frame('c').path);
     });
+
+    testWidgets('a frame decoded mid-fade restarts the fade and wins',
+        (tester) async {
+      await pumpCarousel(tester);
+      controller.add(frame('b'));
+      await tester.pump();
+      await release(tester, 'b');
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(fades(), findsOneWidget);
+
+      controller.add(frame('c'));
+      await tester.pump();
+      await release(tester, 'c');
+      await tester.pumpAndSettle();
+      expect(started, [frame('b'), frame('c')]);
+      final image = tester.widget<Image>(find.byType(Image));
+      expect((image.image as _GatedImage).path, frame('c').path);
+    });
   });
 }

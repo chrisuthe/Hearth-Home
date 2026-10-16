@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../app/tokens/tokens.dart';
 import '../../services/immich_service.dart';
+import '../../utils/logger.dart' show redactSecrets;
 // dart:io is native-only, guarded by kIsWeb at runtime.
 import 'dart:io' if (dart.library.html) 'dart:io';
 
@@ -12,9 +13,13 @@ import 'dart:io' if (dart.library.html) 'dart:io';
 /// [focal] keeps faces in frame under [BoxFit.cover] (see [_alignmentFor]).
 typedef PhotoFrame = ({String path, FocalPoint focal});
 
-/// Pixel width to decode a photo at: the panel's longer physical side, so a
-/// cover-fitted landscape photo is sharp on a portrait canvas too. Physical
-/// size ignores the UI scale, which only changes logical layout.
+/// Pixel width to decode a photo at: the panel's longer physical side.
+/// Physical size ignores the UI scale, which only changes logical layout.
+///
+/// A pragmatic cap, not an exact cover fit: under [BoxFit.cover] a photo
+/// whose aspect differs from the panel's is drawn wider than this and
+/// upscaled a little (a 3:2 photo on a portrait panel by 1.5x). Decoding at
+/// the cover size instead would cost more memory per photo for that sharpness.
 int photoDecodeWidth(Size physicalSize) =>
     max(physicalSize.width, physicalSize.height).round();
 
@@ -75,14 +80,22 @@ class _PhotoCarouselState extends State<PhotoCarousel>
       return;
     }
     // Decode first, so the fade shows pixels instead of a half-loaded image.
-    await precacheImage(_providerFor(frame), context, onError: (_, _) {});
+    await precacheImage(_providerFor(frame), context, onError: (e, _) {
+      debugPrint('PhotoCarousel: precache failed for '
+          '${redactSecrets(frame.path)}: $e');
+    });
     // A newer frame arrived while this one decoded: it wins.
     if (!mounted || generation != _generation) return;
     setState(() => _next = frame);
     widget.onCrossfadeStart?.call(frame);
-    await _crossfadeController.forward(from: 0.0);
-    // A newer frame replaced this one mid-fade; its own fade will promote it.
-    if (!mounted || _next != frame) return;
+    try {
+      await _crossfadeController.forward(from: 0.0).orCancel;
+    } on TickerCanceled {
+      // A newer frame restarted the fade (its own fade will promote it), or
+      // the carousel was disposed.
+      return;
+    }
+    if (!mounted) return;
     setState(() {
       _current = frame;
       _next = null;
