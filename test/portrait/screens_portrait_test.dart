@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hearth/app/theme/hearth_colors.dart';
+import 'package:hearth/app/theme/hearth_theme.dart';
 import 'package:hearth/config/hub_config.dart';
 import 'package:hearth/modules/calendar/calendar_providers.dart';
 import 'package:hearth/modules/calendar/models.dart';
@@ -208,8 +210,16 @@ void main() {
           notificationServiceProvider.overrideWith((ref) => notifications),
           timerServiceProvider.overrideWith((ref) => timers),
         ],
-        child: const MaterialApp(home: TimerScreen()),
+        child: MaterialApp(
+          theme: buildHearthTheme(HearthColors.classic),
+          home: const Scaffold(),
+        ),
       ));
+      // The app pushes the Timer as an opaque route over the themed shell.
+      tester
+          .state<NavigatorState>(find.byType(Navigator))
+          .push(MaterialPageRoute<void>(builder: (_) => const TimerScreen()));
+      await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
       return timers;
     }
