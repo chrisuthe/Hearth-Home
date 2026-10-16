@@ -129,4 +129,15 @@ void main() {
     expect(tester.getBottomRight(find.text('Continue')).dx,
         lessThan(canvas.width));
   });
+
+  testLayouts('setup wizard: Wi-Fi owned by the OS', (tester, canvas) async {
+    debugWifiManagedBySystemOverride = true;
+    addTearDown(() => debugWifiManagedBySystemOverride = null);
+    await _pumpWizard(tester, _FakeWifi());
+    expect(find.text('Continue setup from a browser:'), findsOneWidget);
+    expect(tester.getBottomRight(find.text('Continue')).dy,
+        lessThan(canvas.height));
+    expect(tester.getBottomRight(find.text('Continue')).dx,
+        lessThan(canvas.width));
+  });
 }

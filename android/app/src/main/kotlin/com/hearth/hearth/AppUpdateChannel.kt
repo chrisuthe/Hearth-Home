@@ -12,6 +12,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
+import androidx.core.content.ContextCompat
 import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
@@ -33,14 +34,21 @@ class AppUpdateChannel(private val activity: Activity, messenger: BinaryMessenge
         override fun onReceive(context: Context, intent: Intent) = onStatus(intent)
     }
 
+    /** The install session this channel committed, the only one it reports on. */
+    @Volatile
+    private var activeSessionId: Int? = null
+
     init {
         channel.setMethodCallHandler(this)
-        val filter = IntentFilter(ACTION_STATUS)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            activity.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
-        } else {
-            activity.registerReceiver(receiver, filter)
-        }
+        // Not exported on every Android version, not only 13+: an exported
+        // receiver would let any app send a "confirm this install" status, and
+        // onStatus starts the activity that status names.
+        ContextCompat.registerReceiver(
+            activity,
+            receiver,
+            IntentFilter(ACTION_STATUS),
+            ContextCompat.RECEIVER_NOT_EXPORTED,
+        )
     }
 
     fun dispose() {
@@ -82,6 +90,7 @@ class AppUpdateChannel(private val activity: Activity, messenger: BinaryMessenge
                 params.setAppPackageName(activity.packageName)
                 params.setSize(file.length())
                 val sessionId = installer.createSession(params)
+                activeSessionId = sessionId
                 installer.openSession(sessionId).use { session ->
                     file.inputStream().use { input ->
                         session.openWrite("hearth.apk", 0, file.length()).use { out ->
@@ -105,6 +114,10 @@ class AppUpdateChannel(private val activity: Activity, messenger: BinaryMessenge
     }
 
     private fun onStatus(intent: Intent) {
+        // Belt and braces with the unexported receiver: only act on the
+        // session this channel created.
+        val sessionId = intent.getIntExtra(PackageInstaller.EXTRA_SESSION_ID, -1)
+        if (sessionId != activeSessionId) return
         val status = intent.getIntExtra(PackageInstaller.EXTRA_STATUS, PackageInstaller.STATUS_FAILURE)
         val message = intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE)
         if (status == PackageInstaller.STATUS_PENDING_USER_ACTION) {
