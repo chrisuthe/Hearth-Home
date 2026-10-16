@@ -1,10 +1,13 @@
+import 'dart:async';
 import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hearth/app/theme/theme_providers.dart';
 import 'package:hearth/config/screen_background.dart';
 import 'package:hearth/services/immich_service.dart' show kCenterFocalPoint;
+import 'package:hearth/services/photo_blur.dart';
 import 'package:hearth/services/photo_providers.dart';
 
 import 'photo_fixture.dart';
@@ -74,25 +77,44 @@ void main() {
     });
   });
 
-  testWidgets('a change mid-decode neither throws nor leaks', (tester) async {
+  testWidgets('a change mid-decode disposes the superseded image',
+      (tester) async {
     await tester.runAsync(() async {
-      final c = _container(ScreenBackground.blurred);
+      final pending = <Completer<ui.Image>>[];
+      final c = ProviderContainer(overrides: [
+        screenBackgroundProvider.overrideWithValue(ScreenBackground.blurred),
+        photoBlurProvider.overrideWithValue((bytes) {
+          final completer = Completer<ui.Image>();
+          pending.add(completer);
+          return completer.future;
+        }),
+      ]);
+      addTearDown(c.dispose);
       final notifier = c.read(currentPhotoProvider.notifier);
+
       notifier.state =
           (path: await writePhoto('a.png'), focal: kCenterFocalPoint);
       c.read(blurredPhotoProvider.future).ignore();
+      while (pending.isEmpty) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
 
       notifier.state =
           (path: await writePhoto('b.png'), focal: kCenterFocalPoint);
       final fresh = c.read(blurredPhotoProvider.future);
+      while (pending.length < 2) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
 
-      // Let the superseded decode settle too. Before the fix it threw
-      // Riverpod's "onDispose after dispose" StateError, which the test
-      // zone reports as an uncaught error.
-      final image = await fresh;
-      await Future<void>.delayed(const Duration(milliseconds: 300));
-      expect(image!.width, 300);
-      expect(image.debugDisposed, isFalse);
+      final stale = await decodeAndBlur(await redBluePng());
+      pending[0].complete(stale);
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      expect(stale.debugDisposed, isTrue);
+
+      final current = await decodeAndBlur(await redBluePng());
+      pending[1].complete(current);
+      expect(await fresh, same(current));
+      expect(current.debugDisposed, isFalse);
     });
   });
 }

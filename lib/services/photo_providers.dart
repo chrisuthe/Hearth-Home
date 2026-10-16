@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,6 +13,10 @@ import 'photo_blur.dart';
 /// can sit over a blur of it.
 final currentPhotoProvider = StateProvider<PhotoFrame?>((ref) => null);
 
+/// How a photo is blurred; a seam so tests can control when a blur finishes.
+final photoBlurProvider =
+    Provider<Future<ui.Image> Function(Uint8List bytes)>((ref) => decodeAndBlur);
+
 /// A blurred copy of [currentPhotoProvider], made once per photo and only
 /// while Background is Blurred. Null for Solid, no photo, or a remote path.
 final blurredPhotoProvider = FutureProvider<ui.Image?>((ref) async {
@@ -24,7 +29,7 @@ final blurredPhotoProvider = FutureProvider<ui.Image?>((ref) async {
   // A change mid-decode disposes this run; onDispose can't be registered after that.
   var disposed = false;
   ref.onDispose(() => disposed = true);
-  final image = await decodeAndBlur(await File(frame.path).readAsBytes());
+  final image = await ref.read(photoBlurProvider)(await File(frame.path).readAsBytes());
   if (disposed) {
     image.dispose();
     return null;
