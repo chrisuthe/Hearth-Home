@@ -105,10 +105,11 @@ class BackupService {
     final from = backup['hearthVersion'] is String
         ? backup['hearthVersion'] as String
         : '';
-    final running = await _installedVersion();
-    if (from.isNotEmpty &&
-        running.isNotEmpty &&
-        semverIsNewer(from, running)) {
+    final fromNumbers = _versionNumbers(from);
+    final runningNumbers = _versionNumbers(await _installedVersion());
+    if (fromNumbers != null &&
+        runningNumbers != null &&
+        semverIsNewer(fromNumbers, runningNumbers)) {
       throw BackupRejected('This backup is from Hearth $from; update this '
           'kiosk to $from or later first.');
     }
@@ -136,13 +137,31 @@ class BackupService {
       final file = File('$dir/$name');
       if (await file.exists()) await file.copy('${file.path}.pre-restore');
     }
-    await config.update((_) => restored);
-    await alarms.replaceAll(restoredAlarms);
 
-    if (secrets == null || secrets.files.isEmpty) return SendspinRestore.none;
-    if (secrets.platform != platform) return SendspinRestore.skipped;
-    await sendspin.write(secrets.files);
-    return SendspinRestore.restored;
+    // The Sendspin keys go first: the config going live can start Sendspin,
+    // which would mint a key of its own if the restored one were not on
+    // disk yet. It is also the write most likely to fail, and failing first
+    // leaves the config and alarms as they were.
+    final SendspinRestore result;
+    if (secrets == null || secrets.files.isEmpty) {
+      result = SendspinRestore.none;
+    } else if (secrets.platform != platform) {
+      result = SendspinRestore.skipped;
+    } else {
+      await sendspin.write(secrets.files);
+      result = SendspinRestore.restored;
+    }
+    await alarms.replaceAll(restoredAlarms);
+    await config.update((_) => restored);
+    return result;
+  }
+
+  /// [version] without a pre-release or build suffix, or null when it does
+  /// not start with a number — a dev bundle reports `dev`, which cannot be
+  /// compared, so the check is skipped as for an unreadable version.
+  static String? _versionNumbers(String version) {
+    final numbers = version.split(RegExp('[-+]')).first;
+    return int.tryParse(numbers.split('.').first) == null ? null : numbers;
   }
 
   static ({String platform, Map<String, String> files})? _sendspinFiles(

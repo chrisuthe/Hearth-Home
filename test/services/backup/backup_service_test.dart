@@ -31,6 +31,29 @@ class _FakeSendspinFiles implements SendspinSecretFiles {
   Future<void> write(Map<String, String> files) async => writes.add(files);
 }
 
+/// Records the config's apiKey at the moment the secrets are written.
+class _OrderCheckingSendspinFiles implements SendspinSecretFiles {
+  final String Function() _apiKey;
+  String? apiKeyAtWrite;
+  _OrderCheckingSendspinFiles(this._apiKey);
+
+  @override
+  Future<Map<String, String>> read() async => const {};
+
+  @override
+  Future<void> write(Map<String, String> files) async =>
+      apiKeyAtWrite = _apiKey();
+}
+
+class _FailingSendspinFiles implements SendspinSecretFiles {
+  @override
+  Future<Map<String, String>> read() async => const {};
+
+  @override
+  Future<void> write(Map<String, String> files) =>
+      throw const FileSystemException('disk full');
+}
+
 void main() {
   /// The restoring kiosk's directory.
   late Directory dir;
@@ -239,6 +262,57 @@ void main() {
             throwsA(isA<BackupRejected>()), reason: 'alarms: $alarms');
         expectUntouched(target, fake);
       }
+    });
+
+    test('writes the Sendspin keys before the config goes live', () async {
+      // The live config rebuild starts Sendspin, which would mint a key of
+      // its own if the restored one were not already on disk.
+      late final _MemoryConfigNotifier notifier;
+      final fake = _OrderCheckingSendspinFiles(() => notifier.current.apiKey);
+      notifier = _MemoryConfigNotifier(const HubConfig(apiKey: 'target-key'));
+      final target = BackupService(
+        config: notifier,
+        alarms: AlarmService(directory: () async => dir.path),
+        sendspin: fake,
+        platform: 'linux',
+        installedVersion: () async => '1.22.0',
+        directory: () async => dir.path,
+      );
+      await target.restore(await sourceBackup());
+      expect(fake.apiKeyAtWrite, 'target-key');
+      expect(notifier.current.apiKey, 'source-key');
+    });
+
+    test('a failed Sendspin write changes nothing else', () async {
+      final target = BackupService(
+        config: _MemoryConfigNotifier(const HubConfig(apiKey: 'target-key')),
+        alarms: AlarmService(directory: () async => dir.path),
+        sendspin: _FailingSendspinFiles(),
+        platform: 'linux',
+        installedVersion: () async => '1.22.0',
+        directory: () async => dir.path,
+      );
+      await expectLater(target.restore(await sourceBackup()),
+          throwsA(isA<FileSystemException>()));
+      expect(target.config.current.apiKey, 'target-key');
+      expect(target.alarms.alarms, isEmpty);
+    });
+
+    test('a dev build accepts any backup', () async {
+      final target = service(version: 'dev');
+      await target.restore(await sourceBackup(version: '1.22.0'));
+      expect(target.config.current.apiKey, 'source-key');
+    });
+
+    test('pre-release suffixes are compared by their numbers', () async {
+      await expectLater(
+        service(version: '1.22.0')
+            .restore(await sourceBackup(version: '1.22.1-rc.1')),
+        throwsA(isA<BackupRejected>().having((e) => e.message, 'message',
+            contains('Hearth 1.22.1-rc.1'))),
+      );
+      await service(version: '1.22.1+5')
+          .restore(await sourceBackup(version: '1.22.1-rc.1'));
     });
 
     test('skips Sendspin from another platform', () async {

@@ -28,13 +28,18 @@ class _MemoryConfigNotifier extends HubConfigNotifier {
 }
 
 class _FakeSendspinFiles implements SendspinSecretFiles {
+  _FakeSendspinFiles({this.failWrite = false});
+  final bool failWrite;
   final writes = <Map<String, String>>[];
 
   @override
   Future<Map<String, String>> read() async => {'sendspin_identity.key': 'AQID'};
 
   @override
-  Future<void> write(Map<String, String> files) async => writes.add(files);
+  Future<void> write(Map<String, String> files) async {
+    if (failWrite) throw const FileSystemException('disk full');
+    writes.add(files);
+  }
 }
 
 class _FakeRestarter implements AppRestarter {
@@ -64,7 +69,7 @@ void main() {
   late _FakeRestarter restarter;
   const apiKey = 'current-key';
 
-  Future<void> start({bool canRestart = true}) async {
+  Future<void> start({bool canRestart = true, bool failWrite = false}) async {
     dir = await Directory.systemTemp.createTemp('hearth_system_routes');
     config = _MemoryConfigNotifier(
         const HubConfig(apiKey: apiKey, mqttDeviceName: 'Kitchen'));
@@ -72,7 +77,7 @@ void main() {
     final backup = BackupService(
       config: config,
       alarms: AlarmService(directory: () async => dir.path),
-      sendspin: _FakeSendspinFiles(),
+      sendspin: _FakeSendspinFiles(failWrite: failWrite),
       platform: 'linux',
       installedVersion: () async => '1.22.0',
       directory: () async => dir.path,
@@ -172,6 +177,16 @@ void main() {
     await restarter.calls.future.timeout(const Duration(seconds: 2));
     expect(restarter.count, 1);
     expect(config.current.apiKey, 'restored-key');
+  });
+
+  test('restore reports a failed write and does not restart', () async {
+    await start(failWrite: true);
+    final r = await send('POST', '/api/plugin/hearth.system/restore',
+        body: validBackup());
+    expect(r.statusCode, 500);
+    expect((await json(r))['error'], startsWith('Restore failed: '));
+    expect(restarter.count, 0);
+    expect(config.current.apiKey, apiKey);
   });
 
   test('restore reports a manual restart where the kiosk cannot restart',

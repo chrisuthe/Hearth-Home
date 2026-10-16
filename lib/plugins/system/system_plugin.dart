@@ -10,6 +10,7 @@ import '../../config/hub_config.dart';
 import '../../screens/settings/update_settings.dart';
 import '../../services/app_restarter.dart';
 import '../../services/backup/backup_service.dart';
+import '../../utils/logger.dart';
 import '../framework/plugin_router.dart';
 import '../framework/fields/bool_setting_field.dart';
 import '../framework/fields/password_setting_field.dart';
@@ -104,6 +105,12 @@ class SystemPlugin extends HearthPlugin {
       sendspin = await req.readProvider(backupServiceProvider).restore(req.body);
     } on BackupRejected catch (e) {
       await req.respondError(400, e.message);
+      return;
+    } catch (e) {
+      // A write failed. The Sendspin keys are written first, so most failures
+      // leave the config and alarms as they were.
+      Log.e('Backup', 'Restore failed: $e');
+      await req.respondError(500, 'Restore failed: $e');
       return;
     }
     final restarter = req.readProvider(appRestarterProvider);
