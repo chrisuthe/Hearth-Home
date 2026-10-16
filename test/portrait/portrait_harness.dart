@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hearth/app/theme/hearth_colors.dart';
+import 'package:hearth/app/theme/hearth_theme.dart';
 
 /// The reference canvas every screen was tuned for.
 const kLandscapeCanvas = Size(1184, 864);
@@ -54,6 +56,6 @@ void expectNoLayoutErrors(WidgetTester tester, String reason) {
 /// Dark `MaterialApp` shell matching how the app hosts its screens.
 Widget hostScreen(Widget child) => MaterialApp(
       debugShowCheckedModeBanner: false,
-      theme: ThemeData.dark(useMaterial3: true),
-      home: Scaffold(backgroundColor: Colors.black, body: child),
+      theme: buildHearthTheme(HearthColors.classic),
+      home: Scaffold(body: child),
     );

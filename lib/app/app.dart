@@ -8,6 +8,8 @@ import '../services/osk_integration.dart';
 import '../widgets/touch_indicator_overlay.dart';
 import 'hub_shell.dart';
 import 'scale/hearth_scale.dart';
+import 'theme/hearth_colors.dart';
+import 'theme/hearth_theme.dart';
 
 /// Root widget for the Hearth application.
 ///
@@ -34,14 +36,7 @@ class HearthApp extends ConsumerWidget {
       title: 'Hearth',
       debugShowCheckedModeBanner: false,
       scrollBehavior: const _TouchScrollBehavior(),
-      theme: ThemeData(
-        brightness: Brightness.dark,
-        scaffoldBackgroundColor: Colors.black,
-        colorSchemeSeed: const Color(0xFF646CFF),
-        useMaterial3: true,
-        fontFamily: 'Roboto',
-        dialogTheme: const DialogThemeData(backgroundColor: kDialogBackground),
-      ),
+      theme: buildHearthTheme(HearthColors.classic),
       builder: (context, child) {
         final control = HearthOskControl.instance;
         if (control == null || child == null) {
