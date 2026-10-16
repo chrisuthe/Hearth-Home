@@ -106,7 +106,7 @@ class _EntityPickerDialogState extends ConsumerState<EntityPickerDialog> {
                       entity.entityId,
                       style: TextStyle(
                         fontSize: HearthFont.caption,
-                        color: c.inkAt(0.5),
+                        color: c.textMuted,
                       ),
                     ),
                     value: isSelected,

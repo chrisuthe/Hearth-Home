@@ -66,7 +66,7 @@ class _WifiSettingsSectionState extends ConsumerState<WifiSettingsSection> {
         subtitle,
         style: TextStyle(
           fontSize: HearthFont.label,
-          color: c.inkAt(0.5),
+          color: c.textMuted,
         ),
       ),
       trailing: Icon(Icons.chevron_right, color: c.inkAt(0.24)),
@@ -191,7 +191,7 @@ class _WifiPickerDialogState extends State<_WifiPickerDialog> {
             if (_statusMessage != null) ...[
               Text(
                 _statusMessage!,
-                style: const TextStyle(fontSize: HearthFont.label, color: Colors.amber),
+                style: TextStyle(fontSize: HearthFont.label, color: c.warning),
               ),
               const SizedBox(height: HearthSpacing.x2),
             ],
@@ -203,7 +203,7 @@ class _WifiPickerDialogState extends State<_WifiPickerDialog> {
                           child: Text(
                             'No networks found',
                             style: TextStyle(
-                              color: c.inkAt(0.5),
+                              color: c.textMuted,
                             ),
                           ),
                         )
@@ -218,7 +218,7 @@ class _WifiPickerDialogState extends State<_WifiPickerDialog> {
                                 n.isSecured ? Icons.lock : Icons.wifi,
                                 size: HearthIcon.xs,
                                 color: isActive
-                                    ? c.accent
+                                    ? c.accentText
                                     : c.textMuted,
                               ),
                               title: Text(
@@ -226,7 +226,7 @@ class _WifiPickerDialogState extends State<_WifiPickerDialog> {
                                 style: TextStyle(
                                   fontSize: HearthFont.body,
                                   color: isActive
-                                      ? c.accent
+                                      ? c.accentText
                                       : c.text,
                                 ),
                               ),
@@ -234,7 +234,7 @@ class _WifiPickerDialogState extends State<_WifiPickerDialog> {
                                 '${n.signalStrength}%${n.isSecured ? '  \u{1F512}' : ''}',
                                 style: TextStyle(
                                   fontSize: HearthFont.caption,
-                                  color: c.inkAt(0.5),
+                                  color: c.textMuted,
                                 ),
                               ),
                               onTap: () => _connectTo(n),

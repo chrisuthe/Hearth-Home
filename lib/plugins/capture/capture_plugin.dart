@@ -299,10 +299,10 @@ class _CapturePanelState extends ConsumerState<_CapturePanel> {
           ),
         ),
         if (captureUsesProjection) const _ProjectionConsent(),
-        const Text(
+        Text(
           'Touch indicator',
           style: TextStyle(
-            color: Color(0xFF888888),
+            color: context.hearthColors.textMuted,
             fontSize: 11,
             letterSpacing: 1.2,
             fontWeight: FontWeight.w600,
@@ -391,7 +391,7 @@ class _ProjectionConsent extends ConsumerWidget {
         children: [
           Icon(
             granted ? Icons.check_circle : Icons.info_outline,
-            color: granted ? const Color(0xFF4ADE80) : c.textMuted,
+            color: granted ? c.success : c.textMuted,
             size: 18,
           ),
           const SizedBox(width: 8),

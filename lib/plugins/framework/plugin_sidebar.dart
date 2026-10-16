@@ -26,6 +26,7 @@ class PluginSidebar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.hearthColors;
     final plugins = ref.watch(visiblePluginsProvider);
     final features = plugins.where((p) => p.category == PluginCategory.feature).toList();
     final devices = plugins.where((p) => p.category == PluginCategory.device).toList();
@@ -37,7 +38,7 @@ class PluginSidebar extends ConsumerWidget {
 
     return Container(
       width: width,
-      color: const Color(0xFF080808),
+      color: c.surface,
       child: ListView(
         padding: const EdgeInsets.symmetric(vertical: 16),
         children: [
@@ -70,12 +71,13 @@ class _CategoryHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.hearthColors;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
       child: Text(
         label,
-        style: const TextStyle(
-          color: Color(0xFF666666),
+        style: TextStyle(
+          color: c.textMuted,
           fontSize: 11,
           letterSpacing: 0.6,
           fontWeight: FontWeight.w600,
@@ -99,11 +101,11 @@ class _Row extends ConsumerWidget {
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        color: selected ? const Color(0xFF1d2233) : Colors.transparent,
+        color: selected ? c.accent.withValues(alpha: 0.18) : Colors.transparent,
         child: Row(
           children: [
             Icon(plugin.icon,
-                color: selected ? const Color(0xFF99EEBB) : c.textSecondary,
+                color: selected ? c.accentText : c.textSecondary,
                 size: 16),
             const SizedBox(width: 10),
             Expanded(
@@ -111,16 +113,16 @@ class _Row extends ConsumerWidget {
                 plugin.name,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: selected ? const Color(0xFF99EEBB) : c.text,
+                  color: selected ? c.accentText : c.text,
                   fontSize: 13,
                 ),
               ),
             ),
             if (plugin.isCommunity)
-              const Padding(
-                padding: EdgeInsets.only(left: 4),
+              Padding(
+                padding: const EdgeInsets.only(left: 4),
                 child: Text('community',
-                    style: TextStyle(color: Color(0xFF888888), fontSize: 9)),
+                    style: TextStyle(color: c.textMuted, fontSize: 9)),
               ),
           ],
         ),

@@ -93,7 +93,7 @@ class _ModuleReorderListState extends State<ModuleReorderList> {
                   style: TextStyle(
                     fontSize: HearthFont.caption,
                     fontWeight: FontWeight.w500,
-                    color: c.inkAt(0.5),
+                    color: c.textMuted,
                   ),
                 ),
               ),
@@ -108,7 +108,7 @@ class _ModuleReorderListState extends State<ModuleReorderList> {
                       'Reset to Default',
                       style: TextStyle(
                         fontSize: HearthFont.caption,
-                        color: c.inkAt(0.5),
+                        color: c.textMuted,
                       ),
                     ),
                   ),

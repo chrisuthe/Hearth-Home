@@ -144,7 +144,7 @@ class _PillContent extends StatelessWidget {
           FadeTransition(
             opacity: Tween<double>(begin: 0.4, end: 1.0)
                 .animate(pulseAnimation),
-            child: Icon(Icons.mic, color: c.accent, size: HearthIcon.xl),
+            child: Icon(Icons.mic, color: c.accentText, size: HearthIcon.xl),
           ),
           const SizedBox(width: HearthSpacing.x2),
           Text(
@@ -184,7 +184,7 @@ class _PillContent extends StatelessWidget {
 
       case VoiceState.responding:
         return [
-          Icon(Icons.volume_up, color: c.accent, size: HearthIcon.xl),
+          Icon(Icons.volume_up, color: c.accentText, size: HearthIcon.xl),
           const SizedBox(width: HearthSpacing.x2),
           Flexible(
             child: Text(
@@ -202,13 +202,13 @@ class _PillContent extends StatelessWidget {
 
       case VoiceState.error:
         return [
-          const Icon(Icons.error_outline, color: Color(0xFFFF6B6B), size: HearthIcon.xl),
+          Icon(Icons.error_outline, color: c.danger, size: HearthIcon.xl),
           const SizedBox(width: HearthSpacing.x2),
           Flexible(
             child: Text(
               state.errorMessage ?? 'An error occurred',
-              style: const TextStyle(
-                color: Color(0xFFFF6B6B),
+              style: TextStyle(
+                color: c.danger,
                 fontSize: HearthFont.headline,
                 fontWeight: FontWeight.w400,
               ),

@@ -207,7 +207,7 @@ class _PlexPairingSectionState extends ConsumerState<PlexPairingSection> {
     if (paired) {
       return Row(
         children: [
-          const Icon(Icons.check_circle, color: Color(0xFF4CAF50)),
+          Icon(Icons.check_circle, color: c.success),
           const SizedBox(width: 8),
           const Expanded(child: Text('Paired with Plex')),
           TextButton(onPressed: _unpair, child: const Text('Unpair')),
@@ -227,7 +227,7 @@ class _PlexPairingSectionState extends ConsumerState<PlexPairingSection> {
               fontSize: 28,
               fontWeight: FontWeight.bold,
               letterSpacing: 6,
-              color: c.accent,
+              color: c.accentText,
             ),
           ),
           const SizedBox(height: 8),
@@ -258,7 +258,7 @@ class _PlexPairingSectionState extends ConsumerState<PlexPairingSection> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (_error != null) ...[
-          Text(_error!, style: const TextStyle(color: Color(0xFFE57373))),
+          Text(_error!, style: TextStyle(color: c.danger)),
           const SizedBox(height: 8),
         ],
         // Wrap, not Row: on a narrow panel the button drops under the text

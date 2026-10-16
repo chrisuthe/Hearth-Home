@@ -149,7 +149,7 @@ class _SourceStatusLine extends ConsumerWidget {
       maxLines: 2,
       overflow: TextOverflow.ellipsis,
       style: TextStyle(
-          color: bad ? Colors.orangeAccent : c.textMuted, fontSize: 12),
+          color: bad ? c.warning : c.textMuted, fontSize: 12),
     );
   }
 }
@@ -542,7 +542,7 @@ class _AddIcsDialogState extends ConsumerState<_AddIcsDialog> {
               _result!,
               key: const ValueKey('calendar-test-result'),
               style: TextStyle(
-                  color: _failed ? Colors.orangeAccent : c.textSecondary),
+                  color: _failed ? c.warning : c.textSecondary),
             ),
           ),
         _nameField(c, _name),
@@ -603,7 +603,7 @@ class _EditSourceDialogState extends ConsumerState<_EditSourceDialog> {
         ),
         Text(
           'To change the calendar itself, delete it and add it again.',
-          style: TextStyle(color: c.textFaint, fontSize: 12),
+          style: TextStyle(color: c.textMuted, fontSize: 12),
         ),
         _nameField(c, _name),
         _ownerRow(c, people, _personId, (id) => setState(() => _personId = id)),

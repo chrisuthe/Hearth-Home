@@ -346,7 +346,7 @@ class _ListsScreenState extends ConsumerState<ListsScreen>
             textAlign: TextAlign.end,
             style: TextStyle(
               fontSize: HearthFont.bodyLg,
-              color: context.hearthColors.inkAt(0.7),
+              color: context.hearthColors.textSecondary,
             ),
           ),
         ),
@@ -548,7 +548,7 @@ class _NotConfigured extends StatelessWidget {
                 'Lists not configured',
                 style: TextStyle(
                   fontSize: HearthFont.bodyLg,
-                  color: context.hearthColors.inkAt(0.4),
+                  color: context.hearthColors.textMuted,
                 ),
               ),
               const SizedBox(height: HearthSpacing.x2),
@@ -579,7 +579,7 @@ class _Empty extends StatelessWidget {
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: HearthFont.body,
-            color: context.hearthColors.inkAt(0.4),
+            color: context.hearthColors.textMuted,
           ),
         ),
       );
@@ -742,7 +742,7 @@ class _ListLabel extends StatelessWidget {
               '$count',
               style: TextStyle(
                 fontSize: HearthFont.body,
-                color: context.hearthColors.inkAt(0.5),
+                color: context.hearthColors.textMuted,
               ),
             ),
           ],
@@ -855,16 +855,17 @@ class _StatusNote extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.hearthColors;
     final (icon, color, text) = switch (state.status) {
       ListStatus.loading || ListStatus.ok => (null, null, null),
       ListStatus.stale => (
           Icons.history,
-          Colors.amber,
+          c.warning,
           "Can't reach Home Assistant; showing the last items it sent",
         ),
       ListStatus.error => (
           Icons.error_outline,
-          Colors.redAccent,
+          c.danger,
           state.error ?? "Can't load this list",
         ),
     };

@@ -74,8 +74,8 @@ class CustomUrlList extends ConsumerWidget {
                       color: c.text, fontWeight: FontWeight.w600)),
             ),
             TextButton.icon(
-              icon: Icon(Icons.add, color: c.accent),
-              label: Text('Add', style: TextStyle(color: c.accent)),
+              icon: Icon(Icons.add, color: c.accentText),
+              label: Text('Add', style: TextStyle(color: c.accentText)),
               onPressed: () => _showEditor(context, ref),
             ),
           ],
@@ -104,7 +104,7 @@ class CustomUrlList extends ConsumerWidget {
                       onPressed: () => _showEditor(context, ref, existing: w),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                      icon: Icon(Icons.delete_outline, color: c.danger),
                       onPressed: () => _remove(ref, w),
                     ),
                   ],
@@ -233,7 +233,8 @@ class _UrlEditorDialogState extends State<_UrlEditorDialog> {
           child: Text('Cancel', style: TextStyle(color: c.textMuted)),
         ),
         ElevatedButton(
-          style: ElevatedButton.styleFrom(backgroundColor: c.accent),
+          style: ElevatedButton.styleFrom(
+              backgroundColor: c.accentFill, foregroundColor: c.onAccent),
           onPressed: () {
             final url = _urlCtrl.text.trim();
             final name = _nameCtrl.text.trim();

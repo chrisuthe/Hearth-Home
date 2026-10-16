@@ -84,7 +84,7 @@ class _HaDashboardPickerState extends ConsumerState<HaDashboardPicker> {
       children: [
         Row(
           children: [
-            const Icon(Icons.dashboard, color: Color(0xFF03A9F4), size: 18),
+            const Icon(Icons.dashboard, color: Color(0xFF03A9F4), size: 18), // theme-exempt: brand color (Home Assistant blue)
             const SizedBox(width: 8),
             Expanded(
               child: Text('Home Assistant dashboards',

@@ -129,7 +129,7 @@ class _TodoEditDialogState extends State<TodoEditDialog> {
     final canDue = f.canUpdate && (f.canSetDueDate || f.canSetDueTime);
     final narrow = MediaQuery.sizeOf(context).width < 600;
     final c = context.hearthColors;
-    final muted = c.inkAt(0.6);
+    final muted = c.textMuted;
 
     return Dialog(
       insetPadding: narrow
@@ -220,10 +220,10 @@ class _TodoEditDialogState extends State<TodoEditDialog> {
                     TextButton.icon(
                       onPressed: () =>
                           Navigator.of(context).pop(const TodoEdit.delete()),
-                      icon: const Icon(Icons.delete_outline,
-                          color: Colors.redAccent),
-                      label: const Text('Delete',
-                          style: TextStyle(color: Colors.redAccent)),
+                      icon: Icon(Icons.delete_outline,
+                          color: context.hearthColors.danger),
+                      label: Text('Delete',
+                          style: TextStyle(color: context.hearthColors.danger)),
                     ),
                   const Spacer(),
                   TextButton(

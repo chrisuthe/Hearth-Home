@@ -79,7 +79,7 @@ class _ListStatusLine extends ConsumerWidget {
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
-            color: status.bad ? Colors.orangeAccent : c.textMuted,
+            color: status.bad ? c.warning : c.textMuted,
             fontSize: 12,
           ),
         ),
@@ -88,7 +88,7 @@ class _ListStatusLine extends ConsumerWidget {
             features,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(color: c.textFaint, fontSize: 12),
+            style: TextStyle(color: c.textMuted, fontSize: 12),
           ),
       ],
     );
@@ -134,7 +134,7 @@ List<Widget> _fields({
   if (people.isEmpty)
     Text(
       'Add people on the People panel to make chore lists.',
-      style: TextStyle(color: c.textFaint, fontSize: 12),
+      style: TextStyle(color: c.textMuted, fontSize: 12),
     ),
   const SizedBox(height: 16),
   Text('Colour', style: TextStyle(color: c.textMuted)),
@@ -327,7 +327,7 @@ class _EditListDialogState extends ConsumerState<_EditListDialog> {
         ),
         Text(
           'To change the list itself, delete it and add it again.',
-          style: TextStyle(color: c.textFaint, fontSize: 12),
+          style: TextStyle(color: c.textMuted, fontSize: 12),
         ),
         ..._fields(
           c: c,

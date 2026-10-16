@@ -31,7 +31,9 @@ class DisplaySettingsSection extends ConsumerWidget {
             child: Row(
               children: [
                 if (entry.key == current)
-                  const Icon(Icons.check, size: HearthIcon.xs, color: Colors.amber)
+                  Icon(Icons.check,
+                      size: HearthIcon.xs,
+                      color: context.hearthColors.warning)
                 else
                   const SizedBox(width: HearthIcon.xs),
                 const SizedBox(width: HearthSpacing.x3),
@@ -62,7 +64,7 @@ class DisplaySettingsSection extends ConsumerWidget {
         label,
         style: TextStyle(
           fontSize: HearthFont.label,
-          color: c.inkAt(0.5),
+          color: c.textMuted,
         ),
       ),
       trailing: Icon(Icons.chevron_right, color: c.inkAt(0.24)),
@@ -103,7 +105,7 @@ class UiScaleSection extends ConsumerWidget {
                 '$percent%',
                 style: TextStyle(
                   fontSize: HearthFont.label,
-                  color: c.inkAt(0.5),
+                  color: c.textMuted,
                 ),
               ),
             ],

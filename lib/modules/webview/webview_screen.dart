@@ -248,7 +248,7 @@ class _Placeholder extends StatelessWidget {
         children: [
           Icon(
             isError ? Icons.error_outline : config.icon,
-            color: isError ? Colors.redAccent : c.textSecondary,
+            color: isError ? c.danger : c.textSecondary,
             size: 48,
           ),
           const SizedBox(height: 16),

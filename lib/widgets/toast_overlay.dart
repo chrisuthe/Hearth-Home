@@ -85,13 +85,13 @@ class _ToastPill extends StatelessWidget {
   Color _iconColor(HearthColors c) {
     switch (toast.type) {
       case ToastType.info:
-        return c.accent;
+        return c.accentText;
       case ToastType.success:
-        return const Color(0xFF4CAF50);
+        return c.success;
       case ToastType.warning:
-        return const Color(0xFFFFA726);
+        return c.warning;
       case ToastType.error:
-        return const Color(0xFFFF6B6B);
+        return c.danger;
     }
   }
 

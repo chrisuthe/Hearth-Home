@@ -179,7 +179,7 @@ class SendspinHealthNote extends ConsumerWidget {
         if (health == null) return const SizedBox.shrink();
         return ListTile(
           contentPadding: EdgeInsets.zero,
-          leading: const Icon(Icons.warning_amber, color: Colors.amber),
+          leading: Icon(Icons.warning_amber, color: c.warning),
           title: Text(health.label),
           subtitle: health.message.isEmpty
               ? null

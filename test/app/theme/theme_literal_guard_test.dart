@@ -69,6 +69,12 @@ final _forbidden = <RegExp>[
   RegExp(r'Color\(0x[0-9A-Fa-f]{2}(FFFFFF|000000)\)', caseSensitive: false),
   RegExp(r'0x[Ff]{2}646[Cc][Ff]{2}'),
   RegExp(r'kDialogBackground'),
+  // Phase 2: status hues are roles, hex literals are roles or exempt, and
+  // text on a high inkAt would be unreadable on a light theme.
+  RegExp(
+      r'Colors\.(red|green|amber|orange|yellow|blue|deepOrange|grey|pink|purple)\w*'),
+  RegExp(r'Color\(0x'),
+  RegExp(r'inkAt\(0\.(3[1-9]|[4-9])'),
 ];
 
 void main() {

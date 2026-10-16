@@ -78,7 +78,7 @@ class _ChannelTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.hearthColors;
     return Material(
-      color: const Color(0xFF14141A),
+      color: c.card,
       borderRadius: const BorderRadius.all(Radius.circular(10)),
       child: InkWell(
         borderRadius: const BorderRadius.all(Radius.circular(10)),
@@ -91,7 +91,7 @@ class _ChannelTile extends StatelessWidget {
               Text(
                 channel.number,
                 style: TextStyle(
-                  color: c.accent,
+                  color: c.accentText,
                   fontSize: HearthFont.title,
                   fontWeight: FontWeight.w600,
                 ),

@@ -156,9 +156,9 @@ class _EmptyState extends StatelessWidget {
           children: [
             Icon(icon, size: HearthIcon.xxl, color: c.inkAt(0.2)),
             const SizedBox(height: HearthSpacing.x4),
-            Text(title, style: TextStyle(fontSize: HearthFont.title, color: c.inkAt(0.5))),
+            Text(title, style: TextStyle(fontSize: HearthFont.title, color: c.textMuted)),
             const SizedBox(height: HearthSpacing.x2),
-            Text(subtitle, style: TextStyle(fontSize: 14, color: c.inkAt(0.5))),
+            Text(subtitle, style: TextStyle(fontSize: 14, color: c.textMuted)),
           ],
         ),
       ),
@@ -176,7 +176,7 @@ class _SectionHeader extends StatelessWidget {
       title,
       style: TextStyle(
         fontSize: HearthFont.title, fontWeight: FontWeight.w500,
-        color: context.hearthColors.inkAt(0.7),
+        color: context.hearthColors.textSecondary,
       ),
     );
   }
@@ -202,7 +202,7 @@ class _ToggleCard extends StatelessWidget {
       child: Row(
         children: [
           Icon(Icons.power_settings_new,
-              color: entity.isOn ? c.accent : c.textFaint, size: HearthIcon.sm),
+              color: entity.isOn ? c.accentText : c.textFaint, size: HearthIcon.sm),
           const SizedBox(width: HearthSpacing.x2),
           Expanded(
             child: Text(entity.name,

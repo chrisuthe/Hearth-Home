@@ -258,7 +258,7 @@ class TimerDisplay extends StatelessWidget {
               children: [
                 if (isDone) ...[
                   Icon(Icons.timer,
-                      size: size * 0.15, color: const Color(0xFFFF9800)),
+                      size: size * 0.15, color: c.warning),
                   const SizedBox(height: HearthSpacing.x1),
                 ],
                 if (timer.name.isNotEmpty)
@@ -277,17 +277,17 @@ class TimerDisplay extends StatelessWidget {
                   style: TextStyle(
                     fontSize: isDone ? size * 0.1 : size * 0.18,
                     fontWeight: FontWeight.w200,
-                    color: isDone ? const Color(0xFFFF9800) : c.text,
+                    color: isDone ? c.warning : c.text,
                   ),
                 ),
                 if (timer.isPaused && !isDone)
                   Text('Paused',
                       style: TextStyle(
-                          fontSize: size * 0.05, color: c.textFaint)),
+                          fontSize: size * 0.05, color: c.textMuted)),
                 if (isDone)
                   Text('Tap to dismiss',
                       style: TextStyle(
-                          fontSize: size * 0.05, color: c.textFaint)),
+                          fontSize: size * 0.05, color: c.textMuted)),
               ],
             ),
           ],
@@ -324,7 +324,7 @@ class _RingPainter extends CustomPainter {
 
     // Progress arc — blue while counting, orange when done
     final progressColor =
-        isDone ? const Color(0xFFFF9800) : colors.accent;
+        isDone ? colors.warning : colors.accent;
     final sweepAngle = progress * 2 * pi;
     canvas.drawArc(
       Rect.fromCircle(center: center, radius: radius),
@@ -389,7 +389,7 @@ class _ScrollWheelState extends State<_ScrollWheel> {
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(widget.label,
-            style: TextStyle(fontSize: HearthFont.caption, color: c.textFaint)),
+            style: TextStyle(fontSize: HearthFont.caption, color: c.textMuted)),
         const SizedBox(height: HearthSpacing.x1),
         SizedBox(
           width: HearthSpacing.x16,

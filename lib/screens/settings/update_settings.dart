@@ -37,7 +37,7 @@ class UpdateSettingsSection extends ConsumerWidget {
             installedVersion.isEmpty ? 'Unknown' : installedVersion,
             style: TextStyle(
               fontSize: HearthFont.label,
-              color: c.inkAt(0.5),
+              color: c.textMuted,
             ),
           ),
           contentPadding: const EdgeInsets.symmetric(horizontal: HearthSpacing.x2),
@@ -48,13 +48,13 @@ class UpdateSettingsSection extends ConsumerWidget {
           leading: latestAsync.when(
             data: (info) {
               if (info == null) {
-                return const Icon(Icons.check_circle_outline,
-                    color: Colors.green, size: HearthIcon.md);
+                return Icon(Icons.check_circle_outline,
+                    color: c.success, size: HearthIcon.md);
               }
               final isNewer = info.isNewerThan(installedVersion);
               return Icon(
                 isNewer ? Icons.system_update_alt : Icons.check_circle_outline,
-                color: isNewer ? Colors.amber : Colors.green,
+                color: isNewer ? c.warning : c.success,
                 size: HearthIcon.md,
               );
             },
@@ -74,7 +74,7 @@ class UpdateSettingsSection extends ConsumerWidget {
                   'Up to date',
                   style: TextStyle(
                     fontSize: HearthFont.label,
-                    color: c.inkAt(0.5),
+                    color: c.textMuted,
                   ),
                 );
               }
@@ -84,8 +84,8 @@ class UpdateSettingsSection extends ConsumerWidget {
                 style: TextStyle(
                   fontSize: HearthFont.label,
                   color: isNewer
-                      ? Colors.amber
-                      : c.inkAt(0.5),
+                      ? c.warning
+                      : c.textMuted,
                 ),
               );
             },
@@ -93,14 +93,14 @@ class UpdateSettingsSection extends ConsumerWidget {
               'Checking…',
               style: TextStyle(
                 fontSize: HearthFont.label,
-                color: c.inkAt(0.5),
+                color: c.textMuted,
               ),
             ),
             error: (err, _) => Text(
               'Could not check',
               style: TextStyle(
                 fontSize: HearthFont.label,
-                color: c.inkAt(0.5),
+                color: c.textMuted,
               ),
             ),
           ),
@@ -118,7 +118,7 @@ class UpdateSettingsSection extends ConsumerWidget {
             config.autoUpdate ? 'Install updates automatically' : 'Manual updates only',
             style: TextStyle(
               fontSize: HearthFont.label,
-              color: c.inkAt(0.5),
+              color: c.textMuted,
             ),
           ),
           value: config.autoUpdate,
@@ -138,7 +138,7 @@ class UpdateSettingsSection extends ConsumerWidget {
                 : 'Checking GitHub for releases',
             style: TextStyle(
               fontSize: HearthFont.label,
-              color: c.inkAt(0.5),
+              color: c.textMuted,
             ),
           ),
           value: config.updateSource == 'gitea',
@@ -157,7 +157,7 @@ class UpdateSettingsSection extends ConsumerWidget {
               config.giteaApiToken.isEmpty ? 'Not set' : 'Configured',
               style: TextStyle(
                 fontSize: HearthFont.label,
-                color: c.inkAt(0.5),
+                color: c.textMuted,
               ),
             ),
             onTap: () async {
@@ -258,7 +258,7 @@ class _ForceUpdateTileState extends ConsumerState<_ForceUpdateTile> {
         'Download and install the latest bundle',
         style: TextStyle(
           fontSize: HearthFont.label,
-          color: c.inkAt(0.5),
+          color: c.textMuted,
         ),
       ),
       onTap: _updating ? null : _triggerUpdate,
@@ -280,7 +280,7 @@ class _ForceUpdateTileState extends ConsumerState<_ForceUpdateTile> {
                   strokeWidth: 2, value: s.progress),
             )
           : Icon(failed ? Icons.error_outline : Icons.download,
-              color: failed ? Colors.amber : c.textMuted,
+              color: failed ? c.warning : c.textMuted,
               size: HearthIcon.md),
       title: const Text('Install Update', style: TextStyle(fontSize: HearthFont.body)),
       subtitle: Text(
@@ -289,7 +289,7 @@ class _ForceUpdateTileState extends ConsumerState<_ForceUpdateTile> {
             : s.message,
         style: TextStyle(
           fontSize: HearthFont.label,
-          color: failed ? Colors.amber : c.inkAt(0.5),
+          color: failed ? c.warning : c.textMuted,
         ),
       ),
       onTap: busy ? null : _triggerAndroidUpdate,

@@ -30,7 +30,7 @@ class LightCard extends StatelessWidget {
       padding: const EdgeInsets.all(HearthSpacing.x4),
       decoration: BoxDecoration(
         color: entity.isOn
-            ? Colors.amber.withValues(alpha: 0.12)
+            ? c.warning.withValues(alpha: 0.12)
             : c.inkAt(0.05),
         borderRadius: BorderRadius.circular(16),
       ),
@@ -41,7 +41,7 @@ class LightCard extends StatelessWidget {
             children: [
               Icon(
                 Icons.lightbulb,
-                color: entity.isOn ? Colors.amber : c.textFaint,
+                color: entity.isOn ? c.warning : c.textFaint,
                 size: HearthIcon.sm,
               ),
               const SizedBox(width: HearthSpacing.x2),
@@ -55,7 +55,7 @@ class LightCard extends StatelessWidget {
               Switch(
                 value: entity.isOn,
                 onChanged: onToggle,
-                activeColor: Colors.amber,
+                activeColor: c.warning,
               ),
             ],
           ),
@@ -70,7 +70,7 @@ class LightCard extends StatelessWidget {
                     min: 0,
                     max: 255,
                     onChanged: onBrightnessChanged,
-                    activeColor: Colors.amber,
+                    activeColor: c.warning,
                     inactiveColor: c.inkAt(0.1),
                   ),
                 ),

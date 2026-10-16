@@ -138,7 +138,7 @@ class _ChoresViewState extends State<ChoresView> {
 
   Widget _column(ChoreColumn column) {
     final hc = context.hearthColors;
-    final muted = hc.inkAt(0.5);
+    final muted = hc.textMuted;
     final id = column.person.id;
     final open = _expanded.contains(id);
     return Column(

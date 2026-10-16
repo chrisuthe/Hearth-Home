@@ -169,12 +169,12 @@ class _CamerasScreenState extends ConsumerState<CamerasScreen> {
               Text('No cameras',
                   style: TextStyle(
                       fontSize: HearthFont.bodyLg,
-                      color: c.inkAt(0.5))),
+                      color: c.textMuted)),
               const SizedBox(height: HearthSpacing.x2),
               Text('Connect Frigate NVR in settings',
                   style: TextStyle(
                       fontSize: 14,
-                      color: c.inkAt(0.5))),
+                      color: c.textMuted)),
             ],
           ),
         ),
@@ -231,7 +231,7 @@ class _CamerasScreenState extends ConsumerState<CamerasScreen> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: HearthSpacing.x2, vertical: HearthSpacing.x1),
                   decoration: BoxDecoration(
-                    color: Colors.red.withValues(alpha: 0.8),
+                    color: Colors.red.withValues(alpha: 0.8), // theme-exempt: video
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: const Row(
@@ -288,7 +288,7 @@ class _CamerasScreenState extends ConsumerState<CamerasScreen> {
                     Center(
                       child: Icon(Icons.play_circle_outline,
                         size: 40,
-                        color: c.inkAt(0.5)),
+                        color: c.textMuted),
                     ),
                     // Camera name label with gradient background
                     Positioned(

@@ -82,7 +82,7 @@ class _TimezonePickerDialogState extends State<TimezonePickerDialog> {
                         style: TextStyle(
                           fontSize: HearthFont.caption,
                           fontWeight: FontWeight.w500,
-                          color: c.inkAt(0.4),
+                          color: c.textMuted,
                         ),
                       ),
                     ),
@@ -96,7 +96,7 @@ class _TimezonePickerDialogState extends State<TimezonePickerDialog> {
                         style: TextStyle(
                           fontSize: HearthFont.caption,
                           fontWeight: FontWeight.w500,
-                          color: c.inkAt(0.4),
+                          color: c.textMuted,
                         ),
                       ),
                     ),
@@ -123,7 +123,7 @@ class _TimezonePickerDialogState extends State<TimezonePickerDialog> {
       dense: true,
       visualDensity: VisualDensity.compact,
       leading: isSelected
-          ? const Icon(Icons.check, size: HearthIcon.xs, color: Colors.amber)
+          ? Icon(Icons.check, size: HearthIcon.xs, color: context.hearthColors.warning)
           : const SizedBox(width: HearthIcon.xs),
       title: Text(label, style: const TextStyle(fontSize: HearthFont.body)),
       onTap: () => Navigator.pop(context, value),

@@ -45,7 +45,7 @@ class PeopleSettingsSection extends ConsumerWidget {
           child: Text(
             'Calendars and chore lists are assigned to people on the '
             'Calendar and Lists panels.',
-            style: TextStyle(color: c.textFaint, fontSize: 12),
+            style: TextStyle(color: c.textMuted, fontSize: 12),
           ),
         ),
       ],
@@ -134,11 +134,11 @@ class _ImportButtonState extends ConsumerState<_ImportButton> {
         children: [
           TextButton.icon(
             key: const ValueKey('people-import'),
-            icon: Icon(Icons.download, color: c.accent, size: 16),
+            icon: Icon(Icons.download, color: c.accentText, size: 16),
             label: Text('Import from Home Assistant',
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(color: c.accent)),
+                style: TextStyle(color: c.accentText)),
             onPressed: _busy ? null : _import,
           ),
           if (_result != null)
@@ -263,7 +263,7 @@ class _PersonDialogState extends ConsumerState<_PersonDialog> {
               if (entities.isEmpty)
                 Text(
                   'No people in Home Assistant to link. Is it connected?',
-                  style: TextStyle(color: c.textFaint, fontSize: 12),
+                  style: TextStyle(color: c.textMuted, fontSize: 12),
                 ),
               const SizedBox(height: 16),
               Text('Colour', style: TextStyle(color: c.textMuted)),

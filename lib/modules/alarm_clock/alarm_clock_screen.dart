@@ -120,7 +120,7 @@ class AlarmClockScreen extends ConsumerWidget {
             style: TextStyle(
               fontSize: HearthFont.bodyLg,
               fontWeight: FontWeight.w200,
-              color: c.textFaint,
+              color: c.textMuted,
             ),
           ),
           const SizedBox(height: HearthSpacing.x2),

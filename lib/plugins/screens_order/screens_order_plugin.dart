@@ -321,7 +321,7 @@ class _ScreensOrderPanel extends ConsumerWidget {
               style: TextStyle(
                 fontSize: HearthFont.caption,
                 fontWeight: FontWeight.w500,
-                color: c.inkAt(0.5),
+                color: c.textMuted,
               ),
             ),
           ),
@@ -331,7 +331,7 @@ class _ScreensOrderPanel extends ConsumerWidget {
             child: Text(
               'Modules contributed by the community. Disabled by default — enable at your own discretion.',
               style: TextStyle(
-                color: c.inkAt(0.5),
+                color: c.textMuted,
                 fontSize: HearthFont.caption,
               ),
             ),

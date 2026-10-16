@@ -474,7 +474,9 @@ class _HubShellState extends ConsumerState<HubShell> {
                 return IconButton(
                   icon: Icon(
                     muted ? Icons.mic_off : Icons.mic,
-                    color: muted ? Colors.red : context.hearthColors.textFaint, // theme-exempt: status hue (phase 2)
+                    color: muted
+                        ? context.hearthColors.danger
+                        : context.hearthColors.textMuted,
                     size: HearthIcon.lg,
                   ),
                   onPressed: () {
@@ -621,7 +623,7 @@ class _QuickAction extends StatelessWidget {
             children: [
               Icon(icon,
                   size: 28,
-                  color: active ? c.accent : c.textSecondary),
+                  color: active ? c.accentText : c.textSecondary),
               const SizedBox(height: 6),
               Text(
                 label,

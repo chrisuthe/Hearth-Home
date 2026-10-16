@@ -167,11 +167,11 @@ class _StatusRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.hearthColors;
     final (color, label) = switch (status) {
-      MqttStatus.connected => (Colors.green, 'Connected'),
-      MqttStatus.connecting => (Colors.amber, 'Connecting…'),
+      MqttStatus.connected => (c.success, 'Connected'),
+      MqttStatus.connecting => (c.warning, 'Connecting…'),
       MqttStatus.disconnected => configured
-          ? (Colors.redAccent, 'Disconnected')
-          : (c.textFaint, 'Not configured'),
+          ? (c.danger, 'Disconnected')
+          : (c.textMuted, 'Not configured'),
     };
     return Row(
       children: [

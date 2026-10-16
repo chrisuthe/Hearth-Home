@@ -515,7 +515,7 @@ class _RotationStatusTileState extends ConsumerState<_RotationStatusTile> {
         .watch(displayRotationServiceProvider)
         .statusFor(widget.orientation);
     final hintStyle =
-        TextStyle(fontSize: 12, color: c.inkAt(0.5));
+        TextStyle(fontSize: 12, color: c.textMuted);
     switch (status) {
       case RotationStatus.inEffect:
         return const SizedBox.shrink();
@@ -579,7 +579,7 @@ class _TimezoneTile extends ConsumerWidget {
       title: const Text('Timezone'),
       subtitle: Text(
         subtitle,
-        style: TextStyle(color: c.inkAt(0.5)),
+        style: TextStyle(color: c.textMuted),
       ),
       trailing: Icon(Icons.chevron_right, color: c.inkAt(0.24)),
       onTap: () => _openPicker(context, ref),
@@ -634,7 +634,7 @@ class _NightModeEntityTile extends ConsumerWidget {
       title: const Text('Night Mode Entity'),
       subtitle: Text(
         currentValue.isEmpty ? 'Not set' : currentValue,
-        style: TextStyle(color: c.inkAt(0.5)),
+        style: TextStyle(color: c.textMuted),
       ),
       trailing: Icon(Icons.chevron_right, color: c.inkAt(0.24)),
       onTap: () => _openDialog(context, ref),
@@ -703,7 +703,7 @@ class _NightModeClockTile extends StatelessWidget {
       title: Text(label),
       subtitle: Text(
         currentValue,
-        style: TextStyle(color: c.inkAt(0.5)),
+        style: TextStyle(color: c.textMuted),
       ),
       trailing: Icon(Icons.chevron_right, color: c.inkAt(0.24)),
       onTap: () => _openDialog(context),

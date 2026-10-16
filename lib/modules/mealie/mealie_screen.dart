@@ -142,7 +142,7 @@ class _MealieScreenState extends ConsumerState<MealieScreen>
                   Text('Recipes not configured',
                       style: TextStyle(
                           fontSize: HearthFont.bodyLg,
-                          color: c.inkAt(0.4))),
+                          color: c.textMuted)),
                   const SizedBox(height: HearthSpacing.x2),
                   Text('Add your Mealie URL and token in Settings',
                       style: TextStyle(
@@ -174,7 +174,7 @@ class _MealieScreenState extends ConsumerState<MealieScreen>
             style: TextStyle(
               fontSize: HearthFont.title,
               fontWeight: FontWeight.w300,
-              color: c.inkAt(0.9),
+              color: c.text,
             ),
           ),
           const SizedBox(height: HearthSpacing.x3),
@@ -204,7 +204,7 @@ class _MealieScreenState extends ConsumerState<MealieScreen>
           decoration: InputDecoration(
             prefixIcon: Icon(Icons.search, color: c.textMuted),
             hintText: 'Search recipes...',
-            hintStyle: TextStyle(color: c.inkAt(0.5)),
+            hintStyle: TextStyle(color: c.textMuted),
             filled: true,
             fillColor: c.raised,
             border: OutlineInputBorder(
@@ -334,7 +334,7 @@ class _MealieScreenState extends ConsumerState<MealieScreen>
                     entry.entryType,
                     style: TextStyle(
                       fontSize: HearthFont.caption,
-                      color: c.inkAt(0.5),
+                      color: c.textMuted,
                     ),
                   ),
                 ],
@@ -395,7 +395,7 @@ class _MealieScreenState extends ConsumerState<MealieScreen>
                       '${recipe.totalTime} min',
                       style: TextStyle(
                         fontSize: HearthFont.caption,
-                        color: c.inkAt(0.5),
+                        color: c.textMuted,
                       ),
                     ),
                   ],
@@ -501,7 +501,7 @@ class _MealieScreenState extends ConsumerState<MealieScreen>
             style: TextStyle(
               fontSize: HearthFont.bodyLg,
               fontWeight: FontWeight.w500,
-              color: c.inkAt(0.9),
+              color: c.text,
             ),
           ),
           const SizedBox(height: HearthSpacing.x2),
@@ -526,7 +526,7 @@ class _MealieScreenState extends ConsumerState<MealieScreen>
                       ? TextDecoration.lineThrough
                       : null,
                   color: _checkedIngredients.contains(index)
-                      ? c.inkAt(0.4)
+                      ? c.textMuted
                       : c.text,
                 ),
               ),
@@ -546,7 +546,7 @@ class _MealieScreenState extends ConsumerState<MealieScreen>
             style: TextStyle(
               fontSize: HearthFont.bodyLg,
               fontWeight: FontWeight.w500,
-              color: c.inkAt(0.9),
+              color: c.text,
             ),
           ),
           const SizedBox(height: HearthSpacing.x3),

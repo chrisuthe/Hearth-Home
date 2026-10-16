@@ -317,7 +317,7 @@ class _AlarmEditorScreenState extends ConsumerState<AlarmEditorScreen> {
           const SizedBox(height: HearthSpacing.x2),
           Text(
             'Duration',
-            style: TextStyle(fontSize: 12, color: c.textFaint), // equidistant caption=11/label=13
+            style: TextStyle(fontSize: 12, color: c.textMuted), // equidistant caption=11/label=13
           ),
           const SizedBox(height: 6), // equidistant x1=4/x2=8
           Wrap(
@@ -383,7 +383,7 @@ class _AlarmEditorScreenState extends ConsumerState<AlarmEditorScreen> {
                           : Icons.radio_button_unchecked,
                       size: 18, // equidistant xs=16/sm=20
                       color: selected
-                          ? c.accent
+                          ? c.accentText
                           : c.textFaint,
                     ),
                     const SizedBox(width: HearthSpacing.x3),
@@ -486,15 +486,15 @@ class _AlarmEditorScreenState extends ConsumerState<AlarmEditorScreen> {
               child: InkWell(
                 onTap: _delete,
                 borderRadius: BorderRadius.circular(28),
-                child: const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 14),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
                   child: Center(
                     child: Text(
                       'Delete',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w500,
-                        color: Color(0xFFFF5252),
+                        color: context.hearthColors.danger,
                       ),
                     ),
                   ),
@@ -577,7 +577,7 @@ class _ScrollWheelState extends State<_ScrollWheel> {
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(widget.label,
-            style: TextStyle(fontSize: 12, color: c.textFaint)), // equidistant caption=11/label=13
+            style: TextStyle(fontSize: 12, color: c.textMuted)), // equidistant caption=11/label=13
         const SizedBox(height: HearthSpacing.x1),
         SizedBox(
           width: 70, // scroll wheel width — functional layout constraint

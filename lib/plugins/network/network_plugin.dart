@@ -78,7 +78,7 @@ class NetworkPlugin extends HearthPlugin {
       // Prefer the IP URL for the QR — mDNS `.local` is less reliable to scan
       // from a phone — and fall back to the hostname when no IPv4 resolved.
       final qrData = ipUrl ?? hostUrl;
-      final urlStyle = TextStyle(color: c.accent, fontSize: 16);
+      final urlStyle = TextStyle(color: c.accentText, fontSize: 16);
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

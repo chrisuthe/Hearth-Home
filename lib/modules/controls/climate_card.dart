@@ -25,14 +25,14 @@ class ClimateCard extends StatelessWidget {
   Color _modeColor(HearthColors c, String? mode) {
     switch (mode) {
       case 'heat':
-        return Colors.orange;
+        return c.warning;
       case 'cool':
-        return Colors.blue;
+        return c.accentText;
       case 'heat_cool':
       case 'auto':
-        return Colors.amber;
+        return c.warning;
       default:
-        return c.textFaint;
+        return c.textMuted;
     }
   }
 
@@ -73,7 +73,7 @@ class ClimateCard extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w300,
-                    color: c.inkAt(0.6),
+                    color: c.textMuted,
                   ),
                 ),
             ],

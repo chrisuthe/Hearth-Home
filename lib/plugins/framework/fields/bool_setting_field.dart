@@ -74,7 +74,7 @@ class BoolSettingField extends SettingField<bool> {
         title: Text(label),
         subtitle: Text(
           disabled ?? subtitle ?? (value ? 'Enabled' : 'Disabled'),
-          style: TextStyle(color: c.inkAt(0.5)),
+          style: TextStyle(color: c.textMuted),
         ),
         value: value,
         onChanged: disabled != null ? null : (v) => writeValue(ref, v),

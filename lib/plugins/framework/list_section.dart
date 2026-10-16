@@ -133,8 +133,8 @@ class _ListSectionWidgetState<T> extends ConsumerState<_ListSectionWidget<T>> {
               ),
               const Spacer(),
               TextButton.icon(
-                icon: Icon(Icons.add, color: c.accent, size: 16),
-                label: Text('Add', style: TextStyle(color: c.accent)),
+                icon: Icon(Icons.add, color: c.accentText, size: 16),
+                label: Text('Add', style: TextStyle(color: c.accentText)),
                 onPressed: _addItem,
               ),
             ],
@@ -170,8 +170,8 @@ class _ListSectionWidgetState<T> extends ConsumerState<_ListSectionWidget<T>> {
                       onPressed: () => _editItem(i),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.delete_outline,
-                          color: Colors.redAccent),
+                      icon: Icon(Icons.delete_outline,
+                          color: c.danger),
                       onPressed: () => _deleteItem(i),
                     ),
                   ],

@@ -122,7 +122,7 @@ class _PasswordFieldRowState extends ConsumerState<_PasswordFieldRow> {
             style: TextStyle(color: c.text),
             decoration: InputDecoration(
               hintText: widget.field.hint,
-              hintStyle: TextStyle(color: c.textFaint),
+              hintStyle: TextStyle(color: c.textMuted),
               errorText: _error,
               filled: true,
               fillColor: c.card,

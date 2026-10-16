@@ -76,13 +76,13 @@ class TodoItemRow extends StatelessWidget {
     final due = item.due;
     final description = item.description?.split('\n').first.trim() ?? '';
     final c = context.hearthColors;
-    final muted = c.inkAt(0.5);
+    final muted = c.textMuted;
     final dueColor = due == null || done
         ? muted
         : todoOverdue(due, now)
-            ? Colors.redAccent
+            ? c.danger
             : todoDueToday(due, now)
-                ? c.accent
+                ? c.accentText
                 : muted;
 
     return InkWell(
@@ -144,13 +144,13 @@ class TodoItemRow extends StatelessWidget {
             if (late)
               // Lines up with the chore column's count; chore rows have no
               // drag handle to sit against.
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: HearthSpacing.x2),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: HearthSpacing.x2),
                 child: Text(
                   'late',
                   style: TextStyle(
                     fontSize: HearthFont.label,
-                    color: Colors.redAccent,
+                    color: c.danger,
                   ),
                 ),
               ),
@@ -162,7 +162,7 @@ class TodoItemRow extends StatelessWidget {
                   height: HearthIcon.xs,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    color: c.inkAt(0.4),
+                    color: c.inkAt(0.4), // theme-exempt: decoration
                   ),
                 ),
               ),
