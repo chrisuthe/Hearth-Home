@@ -123,8 +123,7 @@ The default branch is `main`. All PRs target `main`.
 
 - Linting enforces `prefer_const_constructors`, `prefer_const_declarations`, and `avoid_print` (use `debugPrint` instead)
 - Tests use `flutter_test` + `mockito`. WebSocket tests use custom `FakeWebSocketChannel` classes
-- Dark theme with true black background (`Colors.black`) for AMOLED power savings
-- Color accent: indigo `0xFF646CFF`
+- UI colors come from `HearthColors` roles (`context.hearthColors`, `lib/app/theme/hearth_colors.dart`), never literals. `test/app/theme/theme_literal_guard_test.dart` enforces this for the files it lists; out-of-scope surfaces mark literals `// theme-exempt: <reason>`
 
 ## Dependency maintenance
 

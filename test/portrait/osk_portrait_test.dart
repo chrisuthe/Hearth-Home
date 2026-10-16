@@ -287,7 +287,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(control.visible, isTrue, reason: 'search field autofocuses');
       expect(find.text('System default'), findsOneWidget);
-    }, goldens: false);
+    });
 
     testLayouts('entity picker', (tester, canvas) async {
       final control =
@@ -300,7 +300,7 @@ void main() {
         await tester.pumpAndSettle();
         expect(control.visible, isTrue);
       }
-    }, goldens: false);
+    });
 
     testLayouts('custom URL editor', (tester, canvas) async {
       final control = await pumpWithKeyboard(

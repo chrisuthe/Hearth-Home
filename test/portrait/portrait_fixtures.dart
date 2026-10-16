@@ -6,8 +6,6 @@ import 'package:hearth/models/music_state.dart';
 import 'package:hearth/models/weather_state.dart';
 import 'package:hearth/services/notification_service.dart';
 
-import 'portrait_harness.dart';
-
 /// Config held in memory so nothing in a layout test touches disk.
 class MemoryConfigNotifier extends HubConfigNotifier {
   MemoryConfigNotifier([HubConfig config = const HubConfig()]) {
@@ -91,7 +89,6 @@ HearthNotification sampleNotification(
 /// Unmounts the tree so periodic timers and tickers owned by widgets and
 /// providers are cancelled before the test ends.
 Future<void> unmount(WidgetTester tester) async {
-  await checkGolden(tester);
   await tester.pumpWidget(const SizedBox.shrink());
   await tester.pump(const Duration(seconds: 1));
 }

@@ -51,7 +51,7 @@ void main() {
         );
         await tester.pump();
       }
-    }, goldens: view == 'month');
+    });
   }
 
   testLayouts('calendar week view with every source failing', (
@@ -79,7 +79,7 @@ void main() {
     );
     expect(find.byIcon(Icons.error_outline), findsWidgets);
     expect(find.byIcon(Icons.history), findsWidgets);
-  }, goldens: false);
+  });
 
   testLayouts('calendar event detail sheet', (tester, canvas) async {
     await pumpCalendar(tester, 'day');
@@ -93,5 +93,5 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('1200 Main Street, Suite 400'), findsWidgets);
     expect(find.textContaining('Bring the insurance card.'), findsOneWidget);
-  }, goldens: false);
+  });
 }

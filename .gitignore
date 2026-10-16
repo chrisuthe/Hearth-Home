@@ -67,6 +67,3 @@ docs/superpowers/
 # Output of scripts/build-android-apk.sh
 /hearth-android-*.apk
 /hearth-android-*.sha256
-
-# Local-only Classic regression goldens for the theme work
-test/portrait/theme_goldens/

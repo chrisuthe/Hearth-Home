@@ -500,7 +500,7 @@ void main() {
         ),
       );
       expect(find.byType(TimezonePickerDialog), findsOneWidget);
-    }, goldens: false);
+    });
 
     testLayouts('entity picker', (tester, canvas) async {
       await open(tester, const EntityPickerDialog());
