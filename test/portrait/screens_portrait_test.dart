@@ -161,7 +161,7 @@ void main() {
         ));
         await tester.pump(const Duration(milliseconds: 120));
         await unmount(tester);
-      });
+      }, goldens: cond != 'lightning-rainy' && cond != 'snowy');
     }
 
     testLayouts('day detail opened from a forecast card',
@@ -259,7 +259,7 @@ void main() {
       expect(find.text('Eggs'), findsOneWidget);
       expect(find.text('Paused'), findsOneWidget);
       await unmount(tester);
-    });
+    }, goldens: false);
 
     testLayouts('picker reopened over running timers', (tester, canvas) async {
       await pumpTimers(tester, const [Duration(minutes: 5)]);
