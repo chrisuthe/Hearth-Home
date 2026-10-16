@@ -1,0 +1,27 @@
+import 'dart:io';
+import 'dart:ui' as ui;
+
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../app/theme/theme_providers.dart';
+import '../config/screen_background.dart';
+import '../screens/ambient/photo_carousel.dart';
+import 'photo_blur.dart';
+
+/// The photo the ambient carousel is showing, shared so the active screens
+/// can sit over a blur of it.
+final currentPhotoProvider = StateProvider<PhotoFrame?>((ref) => null);
+
+/// A blurred copy of [currentPhotoProvider], made once per photo and only
+/// while Background is Blurred. Null for Solid, no photo, or a remote path.
+final blurredPhotoProvider = FutureProvider<ui.Image?>((ref) async {
+  if (ref.watch(screenBackgroundProvider) != ScreenBackground.blurred) {
+    return null;
+  }
+  final frame = ref.watch(currentPhotoProvider);
+  if (frame == null || frame.path.startsWith('http')) return null;
+
+  final image = await decodeAndBlur(await File(frame.path).readAsBytes());
+  ref.onDispose(image.dispose);
+  return image;
+});
