@@ -63,6 +63,50 @@ void main() {
     });
   });
 
+  testWidgets('a vivid block under 0.5% of the pixels is ignored',
+      (tester) async {
+    await tester.runAsync(() async {
+      // 20 x 20 of 300 x 225 is 0.6%, so use 18 x 18 (0.48%).
+      final image = await _image(const Color(0xFF808080),
+          blockColor: const Color(0xFFC0392B), block: 18);
+      expect(await extractAccentSeed(image), isNull);
+      image.dispose();
+    });
+  });
+
+  testWidgets('the higher-chroma color wins over the larger one',
+      (tester) async {
+    await tester.runAsync(() async {
+      const dull = Color(0xFF6E8A6E);
+      const vivid = Color(0xFFD01030);
+      // Dull covers 45 x 45 (3%), vivid 30 x 30 (1.3%) on grey.
+      final recorder = ui.PictureRecorder();
+      final canvas = Canvas(recorder);
+      canvas.drawRect(const Rect.fromLTWH(0, 0, 300, 225),
+          Paint()..color = const Color(0xFF808080));
+      canvas.drawRect(const Rect.fromLTWH(0, 0, 45, 45), Paint()..color = dull);
+      canvas.drawRect(
+          const Rect.fromLTWH(100, 0, 30, 30), Paint()..color = vivid);
+      final picture = recorder.endRecording();
+      final image = await picture.toImage(300, 225);
+      picture.dispose();
+      final seed = (await extractAccentSeed(image))!;
+      image.dispose();
+      expect(Hct.fromInt(seed.toARGB32()).chroma,
+          greaterThan(Hct.fromInt(dull.toARGB32()).chroma + 20));
+    });
+  });
+
+  test('the fallback matches the Classic accent set', () {
+    const c = HearthColors.classic;
+    expect(kMemoriesFallback, (
+      accent: c.accent,
+      accentText: c.accentText,
+      accentFill: c.accentFill,
+      onAccent: c.onAccent,
+    ));
+  });
+
   test('fallback accent used for null seed', () {
     expect(deriveMemoriesAccent(null), kMemoriesFallback);
   });

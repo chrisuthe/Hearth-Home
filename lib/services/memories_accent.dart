@@ -1,5 +1,6 @@
 import 'dart:ui' as ui;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
 import 'package:material_color_utilities/material_color_utilities.dart';
 
@@ -37,6 +38,12 @@ Future<Color?> extractAccentSeed(ui.Image sample) async {
           (data.getUint8(i + 1) << 8) |
           data.getUint8(i + 2),
   ];
+  final argb = await compute(_pickSeed, pixels);
+  return argb == null ? null : Color(argb);
+}
+
+/// Quantizes [pixels] and picks the seed; top-level so [compute] can run it.
+Future<int?> _pickSeed(List<int> pixels) async {
   final counts = (await QuantizerCelebi().quantize(pixels, 32)).colorToCount;
   final total = counts.values.fold<int>(0, (a, b) => a + b);
   if (total == 0) return null;
@@ -57,7 +64,7 @@ Future<Color?> extractAccentSeed(ui.Image sample) async {
       bestChroma = chroma;
     }
   });
-  return best == null ? null : Color(best!);
+  return best;
 }
 
 /// Accent roles for [seed] that keep Classic's readability rule: accent 3:1 on

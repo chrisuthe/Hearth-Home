@@ -32,7 +32,9 @@ final photoDecodeProvider =
 final photoSampleProvider = FutureProvider<ui.Image?>((ref) async {
   final blurred =
       ref.watch(screenBackgroundProvider) == ScreenBackground.blurred;
-  final memories = ref.watch(hearthThemeIdProvider) == HearthThemeId.memories;
+  final memories = ref.watch(
+    hearthThemeIdProvider.select((id) => id == HearthThemeId.memories),
+  );
   if (!blurred && !memories) return null;
   final frame = ref.watch(currentPhotoProvider);
   if (frame == null || frame.path.startsWith('http')) return null;
@@ -66,11 +68,20 @@ final blurredPhotoProvider = FutureProvider<ui.Image?>((ref) async {
   ref.onDispose(() => disposed = true);
 
   // Watching `.future` rebuilds only when the sample is re-made, not as it
-  // loads. A re-made sample also disposes this run, so `disposed` guards the
-  // clone: the sample it would clone is already gone.
+  // loads. Invalidating the sample disposes its image at once, but this run's
+  // own onDispose comes later, so `disposed` can't tell the sample is gone:
+  // check that it is still the provider's current value, then clone.
   final sample = await ref.watch(photoSampleProvider.future);
   if (disposed || sample == null) return null;
-  final clone = sample.clone();
+  if (!identical(ref.read(photoSampleProvider).valueOrNull, sample)) {
+    return null;
+  }
+  final ui.Image clone;
+  try {
+    clone = sample.clone();
+  } on StateError {
+    return null;
+  }
   final ui.Image image;
   try {
     image = await blurImage(clone);

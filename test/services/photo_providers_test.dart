@@ -153,4 +153,33 @@ void main() {
       expect(await c.read(photoSampleProvider.future), same(current));
     });
   });
+
+  testWidgets('a photo change as the sample lands does not error the blur',
+      (tester) async {
+    await tester.runAsync(() async {
+      final c = _container(ScreenBackground.blurred);
+      final notifier = c.read(currentPhotoProvider.notifier);
+      final a = await writePhoto('a.png');
+      final b = await writePhoto('b.png');
+      notifier.state = (path: a, focal: kCenterFocalPoint);
+
+      // Change the photo the moment the first sample's data lands, before the
+      // blur run resumes from awaiting it.
+      var switched = false;
+      c.listen<AsyncValue<ui.Image?>>(photoSampleProvider, (prev, next) {
+        if (!switched && next.valueOrNull != null) {
+          switched = true;
+          notifier.state = (path: b, focal: kCenterFocalPoint);
+          // Re-make the sample now, disposing the one the blur is about to use.
+          c.read(photoSampleProvider);
+        }
+      });
+      final blur = c.listen(blurredPhotoProvider, (_, _) {});
+      await Future<void>.delayed(const Duration(seconds: 1));
+      expect(switched, isTrue);
+      expect(blur.read().hasError, isFalse);
+      final settled = await c.read(blurredPhotoProvider.future);
+      expect(settled?.debugDisposed ?? false, isFalse);
+    });
+  });
 }
