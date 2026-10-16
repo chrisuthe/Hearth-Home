@@ -64,6 +64,8 @@ class _HubShellState extends ConsumerState<HubShell> {
   final _ambientKey = GlobalKey<AmbientScreenState>();
   PhotoMemory? _currentMemory;
   int _currentPage = 0;
+  /// Routes pushed over the shell (edge-menu modules, the timer).
+  int _openRoutes = 0;
   bool _menu1Open = false;
   bool _menu2Open = false;
   static const double _edgeZoneHeight = 80;
@@ -97,23 +99,29 @@ class _HubShellState extends ConsumerState<HubShell> {
     ref.read(currentPageProvider.notifier).state = info.id;
   }
 
-  /// Opens a module from an edge menu. The page id follows the module while
-  /// it is open and returns to the PageView's page when it closes.
-  void _openMenuModule(HearthModule m) {
-    ref.read(currentPageProvider.notifier).state = m.id;
+  /// Pushes an opaque route over the shell. It hides the shell's photo, so
+  /// the page id reads `route:<id>` while it is open and the PageView
+  /// listener stays quiet; on pop the live page id is published again.
+  void _pushRoute(String id, Widget Function(BuildContext) builder) {
+    _openRoutes++;
+    ref.read(currentPageProvider.notifier).state = 'route:$id';
     Navigator.of(context)
-        .push(MaterialPageRoute(
-          builder: (_) => _MenuScreenWrapper(
-            title: m.name,
-            child: m.buildScreen(isActive: true),
-          ),
-        ))
+        .push(MaterialPageRoute(builder: builder))
         .then((_) {
-      if (mounted) {
+      _openRoutes--;
+      if (mounted && _openRoutes == 0) {
         _publishCurrentScreen(_pageController?.page?.round() ?? _homeIndex);
       }
     });
   }
+
+  void _openMenuModule(HearthModule m) => _pushRoute(
+        m.id,
+        (_) => _MenuScreenWrapper(
+          title: m.name,
+          child: m.buildScreen(isActive: true),
+        ),
+      );
 
   String? _edgeFor(String action) {
     final config = ref.read(hubConfigProvider);
@@ -231,9 +239,7 @@ class _HubShellState extends ConsumerState<HubShell> {
           _Menu1TimerAction(
             onTap: () {
               setState(() => _menu1Open = false);
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const TimerScreen()),
-              );
+              _pushRoute('timer', (_) => const TimerScreen());
             },
           ),
           _QuickAction(
@@ -358,7 +364,7 @@ class _HubShellState extends ConsumerState<HubShell> {
         final page = _pageController!.page?.round() ?? _homeIndex;
         if (page != _currentPage) {
           setState(() => _currentPage = page);
-          _publishCurrentScreen(page);
+          if (_openRoutes == 0) _publishCurrentScreen(page);
         }
       });
       // Seed the provider with the initial (Home) page once mounted; can't

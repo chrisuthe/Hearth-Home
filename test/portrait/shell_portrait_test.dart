@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hearth/app/hub_shell.dart';
 import 'package:hearth/app/page_indicator.dart';
+import 'package:hearth/app/page_visibility.dart';
 import 'package:hearth/config/hub_config.dart';
 import 'package:hearth/config/webview_config.dart';
 import 'package:hearth/models/hearth_notification.dart';
@@ -97,6 +98,24 @@ Future<void> _swipeFromEdge(
 }
 
 void main() {
+  testLayouts('HubShell tracks an edge-menu module route',
+      (tester, canvas) async {
+    await _pumpShell(tester);
+    final container = ProviderScope.containerOf(
+        tester.element(find.byType(HubShell)));
+    expect(container.read(currentPageProvider), 'home');
+    await _swipeFromEdge(tester, canvas, top: false);
+    await tester.tap(find.text('Controls'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(container.read(currentPageProvider), 'route:controls');
+    await tester.tap(find.byIcon(Icons.close));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(container.read(currentPageProvider), 'home');
+    await unmount(tester);
+  });
+
   testLayouts('HubShell on Home with the page indicator',
       (tester, canvas) async {
     await _pumpShell(tester, config: const HubConfig(setupComplete: true));
