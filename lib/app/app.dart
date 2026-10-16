@@ -7,6 +7,7 @@ import '../screens/setup/setup_wizard.dart';
 import '../services/osk_integration.dart';
 import '../widgets/touch_indicator_overlay.dart';
 import 'hub_shell.dart';
+import 'page_visibility.dart';
 import 'scale/hearth_scale.dart';
 import 'theme/hearth_colors.dart';
 import 'theme/hearth_theme.dart';
@@ -41,6 +42,8 @@ class HearthApp extends ConsumerWidget {
       theme: buildHearthTheme(ref.watch(hearthColorsProvider)),
       // HearthColors.lerp snaps, so an animated change would flicker.
       themeAnimationDuration: Duration.zero,
+      // Publishes `route:<name>` while an opaque route covers the shell.
+      navigatorObservers: [ref.watch(pageRouteObserverProvider)],
       builder: (context, child) {
         if (child == null) return const SizedBox.shrink();
         final control = HearthOskControl.instance;

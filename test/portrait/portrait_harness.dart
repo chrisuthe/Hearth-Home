@@ -27,7 +27,7 @@ ThemeData harnessTheme() =>
     buildHearthTheme(HearthColors.forTheme(_harnessTheme));
 
 /// The themes [testLayouts] runs: Classic, one light, one dark and Memories.
-/// Running all 12 would cost four times the runtime for no layout gain.
+/// Running all 12 would cost three times the runtime for no layout gain.
 const kPortraitThemes = [
   HearthThemeId.classic,
   HearthThemeId.catppuccinLatte,
@@ -81,8 +81,12 @@ void expectNoLayoutErrors(WidgetTester tester, String reason) {
 }
 
 /// `MaterialApp` shell, themed per [testLayouts], matching how the app hosts its screens.
-Widget hostScreen(Widget child) => MaterialApp(
+Widget hostScreen(
+  Widget child, {
+  List<NavigatorObserver> navigatorObservers = const [],
+}) => MaterialApp(
   debugShowCheckedModeBanner: false,
   theme: harnessTheme(),
+  navigatorObservers: navigatorObservers,
   home: Scaffold(body: child),
 );

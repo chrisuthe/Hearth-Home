@@ -13,7 +13,11 @@ ProviderContainer _container(String page, String background) {
     hubConfigProvider.overrideWith((ref) =>
         MemoryConfigNotifier(HubConfig(screenBackground: background))),
   ]);
-  c.read(currentPageProvider.notifier).state = page;
+  if (page.startsWith('route:')) {
+    c.read(openRouteProvider.notifier).state = page.substring('route:'.length);
+  } else {
+    c.read(basePageProvider.notifier).state = page;
+  }
   addTearDown(c.dispose);
   return c;
 }
