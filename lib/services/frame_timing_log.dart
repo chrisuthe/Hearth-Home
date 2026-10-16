@@ -35,13 +35,14 @@ String summarizeFrameTimings(List<FrameTiming> timings) {
     ..sort();
   final raster = [for (final t in timings) t.rasterDuration.inMicroseconds]
     ..sort();
-  String ms(List<int> sorted, double p) {
+  String ms(List<int> sorted, int percent) {
     if (sorted.isEmpty) return '0.0';
-    final rank = (p * sorted.length).ceil().clamp(1, sorted.length);
+    final n = sorted.length;
+    final rank = ((percent * n + 99) ~/ 100).clamp(1, n);
     return (sorted[rank - 1] / 1000).toStringAsFixed(1);
   }
 
   return 'frames=${timings.length} '
-      'build p50=${ms(build, 0.5)} p95=${ms(build, 0.95)} '
-      'raster p50=${ms(raster, 0.5)} p95=${ms(raster, 0.95)}';
+      'build p50=${ms(build, 50)} p95=${ms(build, 95)} '
+      'raster p50=${ms(raster, 50)} p95=${ms(raster, 95)}';
 }
