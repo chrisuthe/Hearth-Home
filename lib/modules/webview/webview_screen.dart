@@ -244,34 +244,31 @@ class _Placeholder extends StatelessWidget {
       strength: TintStrength.light,
       child: Center(
         child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            isError ? Icons.error_outline : config.icon,
-            color: isError ? c.danger : c.textSecondary,
-            size: 48,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            isError ? 'Reconnecting to ${config.name}…' : config.name,
-            style: TextStyle(color: c.text, fontSize: 18),
-          ),
-          if (isError && message != null) ...[
-            const SizedBox(height: 8),
-            Text(
-              message!,
-              style: TextStyle(color: c.textMuted, fontSize: 12),
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isError ? Icons.error_outline : config.icon,
+              color: isError ? c.danger : c.textSecondary,
+              size: 48,
             ),
             const SizedBox(height: 16),
-            TextButton(
-              onPressed: onRetry,
-              child: const Text('Retry'),
+            Text(
+              isError ? 'Reconnecting to ${config.name}…' : config.name,
+              style: TextStyle(color: c.text, fontSize: 18),
             ),
-          ] else ...[
-            const SizedBox(height: 8),
-            CircularProgressIndicator(color: c.accent),
+            if (isError && message != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                message!,
+                style: TextStyle(color: c.textMuted, fontSize: 12),
+              ),
+              const SizedBox(height: 16),
+              TextButton(onPressed: onRetry, child: const Text('Retry')),
+            ] else ...[
+              const SizedBox(height: 8),
+              CircularProgressIndicator(color: c.accent),
+            ],
           ],
-        ],
         ),
       ),
     );
