@@ -2,7 +2,7 @@
 
 Extends: `docs/specs/2026-10-16-themes-design.md` (the theme system, PR #287)
 Branch: `task/more-themes`, stacked on `task/implement-light-mode`
-Status: design, not yet planned
+Status: implemented — Pi frame-timing check pending
 
 ## Intent
 
@@ -211,3 +211,72 @@ is ~48 MB per 12 MP photo.
 - **Status-color adjustments** per flavor needed to pass, each recorded in the
   spec's implementation notes.
 - **Each palette's OSK theme**, derived from its roles.
+
+## Implementation notes
+
+### Palette values the contrast test moved
+
+Upstream values are the starting point; `test/app/theme/contrast_test.dart`
+moved these toward more contrast. Roles not listed are upstream. Each override
+in `lib/app/theme/palettes/` carries a `// contrast-forced: was #…` comment
+(Tokyo Night); the Catppuccin values are listed here only.
+
+Photo-tint alphas (light/medium/blur, heavy). The starting values failed text
+over white (dark flavors) or over black (light ones):
+
+| Theme | Start | Shipped |
+|---|---|---|
+| Catppuccin Latte | 0.82 / 0.88 | 0.88 / 0.92 |
+| Catppuccin Frappé | 0.75 / 0.85 | 0.92 / 0.94 |
+| Catppuccin Macchiato | 0.75 / 0.85 | 0.90 / 0.93 |
+| Catppuccin Mocha | 0.75 / 0.85 | 0.85 / 0.90 |
+| Tokyo Night | 0.75 / 0.85 | 0.92 / 0.94 |
+| Tokyo Night Storm | 0.75 / 0.85 | 0.94 / 0.96 |
+| Tokyo Night Moon | 0.75 / 0.85 | 0.92 / 0.94 |
+| Tokyo Night Day | 0.82 / 0.88 | 0.92 / 0.94 |
+
+Roles (old → new):
+
+- **Latte:** textMuted `#6C6F85` → `#555869`; textSecondary `#5C5F77` →
+  `#55576D`; accentText `#8839EF` → `#7230C9`; danger `#D20F39` → `#B30D30`;
+  success `#40A02B` → `#28651B`; warning: yellow `#DF8E1D` and peach `#FE640B`
+  both failed, so peach darkened to `#983C07`.
+- **Frappé:** textMuted `#A5ADCE` → `#AAB2D1`; accentText `#CA9EE6` →
+  `#CDA4E7`; danger `#E78284` → `#ED9FA0`.
+- **Macchiato:** danger `#ED8796` → `#EE8C9A`.
+- **Mocha:** danger `#F38BA8` → `#F38EAB`.
+- **Tokyo Night, Storm:** no role overrides. Upstream `comment` fails 4.5:1 on
+  every style, so textMuted is `fg_dark`.
+- **Moon:** textSecondary and textMuted `#828BB8` → `#969EC3`.
+- **Day:**
+  - text `#3760BF` → `#2E51A0` (ink stays `#3760BF`);
+  - textSecondary and textMuted `#6172B0` → `#46527F`;
+  - accent `#2E7DE9` → `#286ECD`; accentText `#2E7DE9` → `#1E529A`;
+    accentFill `#2E7DE9` → `#2B74D9` (onAccent stays white);
+  - danger `#F52A65` → `#A21C43`; success `#587539` → `#455B2C`;
+  - warning: yellow `#8C6C3E` and orange `#B15C00` both failed, so orange
+    darkened to `#834400`.
+
+### Memories accent
+
+Memories' accent family is derived per photo in
+`lib/services/memories_accent.dart` from the shared 300 px sample, not stored
+in a palette. The fallback is Classic's corrected indigo set.
+
+### Design notes from implementation
+
+- Home and the playing Media player are pinned to Classic via `ClassicThemeScope`.
+- The Memories scope is always present and inert outside Memories, so switching themes doesn't remount.
+- The OSK and Material's `ColorScheme` keep the fallback accent under Memories.
+- Pushed routes (edge-menu modules, Timer) count as hiding the photo on Solid.
+- Photos now decode at the panel's longer physical side before crossfading.
+
+### Pi check (pending)
+
+Same gate as the base spec: Calendar week view scrolling over the Blurred
+background, with the temporary frame-timing log. Pass: Blurred p95 raster time
+under 16.7 ms and within 2 ms of Solid. Two added cases:
+
+1. Switch to Memories and leave Home showing through a photo change (the
+   1.5 s color fade plus the photo crossfade).
+2. Calendar on Blurred through a photo change.
