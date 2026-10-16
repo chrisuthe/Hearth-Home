@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/theme/hearth_colors.dart';
 import '../../config/display_orientation.dart';
+import '../../config/hearth_theme_id.dart';
 import '../../config/hub_config.dart';
 import '../../screens/settings/display_settings.dart';
 import '../../services/display_rotation_service.dart';
@@ -148,6 +149,18 @@ class DisplayPlugin extends HearthPlugin {
       htmlDisplaySuffix: '%',
     ).buildHtml(ctx);
 
+    final themeHtml = SelectSettingField(
+      configPath: 'theme',
+      label: 'Theme',
+      options: _themeOptions,
+    ).buildHtml(ctx);
+
+    final backgroundHtml = const SelectSettingField(
+      configPath: 'screenBackground',
+      label: 'Background',
+      options: _backgroundOptions,
+    ).buildHtml(ctx);
+
     const displayProfileNote =
         '<div class="field"><label>Display Profile</label>'
         '<div class="hint" style="font-size:12px;color:#888;">'
@@ -235,6 +248,8 @@ class DisplayPlugin extends HearthPlugin {
         timezoneHtml +
         idleHtml +
         uiScaleHtml +
+        themeHtml +
+        backgroundHtml +
         displayProfileNote +
         orientationHtml +
         oskHtml +
@@ -274,6 +289,12 @@ class DisplayPlugin extends HearthPlugin {
 ''';
   }
 }
+
+final _themeOptions = {
+  for (final t in HearthThemeId.values) t.wire: t.label,
+};
+
+const _backgroundOptions = {'solid': 'Solid', 'blurred': 'Blurred photo'};
 
 final _orientationOptions = {
   for (final o in DisplayOrientation.values) o.wire: o.label,
@@ -367,6 +388,16 @@ class _DisplayPanel extends ConsumerWidget {
           },
         ).buildWidget(ref),
         const UiScaleSection(),
+        SelectSettingField(
+          configPath: 'theme',
+          label: 'Theme',
+          options: _themeOptions,
+        ).buildWidget(ref),
+        const SelectSettingField(
+          configPath: 'screenBackground',
+          label: 'Background',
+          options: _backgroundOptions,
+        ).buildWidget(ref),
         const DisplaySettingsSection(),
         SelectSettingField(
           configPath: 'displayOrientation',

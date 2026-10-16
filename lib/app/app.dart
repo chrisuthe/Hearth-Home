@@ -10,6 +10,7 @@ import 'hub_shell.dart';
 import 'scale/hearth_scale.dart';
 import 'theme/hearth_colors.dart';
 import 'theme/hearth_theme.dart';
+import 'theme/theme_providers.dart';
 
 /// Root widget for the Hearth application.
 ///
@@ -36,7 +37,7 @@ class HearthApp extends ConsumerWidget {
       title: 'Hearth',
       debugShowCheckedModeBanner: false,
       scrollBehavior: const _TouchScrollBehavior(),
-      theme: buildHearthTheme(HearthColors.classic),
+      theme: buildHearthTheme(ref.watch(hearthColorsProvider)),
       builder: (context, child) {
         final control = HearthOskControl.instance;
         if (control == null || child == null) {

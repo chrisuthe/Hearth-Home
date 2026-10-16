@@ -6,7 +6,9 @@ import '../utils/logger.dart';
 import '../modules/calendar/models.dart';
 import '../modules/lists/models.dart';
 import 'display_orientation.dart';
+import 'hearth_theme_id.dart';
 import 'person.dart';
+import 'screen_background.dart';
 import 'webview_config.dart';
 
 // dart:io and path_provider compile to stubs on web — guarded by kIsWeb at runtime.
@@ -303,6 +305,12 @@ class HubConfig {
   /// Wire value for [DisplayOrientation]. Applied by flutter-pi's `--rotation`
   /// at launch on the Pi and by `setPreferredOrientations` on Android.
   final String displayOrientation;
+
+  /// `HearthThemeId` wire value: classic | bright | warm.
+  final String theme;
+
+  /// `ScreenBackground` wire value: solid | blurred.
+  final String screenBackground;
   final int displayWidth;      // 0 = use profile default
   final int displayHeight;     // 0 = use profile default
   final List<String> enabledModules;
@@ -439,6 +447,8 @@ class HubConfig {
     this.onScreenKeyboardMode = 'auto',
     this.displayProfile = 'auto',
     this.displayOrientation = 'auto',
+    this.theme = 'classic',
+    this.screenBackground = 'solid',
     this.displayWidth = 0,
     this.displayHeight = 0,
     this.enabledModules = const ['media', 'controls', 'cameras'],
@@ -547,6 +557,8 @@ class HubConfig {
     String? onScreenKeyboardMode,
     String? displayProfile,
     String? displayOrientation,
+    String? theme,
+    String? screenBackground,
     int? displayWidth,
     int? displayHeight,
     List<String>? enabledModules,
@@ -638,6 +650,8 @@ class HubConfig {
           onScreenKeyboardMode ?? this.onScreenKeyboardMode,
       displayProfile: displayProfile ?? this.displayProfile,
       displayOrientation: displayOrientation ?? this.displayOrientation,
+      theme: theme ?? this.theme,
+      screenBackground: screenBackground ?? this.screenBackground,
       displayWidth: displayWidth ?? this.displayWidth,
       displayHeight: displayHeight ?? this.displayHeight,
       enabledModules: enabledModules ?? this.enabledModules,
@@ -748,6 +762,8 @@ class HubConfig {
         'onScreenKeyboardMode': onScreenKeyboardMode,
         'displayProfile': displayProfile,
         'displayOrientation': displayOrientation,
+        'theme': theme,
+        'screenBackground': screenBackground,
         'displayWidth': displayWidth,
         'displayHeight': displayHeight,
         'enabledModules': enabledModules,
@@ -851,6 +867,14 @@ class HubConfig {
         displayOrientation: DisplayOrientation.fromWire(
                 json['displayOrientation'] is String
                     ? json['displayOrientation'] as String
+                    : null)
+            .wire,
+        theme: HearthThemeId.fromWire(
+                json['theme'] is String ? json['theme'] as String : null)
+            .wire,
+        screenBackground: ScreenBackground.fromWire(
+                json['screenBackground'] is String
+                    ? json['screenBackground'] as String
                     : null)
             .wire,
         displayWidth: json['displayWidth'] as int? ?? 0,
