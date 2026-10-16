@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/theme/hearth_colors.dart';
 import '../../app/tokens/tokens.dart';
 import '../../config/hub_config.dart';
 import '../../modules/module_registry.dart';
@@ -300,6 +301,7 @@ class _ScreensOrderPanel extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.hearthColors;
     final config = ref.watch(hubConfigProvider);
     final allModules = ref.watch(allModulesProvider);
     return Column(
@@ -319,7 +321,7 @@ class _ScreensOrderPanel extends ConsumerWidget {
               style: TextStyle(
                 fontSize: HearthFont.caption,
                 fontWeight: FontWeight.w500,
-                color: Colors.white.withValues(alpha: 0.5),
+                color: c.inkAt(0.5),
               ),
             ),
           ),
@@ -329,7 +331,7 @@ class _ScreensOrderPanel extends ConsumerWidget {
             child: Text(
               'Modules contributed by the community. Disabled by default — enable at your own discretion.',
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.5),
+                color: c.inkAt(0.5),
                 fontSize: HearthFont.caption,
               ),
             ),

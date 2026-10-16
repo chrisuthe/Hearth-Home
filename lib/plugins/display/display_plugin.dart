@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../app/app.dart' show kDialogBackground;
+import '../../app/theme/hearth_colors.dart';
 import '../../config/display_orientation.dart';
 import '../../config/hub_config.dart';
 import '../../screens/settings/display_settings.dart';
@@ -479,11 +479,12 @@ class _RotationStatusTileState extends ConsumerState<_RotationStatusTile> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.hearthColors;
     final status = ref
         .watch(displayRotationServiceProvider)
         .statusFor(widget.orientation);
     final hintStyle =
-        TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.5));
+        TextStyle(fontSize: 12, color: c.inkAt(0.5));
     switch (status) {
       case RotationStatus.inEffect:
         return const SizedBox.shrink();
@@ -539,16 +540,17 @@ class _TimezoneTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.hearthColors;
     final subtitle =
         currentTimezone.isEmpty ? 'System default' : currentTimezone;
     return ListTile(
-      leading: const Icon(Icons.public, color: Colors.white54),
+      leading: Icon(Icons.public, color: c.textMuted),
       title: const Text('Timezone'),
       subtitle: Text(
         subtitle,
-        style: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
+        style: TextStyle(color: c.inkAt(0.5)),
       ),
-      trailing: const Icon(Icons.chevron_right, color: Colors.white24),
+      trailing: Icon(Icons.chevron_right, color: c.inkAt(0.24)),
       onTap: () => _openPicker(context, ref),
       contentPadding: EdgeInsets.zero,
     );
@@ -565,7 +567,7 @@ class _NightModeEntityTile extends ConsumerWidget {
     final result = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: kDialogBackground,
+        backgroundColor: context.hearthColors.raised,
         title: const Text('HA Entity ID for Night Mode'),
         content: TextField(
           controller: controller,
@@ -595,14 +597,15 @@ class _NightModeEntityTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.hearthColors;
     return ListTile(
-      leading: const Icon(Icons.developer_board, color: Colors.white54),
+      leading: Icon(Icons.developer_board, color: c.textMuted),
       title: const Text('Night Mode Entity'),
       subtitle: Text(
         currentValue.isEmpty ? 'Not set' : currentValue,
-        style: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
+        style: TextStyle(color: c.inkAt(0.5)),
       ),
-      trailing: const Icon(Icons.chevron_right, color: Colors.white24),
+      trailing: Icon(Icons.chevron_right, color: c.inkAt(0.24)),
       onTap: () => _openDialog(context, ref),
       contentPadding: EdgeInsets.zero,
     );
@@ -628,7 +631,7 @@ class _NightModeClockTile extends StatelessWidget {
     final result = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: kDialogBackground,
+        backgroundColor: context.hearthColors.raised,
         title: Text('$label (HH:MM)'),
         content: TextField(
           controller: controller,
@@ -663,14 +666,15 @@ class _NightModeClockTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.hearthColors;
     return ListTile(
-      leading: const Icon(Icons.schedule, color: Colors.white54),
+      leading: Icon(Icons.schedule, color: c.textMuted),
       title: Text(label),
       subtitle: Text(
         currentValue,
-        style: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
+        style: TextStyle(color: c.inkAt(0.5)),
       ),
-      trailing: const Icon(Icons.chevron_right, color: Colors.white24),
+      trailing: Icon(Icons.chevron_right, color: c.inkAt(0.24)),
       onTap: () => _openDialog(context),
       contentPadding: EdgeInsets.zero,
     );

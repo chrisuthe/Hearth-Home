@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/theme/hearth_colors.dart';
 import '../../config/hub_config.dart';
 import '../../services/capture_service.dart';
 import '../../services/capture_service_android.dart';
@@ -284,16 +285,17 @@ class _CapturePanelState extends ConsumerState<_CapturePanel> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.hearthColors;
     final indicator = ref.watch(hubConfigProvider).touchIndicator;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
-          padding: EdgeInsets.only(bottom: 12),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 12),
           child: Text(
             'Screenshots, recordings, and the gallery are managed from the '
             'web portal — downloading capture files needs a browser.',
-            style: TextStyle(color: Colors.white54, fontStyle: FontStyle.italic),
+            style: TextStyle(color: c.textMuted, fontStyle: FontStyle.italic),
           ),
         ),
         if (captureUsesProjection) const _ProjectionConsent(),
@@ -329,7 +331,7 @@ class _CapturePanelState extends ConsumerState<_CapturePanel> {
           ),
         ),
         Text('Radius: ${indicator.radius.round()} px',
-            style: const TextStyle(color: Colors.white70)),
+            style: TextStyle(color: c.textSecondary)),
         Slider(
           min: 10,
           max: 80,
@@ -337,7 +339,7 @@ class _CapturePanelState extends ConsumerState<_CapturePanel> {
           onChanged: (v) => _update((i) => i.copyWith(radius: v)),
         ),
         Text('Fade: ${indicator.fadeMs} ms',
-            style: const TextStyle(color: Colors.white70)),
+            style: TextStyle(color: c.textSecondary)),
         Slider(
           min: 200,
           max: 2000,
@@ -346,10 +348,10 @@ class _CapturePanelState extends ConsumerState<_CapturePanel> {
           onChanged: (v) => _update((i) => i.copyWith(fadeMs: v.round())),
         ),
         const SizedBox(height: 8),
-        const Text('Style', style: TextStyle(color: Colors.white70)),
+        Text('Style', style: TextStyle(color: c.textSecondary)),
         DropdownButton<TouchIndicatorStyle>(
           value: indicator.style,
-          dropdownColor: const Color(0xFF1e1e1e),
+          dropdownColor: c.raised,
           items: [
             for (final s in TouchIndicatorStyle.values)
               DropdownMenuItem(value: s, child: Text(_styleLabel(s))),
@@ -381,6 +383,7 @@ class _ProjectionConsent extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.hearthColors;
     final granted = ref.watch(captureConsentProvider).valueOrNull ?? false;
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
@@ -388,7 +391,7 @@ class _ProjectionConsent extends ConsumerWidget {
         children: [
           Icon(
             granted ? Icons.check_circle : Icons.info_outline,
-            color: granted ? const Color(0xFF4ADE80) : Colors.white54,
+            color: granted ? const Color(0xFF4ADE80) : c.textMuted,
             size: 18,
           ),
           const SizedBox(width: 8),
@@ -398,7 +401,7 @@ class _ProjectionConsent extends ConsumerWidget {
                   ? 'Screen capture allowed for this session'
                   : 'Screen capture not allowed yet. Android asks once per '
                       'session.',
-              style: const TextStyle(color: Colors.white70),
+              style: TextStyle(color: c.textSecondary),
             ),
           ),
           if (!granted)

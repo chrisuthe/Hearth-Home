@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../app/theme/hearth_colors.dart';
 import '../../config/hub_config.dart';
 import 'ha_dashboard_picker.dart';
 import 'custom_url_editor.dart';
@@ -11,12 +12,13 @@ class WebviewSettingsSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.hearthColors;
     final config = ref.watch(hubConfigProvider);
     final haConfigured = config.haUrl.isNotEmpty;
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.04),
+        color: c.inkAt(0.04),
         borderRadius: BorderRadius.circular(12),
       ),
       padding: const EdgeInsets.all(16),
@@ -32,9 +34,9 @@ class WebviewSettingsSection extends ConsumerWidget {
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
                 title: const Text('Dark mode for HA dashboards'),
-                subtitle: const Text(
+                subtitle: Text(
                   'Signal prefers-color-scheme: dark to Home Assistant',
-                  style: TextStyle(color: Colors.white54, fontSize: 12),
+                  style: TextStyle(color: c.textMuted, fontSize: 12),
                 ),
                 value: config.haDashboardDarkMode,
                 onChanged: (v) => ref
@@ -57,20 +59,21 @@ class _HaConfigPrompt extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.hearthColors;
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.04),
+        color: c.inkAt(0.04),
         borderRadius: BorderRadius.circular(8),
       ),
-      child: const Row(
+      child: Row(
         children: [
-          Icon(Icons.info_outline, color: Colors.white38, size: 18),
-          SizedBox(width: 8),
+          Icon(Icons.info_outline, color: c.textFaint, size: 18),
+          const SizedBox(width: 8),
           Expanded(
             child: Text(
               'Configure Home Assistant connection first to auto-discover dashboards.',
-              style: TextStyle(color: Colors.white54, fontSize: 12),
+              style: TextStyle(color: c.textMuted, fontSize: 12),
             ),
           ),
         ],

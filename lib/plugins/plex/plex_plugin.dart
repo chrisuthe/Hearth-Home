@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/theme/hearth_colors.dart';
 import '../../config/hub_config.dart';
 import '../../services/plex/plex_tv_auth.dart';
 import '../framework/fields/bool_setting_field.dart';
@@ -199,6 +200,7 @@ class _PlexPairingSectionState extends ConsumerState<PlexPairingSection> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.hearthColors;
     final config = ref.watch(hubConfigProvider);
     final paired = config.plexAuthToken.isNotEmpty;
 
@@ -221,11 +223,11 @@ class _PlexPairingSectionState extends ConsumerState<PlexPairingSection> {
           const SizedBox(height: 8),
           Text(
             _code!,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 28,
               fontWeight: FontWeight.bold,
               letterSpacing: 6,
-              color: Color(0xFF646CFF),
+              color: c.accent,
             ),
           ),
           const SizedBox(height: 8),

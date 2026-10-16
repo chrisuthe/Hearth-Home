@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
+import '../../app/theme/hearth_colors.dart';
 import '../../config/hub_config.dart';
 import '../../screens/settings/wifi_settings.dart';
 import '../../services/local_api_server.dart';
@@ -69,6 +70,7 @@ class NetworkPlugin extends HearthPlugin {
   @override
   Widget buildSettingsWidget(WidgetRef ref) {
     return Consumer(builder: (context, ref, _) {
+      final c = context.hearthColors;
       final pin = ref.watch(webPinProvider);
       final ip = ref.watch(deviceIpProvider).asData?.value;
       final ipUrl = ip != null ? 'http://$ip:8090' : null;
@@ -76,7 +78,7 @@ class NetworkPlugin extends HearthPlugin {
       // Prefer the IP URL for the QR — mDNS `.local` is less reliable to scan
       // from a phone — and fall back to the hostname when no IPv4 resolved.
       final qrData = ipUrl ?? hostUrl;
-      const urlStyle = TextStyle(color: Color(0xFF646CFF), fontSize: 16);
+      final urlStyle = TextStyle(color: c.accent, fontSize: 16);
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -84,16 +86,16 @@ class NetworkPlugin extends HearthPlugin {
           const SizedBox(height: 24),
           ListTile(
             contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.language, color: Colors.white54),
-            title: const Text(
+            leading: Icon(Icons.language, color: c.textMuted),
+            title: Text(
               'Web Interface',
-              style: TextStyle(color: Colors.white),
+              style: TextStyle(color: c.text),
             ),
             subtitle: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (ipUrl != null) Text(ipUrl, style: urlStyle),
-                const Text(hostUrl, style: urlStyle),
+                Text(hostUrl, style: urlStyle),
               ],
             ),
           ),
@@ -103,28 +105,28 @@ class NetworkPlugin extends HearthPlugin {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: Colors.white, // theme-exempt: QR code needs a white field
               borderRadius: BorderRadius.circular(8),
             ),
             child: QrImageView(
               data: qrData,
               version: QrVersions.auto,
               size: 160,
-              backgroundColor: Colors.white,
+              backgroundColor: Colors.white, // theme-exempt: QR code needs a white field
             ),
           ),
           const SizedBox(height: 24),
           ListTile(
             contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.pin, color: Colors.white54),
-            title: const Text(
+            leading: Icon(Icons.pin, color: c.textMuted),
+            title: Text(
               'Web Portal PIN',
-              style: TextStyle(color: Colors.white),
+              style: TextStyle(color: c.text),
             ),
             subtitle: Text(
               pin,
-              style: const TextStyle(
-                color: Colors.white70,
+              style: TextStyle(
+                color: c.textSecondary,
                 fontSize: 18,
                 letterSpacing: 4,
               ),

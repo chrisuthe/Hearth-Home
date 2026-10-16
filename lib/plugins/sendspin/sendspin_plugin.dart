@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
+import '../../app/theme/hearth_colors.dart';
 import '../../config/hub_config.dart';
 import '../../services/sendspin/android_sendspin_service.dart';
 import '../../services/sendspin/sendspin_service.dart';
@@ -166,6 +167,7 @@ class SendspinHealthNote extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.hearthColors;
     if (!ref.watch(hubConfigProvider.select((c) => c.sendspinEnabled))) {
       return const SizedBox.shrink();
     }
@@ -182,7 +184,7 @@ class SendspinHealthNote extends ConsumerWidget {
           subtitle: health.message.isEmpty
               ? null
               : Text(health.message,
-                  style: const TextStyle(color: Colors.white54)),
+                  style: TextStyle(color: c.textMuted)),
         );
       },
     );
@@ -200,6 +202,7 @@ class SendspinPairingSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.hearthColors;
     if (!ref.watch(hubConfigProvider.select((c) => c.sendspinEnabled))) {
       return const SizedBox.shrink();
     }
@@ -219,26 +222,26 @@ class SendspinPairingSection extends ConsumerWidget {
               paired == 0
                   ? 'Not paired with any server'
                   : 'Paired with $paired server${paired == 1 ? '' : 's'}',
-              style: const TextStyle(color: Colors.white54),
+              style: TextStyle(color: c.textMuted),
             ),
             const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: Colors.white, // theme-exempt: QR code needs a white field
                 borderRadius: BorderRadius.circular(8),
               ),
               child: QrImageView(
                 data: info.pairingToken,
                 version: QrVersions.auto,
                 size: 160,
-                backgroundColor: Colors.white,
+                backgroundColor: Colors.white, // theme-exempt: QR code needs a white field
               ),
             ),
             const SizedBox(height: 12),
-            const Text(
+            Text(
               'Scan this in your Sendspin server, or enter the token:',
-              style: TextStyle(color: Colors.white54),
+              style: TextStyle(color: c.textMuted),
             ),
             const SizedBox(height: 4),
             SelectableText(

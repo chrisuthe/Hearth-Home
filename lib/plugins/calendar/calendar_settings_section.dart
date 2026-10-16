@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/theme/hearth_colors.dart';
 import '../../config/hub_config.dart';
 import '../../config/person.dart';
 import '../../models/ha_entity.dart';
@@ -13,8 +14,6 @@ import '../framework/fields/select_setting_field.dart';
 import '../framework/list_section.dart';
 import 'calendar_sources.dart';
 
-const _accent = Color(0xFF646CFF);
-const _dialogBackground = Color(0xFF1A1A1A);
 
 /// Poll interval choices, minutes → label. Shared with the portal.
 const calendarPollOptions = {
@@ -121,7 +120,9 @@ class CalendarSwatch extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         width: size,
         height: size,
-        decoration: BoxDecoration(color: Color(color), shape: BoxShape.circle),
+        decoration: BoxDecoration(
+            color: Color(color), // theme-exempt: data color
+            shape: BoxShape.circle),
       );
 }
 
@@ -131,6 +132,7 @@ class _SourceStatusLine extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.hearthColors;
     // Watching a disabled source would start it.
     final status = source.enabled
         ? ref.watch(calendarSourceEventsProvider(source.id)).valueOrNull
@@ -147,7 +149,7 @@ class _SourceStatusLine extends ConsumerWidget {
       maxLines: 2,
       overflow: TextOverflow.ellipsis,
       style: TextStyle(
-          color: bad ? Colors.orangeAccent : Colors.white54, fontSize: 12),
+          color: bad ? Colors.orangeAccent : c.textMuted, fontSize: 12),
     );
   }
 }
@@ -156,27 +158,30 @@ class _KindDialog extends StatelessWidget {
   const _KindDialog();
 
   @override
-  Widget build(BuildContext context) => SimpleDialog(
-        backgroundColor: _dialogBackground,
-        title: const Text('Add calendar', style: TextStyle(color: Colors.white)),
+  Widget build(BuildContext context) {
+    final c = context.hearthColors;
+    return SimpleDialog(
+        backgroundColor: c.menu,
+        title: Text('Add calendar', style: TextStyle(color: c.text)),
         children: [
           SimpleDialogOption(
             onPressed: () => Navigator.pop(context, CalendarSourceKind.ha),
-            child: const ListTile(
-              leading: Icon(Icons.home, color: Colors.white70),
+            child: ListTile(
+              leading: Icon(Icons.home, color: c.textSecondary),
               title: Text('Home Assistant calendar',
-                  style: TextStyle(color: Colors.white)),
+                  style: TextStyle(color: c.text)),
             ),
           ),
           SimpleDialogOption(
             onPressed: () => Navigator.pop(context, CalendarSourceKind.ics),
-            child: const ListTile(
-              leading: Icon(Icons.link, color: Colors.white70),
-              title: Text('ICS URL', style: TextStyle(color: Colors.white)),
+            child: ListTile(
+              leading: Icon(Icons.link, color: c.textSecondary),
+              title: Text('ICS URL', style: TextStyle(color: c.text)),
             ),
           ),
         ],
       );
+  }
 }
 
 /// The palette as tappable swatches, plus [selected] when it is not in it.
@@ -204,10 +209,12 @@ class CalendarColorPicker extends StatelessWidget {
               width: 32,
               height: 32,
               decoration: BoxDecoration(
-                color: Color(c),
+                color: Color(c), // theme-exempt: data color
                 shape: BoxShape.circle,
                 border: Border.all(
-                    color: c == selected ? Colors.white : Colors.transparent,
+                    color: c == selected
+                        ? context.hearthColors.ink
+                        : Colors.transparent,
                     width: 2),
               ),
             ),
@@ -217,21 +224,22 @@ class CalendarColorPicker extends StatelessWidget {
   }
 }
 
-const _labelStyle = TextStyle(color: Colors.white54);
-
-Widget _nameField(TextEditingController controller) => TextField(
+Widget _nameField(HearthColors c, TextEditingController controller) =>
+    TextField(
       key: const ValueKey('calendar-name'),
       controller: controller,
-      style: const TextStyle(color: Colors.white),
-      decoration:
-          const InputDecoration(labelText: 'Name', labelStyle: _labelStyle),
+      style: TextStyle(color: c.text),
+      decoration: InputDecoration(
+          labelText: 'Name', labelStyle: TextStyle(color: c.textMuted)),
     );
 
-Widget _colorRow(int selected, ValueChanged<int> onChanged) => Column(
+Widget _colorRow(
+        HearthColors c, int selected, ValueChanged<int> onChanged) =>
+    Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 16),
-        const Text('Colour', style: _labelStyle),
+        Text('Colour', style: TextStyle(color: c.textMuted)),
         const SizedBox(height: 6),
         CalendarColorPicker(selected: selected, onChanged: onChanged),
       ],
@@ -239,18 +247,18 @@ Widget _colorRow(int selected, ValueChanged<int> onChanged) => Column(
 
 /// The optional owner, from the People registry.
 Widget _ownerRow(
-        List<Person> people, String personId, ValueChanged<String> onChanged) =>
+        HearthColors c, List<Person> people, String personId, ValueChanged<String> onChanged) =>
     Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 16),
-        const Text('Belongs to', style: _labelStyle),
+        Text('Belongs to', style: TextStyle(color: c.textMuted)),
         DropdownButton<String>(
           key: const ValueKey('calendar-owner'),
           value: personById(people, personId) == null ? '' : personId,
           isExpanded: true,
-          dropdownColor: _dialogBackground,
-          style: const TextStyle(color: Colors.white),
+          dropdownColor: c.menu,
+          style: TextStyle(color: c.text),
           items: [
             const DropdownMenuItem(value: '', child: Text('No one')),
             for (final p in people)
@@ -273,10 +281,11 @@ AlertDialog _dialog(
   required List<Widget> children,
   required String action,
   required VoidCallback? onAction,
-}) =>
-    AlertDialog(
-      backgroundColor: _dialogBackground,
-      title: Text(title, style: const TextStyle(color: Colors.white)),
+}) {
+  final c = context.hearthColors;
+  return AlertDialog(
+      backgroundColor: c.menu,
+      title: Text(title, style: TextStyle(color: c.text)),
       content: SizedBox(
         width: 420,
         child: SingleChildScrollView(
@@ -290,15 +299,16 @@ AlertDialog _dialog(
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+          child: Text('Cancel', style: TextStyle(color: c.textMuted)),
         ),
         ElevatedButton(
-          style: ElevatedButton.styleFrom(backgroundColor: _accent),
+          style: ElevatedButton.styleFrom(backgroundColor: c.accentFill),
           onPressed: onAction,
           child: Text(action),
         ),
       ],
     );
+}
 
 class _AddHaDialog extends ConsumerStatefulWidget {
   const _AddHaDialog();
@@ -342,6 +352,7 @@ class _AddHaDialogState extends ConsumerState<_AddHaDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.hearthColors;
     final added = {
       for (final s in ref.read(hubConfigProvider).calendarSources) s.entityId
     };
@@ -373,19 +384,19 @@ class _AddHaDialogState extends ConsumerState<_AddHaDialog> {
             },
       children: [
         if (entities.isEmpty)
-          const Text(
+          Text(
             'No calendars to add. Is Home Assistant connected, and does it '
             'have calendar entities?',
-            style: TextStyle(color: Colors.white70),
+            style: TextStyle(color: c.textSecondary),
           )
         else
           DropdownButton<HaEntity>(
             key: const ValueKey('calendar-entity'),
             value: entity,
             isExpanded: true,
-            hint: const Text('Calendar entity', style: _labelStyle),
-            dropdownColor: _dialogBackground,
-            style: const TextStyle(color: Colors.white),
+            hint: Text('Calendar entity', style: TextStyle(color: c.textMuted)),
+            dropdownColor: c.menu,
+            style: TextStyle(color: c.text),
             items: [
               for (final e in entities)
                 DropdownMenuItem(
@@ -395,9 +406,9 @@ class _AddHaDialogState extends ConsumerState<_AddHaDialog> {
               if (e != null) _select(e);
             },
           ),
-        _nameField(_name),
-        _ownerRow(people, _personId, (id) => setState(() => _personId = id)),
-        _colorRow(_color, (c) => setState(() {
+        _nameField(c, _name),
+        _ownerRow(c, people, _personId, (id) => setState(() => _personId = id)),
+        _colorRow(c, _color, (c) => setState(() {
               _color = c;
               _colorPicked = true;
             })),
@@ -495,6 +506,7 @@ class _AddIcsDialogState extends ConsumerState<_AddIcsDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.hearthColors;
     final tested = _tested != null && _tested == _url.text.trim();
     final people = ref.watch(hubConfigProvider.select((c) => c.people));
     return _dialog(
@@ -508,20 +520,20 @@ class _AddIcsDialogState extends ConsumerState<_AddIcsDialog> {
         TextField(
           key: const ValueKey('calendar-url'),
           controller: _url,
-          style: const TextStyle(color: Colors.white),
+          style: TextStyle(color: c.text),
           keyboardType: TextInputType.url,
           autocorrect: false,
-          decoration: const InputDecoration(
+          decoration: InputDecoration(
             labelText: 'URL',
             hintText: 'https:// or webcal://…',
-            labelStyle: _labelStyle,
-            hintStyle: TextStyle(color: Colors.white24),
+            labelStyle: TextStyle(color: c.textMuted),
+            hintStyle: TextStyle(color: c.inkAt(0.24)),
           ),
         ),
         if (_testing)
-          const Padding(
-            padding: EdgeInsets.only(top: 8),
-            child: Text('Fetching…', style: _labelStyle),
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text('Fetching…', style: TextStyle(color: c.textMuted)),
           )
         else if (_result != null)
           Padding(
@@ -530,12 +542,12 @@ class _AddIcsDialogState extends ConsumerState<_AddIcsDialog> {
               _result!,
               key: const ValueKey('calendar-test-result'),
               style: TextStyle(
-                  color: _failed ? Colors.orangeAccent : Colors.white70),
+                  color: _failed ? Colors.orangeAccent : c.textSecondary),
             ),
           ),
-        _nameField(_name),
-        _ownerRow(people, _personId, (id) => setState(() => _personId = id)),
-        _colorRow(_color, (c) => setState(() {
+        _nameField(c, _name),
+        _ownerRow(c, people, _personId, (id) => setState(() => _personId = id)),
+        _colorRow(c, _color, (c) => setState(() {
               _color = c;
               _colorPicked = true;
             })),
@@ -566,6 +578,7 @@ class _EditSourceDialogState extends ConsumerState<_EditSourceDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.hearthColors;
     final source = widget.source;
     final people = ref.watch(hubConfigProvider.select((c) => c.people));
     return _dialog(
@@ -586,22 +599,22 @@ class _EditSourceDialogState extends ConsumerState<_EditSourceDialog> {
           source.kind == CalendarSourceKind.ha
               ? 'Home Assistant · ${source.entityId}'
               : 'ICS feed',
-          style: const TextStyle(color: Colors.white70),
+          style: TextStyle(color: c.textSecondary),
         ),
-        const Text(
+        Text(
           'To change the calendar itself, delete it and add it again.',
-          style: TextStyle(color: Colors.white38, fontSize: 12),
+          style: TextStyle(color: c.textFaint, fontSize: 12),
         ),
-        _nameField(_name),
-        _ownerRow(people, _personId, (id) => setState(() => _personId = id)),
-        _colorRow(_color, (c) => setState(() => _color = c)),
+        _nameField(c, _name),
+        _ownerRow(c, people, _personId, (id) => setState(() => _personId = id)),
+        _colorRow(c, _color, (c) => setState(() => _color = c)),
         const SizedBox(height: 8),
         SwitchListTile(
           key: const ValueKey('calendar-enabled'),
           contentPadding: EdgeInsets.zero,
-          title: const Text('Enabled', style: TextStyle(color: Colors.white)),
+          title: Text('Enabled', style: TextStyle(color: c.text)),
           value: _enabled,
-          activeThumbColor: _accent,
+          activeThumbColor: c.accent,
           onChanged: (v) => setState(() => _enabled = v),
         ),
       ],
