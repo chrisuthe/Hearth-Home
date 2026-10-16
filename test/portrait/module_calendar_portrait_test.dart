@@ -39,7 +39,7 @@ void main() {
     ) async {
       await pumpCalendar(tester, view);
       expect(find.text('Today'), findsOneWidget);
-      expect(find.text('Family'), findsOneWidget);
+      expect(find.byTooltip('Family'), findsOneWidget);
       // Wide month draws it as a bar; narrow month lists today under the
       // grid; the time grids put it in the all-day band.
       expect(find.text('School break'), findsWidgets);
@@ -83,6 +83,12 @@ void main() {
 
   testLayouts('calendar event detail sheet', (tester, canvas) async {
     await pumpCalendar(tester, 'day');
+    // The agenda, not the hour grid, which opens at the current hour.
+    await tester.scrollUntilVisible(
+      find.text('Dentist — Ava'),
+      200,
+      scrollable: find.byType(Scrollable).last,
+    );
     await tester.tap(find.text('Dentist — Ava').first);
     await tester.pumpAndSettle();
     expect(find.text('1200 Main Street, Suite 400'), findsWidgets);

@@ -2,22 +2,22 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../app/tokens/calendar_tokens.dart';
 import '../../app/tokens/tokens.dart';
-import '../../utils/time_format.dart';
 import 'calendar_layout.dart';
 import 'calendar_widgets.dart';
 import 'models.dart';
 
-const _weekdayHeaderHeight = 28.0;
-const _dayNumberHeight = 24.0;
-const _laneHeight = 18.0;
-const _moreHeight = 16.0;
-const _maxChips = 3;
-const _maxDots = 4;
+/// Top of the first chip: the day number and the space around it.
+const _chipsTop =
+    HearthSpacing.x1 +
+    CalendarSizes.monthDayNumber +
+    CalendarSizes.monthChipGap;
+const _laneHeight = CalendarSizes.monthChip + CalendarSizes.monthChipGap;
 
-/// Six week rows. Wide cells show up to three chips and "+n", with
-/// multi-day events as one bar across a week row; narrow cells show dots
-/// and the tapped day's list under the grid.
+/// Six week rows. Wide cells show chips and "+n", with multi-day events as
+/// one bar across a week row; narrow cells show dots and the tapped day's
+/// list under the grid.
 class CalendarMonthView extends StatefulWidget {
   const CalendarMonthView({
     super.key,
@@ -48,17 +48,19 @@ class _CalendarMonthViewState extends State<CalendarMonthView> {
         final grid = Column(
           children: [
             SizedBox(
-              height: _weekdayHeaderHeight,
+              height: CalendarSizes.monthWeekdayRow,
               child: Row(
                 children: [
                   for (var i = 0; i < 7; i++)
                     Expanded(
                       child: Center(
                         child: Text(
-                          weekdayShort(addDays(first, i)),
-                          style: TextStyle(
-                            fontSize: HearthFont.label,
-                            color: Colors.white.withValues(alpha: 0.6),
+                          weekdayShort(addDays(first, i)).toUpperCase(),
+                          style: const TextStyle(
+                            fontSize: CalendarType.weekday,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: CalendarType.capsTracking,
+                            color: CalendarColors.textMuted,
                           ),
                         ),
                       ),
@@ -87,7 +89,7 @@ class _CalendarMonthViewState extends State<CalendarMonthView> {
         return Column(
           children: [
             Expanded(flex: 3, child: grid),
-            const Divider(height: 1, color: Colors.white12),
+            const Divider(height: 1, color: CalendarColors.divider),
             Expanded(
               flex: 2,
               child: CalendarDayList(
@@ -142,9 +144,9 @@ class _WeekRow extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, c) {
         final fit =
-            ((c.maxHeight - _dayNumberHeight - _moreHeight) / _laneHeight)
+            ((c.maxHeight - _chipsTop - CalendarSizes.monthMore) / _laneHeight)
                 .floor();
-        final shown = math.max(0, math.min(_maxChips, fit));
+        final shown = math.max(0, math.min(CalendarSizes.monthMaxChips, fit));
         final hidden = List.filled(7, 0);
         for (final item in items.where((i) => i.lane >= shown)) {
           for (var col = item.startCol; col < item.endCol; col++) {
@@ -164,6 +166,8 @@ class _WeekRow extends StatelessWidget {
                   inMonth: addDays(first, i).month == month,
                   isToday: addDays(first, i) == ctx.today,
                   isSelected: addDays(first, i) == selected,
+                  weekend: i >= 5,
+                  compact: dots,
                   dots: dots ? _dotColors(addDays(first, i)) : const <Color>[],
                   more: dots ? 0 : hidden[i],
                   onTap: () => onDayTap(addDays(first, i)),
@@ -172,10 +176,12 @@ class _WeekRow extends StatelessWidget {
             if (!dots)
               for (final item in items.where((i) => i.lane < shown))
                 Positioned(
-                  left: item.startCol * cellWidth + 2,
-                  width: (item.endCol - item.startCol) * cellWidth - 4,
-                  top: _dayNumberHeight + item.lane * _laneHeight,
-                  height: _laneHeight - 2,
+                  left: item.startCol * cellWidth + HearthSpacing.x1,
+                  width:
+                      (item.endCol - item.startCol) * cellWidth -
+                      2 * HearthSpacing.x1,
+                  top: _chipsTop + item.lane * _laneHeight,
+                  height: CalendarSizes.monthChip,
                   child: _Chip(event: item.event, ctx: ctx),
                 ),
           ],
@@ -185,7 +191,7 @@ class _WeekRow extends StatelessWidget {
   }
 
   List<Color> _dotColors(DateTime day) => [
-    for (final e in eventsOnDay(events, day)) ctx.colorOf(e.sourceId),
+    for (final e in eventsOnDay(events, day)) ctx.fillOf(e.sourceId),
   ];
 }
 
@@ -195,6 +201,8 @@ class _DayCell extends StatelessWidget {
     required this.inMonth,
     required this.isToday,
     required this.isSelected,
+    required this.weekend,
+    required this.compact,
     required this.dots,
     required this.more,
     required this.onTap,
@@ -204,87 +212,105 @@ class _DayCell extends StatelessWidget {
   final bool inMonth;
   final bool isToday;
   final bool isSelected;
+  final bool weekend;
+
+  /// Narrow cells: a bigger number over dots instead of chips.
+  final bool compact;
   final List<Color> dots;
   final int more;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: isSelected ? Colors.white.withValues(alpha: 0.08) : null,
-          border: const Border(
-            top: BorderSide(color: Colors.white12),
-            left: BorderSide(color: Colors.white10),
-          ),
+    final size = compact
+        ? CalendarSizes.monthDayNumberDots
+        : CalendarSizes.monthDayNumber;
+    final number = Container(
+      constraints: BoxConstraints(minWidth: size),
+      height: size,
+      alignment: Alignment.center,
+      decoration: isToday
+          ? const BoxDecoration(
+              color: CalendarColors.accent,
+              shape: BoxShape.circle,
+            )
+          : null,
+      child: Text(
+        '${day.day}',
+        style: TextStyle(
+          fontSize: CalendarType.monthNumber,
+          fontWeight: isToday ? FontWeight.w700 : FontWeight.w500,
+          color: inMonth || isToday
+              ? CalendarColors.text
+              : CalendarColors.textFaint,
         ),
-        child: Stack(
-          children: [
-            Positioned(
-              top: 2,
-              left: 4,
-              child: Container(
-                width: 22,
-                height: 20,
-                alignment: Alignment.center,
-                decoration: isToday
-                    ? BoxDecoration(
-                        color: kCalendarAccent,
-                        borderRadius: BorderRadius.circular(10),
-                      )
-                    : null,
-                child: Text(
-                  '${day.day}',
-                  style: TextStyle(
-                    fontSize: HearthFont.label,
-                    fontWeight: isToday ? FontWeight.w700 : FontWeight.w400,
-                    color: Colors.white.withValues(
-                      alpha: inMonth || isToday ? 0.9 : 0.35,
+      ),
+    );
+    return Material(
+      textStyle: CalendarType.base,
+      color: isSelected
+          ? CalendarColors.todayTint
+          : weekend
+          ? CalendarColors.weekendTint
+          : Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          decoration: const BoxDecoration(
+            border: Border(
+              top: BorderSide(color: CalendarColors.gridLine),
+              left: BorderSide(color: CalendarColors.divider),
+            ),
+          ),
+          child: Stack(
+            children: [
+              Positioned(
+                top: HearthSpacing.x1,
+                left: HearthSpacing.x1,
+                right: compact ? HearthSpacing.x1 : null,
+                child: compact ? Center(child: number) : number,
+              ),
+              if (dots.isNotEmpty)
+                Positioned(
+                  top: HearthSpacing.x1 + size + HearthSpacing.x2,
+                  left: HearthSpacing.x1,
+                  right: HearthSpacing.x1,
+                  child: Wrap(
+                    alignment: WrapAlignment.center,
+                    spacing: HearthSpacing.x1,
+                    runSpacing: HearthSpacing.x1,
+                    children: [
+                      for (final c in dots.take(CalendarSizes.monthMaxDots))
+                        Container(
+                          width: CalendarSizes.monthDot,
+                          height: CalendarSizes.monthDot,
+                          decoration: BoxDecoration(
+                            color: c,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              if (more > 0)
+                Positioned(
+                  left: HearthSpacing.x2,
+                  right: HearthSpacing.x1,
+                  bottom: HearthSpacing.x1,
+                  height: CalendarSizes.monthMore,
+                  child: Text(
+                    '+$more more',
+                    maxLines: 1,
+                    overflow: TextOverflow.clip,
+                    style: const TextStyle(
+                      fontSize: CalendarType.monthMore,
+                      fontWeight: FontWeight.w600,
+                      color: CalendarColors.textMuted,
                     ),
                   ),
                 ),
-              ),
-            ),
-            if (dots.isNotEmpty)
-              Positioned(
-                top: _dayNumberHeight + 2,
-                left: 4,
-                right: 4,
-                child: Wrap(
-                  spacing: 3,
-                  runSpacing: 3,
-                  children: [
-                    for (final c in dots.take(_maxDots))
-                      Container(
-                        width: 7,
-                        height: 7,
-                        decoration: BoxDecoration(
-                          color: c,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            if (more > 0)
-              Positioned(
-                left: 6,
-                right: 2,
-                bottom: 1,
-                height: _moreHeight,
-                child: Text(
-                  '+$more',
-                  maxLines: 1,
-                  overflow: TextOverflow.clip,
-                  style: TextStyle(
-                    fontSize: HearthFont.caption,
-                    color: Colors.white.withValues(alpha: 0.7),
-                  ),
-                ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -299,43 +325,72 @@ class _Chip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = ctx.colorOf(event.sourceId);
+    final fill = ctx.fillOf(event.sourceId);
     final bar =
         inAllDayBand(event) || eventDays(event).first != eventDays(event).last;
-    final text = bar
-        ? event.summary
-        : '${formatTime(event.start.toLocal(), ctx.use24h)} ${event.summary}';
-    return GestureDetector(
-      onTap: () => ctx.openEvent(context, event),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: HearthSpacing.x1),
+    final Widget content;
+    if (bar) {
+      content = Container(
+        padding: const EdgeInsets.symmetric(horizontal: HearthSpacing.x2),
         alignment: Alignment.centerLeft,
-        decoration: bar
-            ? BoxDecoration(
-                color: color.withValues(alpha: event.tentative ? 0.35 : 0.75),
-                borderRadius: BorderRadius.circular(3),
-              )
-            : null,
-        child: Text.rich(
-          TextSpan(
-            children: [
-              if (!bar)
-                TextSpan(
-                  text: '● ',
-                  style: TextStyle(color: color),
-                ),
-              TextSpan(text: text),
-            ],
-          ),
+        decoration: BoxDecoration(
+          color: event.tentative ? Colors.black : fill,
+          border: event.tentative
+              ? Border.all(color: fill, width: CalendarSizes.outline)
+              : null,
+          borderRadius: BorderRadius.circular(CalendarRadii.chip),
+        ),
+        child: Text(
+          event.summary,
           maxLines: 1,
           softWrap: false,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            fontSize: HearthFont.caption,
-            color: Colors.white,
+          style: TextStyle(
+            fontSize: CalendarType.monthChip,
+            fontWeight: FontWeight.w600,
+            fontStyle: event.tentative ? FontStyle.italic : FontStyle.normal,
+            color: event.tentative
+                ? CalendarColors.text
+                : CalendarColors.onFill,
           ),
         ),
-      ),
+      );
+    } else {
+      content = Padding(
+        padding: const EdgeInsets.symmetric(horizontal: HearthSpacing.x1),
+        child: Row(
+          children: [
+            Container(
+              width: CalendarSizes.monthChipDot,
+              height: CalendarSizes.monthChipDot,
+              decoration: BoxDecoration(color: fill, shape: BoxShape.circle),
+            ),
+            const SizedBox(width: HearthSpacing.x2),
+            Expanded(
+              child: Text(
+                '${compactTime(event.start.toLocal(), ctx.use24h)} '
+                '${event.summary}',
+                maxLines: 1,
+                softWrap: false,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: CalendarType.monthChip,
+                  fontStyle: event.tentative
+                      ? FontStyle.italic
+                      : FontStyle.normal,
+                  color: CalendarColors.text,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    final chip = GestureDetector(
+      onTap: () => ctx.openEvent(context, event),
+      child: content,
     );
+    if (!ctx.isPast(event)) return chip;
+    return Opacity(opacity: CalendarColors.pastOpacity, child: chip);
   }
 }

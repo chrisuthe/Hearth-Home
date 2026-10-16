@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hearth/app/tokens/calendar_tokens.dart';
 import 'package:hearth/config/hub_config.dart';
 import 'package:hearth/modules/calendar/calendar_layout.dart';
 import 'package:hearth/modules/calendar/calendar_providers.dart';
@@ -79,7 +80,12 @@ void main() {
       ),
     );
     expect(find.text('Calendar not configured'), findsOneWidget);
-    expect(find.text('Add a calendar in Settings → Calendar'), findsOneWidget);
+    expect(
+      find.text(
+        'Add a Home Assistant calendar or an ICS link in Settings › Calendar.',
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('arrows page by the view and Today comes back', (tester) async {
@@ -179,9 +185,10 @@ void main() {
     expect(find.text('Dentist — Ava'), findsWidgets);
     expect(find.text('Lunch'), findsWidgets);
 
-    await tester.tap(find.text('Family'));
+    await tester.tap(find.byTooltip('Family'));
     await tester.pump();
     expect(find.text('Dentist — Ava'), findsNothing);
+    expect(find.byTooltip('Family · hidden'), findsOneWidget);
     expect(find.text('Lunch'), findsWidgets);
 
     final container = ProviderScope.containerOf(
@@ -192,9 +199,29 @@ void main() {
       isTrue,
     );
 
-    await tester.tap(find.text('Family'));
+    await tester.tap(find.byTooltip('Family · hidden'));
     await tester.pump();
     expect(find.text('Dentist — Ava'), findsWidgets);
+  });
+
+  testWidgets('text under a Material keeps the calendar face', (tester) async {
+    await pump(tester, view: 'day');
+    for (final text in [
+      find.descendant(
+        of: find.byTooltip('Family'),
+        matching: find.text('Family'),
+      ),
+      find.text('Week'),
+      find.text('Dentist — Ava').first,
+    ]) {
+      final style = tester
+          .widget<RichText>(
+            find.descendant(of: text, matching: find.byType(RichText)),
+          )
+          .text
+          .style;
+      expect(style?.fontFamily, CalendarType.family, reason: '$text');
+    }
   });
 
   testWidgets('an event opens a read-only detail sheet', (tester) async {
@@ -237,7 +264,8 @@ void main() {
         ),
       ),
     );
-    expect(find.text('${kSchool.name}: HTTP 404'), findsOneWidget);
+    expect(find.text("${kSchool.name} can't be reached"), findsOneWidget);
+    expect(find.text('HTTP 404'), findsOneWidget);
     expect(find.byIcon(Icons.error_outline), findsWidgets);
     expect(find.text('Dentist — Ava'), findsWidgets);
   });
@@ -257,11 +285,10 @@ void main() {
       ),
     );
     expect(
-      find.text(
-        "Family: can't update, showing events from 10:42 AM (connection lost)",
-      ),
+      find.text("Family can't update — showing events from 10:42 AM"),
       findsOneWidget,
     );
+    expect(find.text('connection lost'), findsOneWidget);
     expect(find.byIcon(Icons.history), findsWidgets);
     expect(find.text('Dentist — Ava'), findsWidgets);
   });

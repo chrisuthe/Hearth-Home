@@ -47,22 +47,29 @@ only matters for HA calendars on an older Home Assistant, which Hearth polls at 
 
 - **‹ Today ›** pages back and forward by the view's length; **Today** jumps back.
 - **Day / 3-Day / Week / Month** switches the view.
-  - **Week** shows seven columns with an all-day row on top, scrolled to the current hour, with a
-    red line at the current time. On a portrait screen it shows **3 days** instead — seven
-    columns don't fit.
-  - **Day** adds an agenda of the following days beside the hours (below them in portrait).
-  - **Month** shows each day's events as chips; multi-day events stretch across days.
-- **The legend** lists every source in its colour. Tap one to hide it from the screen for now;
-  tap again to bring it back. This doesn't change Settings.
+  - **Week** shows seven columns with an all-day row on top, opened a little before the current
+    hour, with a white line at the current time. On a portrait screen it shows **3 days**
+    instead — seven columns don't fit.
+  - **Day** adds an agenda of the following days beside the hours (below them in portrait). The
+    event happening now is marked **Now**.
+  - **Month** shows each day's events as chips; multi-day events stretch across days. On a narrow
+    portrait screen days show dots, and tapping a day lists its events under the month.
+- **Events are filled in their calendar's colour**, and ones that have already ended are dimmed.
+  A tentative event is drawn as an outline.
+- **The calendar pills** under the header show every source in its colour, with its initial. Tap
+  one to hide it from the screen for now (it turns into an outline); tap again to bring it back.
+  This doesn't change Settings.
 - **Tap an event** for its details: time, location and notes.
 
-When a source can't be read, the screen keeps the events it last had and shows a red line under
-the header saying which source and why (for example *Calendar not found at this URL*).
+When a source can't be read, the screen keeps the events it last had and shows a banner under
+the header saying which source and why — amber when it's showing older events, red when it has
+none (for example *Calendar not found at this URL*).
 
 ## The idle glance
 
 The Home screen, where the kiosk returns when idle, shows up to **three** upcoming events from
-now to the end of tomorrow, above the timer pill — today's all-day events first. When Calendar is on the swipe
+now to the end of tomorrow on a frosted card above the timer pill, grouped under **Today** and
+**Tomorrow** — today's all-day events first, and the one happening now marked **Now**. When Calendar is on the swipe
 row, tapping the glance opens it. It hides itself when there's nothing coming up, no source is on, or the option is off.
 
 ## Troubleshooting

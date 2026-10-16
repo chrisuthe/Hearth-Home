@@ -389,6 +389,17 @@ Every view branches on the constraints from `LayoutBuilder`, never on `displayOr
 
 The thresholds are logical pixels after `uiScale`. They are a starting point for the screen task to tune on the panel.
 
+### Redesign (2026-10-15)
+
+The screen and the glance were redesigned through the "Hearth Calendar redesign" Claude Design canvas and approved before implementation. What changed from the sketches above:
+
+- The header is two rows at every size: arrows, Today and the range; then one pill per source (its colour, its initial) on the left and the view switcher on the right. The pills replace the legend swatches and toggle the same on-screen-only filter. Controls are 52–56 px for the kiosk.
+- Events are a solid fill of the source colour lightened 25% (`CalendarColors.fill`) under near-black text; a tentative event is an outline in that colour. Ended events draw at 55% opacity.
+- The now line is white, so it shows across an accent-coloured event, with the time in an accent pill in the gutter. Today's column carries an accent tint. The grid opens two hours before now.
+- Hours are 72 px. Agenda rows are 76 px cards with the source's initial, and the event in progress is tinted and tagged "Now".
+- Failing sources show as banners (amber stale, red error) rather than a line of text.
+- Every visual constant is a token in `lib/app/tokens/calendar_tokens.dart`; the screen and glance render in the bundled Inter with tabular figures.
+
 ## The ambient glance
 
 The idle state is HubShell returning to the Home page (`lib/app/hub_shell.dart:327-342`), and the clock and weather live on `HomeScreen` (`lib/screens/home/home_screen.dart:56-90`). CLAUDE.md calls these "ambient overlays"; in code they are part of Home.
@@ -396,13 +407,16 @@ The idle state is HubShell returning to the Home page (`lib/app/hub_shell.dart:3
 The glance is a `ConsumerWidget`, `CalendarGlance`, added to the bottom column in `HomeScreen`, above the timer pill, when `calendarAmbientGlance` is on and there is at least one enabled source:
 
 ```
-  ● 9:00  Dentist — Ava
-  ● 15:30 Soccer practice
-  ● Tomorrow  Grandma visit (all day)
+  TODAY
+  ● Now      Dentist — Ava       until 10:00 AM
+  ● 3:30 PM  Soccer practice
+  ─────────────────────────────
+  TOMORROW
+  ● All day  Grandma visit
 ```
 
 - At most three lines: events that have not ended, from now until the end of tomorrow. All-day events of today come first. Nothing to show, nothing drawn (no "No events" line over a photo).
-- Same text shadows as the clock (`home_screen.dart:15-19`), source colour as the dot.
+- It sits on a frosted card (blurred backdrop, translucent dark fill, hairline border) so it reads over any photo, with the source colour as the dot. Rows are 56 px and the whole card is one tap target. Before the 2026-10-15 redesign it was bare text with the clock's shadows.
 - Tapping it jumps to the Calendar page when the module is placed in the swipe row.
 - It watches `calendarEventsProvider` with `select` on the next three events, so a push that changes nothing later in the week does not rebuild it.
 - Portrait: it sits full width above the weather/clock stack, unchanged.

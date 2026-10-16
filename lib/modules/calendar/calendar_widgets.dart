@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../app/app.dart' show kDialogBackground;
+import '../../app/tokens/calendar_tokens.dart';
 import '../../app/tokens/tokens.dart';
 import '../../utils/time_format.dart';
 import 'calendar_layout.dart';
@@ -21,7 +21,21 @@ class CalendarViewContext {
   Color colorOf(String sourceId) =>
       Color(sources[sourceId]?.color ?? CalendarSource.defaultColor);
 
+  /// The solid fill an event of [sourceId] is drawn in, under dark text.
+  Color fillOf(String sourceId) => CalendarColors.fill(colorOf(sourceId));
+
+  String nameOf(String sourceId) {
+    final name = sources[sourceId]?.name ?? '';
+    return name.isNotEmpty ? name : sourceId;
+  }
+
   DateTime get today => dateOnly(now);
+
+  /// Ended events draw dimmed.
+  bool isPast(CalendarEvent e) => !e.end.isAfter(now);
+
+  bool isNow(CalendarEvent e) =>
+      !e.allDay && !e.start.isAfter(now) && e.end.isAfter(now);
 
   void openEvent(BuildContext context, CalendarEvent event) =>
       showCalendarEventSheet(context, event, this);
@@ -33,7 +47,42 @@ class CalendarViewContext {
   ) => showCalendarDaySheet(context, day, events, this);
 }
 
-/// One event as a list row: colour bar, summary, time and location.
+/// The first letter of a source name, for its avatar.
+String sourceInitial(String name) =>
+    name.isEmpty ? '?' : name.characters.first.toUpperCase();
+
+/// A round initial in a source's fill: the pills' and agenda rows' avatar.
+class SourceAvatar extends StatelessWidget {
+  const SourceAvatar({
+    super.key,
+    required this.name,
+    required this.fill,
+    this.size = CalendarSizes.agendaAvatar,
+  });
+
+  final String name;
+  final Color fill;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: size,
+    height: size,
+    alignment: Alignment.center,
+    decoration: BoxDecoration(color: fill, shape: BoxShape.circle),
+    child: Text(
+      sourceInitial(name),
+      style: const TextStyle(
+        fontSize: CalendarType.control,
+        fontWeight: FontWeight.w700,
+        color: CalendarColors.onFill,
+      ),
+    ),
+  );
+}
+
+/// One event as an agenda card: times, source avatar, summary, and the
+/// source and location under it.
 class CalendarEventTile extends StatelessWidget {
   const CalendarEventTile({super.key, required this.event, required this.ctx});
 
@@ -42,64 +91,141 @@ class CalendarEventTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = ctx.colorOf(event.sourceId);
+    final name = ctx.nameOf(event.sourceId);
     final secondary = [
-      eventTimeLabel(event, ctx.use24h),
+      name,
       if (event.location != null && event.location!.isNotEmpty) event.location!,
     ].join(' · ');
-    return InkWell(
-      onTap: () => ctx.openEvent(context, event),
-      borderRadius: BorderRadius.circular(HearthSpacing.x2),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          vertical: HearthSpacing.x2,
-          horizontal: HearthSpacing.x2,
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 4,
-              height: 36,
-              decoration: BoxDecoration(
-                color: color,
-                borderRadius: BorderRadius.circular(2),
-              ),
+    final now = ctx.isNow(event);
+    final (first, second) = inAllDayBand(event)
+        ? ('All day', null)
+        : (
+            formatTime(event.start.toLocal(), ctx.use24h),
+            formatTime(event.end.toLocal(), ctx.use24h),
+          );
+    final card = Padding(
+      padding: const EdgeInsets.only(bottom: HearthSpacing.x2),
+      child: Material(
+        textStyle: CalendarType.base,
+        color: now ? CalendarColors.nowTint : CalendarColors.card,
+        borderRadius: BorderRadius.circular(CalendarRadii.card),
+        child: InkWell(
+          onTap: () => ctx.openEvent(context, event),
+          borderRadius: BorderRadius.circular(CalendarRadii.card),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              minHeight: CalendarSizes.agendaRow,
             ),
-            const SizedBox(width: HearthSpacing.x3),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(
+                HearthSpacing.x2,
+                HearthSpacing.x2,
+                HearthSpacing.x4,
+                HearthSpacing.x2,
+              ),
+              child: Row(
                 children: [
-                  Text(
-                    event.summary,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: HearthFont.body,
-                      color: Colors.white,
-                      fontStyle: event.tentative
-                          ? FontStyle.italic
-                          : FontStyle.normal,
+                  SizedBox(
+                    width: CalendarSizes.agendaTimeWidth,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          first,
+                          maxLines: 1,
+                          style: const TextStyle(
+                            fontSize: CalendarType.agendaTime,
+                            fontWeight: FontWeight.w600,
+                            color: CalendarColors.text,
+                          ),
+                        ),
+                        if (second != null)
+                          Text(
+                            second,
+                            maxLines: 1,
+                            style: const TextStyle(
+                              fontSize: HearthFont.body,
+                              color: CalendarColors.textDim,
+                            ),
+                          ),
+                      ],
                     ),
                   ),
-                  Text(
-                    secondary,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: HearthFont.label,
-                      color: Colors.white.withValues(alpha: 0.5),
+                  const SizedBox(width: HearthSpacing.x4),
+                  SourceAvatar(name: name, fill: ctx.fillOf(event.sourceId)),
+                  const SizedBox(width: HearthSpacing.x4),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          event.summary,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: CalendarType.agendaTitle,
+                            fontWeight: FontWeight.w600,
+                            color: CalendarColors.text,
+                            fontStyle: event.tentative
+                                ? FontStyle.italic
+                                : FontStyle.normal,
+                          ),
+                        ),
+                        Text(
+                          secondary,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: CalendarType.agendaMeta,
+                            color: CalendarColors.textMuted,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
+                  if (now) ...[
+                    const SizedBox(width: HearthSpacing.x3),
+                    const NowTag(),
+                  ],
                 ],
               ),
             ),
-          ],
+          ),
         ),
       ),
     );
+    if (!ctx.isPast(event)) return card;
+    return Opacity(opacity: CalendarColors.pastOpacity, child: card);
   }
+}
+
+/// "Now" in an accent pill, on the event in progress.
+class NowTag extends StatelessWidget {
+  const NowTag({super.key, this.fontSize = HearthFont.body});
+
+  final double fontSize;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(
+      horizontal: HearthSpacing.x3,
+      vertical: HearthSpacing.x1,
+    ),
+    decoration: BoxDecoration(
+      color: CalendarColors.accent,
+      borderRadius: BorderRadius.circular(CalendarRadii.card),
+    ),
+    child: Text(
+      'Now',
+      style: TextStyle(
+        fontSize: fontSize,
+        fontWeight: FontWeight.w700,
+        color: CalendarColors.text,
+      ),
+    ),
+  );
 }
 
 /// The events of one day as a list, all-day first.
@@ -125,16 +251,18 @@ class CalendarDayList extends StatelessWidget {
       padding: HearthSpacing.allX3,
       children: [
         Padding(
-          padding: const EdgeInsets.only(
-            left: HearthSpacing.x2,
-            bottom: HearthSpacing.x2,
+          padding: const EdgeInsets.fromLTRB(
+            HearthSpacing.x2,
+            HearthSpacing.x1,
+            HearthSpacing.x2,
+            HearthSpacing.x3,
           ),
           child: Text(
             formatDateLong(day),
             style: const TextStyle(
-              fontSize: HearthFont.bodyLg,
+              fontSize: HearthFont.titleLg,
               fontWeight: FontWeight.w600,
-              color: Colors.white,
+              color: CalendarColors.text,
             ),
           ),
         ),
@@ -163,7 +291,12 @@ class CalendarAgenda extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: HearthSpacing.allX3,
+      padding: const EdgeInsets.fromLTRB(
+        HearthSpacing.x3,
+        0,
+        HearthSpacing.x4,
+        HearthSpacing.x3,
+      ),
       children: [for (var i = 0; i < days; i++) ..._day(addDays(start, i))],
     );
   }
@@ -171,23 +304,24 @@ class CalendarAgenda extends StatelessWidget {
   List<Widget> _day(DateTime day) {
     final list = eventsOnDay(events, day);
     final isToday = day == ctx.today;
+    final date = formatDateShort(day).toUpperCase();
     return [
       Padding(
         padding: const EdgeInsets.fromLTRB(
           HearthSpacing.x2,
-          HearthSpacing.x3,
+          HearthSpacing.x5,
           HearthSpacing.x2,
-          HearthSpacing.x1,
+          HearthSpacing.x3,
         ),
         child: Text(
-          isToday ? 'Today · ${formatDateShort(day)}' : formatDateShort(day),
+          isToday ? 'TODAY · $date' : date,
           style: TextStyle(
-            fontSize: HearthFont.label,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0.5,
+            fontSize: CalendarType.agendaHeader,
+            fontWeight: FontWeight.w700,
+            letterSpacing: CalendarType.capsTracking,
             color: isToday
-                ? kCalendarAccent
-                : Colors.white.withValues(alpha: 0.6),
+                ? CalendarColors.accentText
+                : CalendarColors.textMuted,
           ),
         ),
       ),
@@ -201,38 +335,43 @@ class _NoEvents extends StatelessWidget {
   const _NoEvents();
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(
-      horizontal: HearthSpacing.x2,
-      vertical: HearthSpacing.x1,
+  Widget build(BuildContext context) => const Padding(
+    padding: EdgeInsets.fromLTRB(
+      HearthSpacing.x6,
+      HearthSpacing.x2,
+      HearthSpacing.x2,
+      HearthSpacing.x4,
     ),
     child: Text(
       'No events',
       style: TextStyle(
-        fontSize: HearthFont.label,
-        color: Colors.white.withValues(alpha: 0.3),
+        fontSize: HearthFont.bodyLg,
+        color: CalendarColors.textDim,
       ),
     ),
   );
 }
 
-const kCalendarAccent = Color(0xFF646CFF);
-
 Future<void> _showSheet(BuildContext context, WidgetBuilder builder) =>
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: kDialogBackground,
+      backgroundColor: CalendarColors.sheet,
       isScrollControlled: true,
+      showDragHandle: true,
       constraints: BoxConstraints(
-        maxWidth: 720,
+        maxWidth: CalendarSizes.sheetMaxWidth,
         maxHeight: MediaQuery.sizeOf(context).height * 0.8,
       ),
       shape: const RoundedRectangleBorder(
+        side: BorderSide(color: CalendarColors.sheetBorder),
         borderRadius: BorderRadius.vertical(
-          top: Radius.circular(HearthSpacing.x4),
+          top: Radius.circular(CalendarRadii.sheet),
         ),
       ),
-      builder: builder,
+      builder: (context) => DefaultTextStyle.merge(
+        style: CalendarType.base,
+        child: builder(context),
+      ),
     );
 
 /// A day's events in a sheet, for "+n" and a tapped month cell.
@@ -260,30 +399,49 @@ Future<void> showCalendarEventSheet(
   CalendarEvent event,
   CalendarViewContext ctx,
 ) {
-  final source = ctx.sources[event.sourceId];
   final days = eventDays(event);
   final when = event.allDay || days.first != days.last
       ? eventTimeLabel(event, ctx.use24h)
       : '${formatDateShort(days.first)} · ${eventTimeLabel(event, ctx.use24h)}';
-  final muted = Colors.white.withValues(alpha: 0.6);
 
-  Widget row(IconData icon, Widget child) => Padding(
-    padding: const EdgeInsets.only(top: HearthSpacing.x3),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, size: HearthIcon.sm, color: muted),
-        const SizedBox(width: HearthSpacing.x3),
-        Expanded(child: child),
-      ],
+  Widget row(IconData icon, String text, {bool secondary = false}) => Padding(
+    padding: const EdgeInsets.only(top: HearthSpacing.x1),
+    child: ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: CalendarSizes.sheetRow),
+      child: Row(
+        children: [
+          Icon(icon, size: HearthIcon.md, color: CalendarColors.sheetIcon),
+          const SizedBox(width: HearthSpacing.x4),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: HearthSpacing.x3),
+              child: Text(
+                text,
+                style: TextStyle(
+                  fontSize: CalendarType.sheetBody,
+                  height: CalendarType.bodyHeight,
+                  color: secondary
+                      ? CalendarColors.sheetSecondary
+                      : CalendarColors.text,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     ),
   );
 
   return _showSheet(
     context,
-    (_) => SafeArea(
+    (sheet) => SafeArea(
       child: SingleChildScrollView(
-        padding: HearthSpacing.allX6,
+        padding: const EdgeInsets.fromLTRB(
+          HearthSpacing.x8,
+          0,
+          HearthSpacing.x6,
+          HearthSpacing.x8,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -291,62 +449,50 @@ Future<void> showCalendarEventSheet(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
-                  width: 14,
-                  height: 14,
-                  margin: const EdgeInsets.only(top: 6),
+                  width: CalendarSizes.sheetDot,
+                  height: CalendarSizes.sheetDot,
+                  margin: const EdgeInsets.only(top: HearthSpacing.x3),
                   decoration: BoxDecoration(
-                    color: ctx.colorOf(event.sourceId),
+                    color: ctx.fillOf(event.sourceId),
                     shape: BoxShape.circle,
                   ),
                 ),
-                const SizedBox(width: HearthSpacing.x3),
+                const SizedBox(width: HearthSpacing.x4),
                 Expanded(
                   child: Text(
                     event.summary,
                     style: const TextStyle(
-                      fontSize: HearthFont.titleLg,
+                      fontSize: CalendarType.sheetTitle,
+                      height: CalendarType.titleHeight,
                       fontWeight: FontWeight.w600,
-                      color: Colors.white,
+                      color: CalendarColors.text,
                     ),
                   ),
                 ),
+                const SizedBox(width: HearthSpacing.x3),
+                IconButton(
+                  tooltip: 'Close',
+                  iconSize: HearthIcon.md,
+                  style: IconButton.styleFrom(
+                    backgroundColor: CalendarColors.control,
+                    foregroundColor: CalendarColors.text,
+                    fixedSize: const Size.square(CalendarSizes.sheetClose),
+                  ),
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.of(sheet).pop(),
+                ),
               ],
             ),
-            row(
-              Icons.schedule,
-              Text(
-                event.tentative ? '$when (tentative)' : when,
-                style: const TextStyle(
-                  fontSize: HearthFont.body,
-                  color: Colors.white,
-                ),
-              ),
-            ),
+            const SizedBox(height: HearthSpacing.x3),
+            row(Icons.schedule, event.tentative ? '$when (tentative)' : when),
             if (event.location != null && event.location!.isNotEmpty)
-              row(
-                Icons.place_outlined,
-                Text(
-                  event.location!,
-                  style: const TextStyle(
-                    fontSize: HearthFont.body,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
+              row(Icons.place_outlined, event.location!),
             if (event.description != null && event.description!.isNotEmpty)
-              row(
-                Icons.notes,
-                Text(
-                  event.description!,
-                  style: TextStyle(fontSize: HearthFont.body, color: muted),
-                ),
-              ),
+              row(Icons.notes, event.description!, secondary: true),
             row(
               Icons.calendar_month,
-              Text(
-                source?.name.isNotEmpty == true ? source!.name : event.sourceId,
-                style: TextStyle(fontSize: HearthFont.body, color: muted),
-              ),
+              ctx.nameOf(event.sourceId),
+              secondary: true,
             ),
           ],
         ),

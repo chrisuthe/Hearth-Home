@@ -312,3 +312,11 @@ String hourLabel(int hour, bool use24h) {
   final h = hour == 0 ? 12 : (hour > 12 ? hour - 12 : hour);
   return '$h ${hour >= 12 ? 'PM' : 'AM'}';
 }
+
+/// A month chip's start time: "6p", "12:30p", or "18:00" on a 24-hour clock.
+String compactTime(DateTime t, bool use24h) {
+  if (use24h) return formatTime(t, true);
+  final h = t.hour % 12 == 0 ? 12 : t.hour % 12;
+  final m = t.minute == 0 ? '' : ':${t.minute.toString().padLeft(2, '0')}';
+  return '$h$m${t.hour < 12 ? 'a' : 'p'}';
+}
