@@ -55,7 +55,8 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
     }
 
     final c = context.hearthColors;
-    return ThemedBackground.screen(
+    return ThemedBackground.photo(
+      strength: TintStrength.heavy,
       child: Column(
         children: [
           // Header with back button and add timer
