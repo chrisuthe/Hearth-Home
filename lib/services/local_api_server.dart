@@ -83,6 +83,19 @@ class LocalApiServer {
 
   static const int _maxBodySize = 64 * 1024; // 64 KB
 
+  /// A whole backup (webviews, people, calendars, Sendspin trust records)
+  /// can outgrow [_maxBodySize]; only the restore route gets this cap.
+  static const int _maxRestoreBodySize = 4 * 1024 * 1024; // 4 MB
+  static const _restorePath = '/api/plugin/hearth.system/restore';
+
+  /// Plugin routes that need the PIN session and refuse the bearer key. The
+  /// key is handed to Home Assistant `rest_command`s, so it must not be able
+  /// to download every secret or restore over the device's identity.
+  static const _sessionOnlyPluginPaths = {
+    '/api/plugin/hearth.system/backup',
+    _restorePath,
+  };
+
   /// 4-digit PIN displayed on the kiosk Settings screen.
   /// Users must enter this PIN in the web portal to gain access.
   final String _webPin;
@@ -226,6 +239,14 @@ class LocalApiServer {
         // way.
         if (path == '/api/plugin/hearth.capture/file') {
           if (!_checkAuthOrSession(request)) return;
+        } else if (_sessionOnlyPluginPaths.contains(path)) {
+          if (!_checkSession(request)) {
+            request.response.statusCode = 401;
+            request.response.headers.contentType = ContentType.json;
+            request.response.write(jsonEncode({'error': 'unauthorized'}));
+            await request.response.close();
+            return;
+          }
         } else {
           if (!_checkAuth(request)) return;
         }
@@ -241,7 +262,8 @@ class LocalApiServer {
         if ((request.method == 'POST' || request.method == 'PUT') &&
             request.contentLength > 0) {
           try {
-            body = await _readJsonBody(request);
+            body = await _readJsonBody(request,
+                maxSize: path == _restorePath ? _maxRestoreBodySize : _maxBodySize);
           } catch (e) {
             // _readJsonBody already wrote a 413 for an oversized body.
             if (e is! FormatException ||
@@ -351,8 +373,9 @@ class LocalApiServer {
   /// Reads and decodes a JSON request body with size limit enforcement.
   /// Rejects early if Content-Length exceeds the limit, then streams with
   /// a byte counter to guard against chunked transfers that lie about length.
-  Future<Map<String, dynamic>> _readJsonBody(HttpRequest request) async {
-    if (request.contentLength > _maxBodySize) {
+  Future<Map<String, dynamic>> _readJsonBody(HttpRequest request,
+      {int maxSize = _maxBodySize}) async {
+    if (request.contentLength > maxSize) {
       request.response.statusCode = 413;
       request.response.headers.contentType = ContentType.json;
       request.response.write(jsonEncode({'error': 'request body too large'}));
@@ -362,7 +385,7 @@ class LocalApiServer {
     final chunks = <int>[];
     await for (final chunk in request) {
       chunks.addAll(chunk);
-      if (chunks.length > _maxBodySize) {
+      if (chunks.length > maxSize) {
         request.response.statusCode = 413;
         request.response.headers.contentType = ContentType.json;
         request.response.write(jsonEncode({'error': 'request body too large'}));

@@ -6,6 +6,7 @@ import '../../app/theme/hearth_colors.dart';
 import '../../config/hub_config.dart';
 import '../../screens/settings/wifi_settings.dart';
 import '../../services/local_api_server.dart';
+import '../../services/wifi_service.dart';
 import '../../utils/device_ip.dart';
 import '../framework/web_context.dart';
 import '../hearth_plugin.dart';
@@ -30,7 +31,8 @@ final deviceIpProvider = FutureProvider<String?>((ref) => lookupDeviceIp());
 /// Surface differences:
 ///   * On-device: full WiFi picker dialog + PIN tile.
 ///   * Web portal: interactive WiFi UI (Scan / Connect) that calls the legacy
-///     `/api/wifi/scan` and `/api/wifi/connect` routes directly. PIN is
+///     `/api/wifi/scan` and `/api/wifi/connect` routes directly; where the OS
+///     owns Wi-Fi ([wifiManagedBySystem]) a note replaces it. PIN is
 ///     omitted on the web — the user already saw it on the kiosk before
 ///     entering the portal, and the on-device Settings panel shows it for
 ///     reference.
@@ -139,6 +141,16 @@ class NetworkPlugin extends HearthPlugin {
 
   @override
   String buildSettingsHtml(WebContext ctx) {
+    // Android owns Wi-Fi and a scan would always come back empty; the
+    // on-device tile opens the system Wi-Fi page instead.
+    if (wifiManagedBySystem) {
+      return '''
+<div class="field">
+  <label>WiFi Networks</label>
+  <div class="hint" style="font-size:12px;color:#888">Wi-Fi is managed by Android. Change it on the device under Settings &rarr; Network, which opens Android's Wi-Fi settings.</div>
+</div>
+''';
+    }
     // Note on JS DOM-safety: the script constructs every list-item with
     // createElement + textContent rather than templating SSIDs into an HTML
     // string. SSIDs come from the WifiService scan which uses NetworkManager

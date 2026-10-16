@@ -37,6 +37,18 @@ void main() {
       expect(html, contains('data-config-path="captureToolsEnabled"'));
     });
 
+    test('buildSettingsHtml has the backup and restore section', () {
+      final html = SystemPlugin().buildSettingsHtml(const WebContext(
+        config: HubConfig(),
+        apiBearerToken: 'auth',
+        pluginActionPrefix: '/api/plugin/hearth.system',
+      ));
+      expect(html, contains('id="backup-download"'));
+      expect(html, contains('href="/api/plugin/hearth.system/backup"'));
+      expect(html, contains('id="restore-file"'));
+      expect(html, contains('contains every password and token'));
+    });
+
     test('buildSettingsHtml has update check/install buttons', () {
       final p = SystemPlugin();
       final html = p.buildSettingsHtml(const WebContext(

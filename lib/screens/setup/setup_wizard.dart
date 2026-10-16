@@ -11,6 +11,10 @@ import '../../app/tokens/tokens.dart';
 /// After connecting to WiFi (or skipping), marks setup complete and
 /// transitions to the main app. Service configuration (HA, Immich, etc.)
 /// is done via the web portal at hearth.local:8090.
+///
+/// Where the OS owns Wi-Fi ([wifiManagedBySystem]) the Wi-Fi step is
+/// skipped: the device is already on the network, so the wizard shows only
+/// the portal address.
 class SetupWizard extends ConsumerStatefulWidget {
   const SetupWizard({super.key});
 
@@ -28,7 +32,11 @@ class _SetupWizardState extends ConsumerState<SetupWizard> {
   @override
   void initState() {
     super.initState();
-    _scan();
+    if (wifiManagedBySystem) {
+      _resolveIp();
+    } else {
+      _scan();
+    }
   }
 
   Future<void> _resolveIp() async {
@@ -129,6 +137,7 @@ class _SetupWizardState extends ConsumerState<SetupWizard> {
 
   @override
   Widget build(BuildContext context) {
+    if (wifiManagedBySystem) return _buildWithoutWifi();
     // Material, not a coloured Container, so the network tiles' ink is not
     // painted underneath the background.
     return Material(
@@ -197,33 +206,7 @@ class _SetupWizardState extends ConsumerState<SetupWizard> {
                 ),
               const SizedBox(height: HearthSpacing.x4),
               if (_connectedSsid != null) ...[
-                Container(
-                  padding: HearthSpacing.allX4,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1E1E1E),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Continue setup from a browser:',
-                        style: TextStyle(fontSize: HearthFont.body, color: Colors.white70),
-                      ),
-                      const SizedBox(height: HearthSpacing.x2),
-                      Text(
-                        _ipAddress != null
-                            ? 'http://$_ipAddress:8090'
-                            : 'http://hearth.local:8090',
-                        style: const TextStyle(
-                          fontSize: HearthFont.title,
-                          fontWeight: FontWeight.w500,
-                          color: Color(0xFF646CFF),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                _portalAddress(),
                 const SizedBox(height: HearthSpacing.x4),
               ],
               Row(
@@ -253,6 +236,76 @@ class _SetupWizardState extends ConsumerState<SetupWizard> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildWithoutWifi() {
+    return Material(
+      color: Colors.black,
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: HearthSpacing.x12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: HearthSpacing.x12),
+              const Text(
+                'Welcome to Hearth',
+                style: TextStyle(fontSize: HearthFont.display, fontWeight: FontWeight.w300),
+              ),
+              const SizedBox(height: HearthSpacing.x2),
+              Text(
+                "Hearth uses this device's Wi-Fi connection",
+                style: TextStyle(
+                  fontSize: HearthFont.bodyLg,
+                  color: Colors.white.withValues(alpha: 0.5),
+                ),
+              ),
+              const Spacer(),
+              _portalAddress(),
+              const SizedBox(height: HearthSpacing.x4),
+              Align(
+                alignment: Alignment.centerRight,
+                child: FilledButton(
+                  onPressed: _finishSetup,
+                  child: const Text('Continue'),
+                ),
+              ),
+              const SizedBox(height: HearthSpacing.x6),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _portalAddress() {
+    return Container(
+      padding: HearthSpacing.allX4,
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E1E1E),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Continue setup from a browser:',
+            style: TextStyle(fontSize: HearthFont.body, color: Colors.white70),
+          ),
+          const SizedBox(height: HearthSpacing.x2),
+          Text(
+            _ipAddress != null
+                ? 'http://$_ipAddress:8090'
+                : 'http://hearth.local:8090',
+            style: const TextStyle(
+              fontSize: HearthFont.title,
+              fontWeight: FontWeight.w500,
+              color: Color(0xFF646CFF),
+            ),
+          ),
+        ],
       ),
     );
   }

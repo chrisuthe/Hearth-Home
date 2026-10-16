@@ -1,3 +1,7 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -5,6 +9,10 @@ import '../../app/theme/hearth_colors.dart';
 import '../../app/tokens/tokens.dart';
 import '../../config/hub_config.dart';
 import '../../screens/settings/update_settings.dart';
+import '../../services/app_restarter.dart';
+import '../../services/backup/backup_service.dart';
+import '../../utils/logger.dart';
+import '../framework/plugin_router.dart';
 import '../framework/fields/bool_setting_field.dart';
 import '../framework/fields/password_setting_field.dart';
 import '../framework/fields/select_setting_field.dart';
@@ -26,6 +34,11 @@ import '../hearth_plugin.dart';
 ///     when the URL is an `.apk`.
 ///   * Update check / install actions — reuse the existing
 ///     `/api/update/check` and `/api/update/apply` HTTP routes
+///   * Backup & Restore — portal only: `GET backup` downloads the whole
+///     config, alarms and Sendspin secrets; `POST restore` writes them back
+///     and restarts the kiosk. Both need the PIN session, not the bearer key
+///     (see `LocalApiServer._sessionOnlyPluginPaths`). Design:
+///     `docs/specs/2026-10-16-backup-restore-design.md`.
 ///   * Open-source licences — Flutter's licence page on-device, `/licenses`
 ///     in the portal. Both list [LicenseRegistry], which holds the Dart
 ///     packages and the notices in `assets/licenses/`.
@@ -40,6 +53,12 @@ import '../hearth_plugin.dart';
 /// Status: always [PluginConfigStatus.configured] — every field has a sane
 /// default and update controls are runtime actions, not setup state.
 class SystemPlugin extends HearthPlugin {
+  /// How long a restore waits after its response before restarting, so the
+  /// portal hears the answer first.
+  final Duration restartDelay;
+
+  SystemPlugin({this.restartDelay = const Duration(milliseconds: 500)});
+
   @override
   String get id => 'hearth.system';
 
@@ -61,6 +80,47 @@ class SystemPlugin extends HearthPlugin {
   @override
   PluginConfigStatus statusFor(HubConfig config) {
     return PluginConfigStatus.configured;
+  }
+
+  @override
+  void registerHttpRoutes(PluginRouter router) {
+    router.get('backup', _backup);
+    router.post('restore', _restore);
+  }
+
+  Future<void> _backup(PluginRequest req) async {
+    final service = req.readProvider(backupServiceProvider);
+    final backup = await service.create();
+    final response = req.raw.response;
+    response.statusCode = 200;
+    response.headers.contentType = ContentType.json;
+    response.headers.add('Content-Disposition',
+        'attachment; filename="${service.fileName()}"');
+    response.write(const JsonEncoder.withIndent('  ').convert(backup));
+    await response.close();
+  }
+
+  Future<void> _restore(PluginRequest req) async {
+    final SendspinRestore sendspin;
+    try {
+      sendspin = await req.readProvider(backupServiceProvider).restore(req.body);
+    } on BackupRejected catch (e) {
+      await req.respondError(400, e.message);
+      return;
+    } catch (e) {
+      // A write failed. The Sendspin keys are written first, so most failures
+      // leave the config and alarms as they were.
+      Log.e('Backup', 'Restore failed: $e');
+      await req.respondError(500, 'Restore failed: $e');
+      return;
+    }
+    final restarter = req.readProvider(appRestarterProvider);
+    final restart = restarter.canRestart;
+    await req.respondJson({
+      'status': restart ? 'restarting' : 'restartManually',
+      'sendspin': sendspin.name,
+    });
+    if (restart) unawaited(Future.delayed(restartDelay, restarter.restart));
   }
 
   @override
@@ -126,6 +186,7 @@ class SystemPlugin extends HearthPlugin {
           subtitle: 'Install from the URL above on the next update (skips release check)',
         ).buildHtml(ctx) +
         _updateButtonsHtml() +
+        _backupHtml +
         _licensesHtml;
   }
 
@@ -134,6 +195,80 @@ class SystemPlugin extends HearthPlugin {
   <label>Open-source licences</label>
   <div class="hint"><a href="/licenses" target="_blank" style="color:#646CFF">View the licences for the code and content Hearth ships</a></div>
 </div>
+''';
+
+  static const _buttonStyle =
+      'padding:10px;background:#333;color:#e0e0e0;border:1px solid #444;'
+      'border-radius:6px;cursor:pointer;font-size:13px';
+
+  static const _backupHtml = '''
+<div class="field">
+  <label>Backup &amp; Restore</label>
+  <div class="hint">The file contains every password and token Hearth uses. Keep it somewhere safe.</div>
+  <a id="backup-download" href="/api/plugin/hearth.system/backup" style="display:block;text-align:center;text-decoration:none;margin-top:8px;$_buttonStyle">Download backup</a>
+  <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
+    <input type="file" id="restore-file" accept=".json,application/json" style="flex:1;font-size:13px;color:#e0e0e0">
+    <button type="button" id="restore-btn" style="$_buttonStyle" disabled>Restore</button>
+  </div>
+  <div id="restore-status" class="hint" style="font-size:12px;color:#888;margin-top:6px"></div>
+</div>
+<script>
+(function() {
+  const input = document.getElementById('restore-file');
+  const btn = document.getElementById('restore-btn');
+  const status = document.getElementById('restore-status');
+  input.addEventListener('change', () => { btn.disabled = !input.files.length; });
+
+  // Sessions live in memory, so this session's key turns 401 once the
+  // restarted kiosk is answering, however quickly it came back.
+  async function awaitRestart() {
+    const deadline = Date.now() + 120000;
+    while (Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, 2000));
+      try {
+        const res = await fetch('/api/session/key', { cache: 'no-store' });
+        if (res.status === 401) { location.reload(); return; }
+      } catch (_) {}
+    }
+    status.textContent = 'The kiosk did not come back. Check it and restart Hearth by hand.';
+  }
+
+  btn.addEventListener('click', async () => {
+    const file = input.files[0];
+    if (!file) return;
+    if (!confirm('This replaces all settings on this kiosk and restarts it. Continue?')) return;
+    btn.disabled = true;
+    status.textContent = 'Restoring...';
+    try {
+      const res = await fetch('/api/plugin/hearth.system/restore', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: await file.text(),
+      });
+      let data = {};
+      try { data = await res.json(); } catch (_) {}
+      if (!res.ok) {
+        status.textContent = data.error || ('Restore failed: ' + res.status);
+        btn.disabled = false;
+        return;
+      }
+      const note = data.sendspin === 'skipped'
+        ? ' Sendspin pairing was not restored (backup is from another platform).'
+        : '';
+      if (data.status === 'restarting') {
+        status.textContent = 'Restored — restarting…' + note;
+        awaitRestart();
+      } else {
+        status.textContent = 'Restored. Restart Hearth to finish.' + note;
+      }
+    } catch (e) {
+      status.textContent = 'Restore error: ' + e.message;
+      btn.disabled = false;
+    }
+  });
+})();
+</script>
 ''';
 
   String _updateButtonsHtml() {
