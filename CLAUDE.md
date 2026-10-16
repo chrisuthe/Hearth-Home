@@ -83,6 +83,8 @@ No backend or database. Config is a single `hub_config.json` in the OS app-suppo
 
 Night mode has four mutually exclusive sources: `none`, `clock`, `ha_entity`, `api`. Only one is active — no fallback chain.
 
+The look is two fields: `theme` (`classic | bright | warm`, Settings > Theme) and `screenBackground` (`solid | blurred`, a blurred copy of the current photo behind each screen).
+
 ### Display Canvas & Orientation
 
 Screens are tuned for a 1184x864 landscape canvas — the 11" panel's 2368x1728 at 2x. `kWindowWidth`/`kWindowHeight` in `main.dart` record that reference and are read by nothing: the canvas is whatever `MediaQuery` reports (flutter-pi derives it from the panel mode), divided by `uiScale` in `HearthScaleScope`.
@@ -124,6 +126,8 @@ The default branch is `main`. All PRs target `main`.
 - Linting enforces `prefer_const_constructors`, `prefer_const_declarations`, and `avoid_print` (use `debugPrint` instead)
 - Tests use `flutter_test` + `mockito`. WebSocket tests use custom `FakeWebSocketChannel` classes
 - UI colors come from `HearthColors` roles (`context.hearthColors`, `lib/app/theme/hearth_colors.dart`), never literals. `test/app/theme/theme_literal_guard_test.dart` enforces this for the files it lists; out-of-scope surfaces mark literals `// theme-exempt: <reason>`
+- Themes are `HearthThemeId` + `HearthColors.forTheme`. `test/app/theme/contrast_test.dart` is binding: a palette change that fails it is wrong, not the test. New screens draw their backdrop with `ThemedBackground`
+- Classic keeps a true-black canvas for AMOLED power savings; Home and the Media player while playing stay on Classic (`ClassicThemeScope`)
 
 ## Dependency maintenance
 

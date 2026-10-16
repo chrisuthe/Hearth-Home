@@ -1,7 +1,7 @@
 # Themes (light mode) — design
 
 Issue: #282 "Implement Light Mode"
-Status: design, not yet planned
+Status: implemented — Pi frame-timing check pending
 
 ## Intent
 
@@ -266,3 +266,24 @@ Two phases, each mergeable alone:
 - Plan ordering within phase 1.
 - Updating `CLAUDE.md` Conventions ("Dark theme with true black background",
   "Color accent: indigo") to describe theme roles instead.
+
+## Implementation notes
+
+**Pi gate (pending, the user's hands-on test).**
+Solid p95 raster: _pending_ · Blurred p95 raster: _pending_
+
+To run it: start the app with env `HEARTH_FRAME_TIMING=1`, scroll the Calendar
+week view for 30 s under Solid and again under Blurred, then run
+`journalctl -u hearth -g FrameTiming`. Pass is Blurred p95 raster < 16.7 ms and
+within 2 ms of Solid.
+
+**Palette.** No value moved from the plan's pinned table. The on-screen
+keyboard `modifierActiveFill` was chosen as Bright `#CFE3D6` and Warm `#EBCDB6`.
+
+**Decisions made during the build that changed the design.**
+- Home is pinned to Classic by `ClassicThemeScope`.
+- The Media player while playing is pinned to Classic; its idle chrome follows the theme.
+- The webview loading cover stays solid.
+- QR codes stay white.
+- Readability applies to words at any alpha, not only above a threshold.
+- Selection checkmarks use `accentText`.
