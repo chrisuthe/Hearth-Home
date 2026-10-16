@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../app/theme/hearth_colors.dart';
 import '../../app/tokens/calendar_tokens.dart';
 import '../../app/tokens/tokens.dart';
 import '../../utils/time_format.dart';
@@ -69,7 +70,7 @@ class _CalendarTimeGridState extends State<CalendarTimeGrid> {
           children: [
             _dayHeader(colWidth),
             if (band.isNotEmpty) _allDayBand(band, colWidth),
-            const Divider(height: 1, color: CalendarColors.divider),
+            Divider(height: 1, color: CalendarColors.of(context).divider),
             Expanded(
               child: SingleChildScrollView(
                 controller: _scroll,
@@ -129,8 +130,8 @@ class _CalendarTimeGridState extends State<CalendarTimeGrid> {
               fontWeight: FontWeight.w600,
               letterSpacing: CalendarType.capsTracking,
               color: isToday
-                  ? CalendarColors.accentText
-                  : CalendarColors.textMuted,
+                  ? CalendarColors.of(context).accentText
+                  : CalendarColors.of(context).textMuted,
             ),
           ),
         ),
@@ -140,17 +141,17 @@ class _CalendarTimeGridState extends State<CalendarTimeGrid> {
           height: CalendarSizes.dayNumber,
           alignment: Alignment.center,
           decoration: isToday
-              ? const BoxDecoration(
-                  color: CalendarColors.accent,
+              ? BoxDecoration(
+                  color: CalendarColors.of(context).accent,
                   shape: BoxShape.circle,
                 )
               : null,
           child: Text(
             '${day.day}',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: CalendarType.dayNumber,
               fontWeight: FontWeight.w600,
-              color: CalendarColors.text,
+              color: CalendarColors.of(context).text,
             ),
           ),
         ),
@@ -206,10 +207,10 @@ class _CalendarTimeGridState extends State<CalendarTimeGrid> {
                         '+${hidden[col]} more',
                         maxLines: 1,
                         overflow: TextOverflow.clip,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: CalendarType.bar,
                           fontWeight: FontWeight.w600,
-                          color: CalendarColors.textMuted,
+                          color: CalendarColors.of(context).textMuted,
                         ),
                       ),
                     ),
@@ -234,9 +235,9 @@ class _CalendarTimeGridState extends State<CalendarTimeGrid> {
               hourLabel(h, widget.ctx.use24h),
               textAlign: TextAlign.right,
               maxLines: 1,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: CalendarType.hourLabel,
-                color: CalendarColors.textDim,
+                color: CalendarColors.of(context).textDim,
               ),
             ),
           ),
@@ -249,8 +250,8 @@ class _CalendarTimeGridState extends State<CalendarTimeGrid> {
     const pxPerMinute = CalendarSizes.hourHeight / 60;
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: day == widget.ctx.today ? CalendarColors.todayTint : null,
-        border: const Border(left: BorderSide(color: CalendarColors.gridLine)),
+        color: day == widget.ctx.today ? CalendarColors.of(context).todayTint : null,
+        border: Border(left: BorderSide(color: CalendarColors.of(context).gridLine)),
       ),
       child: Stack(
         children: [
@@ -259,7 +260,7 @@ class _CalendarTimeGridState extends State<CalendarTimeGrid> {
               top: h * CalendarSizes.hourHeight,
               left: 0,
               right: 0,
-              child: const Divider(height: 1, color: CalendarColors.gridLine),
+              child: Divider(height: 1, color: CalendarColors.of(context).gridLine),
             ),
           for (final slot in slots)
             Positioned(
@@ -296,9 +297,9 @@ class _CalendarTimeGridState extends State<CalendarTimeGrid> {
         left: CalendarSizes.gutter + col * colWidth,
         width: colWidth,
         height: CalendarSizes.nowLine,
-        child: const DecoratedBox(
+        child: DecoratedBox(
           decoration: BoxDecoration(
-            color: CalendarColors.nowLine,
+            color: CalendarColors.of(context).nowLine,
             boxShadow: CalendarShadows.nowLine,
           ),
         ),
@@ -311,17 +312,17 @@ class _CalendarTimeGridState extends State<CalendarTimeGrid> {
         child: Container(
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: CalendarColors.accent,
+            color: CalendarColors.of(context).accent,
             borderRadius: BorderRadius.circular(
               CalendarSizes.nowLabelHeight / 2,
             ),
           ),
           child: Text(
             time,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: HearthFont.label,
               fontWeight: FontWeight.w700,
-              color: CalendarColors.text,
+              color: CalendarColors.of(context).text,
             ),
           ),
         ),
@@ -343,7 +344,7 @@ class _BandBar extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: HearthSpacing.x3),
         alignment: Alignment.centerLeft,
-        decoration: _eventDecoration(event, ctx, CalendarRadii.bar),
+        decoration: _eventDecoration(context, event, ctx, CalendarRadii.bar),
         child: Text(
           event.summary,
           maxLines: 1,
@@ -352,7 +353,7 @@ class _BandBar extends StatelessWidget {
             fontSize: CalendarType.bar,
             fontWeight: FontWeight.w600,
             fontStyle: event.tentative ? FontStyle.italic : FontStyle.normal,
-            color: _eventText(event),
+            color: _eventText(context, event),
           ),
         ),
       ),
@@ -381,7 +382,7 @@ class _TimedBlock extends StatelessWidget {
               (CalendarType.blockTitle * CalendarType.blockLineHeight))
           .floor(),
     );
-    final text = _eventText(event);
+    final text = _eventText(context, event);
     final location = event.location;
     final block = GestureDetector(
       onTap: () => ctx.openEvent(context, event),
@@ -392,7 +393,7 @@ class _TimedBlock extends StatelessWidget {
               ? CalendarSizes.blockPadVTight
               : CalendarSizes.blockPadV,
         ),
-        decoration: _eventDecoration(event, ctx, CalendarRadii.block),
+        decoration: _eventDecoration(context, event, ctx, CalendarRadii.block),
         child: Text.rich(
           TextSpan(
             children: [
@@ -432,13 +433,14 @@ class _TimedBlock extends StatelessWidget {
 
 /// A solid fill under dark text; a tentative event is an outline instead.
 BoxDecoration _eventDecoration(
+  BuildContext context,
   CalendarEvent event,
   CalendarViewContext ctx,
   double radius,
 ) {
   final fill = ctx.fillOf(event.sourceId);
   return BoxDecoration(
-    color: event.tentative ? Colors.black : fill,
+    color: event.tentative ? context.hearthColors.canvas : fill,
     border: event.tentative
         ? Border.all(color: fill, width: CalendarSizes.outline)
         : null,
@@ -446,5 +448,7 @@ BoxDecoration _eventDecoration(
   );
 }
 
-Color _eventText(CalendarEvent event) =>
-    event.tentative ? CalendarColors.text : CalendarColors.onFill;
+Color _eventText(BuildContext context, CalendarEvent event) {
+  final colors = CalendarColors.of(context);
+  return event.tentative ? colors.text : colors.onFill;
+}

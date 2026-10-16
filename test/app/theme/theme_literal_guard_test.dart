@@ -50,6 +50,10 @@ const kThemedFiles = <String>[
   'lib/modules/webview/webview_settings_section.dart',
   'lib/modules/webview/custom_url_editor.dart',
   'lib/modules/webview/ha_dashboard_picker.dart',
+  'lib/modules/calendar/calendar_screen.dart',
+  'lib/modules/calendar/calendar_widgets.dart',
+  'lib/modules/calendar/calendar_time_grid.dart',
+  'lib/modules/calendar/calendar_month_view.dart',
 ];
 
 final _forbidden = <RegExp>[

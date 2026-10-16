@@ -7,6 +7,7 @@ import '../../app/tokens/calendar_tokens.dart';
 import '../../app/tokens/tokens.dart';
 import '../../config/hub_config.dart';
 import '../../utils/time_format.dart';
+import '../../widgets/themed_background.dart';
 import 'calendar_layout.dart';
 import 'calendar_month_view.dart';
 import 'calendar_providers.dart';
@@ -129,10 +130,9 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen>
       now: _now,
     );
 
-    return ColoredBox(
-      color: Colors.black,
+    return ThemedBackground.screen(
       child: DefaultTextStyle.merge(
-        style: CalendarType.base,
+        style: CalendarType.of(context),
         child: LayoutBuilder(
           builder: (context, c) {
             final narrow = c.maxWidth < kCalendarNarrowWidth;
@@ -165,7 +165,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen>
                   status: merged.sources,
                   use24h: use24h,
                 ),
-                const Divider(height: 1, color: CalendarColors.divider),
+                Divider(height: 1, color: CalendarColors.of(context).divider),
                 Expanded(child: _body(view, range, events, ctx, narrow)),
               ],
             );
@@ -213,7 +213,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen>
           return Column(
             children: [
               Expanded(child: grid),
-              const Divider(height: 1, color: CalendarColors.divider),
+              Divider(height: 1, color: CalendarColors.of(context).divider),
               Expanded(child: agenda),
             ],
           );
@@ -221,7 +221,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen>
         return Row(
           children: [
             Expanded(child: grid),
-            const VerticalDivider(width: 1, color: CalendarColors.divider),
+            VerticalDivider(width: 1, color: CalendarColors.of(context).divider),
             Expanded(child: agenda),
           ],
         );
@@ -233,10 +233,9 @@ class _NotConfigured extends StatelessWidget {
   const _NotConfigured();
 
   @override
-  Widget build(BuildContext context) => ColoredBox(
-    color: Colors.black,
+  Widget build(BuildContext context) => ThemedBackground.screen(
     child: DefaultTextStyle.merge(
-      style: CalendarType.base,
+      style: CalendarType.of(context),
       child: Center(
         child: Padding(
           padding: HearthSpacing.allX6,
@@ -246,35 +245,35 @@ class _NotConfigured extends StatelessWidget {
               Container(
                 width: CalendarSizes.emptyDisc,
                 height: CalendarSizes.emptyDisc,
-                decoration: const BoxDecoration(
-                  color: CalendarColors.emptyDisc,
+                decoration: BoxDecoration(
+                  color: CalendarColors.of(context).emptyDisc,
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.calendar_month_outlined,
                   size: CalendarSizes.emptyIcon,
-                  color: CalendarColors.accentText,
+                  color: CalendarColors.of(context).accentText,
                 ),
               ),
               const SizedBox(height: HearthSpacing.x6),
-              const Text(
+              Text(
                 'Calendar not configured',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: HearthFont.headline,
                   fontWeight: FontWeight.w600,
-                  color: CalendarColors.text,
+                  color: CalendarColors.of(context).text,
                 ),
               ),
               const SizedBox(height: HearthSpacing.x3),
-              const Text(
+              Text(
                 'Add a Home Assistant calendar or an ICS link in '
                 'Settings › Calendar.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: HearthFont.bodyLg,
                   height: CalendarType.bodyHeight,
-                  color: CalendarColors.sheetSecondary,
+                  color: CalendarColors.of(context).sheetSecondary,
                 ),
               ),
             ],
@@ -315,8 +314,8 @@ class _Header extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final controlStyle = IconButton.styleFrom(
-      backgroundColor: CalendarColors.control,
-      foregroundColor: CalendarColors.text,
+      backgroundColor: CalendarColors.of(context).control,
+      foregroundColor: CalendarColors.of(context).text,
       fixedSize: const Size.square(CalendarSizes.control),
     );
     final nav = Row(
@@ -333,8 +332,8 @@ class _Header extends StatelessWidget {
         TextButton(
           onPressed: onToday,
           style: TextButton.styleFrom(
-            backgroundColor: CalendarColors.control,
-            foregroundColor: CalendarColors.text,
+            backgroundColor: CalendarColors.of(context).control,
+            foregroundColor: CalendarColors.of(context).text,
             minimumSize: const Size(0, CalendarSizes.control),
             padding: const EdgeInsets.symmetric(horizontal: HearthSpacing.x5),
             shape: const StadiumBorder(),
@@ -367,19 +366,19 @@ class _Header extends StatelessWidget {
           if (year != null)
             TextSpan(
               text: year.group(2),
-              style: const TextStyle(
+              style: TextStyle(
                 fontWeight: FontWeight.w400,
-                color: CalendarColors.textDim,
+                color: CalendarColors.of(context).textDim,
               ),
             ),
         ],
       ),
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: CalendarType.title,
         fontWeight: FontWeight.w600,
-        color: CalendarColors.text,
+        color: CalendarColors.of(context).text,
       ),
     );
     final pills = Wrap(
@@ -455,7 +454,7 @@ class _ViewSwitcher extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: CalendarColors.segmentTrack,
+        color: CalendarColors.of(context).segmentTrack,
         borderRadius: BorderRadius.circular(CalendarSizes.segment),
       ),
       padding: const EdgeInsets.all(HearthSpacing.x1),
@@ -463,17 +462,17 @@ class _ViewSwitcher extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           for (final v in CalendarView.values)
-            _segment(v, narrow && v == CalendarView.week),
+            _segment(context, v, narrow && v == CalendarView.week),
         ],
       ),
     );
   }
 
-  Widget _segment(CalendarView v, bool fallsBack) {
+  Widget _segment(BuildContext context, CalendarView v, bool fallsBack) {
     final selected = v == view;
     final button = Material(
-      textStyle: CalendarType.base,
-      color: selected ? CalendarColors.accent : Colors.transparent,
+      textStyle: CalendarType.of(context),
+      color: selected ? CalendarColors.of(context).accent : Colors.transparent,
       shape: const StadiumBorder(),
       child: InkWell(
         customBorder: const StadiumBorder(),
@@ -490,7 +489,7 @@ class _ViewSwitcher extends StatelessWidget {
             style: TextStyle(
               fontSize: CalendarType.control,
               fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-              color: fallsBack ? CalendarColors.textFaint : CalendarColors.text,
+              color: fallsBack ? CalendarColors.of(context).textFaint : CalendarColors.of(context).text,
             ),
           ),
         ),
@@ -530,12 +529,12 @@ class _SourcePill extends StatelessWidget {
       SourceStatus.error => (Icons.error_outline, 'error'),
     };
     final foreground = hidden
-        ? CalendarColors.pillOffText
-        : CalendarColors.onFill;
+        ? CalendarColors.of(context).pillOffText
+        : CalendarColors.of(context).onFill;
     final shape = StadiumBorder(
       side: hidden
-          ? const BorderSide(
-              color: CalendarColors.pillOffOutline,
+          ? BorderSide(
+              color: CalendarColors.of(context).pillOffOutline,
               width: CalendarSizes.outline,
             )
           : BorderSide.none,
@@ -543,7 +542,7 @@ class _SourcePill extends StatelessWidget {
     return Tooltip(
       message: [name, ?note, if (hidden) 'hidden'].join(' · '),
       child: Material(
-        textStyle: CalendarType.base,
+        textStyle: CalendarType.of(context),
         color: hidden ? Colors.transparent : fill,
         shape: shape,
         child: InkWell(
@@ -566,8 +565,8 @@ class _SourcePill extends StatelessWidget {
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
                     color: hidden
-                        ? CalendarColors.pillOffAvatar
-                        : CalendarColors.pillAvatar,
+                        ? CalendarColors.of(context).pillOffAvatar
+                        : CalendarColors.of(context).pillAvatar,
                     shape: BoxShape.circle,
                   ),
                   child: Text(
@@ -646,16 +645,16 @@ class _StatusBanners extends StatelessWidget {
               : "$name can't update — showing events from "
                     '${formatTime(st.lastOk!.toLocal(), use24h)}';
           detail = st.error;
-          color = CalendarColors.stale;
-          fill = CalendarColors.staleFill;
-          border = CalendarColors.staleBorder;
+          color = CalendarColors.of(context).stale;
+          fill = CalendarColors.of(context).staleFill;
+          border = CalendarColors.of(context).staleBorder;
           icon = Icons.history;
         case SourceStatus.error:
           headline = "$name can't be reached";
           detail = st.error;
-          color = CalendarColors.error;
-          fill = CalendarColors.errorFill;
-          border = CalendarColors.errorBorder;
+          color = CalendarColors.of(context).error;
+          fill = CalendarColors.of(context).errorFill;
+          border = CalendarColors.of(context).errorBorder;
           icon = Icons.error_outline;
       }
       banners.add(
@@ -691,9 +690,9 @@ class _StatusBanners extends StatelessWidget {
                     detail,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: CalendarType.banner,
-                      color: CalendarColors.bannerDetail,
+                      color: CalendarColors.of(context).bannerDetail,
                     ),
                   ),
                 ),

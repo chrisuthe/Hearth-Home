@@ -5,87 +5,173 @@
 // unscaled logical pixels on the 1184x864 canvas; [HearthScaleScope] scales
 // them like every other token.
 
-import 'package:flutter/painting.dart';
+import 'package:flutter/widgets.dart';
+
+import '../theme/hearth_colors.dart';
 
 class CalendarColors {
-  CalendarColors._();
+  const CalendarColors({
+    required this.accent,
+    required this.accentText,
+    required this.onFill,
+    required this.text,
+    required this.textMuted,
+    required this.textDim,
+    required this.textFaint,
+    required this.gridLine,
+    required this.divider,
+    required this.control,
+    required this.segmentTrack,
+    required this.card,
+    required this.todayTint,
+    required this.nowTint,
+    required this.weekendTint,
+    required this.nowLine,
+    required this.pillOffOutline,
+    required this.pillOffText,
+    required this.pillOffAvatar,
+    required this.pillAvatar,
+    required this.stale,
+    required this.staleFill,
+    required this.staleBorder,
+    required this.error,
+    required this.errorFill,
+    required this.errorBorder,
+    required this.bannerDetail,
+    required this.sheet,
+    required this.sheetBorder,
+    required this.sheetHandle,
+    required this.sheetIcon,
+    required this.sheetSecondary,
+    required this.emptyDisc,
+    required this.glanceCard,
+    required this.glanceBorder,
+    required this.glanceLabel,
+    required this.glanceTime,
+    required this.glanceMeta,
+  });
 
   /// Selected view, today's date, the now label.
-  static const Color accent = Color(0xFF646CFF);
+  final Color accent;
 
   /// The accent as text on black: weekday and section labels for today.
-  static const Color accentText = Color(0xFF9EA3FF);
+  final Color accentText;
 
   /// Text on a solid source fill.
-  static const Color onFill = Color(0xFF111116);
+  final Color onFill;
 
-  static const Color text = Color(0xFFFFFFFF);
+  final Color text;
 
   /// Secondary text: weekday labels, agenda section headers.
-  static const Color textMuted = Color(0xC7FFFFFF);
+  final Color textMuted;
 
   /// Tertiary text: hour labels, agenda end times.
-  static const Color textDim = Color(0xA8FFFFFF);
+  final Color textDim;
 
   /// A month cell number outside the month shown.
-  static const Color textFaint = Color(0x73FFFFFF);
+  final Color textFaint;
 
-  static const Color gridLine = Color(0x21FFFFFF);
-  static const Color divider = Color(0x1AFFFFFF);
+  final Color gridLine;
+  final Color divider;
 
   /// Fill of the round header buttons.
-  static const Color control = Color(0x24FFFFFF);
+  final Color control;
 
   /// Track behind the view switcher.
-  static const Color segmentTrack = Color(0x1AFFFFFF);
+  final Color segmentTrack;
 
   /// Agenda row card.
-  static const Color card = Color(0x12FFFFFF);
+  final Color card;
 
   /// Today's column in the time grid and the selected month cell.
-  static const Color todayTint = Color(0x21646CFF);
+  final Color todayTint;
 
   /// The agenda row of an event in progress.
-  static const Color nowTint = Color(0x4D646CFF);
+  final Color nowTint;
 
-  static const Color weekendTint = Color(0x0DFFFFFF);
+  final Color weekendTint;
 
   /// White, so it stays visible across an accent-coloured event.
-  static const Color nowLine = Color(0xFFFFFFFF);
+  final Color nowLine;
 
   /// Outline of a hidden source's pill.
-  static const Color pillOffOutline = Color(0x4DFFFFFF);
-  static const Color pillOffText = Color(0x99FFFFFF);
-  static const Color pillOffAvatar = Color(0x1FFFFFFF);
+  final Color pillOffOutline;
+  final Color pillOffText;
+  final Color pillOffAvatar;
 
   /// Initial circle on a solid pill.
-  static const Color pillAvatar = Color(0x33000000);
+  final Color pillAvatar;
 
-  static const Color stale = Color(0xFFF5B544);
-  static const Color staleFill = Color(0x2EF5B544);
-  static const Color staleBorder = Color(0x73F5B544);
-  static const Color error = Color(0xFFFF7A7A);
-  static const Color errorFill = Color(0x2EFF6B6B);
-  static const Color errorBorder = Color(0x73FF6B6B);
+  final Color stale;
+  final Color staleFill;
+  final Color staleBorder;
+  final Color error;
+  final Color errorFill;
+  final Color errorBorder;
 
   /// Detail text inside a status banner.
-  static const Color bannerDetail = Color(0xC7FFFFFF);
+  final Color bannerDetail;
 
-  static const Color sheet = Color(0xFF16161B);
-  static const Color sheetBorder = Color(0x14FFFFFF);
-  static const Color sheetHandle = Color(0x38FFFFFF);
-  static const Color sheetIcon = Color(0x8FFFFFFF);
-  static const Color sheetSecondary = Color(0xA3FFFFFF);
+  final Color sheet;
+  final Color sheetBorder;
+  final Color sheetHandle;
+  final Color sheetIcon;
+  final Color sheetSecondary;
 
   /// The not-configured icon disc.
-  static const Color emptyDisc = Color(0x24646CFF);
+  final Color emptyDisc;
 
   /// The Home glance card, over a photo that could be anything.
-  static const Color glanceCard = Color(0x940C0C10);
-  static const Color glanceBorder = Color(0x24FFFFFF);
-  static const Color glanceLabel = Color(0xCCFFFFFF);
-  static const Color glanceTime = Color(0xDBFFFFFF);
-  static const Color glanceMeta = Color(0xB8FFFFFF);
+  final Color glanceCard;
+  final Color glanceBorder;
+  final Color glanceLabel;
+  final Color glanceTime;
+  final Color glanceMeta;
+
+  /// Today's look.
+  static const CalendarColors classic = CalendarColors(
+    accent: Color(0xFF646CFF),
+    accentText: Color(0xFF9EA3FF),
+    onFill: Color(0xFF111116),
+    text: Color(0xFFFFFFFF),
+    textMuted: Color(0xC7FFFFFF),
+    textDim: Color(0xA8FFFFFF),
+    textFaint: Color(0x73FFFFFF),
+    gridLine: Color(0x21FFFFFF),
+    divider: Color(0x1AFFFFFF),
+    control: Color(0x24FFFFFF),
+    segmentTrack: Color(0x1AFFFFFF),
+    card: Color(0x12FFFFFF),
+    todayTint: Color(0x21646CFF),
+    nowTint: Color(0x4D646CFF),
+    weekendTint: Color(0x0DFFFFFF),
+    nowLine: Color(0xFFFFFFFF),
+    pillOffOutline: Color(0x4DFFFFFF),
+    pillOffText: Color(0x99FFFFFF),
+    pillOffAvatar: Color(0x1FFFFFFF),
+    pillAvatar: Color(0x33000000),
+    stale: Color(0xFFF5B544),
+    staleFill: Color(0x2EF5B544),
+    staleBorder: Color(0x73F5B544),
+    error: Color(0xFFFF7A7A),
+    errorFill: Color(0x2EFF6B6B),
+    errorBorder: Color(0x73FF6B6B),
+    bannerDetail: Color(0xC7FFFFFF),
+    sheet: Color(0xFF16161B),
+    sheetBorder: Color(0x14FFFFFF),
+    sheetHandle: Color(0x38FFFFFF),
+    sheetIcon: Color(0x8FFFFFFF),
+    sheetSecondary: Color(0xA3FFFFFF),
+    emptyDisc: Color(0x24646CFF),
+    glanceCard: Color(0x940C0C10),
+    glanceBorder: Color(0x24FFFFFF),
+    glanceLabel: Color(0xCCFFFFFF),
+    glanceTime: Color(0xDBFFFFFF),
+    glanceMeta: Color(0xB8FFFFFF),
+  );
+
+  static CalendarColors of(BuildContext context) =>
+      HearthColors.of(context).calendar;
 
   /// Events that have ended.
   static const double pastOpacity = 0.55;
@@ -204,8 +290,12 @@ class CalendarType {
   static const TextStyle base = TextStyle(
     fontFamily: family,
     fontFeatures: [FontFeature.tabularFigures()],
-    color: CalendarColors.text,
+    color: Color(0xFFFFFFFF), // theme-exempt: const Classic text, see [of]
   );
+
+  /// [base] with the theme's calendar text colour.
+  static TextStyle of(BuildContext context) =>
+      base.copyWith(color: CalendarColors.of(context).text);
 
   static const double title = 26;
   static const double control = 17;

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../packages/hearth_osk/hearth_osk.dart';
+import '../tokens/calendar_tokens.dart';
 import 'osk_themes.dart';
 
 /// How strongly a screen scrim darkens the photo behind it.
@@ -30,6 +31,7 @@ class HearthColors extends ThemeExtension<HearthColors> {
     required this.photoTintMedium,
     required this.photoTintHeavy,
     required this.osk,
+    required this.calendar,
   });
 
   /// Base for translucent foreground washes (borders, dividers, overlays).
@@ -69,6 +71,9 @@ class HearthColors extends ThemeExtension<HearthColors> {
   /// On-screen keyboard palette.
   final HearthOskTheme osk;
 
+  /// Calendar screen palette.
+  final CalendarColors calendar;
+
   /// Today's look. Tints use `Color.from` so they equal
   /// `Colors.black.withValues(alpha: x)` exactly.
   static const HearthColors classic = HearthColors(
@@ -90,6 +95,7 @@ class HearthColors extends ThemeExtension<HearthColors> {
     photoTintMedium: Color.from(alpha: 0.7, red: 0, green: 0, blue: 0),
     photoTintHeavy: Color.from(alpha: 0.85, red: 0, green: 0, blue: 0),
     osk: classicOskTheme,
+    calendar: CalendarColors.classic,
   );
 
   static HearthColors of(BuildContext context) =>
@@ -125,6 +131,7 @@ class HearthColors extends ThemeExtension<HearthColors> {
     Color? photoTintMedium,
     Color? photoTintHeavy,
     HearthOskTheme? osk,
+    CalendarColors? calendar,
   }) =>
       HearthColors(
         ink: ink ?? this.ink,
@@ -145,6 +152,7 @@ class HearthColors extends ThemeExtension<HearthColors> {
         photoTintMedium: photoTintMedium ?? this.photoTintMedium,
         photoTintHeavy: photoTintHeavy ?? this.photoTintHeavy,
         osk: osk ?? this.osk,
+        calendar: calendar ?? this.calendar,
       );
 
   /// Hearth never animates a theme change, so this snaps at the midpoint.

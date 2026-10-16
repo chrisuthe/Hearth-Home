@@ -66,4 +66,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(raised, const Color(0xFF1E1E1E));
   });
+
+  test('calendar palette rides on HearthColors', () {
+    expect(HearthColors.classic.calendar.accent, const Color(0xFF646CFF));
+    expect(HearthColors.classic.calendar.textMuted, const Color(0xC7FFFFFF));
+  });
 }

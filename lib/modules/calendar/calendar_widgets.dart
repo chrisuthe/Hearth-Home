@@ -72,10 +72,10 @@ class SourceAvatar extends StatelessWidget {
     decoration: BoxDecoration(color: fill, shape: BoxShape.circle),
     child: Text(
       sourceInitial(name),
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: CalendarType.control,
         fontWeight: FontWeight.w700,
-        color: CalendarColors.onFill,
+        color: CalendarColors.of(context).onFill,
       ),
     ),
   );
@@ -106,8 +106,8 @@ class CalendarEventTile extends StatelessWidget {
     final card = Padding(
       padding: const EdgeInsets.only(bottom: HearthSpacing.x2),
       child: Material(
-        textStyle: CalendarType.base,
-        color: now ? CalendarColors.nowTint : CalendarColors.card,
+        textStyle: CalendarType.of(context),
+        color: now ? CalendarColors.of(context).nowTint : CalendarColors.of(context).card,
         borderRadius: BorderRadius.circular(CalendarRadii.card),
         child: InkWell(
           onTap: () => ctx.openEvent(context, event),
@@ -134,19 +134,19 @@ class CalendarEventTile extends StatelessWidget {
                         Text(
                           first,
                           maxLines: 1,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: CalendarType.agendaTime,
                             fontWeight: FontWeight.w600,
-                            color: CalendarColors.text,
+                            color: CalendarColors.of(context).text,
                           ),
                         ),
                         if (second != null)
                           Text(
                             second,
                             maxLines: 1,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: HearthFont.body,
-                              color: CalendarColors.textDim,
+                              color: CalendarColors.of(context).textDim,
                             ),
                           ),
                       ],
@@ -167,7 +167,7 @@ class CalendarEventTile extends StatelessWidget {
                           style: TextStyle(
                             fontSize: CalendarType.agendaTitle,
                             fontWeight: FontWeight.w600,
-                            color: CalendarColors.text,
+                            color: CalendarColors.of(context).text,
                             fontStyle: event.tentative
                                 ? FontStyle.italic
                                 : FontStyle.normal,
@@ -177,9 +177,9 @@ class CalendarEventTile extends StatelessWidget {
                           secondary,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: CalendarType.agendaMeta,
-                            color: CalendarColors.textMuted,
+                            color: CalendarColors.of(context).textMuted,
                           ),
                         ),
                       ],
@@ -214,7 +214,7 @@ class NowTag extends StatelessWidget {
       vertical: HearthSpacing.x1,
     ),
     decoration: BoxDecoration(
-      color: CalendarColors.accent,
+      color: CalendarColors.of(context).accent,
       borderRadius: BorderRadius.circular(CalendarRadii.card),
     ),
     child: Text(
@@ -222,7 +222,7 @@ class NowTag extends StatelessWidget {
       style: TextStyle(
         fontSize: fontSize,
         fontWeight: FontWeight.w700,
-        color: CalendarColors.text,
+        color: CalendarColors.of(context).text,
       ),
     ),
   );
@@ -259,10 +259,10 @@ class CalendarDayList extends StatelessWidget {
           ),
           child: Text(
             formatDateLong(day),
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: HearthFont.titleLg,
               fontWeight: FontWeight.w600,
-              color: CalendarColors.text,
+              color: CalendarColors.of(context).text,
             ),
           ),
         ),
@@ -297,11 +297,11 @@ class CalendarAgenda extends StatelessWidget {
         HearthSpacing.x4,
         HearthSpacing.x3,
       ),
-      children: [for (var i = 0; i < days; i++) ..._day(addDays(start, i))],
+      children: [for (var i = 0; i < days; i++) ..._day(context, addDays(start, i))],
     );
   }
 
-  List<Widget> _day(DateTime day) {
+  List<Widget> _day(BuildContext context, DateTime day) {
     final list = eventsOnDay(events, day);
     final isToday = day == ctx.today;
     final date = formatDateShort(day).toUpperCase();
@@ -320,8 +320,8 @@ class CalendarAgenda extends StatelessWidget {
             fontWeight: FontWeight.w700,
             letterSpacing: CalendarType.capsTracking,
             color: isToday
-                ? CalendarColors.accentText
-                : CalendarColors.textMuted,
+                ? CalendarColors.of(context).accentText
+                : CalendarColors.of(context).textMuted,
           ),
         ),
       ),
@@ -335,8 +335,8 @@ class _NoEvents extends StatelessWidget {
   const _NoEvents();
 
   @override
-  Widget build(BuildContext context) => const Padding(
-    padding: EdgeInsets.fromLTRB(
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(
       HearthSpacing.x6,
       HearthSpacing.x2,
       HearthSpacing.x2,
@@ -346,7 +346,7 @@ class _NoEvents extends StatelessWidget {
       'No events',
       style: TextStyle(
         fontSize: HearthFont.bodyLg,
-        color: CalendarColors.textDim,
+        color: CalendarColors.of(context).textDim,
       ),
     ),
   );
@@ -355,21 +355,21 @@ class _NoEvents extends StatelessWidget {
 Future<void> _showSheet(BuildContext context, WidgetBuilder builder) =>
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: CalendarColors.sheet,
+      backgroundColor: CalendarColors.of(context).sheet,
       isScrollControlled: true,
       showDragHandle: true,
       constraints: BoxConstraints(
         maxWidth: CalendarSizes.sheetMaxWidth,
         maxHeight: MediaQuery.sizeOf(context).height * 0.8,
       ),
-      shape: const RoundedRectangleBorder(
-        side: BorderSide(color: CalendarColors.sheetBorder),
-        borderRadius: BorderRadius.vertical(
+      shape: RoundedRectangleBorder(
+        side: BorderSide(color: CalendarColors.of(context).sheetBorder),
+        borderRadius: const BorderRadius.vertical(
           top: Radius.circular(CalendarRadii.sheet),
         ),
       ),
       builder: (context) => DefaultTextStyle.merge(
-        style: CalendarType.base,
+        style: CalendarType.of(context),
         child: builder(context),
       ),
     );
@@ -410,7 +410,7 @@ Future<void> showCalendarEventSheet(
       constraints: const BoxConstraints(minHeight: CalendarSizes.sheetRow),
       child: Row(
         children: [
-          Icon(icon, size: HearthIcon.md, color: CalendarColors.sheetIcon),
+          Icon(icon, size: HearthIcon.md, color: CalendarColors.of(context).sheetIcon),
           const SizedBox(width: HearthSpacing.x4),
           Expanded(
             child: Padding(
@@ -421,8 +421,8 @@ Future<void> showCalendarEventSheet(
                   fontSize: CalendarType.sheetBody,
                   height: CalendarType.bodyHeight,
                   color: secondary
-                      ? CalendarColors.sheetSecondary
-                      : CalendarColors.text,
+                      ? CalendarColors.of(context).sheetSecondary
+                      : CalendarColors.of(context).text,
                 ),
               ),
             ),
@@ -461,11 +461,11 @@ Future<void> showCalendarEventSheet(
                 Expanded(
                   child: Text(
                     event.summary,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: CalendarType.sheetTitle,
                       height: CalendarType.titleHeight,
                       fontWeight: FontWeight.w600,
-                      color: CalendarColors.text,
+                      color: CalendarColors.of(context).text,
                     ),
                   ),
                 ),
@@ -474,8 +474,8 @@ Future<void> showCalendarEventSheet(
                   tooltip: 'Close',
                   iconSize: HearthIcon.md,
                   style: IconButton.styleFrom(
-                    backgroundColor: CalendarColors.control,
-                    foregroundColor: CalendarColors.text,
+                    backgroundColor: CalendarColors.of(context).control,
+                    foregroundColor: CalendarColors.of(context).text,
                     fixedSize: const Size.square(CalendarSizes.sheetClose),
                   ),
                   icon: const Icon(Icons.close),
