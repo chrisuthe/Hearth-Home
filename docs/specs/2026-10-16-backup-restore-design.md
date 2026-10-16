@@ -1,6 +1,6 @@
 # Backup & Restore — design
 
-Status: draft 2026-10-16, awaiting owner review. Not yet built.
+Status: approved 2026-10-16. Plan: `docs/plans/2026-10-16-backup-restore.md`.
 
 ## Why
 
