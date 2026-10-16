@@ -6,8 +6,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../config/hub_config.dart';
 import 'current_screen_provider.dart';
 import 'idle_controller.dart';
+import 'page_visibility.dart';
 import 'page_indicator.dart';
 import '../models/photo_memory.dart';
+import '../modules/hearth_module.dart';
 import '../modules/module_registry.dart';
 import '../screens/ambient/ambient_screen.dart';
 import '../screens/timer/timer_screen.dart';
@@ -92,6 +94,25 @@ class _HubShellState extends ConsumerState<HubShell> {
     final info = CurrentScreen(id: _screenIds[page], index: page);
     final notifier = ref.read(currentScreenProvider.notifier);
     if (notifier.state != info) notifier.state = info;
+    ref.read(currentPageProvider.notifier).state = info.id;
+  }
+
+  /// Opens a module from an edge menu. The page id follows the module while
+  /// it is open and returns to the PageView's page when it closes.
+  void _openMenuModule(HearthModule m) {
+    ref.read(currentPageProvider.notifier).state = m.id;
+    Navigator.of(context)
+        .push(MaterialPageRoute(
+          builder: (_) => _MenuScreenWrapper(
+            title: m.name,
+            child: m.buildScreen(isActive: true),
+          ),
+        ))
+        .then((_) {
+      if (mounted) {
+        _publishCurrentScreen(_pageController?.page?.round() ?? _homeIndex);
+      }
+    });
   }
 
   String? _edgeFor(String action) {
@@ -232,12 +253,7 @@ class _HubShellState extends ConsumerState<HubShell> {
             label: m.name,
             onTap: () {
               setState(() => _menu1Open = false);
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => _MenuScreenWrapper(
-                  title: m.name,
-                  child: m.buildScreen(isActive: true),
-                )),
-              );
+              _openMenuModule(m);
             },
           )),
         ],
@@ -267,12 +283,7 @@ class _HubShellState extends ConsumerState<HubShell> {
                 label: m.name,
                 onTap: () {
                   setState(() => _menu2Open = false);
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => _MenuScreenWrapper(
-                      title: m.name,
-                      child: m.buildScreen(isActive: true),
-                    )),
-                  );
+                  _openMenuModule(m);
                 },
               )).toList(),
             ),

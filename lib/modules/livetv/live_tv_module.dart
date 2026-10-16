@@ -28,4 +28,7 @@ class LiveTvModule implements HearthModule {
 
   @override
   bool get isCommunity => false;
+
+  @override
+  bool get showsPhoto => false;
 }

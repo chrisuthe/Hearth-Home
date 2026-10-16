@@ -20,4 +20,7 @@ class CamerasModule implements HearthModule {
 
   @override
   bool get isCommunity => false;
+
+  @override
+  bool get showsPhoto => true;
 }
