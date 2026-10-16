@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hearth/app/theme/hearth_colors.dart';
-import 'package:hearth/app/theme/hearth_theme.dart';
 import 'package:hearth/config/hub_config.dart';
 import 'package:hearth/modules/calendar/calendar_providers.dart';
 import 'package:hearth/modules/calendar/models.dart';
@@ -211,7 +209,7 @@ void main() {
           timerServiceProvider.overrideWith((ref) => timers),
         ],
         child: MaterialApp(
-          theme: buildHearthTheme(HearthColors.classic),
+          theme: harnessTheme(),
           home: const Scaffold(),
         ),
       ));

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hearth/app/theme/hearth_colors.dart';
 import 'package:hearth/app/theme/hearth_theme.dart';
+import 'package:hearth/config/hearth_theme_id.dart';
 
 /// The reference canvas every screen was tuned for.
 const kLandscapeCanvas = Size(1184, 864);
@@ -18,7 +19,14 @@ const kLayoutCanvases = <String, Size>{
   'portrait 800x1280': kNarrowPortraitCanvas,
 };
 
-/// Registers one test per canvas in [kLayoutCanvases]. Each sizes the test
+/// The theme [hostScreen] and [harnessTheme] use; [testLayouts] sets it.
+HearthThemeId _harnessTheme = HearthThemeId.classic;
+
+/// The app theme for the theme the running [testLayouts] test is under.
+ThemeData harnessTheme() =>
+    buildHearthTheme(HearthColors.forTheme(_harnessTheme));
+
+/// Registers one test per canvas in [kLayoutCanvases] and theme. Each sizes the test
 /// surface, runs [body] and then fails on anything the framework reported
 /// while laying out or painting — a RenderFlex overflow included.
 ///
@@ -29,11 +37,20 @@ void testLayouts(
   Future<void> Function(WidgetTester tester, Size canvas) body,
 ) {
   for (final entry in kLayoutCanvases.entries) {
-    testWidgets('$description — ${entry.key}', (tester) async {
-      await useCanvas(tester, entry.value);
-      await body(tester, entry.value);
-      expectNoLayoutErrors(tester, '$description at ${entry.key}');
-    });
+    for (final theme in HearthThemeId.values) {
+      testWidgets('$description — ${entry.key} — ${theme.label}', (
+        tester,
+      ) async {
+        _harnessTheme = theme;
+        addTearDown(() => _harnessTheme = HearthThemeId.classic);
+        await useCanvas(tester, entry.value);
+        await body(tester, entry.value);
+        expectNoLayoutErrors(
+          tester,
+          '$description at ${entry.key} (${theme.label})',
+        );
+      });
+    }
   }
 }
 
@@ -53,9 +70,9 @@ void expectNoLayoutErrors(WidgetTester tester, String reason) {
   expect(errors, isEmpty, reason: reason);
 }
 
-/// Dark `MaterialApp` shell matching how the app hosts its screens.
+/// `MaterialApp` shell, themed per [testLayouts], matching how the app hosts its screens.
 Widget hostScreen(Widget child) => MaterialApp(
-      debugShowCheckedModeBanner: false,
-      theme: buildHearthTheme(HearthColors.classic),
-      home: Scaffold(body: child),
-    );
+  debugShowCheckedModeBanner: false,
+  theme: harnessTheme(),
+  home: Scaffold(body: child),
+);
