@@ -4,6 +4,8 @@ import '../../plugins/hearth_plugin.dart';
 import '../../plugins/plugin_registry.dart';
 import '../../plugins/framework/plugin_sidebar.dart';
 import '../../plugins/framework/plugin_panel.dart';
+import '../../app/theme/hearth_colors.dart';
+import '../../widgets/themed_background.dart';
 
 /// Settings screen — sidebar of registered plugins on the left, the selected
 /// plugin's panel on the right. Each plugin owns its own fields and persists
@@ -30,8 +32,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         : fallbackId;
     // Material rather than a coloured Container: the panels' ListTiles paint
     // their ink on the nearest Material, which a ColoredBox would cover.
-    return Material(
-      color: Colors.black.withValues(alpha: 0.7),
+    return ThemedBackground.photo(
+      strength: TintStrength.medium,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

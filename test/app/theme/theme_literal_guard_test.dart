@@ -21,6 +21,15 @@ const kThemedFiles = <String>[
   'lib/widgets/entity_picker_dialog.dart',
   'lib/widgets/timezone_picker_dialog.dart',
   'lib/widgets/person_avatar.dart',
+  'lib/screens/settings/settings_screen.dart',
+  'lib/modules/controls/controls_screen.dart',
+  'lib/modules/controls/climate_card.dart',
+  'lib/modules/controls/light_card.dart',
+  'lib/modules/cameras/cameras_screen.dart',
+  'lib/modules/protect/protect_screen.dart',
+  'lib/modules/mealie/mealie_screen.dart',
+  'lib/modules/alarm_clock/alarm_clock_screen.dart',
+  'lib/modules/webview/webview_screen.dart',
 ];
 
 final _forbidden = <RegExp>[

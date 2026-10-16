@@ -3,12 +3,11 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../config/hub_config.dart';
-import '../../app/app.dart' show kDialogBackground;
+import '../../app/theme/hearth_colors.dart';
 import '../../app/tokens/tokens.dart';
 import 'mealie_service.dart';
 import 'models.dart';
-
-const _accent = Color(0xFF646CFF);
+import '../../widgets/themed_background.dart';
 
 class MealieScreen extends ConsumerStatefulWidget {
   const MealieScreen({super.key});
@@ -127,9 +126,10 @@ class _MealieScreenState extends ConsumerState<MealieScreen>
   Widget build(BuildContext context) {
     super.build(context);
     final service = ref.watch(mealieServiceProvider);
+    final c = context.hearthColors;
 
-    return Container(
-      color: Colors.black.withValues(alpha: 0.7),
+    return ThemedBackground.photo(
+      strength: TintStrength.medium,
       child: service == null
           ? Center(
               child: Column(
@@ -137,17 +137,17 @@ class _MealieScreenState extends ConsumerState<MealieScreen>
                 children: [
                   Icon(Icons.restaurant_menu,
                       size: HearthIcon.xxl,
-                      color: Colors.white.withValues(alpha: 0.2)),
+                      color: c.inkAt(0.2)),
                   const SizedBox(height: HearthSpacing.x4),
                   Text('Recipes not configured',
                       style: TextStyle(
                           fontSize: HearthFont.bodyLg,
-                          color: Colors.white.withValues(alpha: 0.4))),
+                          color: c.inkAt(0.4))),
                   const SizedBox(height: HearthSpacing.x2),
                   Text('Add your Mealie URL and token in Settings',
                       style: TextStyle(
                           fontSize: 14,
-                          color: Colors.white.withValues(alpha: 0.3))),
+                          color: c.inkAt(0.3))),
                 ],
               ),
             )
@@ -162,6 +162,7 @@ class _MealieScreenState extends ConsumerState<MealieScreen>
   // ---------------------------------------------------------------------------
 
   Widget _buildBrowseView(MealieService service) {
+    final c = context.hearthColors;
     final token = ref.read(hubConfigProvider).mealieToken;
     return ListView(
       padding: const EdgeInsets.all(HearthSpacing.x4),
@@ -173,7 +174,7 @@ class _MealieScreenState extends ConsumerState<MealieScreen>
             style: TextStyle(
               fontSize: HearthFont.title,
               fontWeight: FontWeight.w300,
-              color: Colors.white.withValues(alpha: 0.9),
+              color: c.inkAt(0.9),
             ),
           ),
           const SizedBox(height: HearthSpacing.x3),
@@ -199,13 +200,13 @@ class _MealieScreenState extends ConsumerState<MealieScreen>
         TextField(
           controller: _searchController,
           onChanged: _onSearchChanged,
-          style: const TextStyle(color: Colors.white),
+          style: TextStyle(color: c.text),
           decoration: InputDecoration(
-            prefixIcon: const Icon(Icons.search, color: Colors.white54),
+            prefixIcon: Icon(Icons.search, color: c.textMuted),
             hintText: 'Search recipes...',
-            hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
+            hintStyle: TextStyle(color: c.inkAt(0.5)),
             filled: true,
-            fillColor: kDialogBackground,
+            fillColor: c.raised,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
               borderSide: BorderSide.none,
@@ -231,10 +232,10 @@ class _MealieScreenState extends ConsumerState<MealieScreen>
                   onSelected: (selected) {
                     _filterByCategory(selected ? cat : null);
                   },
-                  selectedColor: _accent,
-                  backgroundColor: kDialogBackground,
+                  selectedColor: c.accentFill,
+                  backgroundColor: c.raised,
                   labelStyle: TextStyle(
-                    color: isActive ? Colors.white : Colors.white70,
+                    color: isActive ? c.onAccent : c.textSecondary,
                     fontSize: HearthFont.label,
                   ),
                   side: BorderSide.none,
@@ -247,7 +248,7 @@ class _MealieScreenState extends ConsumerState<MealieScreen>
 
         // Loading indicator
         if (_loading)
-          const Center(child: CircularProgressIndicator(color: _accent)),
+          Center(child: CircularProgressIndicator(color: c.accent)),
 
         // Recipe grid (search results take priority, otherwise show all)
         if (_displayedRecipes.isNotEmpty)
@@ -275,13 +276,14 @@ class _MealieScreenState extends ConsumerState<MealieScreen>
     MealieService service,
     String token,
   ) {
+    final c = context.hearthColors;
     final recipe = entry.recipe;
     return GestureDetector(
       onTap: recipe != null ? () => _selectRecipe(recipe.slug) : null,
       child: Container(
         width: 140,
         decoration: BoxDecoration(
-          color: kDialogBackground,
+          color: c.raised,
           borderRadius: BorderRadius.circular(10),
         ),
         clipBehavior: Clip.antiAlias,
@@ -299,18 +301,18 @@ class _MealieScreenState extends ConsumerState<MealieScreen>
                       imageUrl: service.imageUrl(recipe.id),
                       httpHeaders: {'Authorization': 'Bearer $token'},
                       fit: BoxFit.cover,
-                      placeholder: (_, __) => Container(color: Colors.white10),
+                      placeholder: (_, __) => Container(color: c.inkAt(0.1)),
                       errorWidget: (_, __, ___) => Container(
-                        color: Colors.white10,
-                        child: const Icon(Icons.restaurant, color: Colors.white24, size: HearthIcon.lg),
+                        color: c.inkAt(0.1),
+                        child: Icon(Icons.restaurant, color: c.inkAt(0.24), size: HearthIcon.lg),
                       ),
                     )
                   : Container(
-                      color: Colors.white10,
+                      color: c.inkAt(0.1),
                       alignment: Alignment.center,
-                      child: const Icon(
+                      child: Icon(
                         Icons.restaurant_menu,
-                        color: Colors.white24,
+                        color: c.inkAt(0.24),
                         size: HearthIcon.lg,
                       ),
                     ),
@@ -332,7 +334,7 @@ class _MealieScreenState extends ConsumerState<MealieScreen>
                     entry.entryType,
                     style: TextStyle(
                       fontSize: HearthFont.caption,
-                      color: Colors.white.withValues(alpha: 0.5),
+                      color: c.inkAt(0.5),
                     ),
                   ),
                 ],
@@ -349,11 +351,12 @@ class _MealieScreenState extends ConsumerState<MealieScreen>
     MealieService service,
     String token,
   ) {
+    final c = context.hearthColors;
     return GestureDetector(
       onTap: () => _selectRecipe(recipe.slug),
       child: Container(
         decoration: BoxDecoration(
-          color: kDialogBackground,
+          color: c.raised,
           borderRadius: BorderRadius.circular(10),
         ),
         clipBehavior: Clip.antiAlias,
@@ -367,10 +370,10 @@ class _MealieScreenState extends ConsumerState<MealieScreen>
                   imageUrl: service.imageUrl(recipe.id),
                   httpHeaders: {'Authorization': 'Bearer $token'},
                   fit: BoxFit.cover,
-                  placeholder: (_, __) => Container(color: Colors.white10),
+                  placeholder: (_, __) => Container(color: c.inkAt(0.1)),
                   errorWidget: (_, __, ___) => Container(
-                    color: Colors.white10,
-                    child: const Icon(Icons.restaurant, color: Colors.white24, size: HearthIcon.lg),
+                    color: c.inkAt(0.1),
+                    child: Icon(Icons.restaurant, color: c.inkAt(0.24), size: HearthIcon.lg),
                   ),
                 ),
               ),
@@ -392,7 +395,7 @@ class _MealieScreenState extends ConsumerState<MealieScreen>
                       '${recipe.totalTime} min',
                       style: TextStyle(
                         fontSize: HearthFont.caption,
-                        color: Colors.white.withValues(alpha: 0.5),
+                        color: c.inkAt(0.5),
                       ),
                     ),
                   ],
@@ -410,6 +413,7 @@ class _MealieScreenState extends ConsumerState<MealieScreen>
   // ---------------------------------------------------------------------------
 
   Widget _buildRecipeDetail(MealieService service) {
+    final c = context.hearthColors;
     final recipe = _selectedRecipe!;
     final token = ref.read(hubConfigProvider).mealieToken;
 
@@ -424,7 +428,7 @@ class _MealieScreenState extends ConsumerState<MealieScreen>
         Align(
           alignment: Alignment.centerLeft,
           child: IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.white70),
+            icon: Icon(Icons.arrow_back, color: c.textSecondary),
             onPressed: () => setState(() => _selectedRecipe = null),
           ),
         ),
@@ -440,10 +444,10 @@ class _MealieScreenState extends ConsumerState<MealieScreen>
               imageUrl: service.imageUrl(recipe.id),
               httpHeaders: {'Authorization': 'Bearer $token'},
               fit: BoxFit.cover,
-              placeholder: (_, __) => Container(color: Colors.white10),
+              placeholder: (_, __) => Container(color: c.inkAt(0.1)),
               errorWidget: (_, __, ___) => Container(
-                color: Colors.white10,
-                child: const Icon(Icons.restaurant, color: Colors.white24, size: HearthIcon.xl),
+                color: c.inkAt(0.1),
+                child: Icon(Icons.restaurant, color: c.inkAt(0.24), size: HearthIcon.xl),
               ),
             ),
           ),
@@ -464,27 +468,27 @@ class _MealieScreenState extends ConsumerState<MealieScreen>
           children: [
             if (recipe.prepTime != null)
               Chip(
-                avatar: const Icon(Icons.timer_outlined, size: HearthIcon.xs, color: Colors.white70),
+                avatar: Icon(Icons.timer_outlined, size: HearthIcon.xs, color: c.textSecondary),
                 label: Text('Prep: ${recipe.prepTime} min'),
-                backgroundColor: kDialogBackground,
+                backgroundColor: c.raised,
                 side: BorderSide.none,
-                labelStyle: const TextStyle(fontSize: 12, color: Colors.white70),
+                labelStyle: TextStyle(fontSize: 12, color: c.textSecondary),
               ),
             if (recipe.cookTime != null)
               Chip(
-                avatar: const Icon(Icons.local_fire_department, size: HearthIcon.xs, color: Colors.white70),
+                avatar: Icon(Icons.local_fire_department, size: HearthIcon.xs, color: c.textSecondary),
                 label: Text('Cook: ${recipe.cookTime} min'),
-                backgroundColor: kDialogBackground,
+                backgroundColor: c.raised,
                 side: BorderSide.none,
-                labelStyle: const TextStyle(fontSize: 12, color: Colors.white70),
+                labelStyle: TextStyle(fontSize: 12, color: c.textSecondary),
               ),
             if (recipe.recipeYield != null)
               Chip(
-                avatar: const Icon(Icons.people_outline, size: HearthIcon.xs, color: Colors.white70),
+                avatar: Icon(Icons.people_outline, size: HearthIcon.xs, color: c.textSecondary),
                 label: Text(recipe.recipeYield!),
-                backgroundColor: kDialogBackground,
+                backgroundColor: c.raised,
                 side: BorderSide.none,
-                labelStyle: const TextStyle(fontSize: 12, color: Colors.white70),
+                labelStyle: TextStyle(fontSize: 12, color: c.textSecondary),
               ),
           ],
         ),
@@ -497,7 +501,7 @@ class _MealieScreenState extends ConsumerState<MealieScreen>
             style: TextStyle(
               fontSize: HearthFont.bodyLg,
               fontWeight: FontWeight.w500,
-              color: Colors.white.withValues(alpha: 0.9),
+              color: c.inkAt(0.9),
             ),
           ),
           const SizedBox(height: HearthSpacing.x2),
@@ -522,11 +526,11 @@ class _MealieScreenState extends ConsumerState<MealieScreen>
                       ? TextDecoration.lineThrough
                       : null,
                   color: _checkedIngredients.contains(index)
-                      ? Colors.white.withValues(alpha: 0.4)
-                      : Colors.white,
+                      ? c.inkAt(0.4)
+                      : c.text,
                 ),
               ),
-              activeColor: _accent,
+              activeColor: c.accent,
               controlAffinity: ListTileControlAffinity.leading,
               contentPadding: EdgeInsets.zero,
               dense: true,
@@ -542,7 +546,7 @@ class _MealieScreenState extends ConsumerState<MealieScreen>
             style: TextStyle(
               fontSize: HearthFont.bodyLg,
               fontWeight: FontWeight.w500,
-              color: Colors.white.withValues(alpha: 0.9),
+              color: c.inkAt(0.9),
             ),
           ),
           const SizedBox(height: HearthSpacing.x3),
@@ -552,7 +556,7 @@ class _MealieScreenState extends ConsumerState<MealieScreen>
               padding: const EdgeInsets.only(bottom: HearthSpacing.x3),
               child: Container(
                 decoration: BoxDecoration(
-                  color: kDialogBackground,
+                  color: c.raised,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 padding: const EdgeInsets.all(HearthSpacing.x3),
@@ -562,17 +566,17 @@ class _MealieScreenState extends ConsumerState<MealieScreen>
                     Container(
                       width: 28,
                       height: 28,
-                      decoration: const BoxDecoration(
-                        color: _accent,
+                      decoration: BoxDecoration(
+                        color: c.accentFill,
                         shape: BoxShape.circle,
                       ),
                       alignment: Alignment.center,
                       child: Text(
                         '${index + 1}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
-                          color: Colors.white,
+                          color: c.onAccent,
                         ),
                       ),
                     ),

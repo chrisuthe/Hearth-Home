@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../app/app.dart' show kDialogBackground;
+import '../../app/theme/hearth_colors.dart';
 import '../../app/tokens/tokens.dart';
 import 'alarm_editor_screen.dart';
 import 'alarm_models.dart';
 import 'alarm_service.dart';
+import '../../widgets/themed_background.dart';
 
 /// Alarm list screen showing all configured alarms.
 ///
@@ -18,9 +19,10 @@ class AlarmClockScreen extends ConsumerWidget {
     final service = ref.watch(alarmServiceProvider);
     final alarms = service.alarms;
     final nextAlarmRecord = service.nextAlarm;
+    final c = context.hearthColors;
 
-    return Material(
-      color: Colors.black.withValues(alpha: 0.85),
+    return ThemedBackground.photo(
+      strength: TintStrength.heavy,
       child: Stack(
         children: [
           Column(
@@ -28,12 +30,12 @@ class AlarmClockScreen extends ConsumerWidget {
               // Header
               Padding(
                 padding: const EdgeInsets.all(HearthSpacing.x4),
-                child: _buildHeader(nextAlarmRecord),
+                child: _buildHeader(c, nextAlarmRecord),
               ),
               // Alarm list
               Expanded(
                 child: alarms.isEmpty
-                    ? _buildEmptyState()
+                    ? _buildEmptyState(c)
                     : ListView.separated(
                         padding: const EdgeInsets.symmetric(
                             horizontal: HearthSpacing.x4, vertical: HearthSpacing.x2),
@@ -56,9 +58,9 @@ class AlarmClockScreen extends ConsumerWidget {
             right: HearthSpacing.x6,
             bottom: HearthSpacing.x6,
             child: FloatingActionButton(
-              backgroundColor: const Color(0xFF646CFF),
+              backgroundColor: c.accentFill,
               onPressed: () => _addAlarm(context, ref),
-              child: const Icon(Icons.add, color: Colors.white),
+              child: Icon(Icons.add, color: c.onAccent),
             ),
           ),
         ],
@@ -66,7 +68,7 @@ class AlarmClockScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildHeader((Alarm, DateTime)? nextAlarmRecord) {
+  Widget _buildHeader(HearthColors c, (Alarm, DateTime)? nextAlarmRecord) {
     String subtitle;
     if (nextAlarmRecord != null) {
       final now = DateTime.now();
@@ -85,46 +87,46 @@ class AlarmClockScreen extends ConsumerWidget {
 
     return Column(
       children: [
-        const Text(
+        Text(
           'Alarms',
           style: TextStyle(
             fontSize: HearthFont.title,
             fontWeight: FontWeight.w300,
-            color: Colors.white,
+            color: c.text,
           ),
         ),
         const SizedBox(height: HearthSpacing.x1),
         Text(
           subtitle,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 14, // equidistant between label=13 and body=15
             fontWeight: FontWeight.w300,
-            color: Colors.white54,
+            color: c.textMuted,
           ),
         ),
       ],
     );
   }
 
-  Widget _buildEmptyState() {
-    return const Center(
+  Widget _buildEmptyState(HearthColors c) {
+    return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.alarm_off, size: HearthIcon.xl, color: Colors.white24),
-          SizedBox(height: HearthSpacing.x4),
+          Icon(Icons.alarm_off, size: HearthIcon.xl, color: c.inkAt(0.24)),
+          const SizedBox(height: HearthSpacing.x4),
           Text(
             'No alarms',
             style: TextStyle(
               fontSize: HearthFont.bodyLg,
               fontWeight: FontWeight.w200,
-              color: Colors.white38,
+              color: c.textFaint,
             ),
           ),
-          SizedBox(height: HearthSpacing.x2),
+          const SizedBox(height: HearthSpacing.x2),
           Text(
             'Tap + to create one',
-            style: TextStyle(fontSize: HearthFont.label, color: Colors.white24),
+            style: TextStyle(fontSize: HearthFont.label, color: c.inkAt(0.24)),
           ),
         ],
       ),
@@ -165,8 +167,9 @@ class _AlarmCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.hearthColors;
     return Material(
-      color: kDialogBackground,
+      color: c.raised,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         onTap: onTap,
@@ -185,7 +188,7 @@ class _AlarmCard extends StatelessWidget {
                       style: TextStyle(
                         fontSize: HearthFont.display,
                         fontWeight: FontWeight.w200,
-                        color: alarm.enabled ? Colors.white : Colors.white38,
+                        color: alarm.enabled ? c.text : c.textFaint,
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -200,8 +203,8 @@ class _AlarmCard extends StatelessWidget {
                               style: TextStyle(
                                 fontSize: HearthFont.label,
                                 color: alarm.enabled
-                                    ? Colors.white70
-                                    : Colors.white30,
+                                    ? c.textSecondary
+                                    : c.inkAt(0.3),
                               ),
                             ),
                           ),
@@ -211,8 +214,8 @@ class _AlarmCard extends StatelessWidget {
                             style: TextStyle(
                               fontSize: HearthFont.label,
                               color: alarm.enabled
-                                  ? Colors.white38
-                                  : Colors.white24,
+                                  ? c.textFaint
+                                  : c.inkAt(0.24),
                             ),
                           ),
                           const SizedBox(width: HearthSpacing.x2),
@@ -222,7 +225,7 @@ class _AlarmCard extends StatelessWidget {
                           style: TextStyle(
                             fontSize: HearthFont.label,
                             color:
-                                alarm.enabled ? Colors.white54 : Colors.white24,
+                                alarm.enabled ? c.textMuted : c.inkAt(0.24),
                           ),
                         ),
                       ],
@@ -234,8 +237,8 @@ class _AlarmCard extends StatelessWidget {
               Switch(
                 value: alarm.enabled,
                 onChanged: (_) => onToggle(),
-                activeTrackColor: const Color(0xFF646CFF),
-                inactiveTrackColor: Colors.white.withValues(alpha: 0.1),
+                activeTrackColor: c.accent,
+                inactiveTrackColor: c.inkAt(0.1),
               ),
             ],
           ),

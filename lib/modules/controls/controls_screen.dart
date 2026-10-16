@@ -6,6 +6,8 @@ import '../../models/ha_entity.dart';
 import '../../services/home_assistant_service.dart';
 import 'light_card.dart';
 import 'climate_card.dart';
+import '../../app/theme/hearth_colors.dart';
+import '../../widgets/themed_background.dart';
 
 class ControlsScreen extends ConsumerWidget {
   const ControlsScreen({super.key});
@@ -48,8 +50,8 @@ class ControlsScreen extends ConsumerWidget {
     final others = entities.where((e) =>
         e.domain != 'light' && e.domain != 'climate' && e.domain != 'switch').toList();
 
-    return Container(
-      color: Colors.black.withValues(alpha: 0.7),
+    return ThemedBackground.photo(
+      strength: TintStrength.medium,
       child: ListView(
         // Top padding clears the always-visible mic mute icon at top:24,
         // size 33 + IconButton chrome (≈y0–70). 80 gives a small buffer.
@@ -145,17 +147,18 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: Colors.black.withValues(alpha: 0.7),
+    final c = context.hearthColors;
+    return ThemedBackground.photo(
+      strength: TintStrength.medium,
       child: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: HearthIcon.xxl, color: Colors.white.withValues(alpha: 0.2)),
+            Icon(icon, size: HearthIcon.xxl, color: c.inkAt(0.2)),
             const SizedBox(height: HearthSpacing.x4),
-            Text(title, style: TextStyle(fontSize: HearthFont.title, color: Colors.white.withValues(alpha: 0.5))),
+            Text(title, style: TextStyle(fontSize: HearthFont.title, color: c.inkAt(0.5))),
             const SizedBox(height: HearthSpacing.x2),
-            Text(subtitle, style: TextStyle(fontSize: 14, color: Colors.white.withValues(alpha: 0.5))),
+            Text(subtitle, style: TextStyle(fontSize: 14, color: c.inkAt(0.5))),
           ],
         ),
       ),
@@ -173,7 +176,7 @@ class _SectionHeader extends StatelessWidget {
       title,
       style: TextStyle(
         fontSize: HearthFont.title, fontWeight: FontWeight.w500,
-        color: Colors.white.withValues(alpha: 0.7),
+        color: context.hearthColors.inkAt(0.7),
       ),
     );
   }
@@ -187,18 +190,19 @@ class _ToggleCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.hearthColors;
     return Container(
       padding: const EdgeInsets.all(HearthSpacing.x4),
       decoration: BoxDecoration(
         color: entity.isOn
-            ? const Color(0xFF646CFF).withValues(alpha: 0.12)
-            : Colors.white.withValues(alpha: 0.05),
+            ? c.accent.withValues(alpha: 0.12)
+            : c.inkAt(0.05),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
         children: [
           Icon(Icons.power_settings_new,
-              color: entity.isOn ? const Color(0xFF646CFF) : Colors.white38, size: HearthIcon.sm),
+              color: entity.isOn ? c.accent : c.textFaint, size: HearthIcon.sm),
           const SizedBox(width: HearthSpacing.x2),
           Expanded(
             child: Text(entity.name,

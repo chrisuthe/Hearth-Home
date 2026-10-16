@@ -31,6 +31,7 @@ import '../widgets/toast_overlay.dart';
 import 'theme/hearth_colors.dart';
 import '../widgets/voice_pill.dart';
 import '../services/voice_assistant_service.dart';
+import '../widgets/themed_background.dart';
 
 /// The main shell that manages the layered navigation model.
 ///
@@ -824,8 +825,7 @@ class _MenuScreenWrapper extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.hearthColors;
-    return Material(
-      color: c.canvas,
+    return ThemedBackground.screen(
       child: Stack(
         children: [
           child,

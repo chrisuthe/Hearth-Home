@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../app/tokens/tokens.dart';
 import '../../models/ha_entity.dart';
+import '../../app/theme/hearth_colors.dart';
 
 /// Card for controlling a climate/thermostat entity.
 ///
@@ -21,7 +22,7 @@ class ClimateCard extends StatelessWidget {
   });
 
   /// Maps HVAC mode strings to accent colors for visual feedback.
-  Color _modeColor(String? mode) {
+  Color _modeColor(HearthColors c, String? mode) {
     switch (mode) {
       case 'heat':
         return Colors.orange;
@@ -31,22 +32,23 @@ class ClimateCard extends StatelessWidget {
       case 'auto':
         return Colors.amber;
       default:
-        return Colors.white38;
+        return c.textFaint;
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final c = context.hearthColors;
     final currentTemp = entity.currentTemperature;
     final targetTemp = entity.temperature ?? 72;
     final mode = entity.hvacMode ?? entity.state;
-    final accentColor = _modeColor(mode);
+    final accentColor = _modeColor(c, mode);
 
     return Container(
       padding: const EdgeInsets.all(HearthSpacing.x4),
       decoration: BoxDecoration(
         color: entity.isOff
-            ? Colors.white.withValues(alpha: 0.05)
+            ? c.inkAt(0.05)
             : accentColor.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(16),
       ),
@@ -71,7 +73,7 @@ class ClimateCard extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w300,
-                    color: Colors.white.withValues(alpha: 0.6),
+                    color: c.inkAt(0.6),
                   ),
                 ),
             ],
@@ -85,7 +87,7 @@ class ClimateCard extends StatelessWidget {
             children: [
               IconButton(
                 icon: const Icon(Icons.remove_circle_outline),
-                color: Colors.white54,
+                color: c.textMuted,
                 onPressed: onTemperatureChanged != null
                     ? () => onTemperatureChanged!(targetTemp - 1)
                     : null,
@@ -100,7 +102,7 @@ class ClimateCard extends StatelessWidget {
               ),
               IconButton(
                 icon: const Icon(Icons.add_circle_outline),
-                color: Colors.white54,
+                color: c.textMuted,
                 onPressed: onTemperatureChanged != null
                     ? () => onTemperatureChanged!(targetTemp + 1)
                     : null,
@@ -122,15 +124,15 @@ class ClimateCard extends StatelessWidget {
                       m[0].toUpperCase() + m.substring(1),
                       style: TextStyle(
                         fontSize: HearthFont.caption,
-                        color: mode == m ? Colors.black : Colors.white70,
+                        color: mode == m ? c.canvas : c.textSecondary,
                       ),
                     ),
                     selected: mode == m,
                     onSelected: onModeChanged != null
                         ? (_) => onModeChanged!(m)
                         : null,
-                    selectedColor: _modeColor(m),
-                    backgroundColor: Colors.white.withValues(alpha: 0.08),
+                    selectedColor: _modeColor(c, m),
+                    backgroundColor: c.inkAt(0.08),
                     side: BorderSide.none,
                     padding: const EdgeInsets.symmetric(horizontal: HearthSpacing.x2),
                   ),
