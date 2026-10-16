@@ -156,9 +156,12 @@ final memoriesSeedProvider =
   } on StateError {
     return null;
   }
-  final Color? seed;
+  Color? seed;
   try {
     seed = await extractAccentSeed(clone);
+  } catch (e) {
+    // Fall back rather than hold the previous photo's accent.
+    debugPrint('Accent extraction failed for ${frame.path}: $e');
   } finally {
     clone.dispose();
   }

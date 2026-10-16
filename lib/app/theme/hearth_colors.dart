@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../config/hearth_theme_id.dart';
 import '../../packages/hearth_osk/hearth_osk.dart';
 import '../tokens/calendar_tokens.dart';
-import 'memories_accent_scope.dart';
+import 'memories_accent_scope_widget.dart';
 import 'osk_themes.dart';
 import 'palettes/catppuccin.dart';
 import 'palettes/tokyo_night.dart';
@@ -184,9 +184,17 @@ class HearthColors extends ThemeExtension<HearthColors> {
   ));
 
   /// Classic, with the accent family taken from the memory photo on screen.
-  /// These are its values with no photo: the accent roles equal
-  /// `kMemoriesFallback`, which is also what Material is seeded from.
-  static final HearthColors memories = classic.copyWith(followsPhoto: true);
+  /// These are its values with no photo: Classic's accent set, which equals
+  /// `kMemoriesFallback` and is what Material is seeded from. It is applied
+  /// through [withMemoriesAccent], as a fade applies one, so a colorless
+  /// photo returns to exactly this palette.
+  static final HearthColors memories =
+      classic.copyWith(followsPhoto: true).withMemoriesAccent((
+    accent: classic.accent,
+    accentText: classic.accentText,
+    accentFill: classic.accentFill,
+    onAccent: classic.onAccent,
+  ));
 
   static HearthColors _withCalendar(HearthColors base) =>
       base.copyWith(calendar: CalendarColors.derive(base));

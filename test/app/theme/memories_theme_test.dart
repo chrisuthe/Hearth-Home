@@ -21,6 +21,9 @@ final _visible = StateProvider<bool>((ref) => true);
 
 const PhotoFrame _red = (path: '/photos/red.jpg', focal: kCenterFocalPoint);
 const PhotoFrame _green = (path: '/photos/green.jpg', focal: kCenterFocalPoint);
+
+/// Has no seed (no usable color), so it takes the fallback accent.
+const PhotoFrame _grey = (path: '/photos/grey.jpg', focal: kCenterFocalPoint);
 const _seeds = {
   '/photos/red.jpg': Color(0xFFD32F2F),
   '/photos/green.jpg': Color(0xFF2E7D32),
@@ -190,6 +193,48 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 1600));
     expect(_accent, _greenAccent.accent);
+  });
+
+  testWidgets('a new photo mid-fade continues from where the fade was',
+      (tester) async {
+    final c = await _pump(tester);
+    await _show(tester, c, _red);
+    await tester.pump(const Duration(milliseconds: 500));
+    final midRed = _accent!;
+    expect(midRed, isNot(kMemoriesFallback.accent));
+    expect(midRed, isNot(_redAccent.accent));
+
+    await _show(tester, c, _green);
+    await tester.pump(const Duration(milliseconds: 16));
+    for (final channel in <double Function(Color)>[
+      (x) => x.r,
+      (x) => x.g,
+      (x) => x.b,
+    ]) {
+      expect(channel(_accent!), closeTo(channel(midRed), 0.03));
+    }
+
+    await tester.pump(const Duration(milliseconds: 1600));
+    expect(_accent, _greenAccent.accent);
+  });
+
+  testWidgets('a colorless photo returns to the pre-fade palette',
+      (tester) async {
+    final c = await _pump(tester);
+    final before = _calendar!;
+    expect(_accent, kMemoriesFallback.accent);
+
+    await _show(tester, c, _red);
+    await tester.pump(const Duration(milliseconds: 1600));
+    expect(_accent, _redAccent.accent);
+
+    await _show(tester, c, _grey);
+    await tester.pump(const Duration(milliseconds: 1600));
+    expect(_accent, kMemoriesFallback.accent);
+    expect(_calendar!.accentText, before.accentText);
+    expect(_calendar!.todayTint, before.todayTint);
+    expect(_calendar!.nowTint, before.nowTint);
+    expect(_calendar!.emptyDisc, before.emptyDisc);
   });
 
   testWidgets('home stays classic under memories', (tester) async {
