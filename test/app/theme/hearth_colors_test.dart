@@ -8,11 +8,12 @@ void main() {
   test("classic reproduces today's literals", () {
     expect(HearthColors.classic.raised, kDialogBackground);
     expect(HearthColors.classic.accent, const Color(0xFF646CFF));
-    expect(HearthColors.classic.textMuted, Colors.white54);
+    expect(HearthColors.classic.textMuted,
+        Colors.white.withValues(alpha: 0.66));
     expect(HearthColors.classic.photoTint(TintStrength.light),
-        Colors.black.withValues(alpha: 0.6));
+        Colors.black.withValues(alpha: 0.75));
     expect(HearthColors.classic.photoTint(TintStrength.medium),
-        Colors.black.withValues(alpha: 0.7));
+        Colors.black.withValues(alpha: 0.75));
     expect(HearthColors.classic.photoTint(TintStrength.heavy),
         Colors.black.withValues(alpha: 0.85));
   });

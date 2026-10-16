@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../config/hearth_theme_id.dart';
 import '../../packages/hearth_osk/hearth_osk.dart';
 import '../tokens/calendar_tokens.dart';
 import 'osk_themes.dart';
@@ -30,6 +31,10 @@ class HearthColors extends ThemeExtension<HearthColors> {
     required this.photoTintLight,
     required this.photoTintMedium,
     required this.photoTintHeavy,
+    required this.blurTint,
+    required this.danger,
+    required this.success,
+    required this.warning,
     required this.osk,
     required this.calendar,
   });
@@ -68,6 +73,14 @@ class HearthColors extends ThemeExtension<HearthColors> {
   final Color photoTintMedium;
   final Color photoTintHeavy;
 
+  /// Wash over the blurred photo behind a screen.
+  final Color blurTint;
+
+  /// Status text: errors, success, caution.
+  final Color danger;
+  final Color success;
+  final Color warning;
+
   /// On-screen keyboard palette.
   final HearthOskTheme osk;
 
@@ -81,22 +94,96 @@ class HearthColors extends ThemeExtension<HearthColors> {
     canvas: Colors.black,
     text: Colors.white,
     textSecondary: Colors.white70,
-    textMuted: Colors.white54,
+    textMuted: Color.from(alpha: 0.66, red: 1, green: 1, blue: 1),
     textFaint: Colors.white38,
     surface: Color(0xFF080808),
     card: Color(0xFF161618),
     menu: Color(0xFF1A1A1A),
     raised: Color(0xFF1E1E1E),
     accent: Color(0xFF646CFF),
-    accentText: Color(0xFF9EA3FF),
-    accentFill: Color(0xFF646CFF),
+    accentText: Color(0xFFB4B8FF),
+    accentFill: Color(0xFF555DE8),
     onAccent: Colors.white,
-    photoTintLight: Color.from(alpha: 0.6, red: 0, green: 0, blue: 0),
-    photoTintMedium: Color.from(alpha: 0.7, red: 0, green: 0, blue: 0),
+    photoTintLight: Color.from(alpha: 0.75, red: 0, green: 0, blue: 0),
+    photoTintMedium: Color.from(alpha: 0.75, red: 0, green: 0, blue: 0),
     photoTintHeavy: Color.from(alpha: 0.85, red: 0, green: 0, blue: 0),
+    blurTint: Color.from(alpha: 0.75, red: 0, green: 0, blue: 0),
+    danger: Color(0xFFFF8A8A),
+    success: Color(0xFF4ADE80),
+    warning: Color(0xFFFFB946),
     osk: classicOskTheme,
     calendar: CalendarColors.classic,
   );
+
+  static const Color _brightInk = Color(0xFF1E2922);
+  static const Color _brightCanvas = Color(0xFFF6F8F2);
+
+  /// Light, cool-green paper.
+  static final HearthColors bright = _withCalendar(HearthColors(
+    ink: _brightInk,
+    canvas: _brightCanvas,
+    text: _brightInk,
+    textSecondary: _brightInk.withValues(alpha: 0.85),
+    textMuted: _brightInk.withValues(alpha: 0.75),
+    textFaint: _brightInk.withValues(alpha: 0.38),
+    surface: const Color(0xFFEEF2E8),
+    card: const Color(0xFFFFFFFF),
+    menu: const Color(0xFFFFFFFF),
+    raised: const Color(0xFFFFFFFF),
+    accent: const Color(0xFF2E7D55),
+    accentText: const Color(0xFF1D5238),
+    accentFill: const Color(0xFF2E7D55),
+    onAccent: const Color(0xFFFFFFFF),
+    photoTintLight: _brightCanvas.withValues(alpha: 0.82),
+    photoTintMedium: _brightCanvas.withValues(alpha: 0.82),
+    photoTintHeavy: _brightCanvas.withValues(alpha: 0.88),
+    blurTint: _brightCanvas.withValues(alpha: 0.82),
+    danger: const Color(0xFFA3221B),
+    success: const Color(0xFF175A37),
+    warning: const Color(0xFF7A4A00),
+    osk: brightOskTheme,
+    calendar: CalendarColors.classic,
+  ));
+
+  static const Color _warmInk = Color(0xFF3A2A1D);
+  static const Color _warmCanvas = Color(0xFFF2E7D7);
+
+  /// Light, warm paper.
+  static final HearthColors warm = _withCalendar(HearthColors(
+    ink: _warmInk,
+    canvas: _warmCanvas,
+    text: _warmInk,
+    textSecondary: _warmInk.withValues(alpha: 0.88),
+    textMuted: _warmInk.withValues(alpha: 0.80),
+    textFaint: _warmInk.withValues(alpha: 0.38),
+    surface: const Color(0xFFEADCC8),
+    card: const Color(0xFFFBF5EC),
+    menu: const Color(0xFFFBF5EC),
+    raised: const Color(0xFFFBF5EC),
+    accent: const Color(0xFF9A4A1B),
+    accentText: const Color(0xFF7A3913),
+    accentFill: const Color(0xFF9A4A1B),
+    onAccent: const Color(0xFFFFFFFF),
+    photoTintLight: _warmCanvas.withValues(alpha: 0.86),
+    photoTintMedium: _warmCanvas.withValues(alpha: 0.86),
+    photoTintHeavy: _warmCanvas.withValues(alpha: 0.90),
+    blurTint: _warmCanvas.withValues(alpha: 0.86),
+    danger: const Color(0xFF9A1F18),
+    success: const Color(0xFF24551F),
+    warning: const Color(0xFF6E4300),
+    osk: warmOskTheme,
+    calendar: CalendarColors.classic,
+  ));
+
+  static HearthColors _withCalendar(HearthColors base) =>
+      base.copyWith(calendar: CalendarColors.derive(base));
+
+  /// The palette for [id]. Always the same instance per theme.
+  static HearthColors forTheme(HearthThemeId id) => switch (id) {
+        HearthThemeId.classic => classic,
+        HearthThemeId.bright => bright,
+        HearthThemeId.warm => warm,
+      };
 
   static HearthColors of(BuildContext context) =>
       Theme.of(context).extension<HearthColors>() ?? classic;
@@ -130,6 +217,10 @@ class HearthColors extends ThemeExtension<HearthColors> {
     Color? photoTintLight,
     Color? photoTintMedium,
     Color? photoTintHeavy,
+    Color? blurTint,
+    Color? danger,
+    Color? success,
+    Color? warning,
     HearthOskTheme? osk,
     CalendarColors? calendar,
   }) =>
@@ -151,6 +242,10 @@ class HearthColors extends ThemeExtension<HearthColors> {
         photoTintLight: photoTintLight ?? this.photoTintLight,
         photoTintMedium: photoTintMedium ?? this.photoTintMedium,
         photoTintHeavy: photoTintHeavy ?? this.photoTintHeavy,
+        blurTint: blurTint ?? this.blurTint,
+        danger: danger ?? this.danger,
+        success: success ?? this.success,
+        warning: warning ?? this.warning,
         osk: osk ?? this.osk,
         calendar: calendar ?? this.calendar,
       );

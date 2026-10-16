@@ -136,7 +136,7 @@ class CalendarColors {
     text: Color(0xFFFFFFFF),
     textMuted: Color(0xC7FFFFFF),
     textDim: Color(0xA8FFFFFF),
-    textFaint: Color(0x73FFFFFF),
+    textFaint: Color(0x8FFFFFFF),
     gridLine: Color(0x21FFFFFF),
     divider: Color(0x1AFFFFFF),
     control: Color(0x24FFFFFF),
@@ -153,7 +153,7 @@ class CalendarColors {
     stale: Color(0xFFF5B544),
     staleFill: Color(0x2EF5B544),
     staleBorder: Color(0x73F5B544),
-    error: Color(0xFFFF7A7A),
+    error: Color(0xFFFF8A8A),
     errorFill: Color(0x2EFF6B6B),
     errorBorder: Color(0x73FF6B6B),
     bannerDetail: Color(0xC7FFFFFF),
@@ -169,6 +169,52 @@ class CalendarColors {
     glanceTime: Color(0xDBFFFFFF),
     glanceMeta: Color(0xB8FFFFFF),
   );
+
+  /// Builds a palette from a theme's roles. The Home glance and the fixed
+  /// pairings keep their Classic values.
+  factory CalendarColors.derive(HearthColors base) {
+    const c = classic;
+    return CalendarColors(
+      accent: base.accent,
+      accentText: base.accentText,
+      onFill: c.onFill,
+      text: base.text,
+      textMuted: base.textSecondary,
+      textDim: base.textMuted,
+      textFaint: base.textMuted,
+      gridLine: base.inkAt(0.13),
+      divider: base.inkAt(0.10),
+      control: base.inkAt(0.14),
+      segmentTrack: base.inkAt(0.10),
+      card: base.inkAt(0.07),
+      todayTint: base.accent.withValues(alpha: 0.13),
+      nowTint: base.accent.withValues(alpha: 0.30),
+      weekendTint: base.inkAt(0.05),
+      nowLine: base.text,
+      pillOffOutline: base.inkAt(0.30),
+      pillOffText: base.textMuted,
+      pillOffAvatar: base.inkAt(0.12),
+      pillAvatar: c.pillAvatar,
+      stale: base.warning,
+      staleFill: base.warning.withValues(alpha: 0.18),
+      staleBorder: base.warning.withValues(alpha: 0.45),
+      error: base.danger,
+      errorFill: base.danger.withValues(alpha: 0.18),
+      errorBorder: base.danger.withValues(alpha: 0.45),
+      bannerDetail: base.textSecondary,
+      sheet: base.raised,
+      sheetBorder: base.inkAt(0.08),
+      sheetHandle: base.inkAt(0.22),
+      sheetIcon: base.textMuted,
+      sheetSecondary: base.textSecondary,
+      emptyDisc: base.accent.withValues(alpha: 0.14),
+      glanceCard: c.glanceCard,
+      glanceBorder: c.glanceBorder,
+      glanceLabel: c.glanceLabel,
+      glanceTime: c.glanceTime,
+      glanceMeta: c.glanceMeta,
+    );
+  }
 
   static CalendarColors of(BuildContext context) =>
       HearthColors.of(context).calendar;

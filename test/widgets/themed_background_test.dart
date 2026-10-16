@@ -19,8 +19,8 @@ void main() {
   });
 
   for (final (s, a) in [
-    (TintStrength.light, 0.6),
-    (TintStrength.medium, 0.7),
+    (TintStrength.light, 0.75),
+    (TintStrength.medium, 0.75),
     (TintStrength.heavy, 0.85),
   ]) {
     testWidgets('photo ${s.name} paints black at $a', (t) async {
