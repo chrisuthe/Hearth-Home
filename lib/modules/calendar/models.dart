@@ -19,6 +19,9 @@ class CalendarSource {
   final int color;
   final bool enabled;
 
+  /// The person this calendar belongs to; '' for none.
+  final String personId;
+
   const CalendarSource({
     required this.id,
     required this.kind,
@@ -27,6 +30,7 @@ class CalendarSource {
     this.name = '',
     this.color = defaultColor,
     this.enabled = true,
+    this.personId = '',
   });
 
   static const defaultColor = 0xFF646CFF; // the accent indigo
@@ -35,6 +39,7 @@ class CalendarSource {
     String? name,
     int? color,
     bool? enabled,
+    String? personId,
   }) =>
       CalendarSource(
         id: id,
@@ -44,6 +49,7 @@ class CalendarSource {
         name: name ?? this.name,
         color: color ?? this.color,
         enabled: enabled ?? this.enabled,
+        personId: personId ?? this.personId,
       );
 
   Map<String, dynamic> toJson() => {
@@ -54,6 +60,7 @@ class CalendarSource {
         'name': name,
         'color': color,
         'enabled': enabled,
+        'personId': personId,
       };
 
   factory CalendarSource.fromJson(Map<String, dynamic> json) {
@@ -69,6 +76,7 @@ class CalendarSource {
       name: json['name'] as String? ?? '',
       color: json['color'] as int? ?? defaultColor,
       enabled: json['enabled'] as bool? ?? true,
+      personId: json['personId'] as String? ?? '',
     );
   }
 
@@ -81,11 +89,12 @@ class CalendarSource {
       other.url == url &&
       other.name == name &&
       other.color == color &&
-      other.enabled == enabled;
+      other.enabled == enabled &&
+      other.personId == personId;
 
   @override
   int get hashCode =>
-      Object.hash(id, kind, entityId, url, name, color, enabled);
+      Object.hash(id, kind, entityId, url, name, color, enabled, personId);
 }
 
 /// One occurrence, already expanded. Immutable.

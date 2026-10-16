@@ -241,11 +241,13 @@ class TodoListConfig {
   final String entityId;   // 'todo.groceries'; the id, unique in the list
   final String name;       // defaults to the entity's friendly_name
   final int color;         // ARGB, from the same eight-colour palette as Calendar
-  final String person;     // '' for a plain list; a name makes it that person's chores
+  final String personId;   // '' for a plain list; a Person id makes it that person's chores
 }
 ```
 
-A list mapped to a person is a **chore list**. That is the whole mapping. The person is a display name, not an HA `person.*` entity: the chart needs a name and a colour, and linking `person.*` adds a lookup for nothing it uses. Two lists may name the same person; the chart shows them as one column.
+A list mapped to a person is a **chore list**. Two lists may name the same person; the chart shows them as one column.
+
+**Superseded 2026-10-15.** This spec first stored the person as free text and chose not to link HA `person.*`, since the chart only needed a name and a colour. That decision is reversed. People are now a first-class registry (`HubConfig.people`), shared with Calendar. A list stores a `personId`, and the column takes its name and colour from the `Person`. A person may be linked to a `person.*` entity, which adds an avatar and presence to the column header. Free-text `person` values are migrated on load. See [`2026-10-15-people-design.md`](2026-10-15-people-design.md).
 
 Items are not cached to disk. A kiosk that boots offline shows each list's "can't reach" note, as Calendar does.
 
@@ -326,7 +328,7 @@ Horizontal swipes belong to HubShell's PageView, so nothing in the module uses o
 └───────────────────┴───────────────────┴──────────────────────┘
 ```
 
-- One column per person, merging that person's chore lists, in config order.
+- One column per person, merging that person's chore lists, in config order of each person's first list. The header is the person's name and colour from the People registry; a person linked to HA `person.*` shows their avatar and a presence dot instead of the colour dot (2026-10-15).
 - **Each column shows:** open items due today or overdue (overdue first, marked "late"), then open items with no due date, then items completed today (when HA gives `completed`), struck through. Open items due later sit under "Upcoming (n)", collapsed. Completed items without a `completed` time are not shown here; the Lists view has them.
 - The header count is done-today over done-today plus open-shown.
 - **The whole row is the tap target** for complete and uncomplete, big enough for a child's finger. Editing is the Lists view's job. A list without `canUpdate` shows its chores without checkboxes.
@@ -370,8 +372,9 @@ The thresholds are logical pixels after `uiScale`, a starting point for the scre
 `lib/plugins/lists/lists_plugin.dart`, id `hearth.lists`, category `feature`, in `_firstPartyPlugins`, always visible. Device panel and `:8090` fragment from one definition, as every plugin.
 
 - **Lists:** a `ListSection<TodoListConfig>`. Each row shows the colour, name, person (or "List"), live status, and what the list supports ("add · edit · reorder · due dates"), from its features.
-  - *Add*: the entity picker filtered to `todo.*` (`lib/plugins/framework/fields/ha_entity_picker_field.dart`), then name (prefilled from `friendly_name`), colour, and person (blank by default).
+  - *Add*: the entity picker filtered to `todo.*` (`lib/plugins/framework/fields/ha_entity_picker_field.dart`), then name (prefilled from `friendly_name`), colour, and person (none by default).
   - *Edit*: name, colour, person. To change the entity, delete and add again.
+  - The person is a dropdown of the People registry since 2026-10-15, on both surfaces; it was free text before.
 - **Show today's chores when idle:** the `todoChoreGlance` toggle, off by default.
 
 The live status is read from the entity HA already caches, not from an item subscription, so the panel opens no `todo/item/subscribe` per list: a `todo.*` entity's state is its count of incomplete items (`TodoListEntity.state` in `homeassistant/components/todo/entity.py`), shown as "3 open" or "All done", with "Not found in Home Assistant" and "Unavailable" for a missing entity and an `unknown`/`unavailable` state.
@@ -389,7 +392,7 @@ The `ListSection` HTML render is read-only (`lib/plugins/framework/list_section.
 ```
 
 - At most three lines, then "+n more". Draws nothing when nothing is open for today.
-- The person's colour as the dot (their chore list's colour), the same text shadows as the clock.
+- The person's colour as the dot, or their avatar when linked to HA, with the same text shadows as the clock.
 - A tap jumps to the Lists page on the Chores view when the module is in the swipe row, and does nothing otherwise. HubShell sets `listsViewProvider` to `ListsView.chores`, then moves to the page.
 - It watches `choresTodayProvider` through `select`, so a push that changes nothing for today does not rebuild it.
 
@@ -576,5 +579,5 @@ Tasks 2 and 3 can run in parallel after 1; 4 needs 2; 5 needs 1 and the person m
 - **Features from the entity, never from the integration name.** Every action is shown only when the entity's flags allow it, so a new integration works without code.
 - **Uid, always.** HA would accept a summary; Hearth never sends one.
 - **The push is the truth.** A pending overlay makes taps feel immediate, with no local copy that can drift.
-- **A person is a name on a list.** No `person.*` link, no Hearth chore state.
+- ~~**A person is a name on a list.** No `person.*` link, no Hearth chore state.~~ Reversed 2026-10-15: people are a registry, optionally linked to `person.*` ([People design](2026-10-15-people-design.md)). Still no Hearth chore state.
 - **Undated chores stay off the glance** and appear on the chart every day.

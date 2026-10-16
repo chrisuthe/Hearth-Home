@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../config/hub_config.dart';
+import '../../config/person.dart';
 import '../../modules/calendar/ics_calendar_source.dart';
 import '../../modules/calendar/models.dart';
 import '../framework/fields/ha_entity_picker_field.dart';
@@ -62,7 +63,7 @@ class CalendarPlugin extends HearthPlugin {
   /// Routes backing the portal's source list:
   ///   * GET    sources       — the sources with live status (URLs left out)
   ///   * POST   sources       — add one; HA name/colour default from HA
-  ///   * PUT    sources/:id   — name, colour, enabled
+  ///   * PUT    sources/:id   — name, colour, enabled, owner
   ///   * DELETE sources/:id
   ///   * POST   test          — one fetch of an ICS URL
   @override
@@ -70,6 +71,9 @@ class CalendarPlugin extends HearthPlugin {
     router.get('sources', (req) async {
       await req.respondJson({
         'palette': [for (final c in calendarPalette) calendarColorHex(c)],
+        'people': [
+          for (final p in req.config.people) {'id': p.id, 'name': p.name},
+        ],
         'sources': [
           for (final s in req.config.calendarSources)
             _sourceJson(s, req.config,
@@ -93,6 +97,9 @@ class CalendarPlugin extends HearthPlugin {
       final name = (body['name'] as Object?) is String
           ? (body['name'] as String).trim()
           : '';
+      final owner = _parseOwner(body, req.config.people);
+      if (owner.error != null) return req.respondError(400, owner.error!);
+      final personId = owner.personId ?? '';
 
       final CalendarSource source;
       switch (body['kind']) {
@@ -119,6 +126,7 @@ class CalendarPlugin extends HearthPlugin {
             name: name.isNotEmpty ? name : (defaults.name ?? entityId),
             color: color ?? defaults.color ?? nextPaletteColor(sources),
             enabled: enabled as bool? ?? true,
+            personId: personId,
           );
         case 'ics':
           final url = body['url'];
@@ -133,6 +141,7 @@ class CalendarPlugin extends HearthPlugin {
             name: name.isNotEmpty ? name : icsFallbackName(url),
             color: color ?? nextPaletteColor(sources),
             enabled: enabled as bool? ?? true,
+            personId: personId,
           );
         default:
           return req.respondError(400, 'kind must be ha or ics');
@@ -172,10 +181,13 @@ class CalendarPlugin extends HearthPlugin {
       if (enabled != null && enabled is! bool) {
         return req.respondError(400, 'enabled must be true or false');
       }
+      final owner = _parseOwner(body, req.config.people);
+      if (owner.error != null) return req.respondError(400, owner.error!);
       final updated = existing.copyWith(
         name: (name as String?)?.trim(),
         color: color,
         enabled: enabled as bool?,
+        personId: owner.personId,
       );
       await req.updateConfig((c) => c.copyWith(calendarSources: [
             for (final s in c.calendarSources) s.id == id ? updated : s,
@@ -214,6 +226,19 @@ class CalendarPlugin extends HearthPlugin {
     });
   }
 
+  /// The body's `personId`: null when absent, '' to clear, else someone in
+  /// [people].
+  static ({String? personId, String? error}) _parseOwner(
+      Map<String, dynamic> body, List<Person> people) {
+    final raw = body['personId'];
+    if (raw == null) return (personId: null, error: null);
+    if (raw is! String) return (personId: null, error: 'personId must be a string');
+    if (raw.isNotEmpty && personById(people, raw) == null) {
+      return (personId: null, error: 'no person $raw');
+    }
+    return (personId: raw, error: null);
+  }
+
   /// A source as the portal sees it. The URL is left out: it can carry a
   /// secret, and the portal never needs it back.
   static Map<String, dynamic> _sourceJson(
@@ -226,6 +251,8 @@ class CalendarPlugin extends HearthPlugin {
         'name': s.name,
         'color': calendarColorHex(s.color),
         'enabled': s.enabled,
+        'personId': s.personId,
+        'owner': personById(config.people, s.personId)?.name ?? '',
         'state': s.enabled ? (status?.status.name ?? 'loading') : 'off',
         'status': calendarStatusLabel(status,
             enabled: s.enabled, use24Hour: config.use24HourClock),
@@ -259,7 +286,8 @@ String _sourcesHtml(String haPicker) => '''
     background: #161618; border: 1px solid #333; border-radius: 6px;
     padding: 12px; margin-bottom: 8px;
   }
-  .cal-form input[type="text"], .cal-form input[type="password"] {
+  .cal-form input[type="text"], .cal-form input[type="password"],
+  .cal-form select {
     width: 100%; margin-bottom: 8px;
   }
   .cal-form .cal-actions {
@@ -295,6 +323,7 @@ String _sourcesHtml(String haPicker) => '''
   <div class="cal-form" id="cal-ha-form" hidden>
     $haPicker
     <input type="text" id="cal-ha-name" placeholder="Name (blank: the name in Home Assistant)">
+    <select id="cal-ha-owner" class="cal-owner"></select>
     <div class="cal-hint">Colour (none picked: the colour in Home Assistant, else the next free one)</div>
     <div class="cal-swatches" id="cal-ha-colors"></div>
     <div class="cal-result" id="cal-ha-result"></div>
@@ -309,6 +338,7 @@ String _sourcesHtml(String haPicker) => '''
            placeholder="https:// or webcal://… (kept private)">
     <div class="cal-result" id="cal-ics-result"></div>
     <input type="text" id="cal-ics-name" placeholder="Name">
+    <select id="cal-ics-owner" class="cal-owner"></select>
     <div class="cal-swatches" id="cal-ics-colors"></div>
     <div class="cal-actions">
       <button type="button" class="cal-cancel" data-cal-close>Cancel</button>
@@ -320,6 +350,7 @@ String _sourcesHtml(String haPicker) => '''
     <div class="cal-hint" id="cal-edit-what"></div>
     <div class="cal-hint">To change the calendar itself, delete it and add it again.</div>
     <input type="text" id="cal-edit-name" placeholder="Name">
+    <select id="cal-edit-owner" class="cal-owner"></select>
     <div class="cal-swatches" id="cal-edit-colors"></div>
     <label style="display:flex;gap:8px;align-items:center;margin-top:6px">
       <input type="checkbox" id="cal-edit-enabled"> Enabled
@@ -340,6 +371,7 @@ const _sourcesScript = r'''
   var list = document.getElementById('calendar-panel');
   if (!list) return;
   var palette = [];
+  var people = [];
   var sources = [];
   var editing = null;
   var picked = { ha: null, ics: null, edit: null };
@@ -403,6 +435,20 @@ const _sourcesScript = r'''
     return palette[sources.length % palette.length];
   }
 
+  function owners(key, selected) {
+    var sel = $('cal-' + key + '-owner');
+    sel.textContent = '';
+    var none = elem('option', null, 'No owner');
+    none.value = '';
+    sel.appendChild(none);
+    people.forEach(function (p) {
+      var o = elem('option', null, 'Belongs to ' + p.name);
+      o.value = p.id;
+      sel.appendChild(o);
+    });
+    sel.value = selected || '';
+  }
+
   function closeForms() {
     ['cal-ha-form', 'cal-ics-form', 'cal-edit-form'].forEach(function (id) {
       $(id).hidden = true;
@@ -430,7 +476,7 @@ const _sourcesScript = r'''
       txt.appendChild(elem('div', null, s.name));
       var bad = s.state === 'error' || s.state === 'stale';
       txt.appendChild(elem('div', 'cal-sub' + (bad ? ' cal-bad' : ''),
-        s.kindLabel + ' · ' + s.status));
+        s.kindLabel + (s.owner ? ' · ' + s.owner : '') + ' · ' + s.status));
       var edit = elem('button', 'cal-btn', 'Edit');
       edit.type = 'button';
       edit.addEventListener('click', function () { openEdit(s); });
@@ -452,6 +498,7 @@ const _sourcesScript = r'''
   function load() {
     return call('GET', 'sources').then(function (d) {
       palette = d.palette || [];
+      people = d.people || [];
       sources = d.sources || [];
       render();
     }).catch(function () { list.textContent = 'Failed to load calendars.'; });
@@ -464,6 +511,7 @@ const _sourcesScript = r'''
     var entity = $('haep-calendar-entity-input');
     if (entity) entity.value = '';
     result('cal-ha-result', '');
+    owners('ha', '');
     swatches('ha', true);
     $('cal-ha-form').hidden = false;
   }
@@ -474,6 +522,7 @@ const _sourcesScript = r'''
       kind: 'ha',
       entityId: entity ? entity.value.trim() : '',
       name: $('cal-ha-name').value.trim(),
+      personId: $('cal-ha-owner').value,
     };
     if (picked.ha) body.color = picked.ha;
     call('POST', 'sources', body).then(function () {
@@ -490,6 +539,7 @@ const _sourcesScript = r'''
     $('cal-ics-name').value = '';
     result('cal-ics-result', '');
     $('cal-ics-save').textContent = 'Test';
+    owners('ics', '');
     swatches('ics', false);
     $('cal-ics-form').hidden = false;
   }
@@ -512,7 +562,7 @@ const _sourcesScript = r'''
     }
     call('POST', 'sources', {
       kind: 'ics', url: url, name: $('cal-ics-name').value.trim(),
-      color: picked.ics,
+      color: picked.ics, personId: $('cal-ics-owner').value,
     }).then(function () {
       closeForms();
       load();
@@ -527,6 +577,7 @@ const _sourcesScript = r'''
       ? 'Home Assistant · ' + s.entityId : 'ICS feed';
     $('cal-edit-name').value = s.name;
     $('cal-edit-enabled').checked = s.enabled;
+    owners('edit', s.personId);
     result('cal-edit-result', '');
     swatches('edit', false);
     $('cal-edit-form').hidden = false;
@@ -538,6 +589,7 @@ const _sourcesScript = r'''
       name: $('cal-edit-name').value.trim(),
       color: picked.edit,
       enabled: $('cal-edit-enabled').checked,
+      personId: $('cal-edit-owner').value,
     }).then(function () {
       closeForms();
       load();

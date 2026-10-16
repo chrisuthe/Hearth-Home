@@ -3,10 +3,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hearth/config/hub_config.dart';
+import 'package:hearth/config/person.dart';
+import 'package:hearth/models/ha_entity.dart';
 import 'package:hearth/modules/lists/chores_view.dart';
 import 'package:hearth/modules/lists/lists_providers.dart';
 import 'package:hearth/modules/lists/lists_screen.dart';
 import 'package:hearth/modules/lists/models.dart';
+import 'package:hearth/widgets/person_avatar.dart';
 
 import '../../portrait/module_support.dart';
 import '../../portrait/portrait_harness.dart';
@@ -33,11 +36,15 @@ void main() {
   const config = HubConfig(
     haUrl: 'http://ha.invalid:8123',
     haToken: 'token',
+    people: [
+      Person(id: 'person:ava', name: 'Ava', color: 0xFF4CAF50),
+      Person(id: 'person:ben', name: 'Ben', color: 0xFFFF9800),
+    ],
     todoLists: [
       TodoListConfig(entityId: _groceries),
-      TodoListConfig(entityId: _ava, person: 'Ava', color: 0xFF4CAF50),
-      TodoListConfig(entityId: _ben, person: 'Ben', color: 0xFFFF9800),
-      TodoListConfig(entityId: _avaGarden, person: 'Ava'),
+      TodoListConfig(entityId: _ava, personId: 'person:ava', color: 0xFF4CAF50),
+      TodoListConfig(entityId: _ben, personId: 'person:ben', color: 0xFFFF9800),
+      TodoListConfig(entityId: _avaGarden, personId: 'person:ava'),
     ],
   );
 
@@ -178,15 +185,53 @@ void main() {
     expect(find.text('Laundry'), findsOneWidget);
   });
 
+  testWidgets('a linked person heads their column with avatar and presence',
+      (tester) async {
+    final linked = config.copyWith(people: [
+      config.people[0].copyWith(haPersonEntityId: 'person.ava'),
+      config.people[1],
+    ]);
+    await useCanvas(tester, kLandscapeCanvas);
+    await pumpModule(
+      tester,
+      const ListsScreen(isActive: true),
+      config: linked,
+      overrides: [
+        ...listsOverrides(
+          entities: [
+            todoEntity(_ava, name: 'Ava chores'),
+            todoEntity(_avaGarden, name: 'Garden'),
+            todoEntity(_ben, name: 'Ben chores'),
+            HaEntity(
+              entityId: 'person.ava',
+              state: 'home',
+              attributes: const {'friendly_name': 'Ava R'},
+              lastChanged: DateTime(2026),
+            ),
+          ],
+          lists: lists,
+          actions: actions,
+        ),
+        todoNowProvider.overrideWithValue(() => _now),
+        listsViewProvider.overrideWith((ref) => ListsView.chores),
+      ],
+    );
+    expect(find.text('Ava'), findsOneWidget, reason: 'the local name');
+    expect(find.byType(PersonAvatar), findsOneWidget, reason: 'Ava only');
+    expect(find.byKey(const ValueKey('presence-dot')), findsOneWidget);
+    expect(find.text('A'), findsOneWidget, reason: 'no picture: the initial');
+  });
+
   test('choreColumns keeps a person with nothing today', () {
     final columns = choreColumns(
       config.todoLists,
+      config.people,
       (id) => id == _ben
           ? [todo('b2', 'Later', due: TodoDue.date(DateTime(2026, 10, 20)))]
           : const [],
       _now,
     );
-    expect(columns.map((c) => c.person), ['Ava', 'Ben']);
+    expect(columns.map((c) => c.person.name), ['Ava', 'Ben']);
     expect(columns[1].total, 0);
     expect(columns[1].upcoming.single.item.summary, 'Later');
   });

@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hearth/config/hub_config.dart';
+import 'package:hearth/config/person.dart';
 import 'package:hearth/models/ha_entity.dart';
 import 'package:hearth/modules/lists/models.dart';
 import 'package:hearth/plugins/calendar/calendar_sources.dart';
@@ -22,8 +23,14 @@ const _alex = TodoListConfig(
   entityId: 'todo.alex',
   name: 'Alex',
   color: 0xFFE57373,
-  person: 'Alex',
+  personId: 'person:alex',
 );
+
+const _people = [
+  Person(id: 'person:alex', name: 'Alex'),
+  Person(id: 'person:sam', name: 'Sam'),
+  Person(id: 'person:jo', name: 'Jo'),
+];
 
 void main() {
   late ProviderContainer container;
@@ -75,6 +82,7 @@ void main() {
     );
     configNotifier = _MemoryHubConfigNotifier()
       ..state = config.copyWith(
+        people: config.people.isEmpty ? _people : config.people,
         apiKey: 'test-api-key-12345',
         haUrl: 'http://ha',
         haToken: 't',
@@ -105,7 +113,7 @@ void main() {
         'entityId': 'todo.groceries',
         'name': 'Groceries',
         'color': '#646cff',
-        'person': '',
+        'personId': '',
         'kindLabel': 'List',
         'status': '3 open',
         'bad': false,
@@ -142,7 +150,7 @@ void main() {
         'entityId': 'todo.chores',
         'name': ' Sam ',
         'color': '#123456',
-        'person': ' Sam ',
+        'personId': 'person:sam',
       });
       expect(
         lists().single,
@@ -150,7 +158,7 @@ void main() {
           entityId: 'todo.chores',
           name: 'Sam',
           color: 0xFF123456,
-          person: 'Sam',
+          personId: 'person:sam',
         ),
       );
     });
@@ -169,7 +177,8 @@ void main() {
         {'entityId': 'light.kitchen'}: 400,
         {'entityId': 'todo.chores', 'color': 'blue'}: 400,
         {'entityId': 'todo.chores', 'name': 3}: 400,
-        {'entityId': 'todo.chores', 'person': true}: 400,
+        {'entityId': 'todo.chores', 'personId': true}: 400,
+        {'entityId': 'todo.chores', 'personId': 'person:nobody'}: 400,
         {'entityId': 'todo.groceries'}: 409,
       };
       for (final entry in cases.entries) {
@@ -187,7 +196,7 @@ void main() {
       final (status, _) = await send('PUT', 'lists/todo.groceries', {
         'name': ' Food ',
         'color': '#00ff00',
-        'person': 'Jo',
+        'personId': 'person:jo',
       });
       expect(status, 200);
       expect(
@@ -196,7 +205,7 @@ void main() {
           entityId: 'todo.groceries',
           name: 'Food',
           color: 0xFF00FF00,
-          person: 'Jo',
+          personId: 'person:jo',
         ),
       );
       expect(lists().last, _alex);
@@ -204,7 +213,7 @@ void main() {
 
     test('an empty person makes a chore list plain again', () async {
       await startWith(const HubConfig(todoLists: [_alex]));
-      await send('PUT', 'lists/todo.alex', {'person': ''});
+      await send('PUT', 'lists/todo.alex', {'personId': ''});
       expect(lists().single.isChore, isFalse);
       expect(lists().single.name, 'Alex');
     });
@@ -217,7 +226,8 @@ void main() {
           {'entityId': 'todo.other'},
           {'name': ' '},
           {'color': 7.5},
-          {'person': 1},
+          {'personId': 1},
+          {'personId': 'person:nobody'},
         ]) {
           expect(
             (await send('PUT', 'lists/todo.groceries', body)).$1,

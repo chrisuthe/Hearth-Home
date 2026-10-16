@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hearth/config/hub_config.dart';
+import 'package:hearth/config/person.dart';
 import 'package:hearth/modules/calendar/calendar_providers.dart';
 import 'package:hearth/modules/calendar/ics_calendar_source.dart';
 import 'package:hearth/modules/calendar/models.dart';
@@ -196,6 +197,47 @@ void main() {
       expect(sources().last.enabled, isFalse);
       expect(sources().last.url, _school.url);
       expect(sources().first, _family);
+    });
+
+    test('sets and clears the owner; an unknown person is 400', () async {
+      const sam = Person(id: 'person:0011223344556677', name: 'Sam');
+      await startWith(const HubConfig(
+          people: [sam], calendarSources: [_family, _school]));
+      const path = 'sources/ha%3Acalendar.family';
+      expect((await send('PUT', path, {'personId': sam.id})).$1, 200);
+      expect(sources().first.personId, sam.id);
+
+      final (_, body) = await send('GET', 'sources');
+      final row = (body['sources'] as List).first;
+      expect(row['personId'], sam.id);
+      expect(row['owner'], 'Sam');
+      expect(body['people'], [
+        {'id': sam.id, 'name': 'Sam'},
+      ]);
+
+      expect((await send('PUT', path, {'personId': 'person:nobody'})).$1, 400);
+      expect((await send('PUT', path, {'personId': 3})).$1, 400);
+      expect(sources().first.personId, sam.id);
+      expect((await send('PUT', path, {'personId': ''})).$1, 200);
+      expect(sources().first.personId, '');
+    });
+
+    test('POST takes an owner', () async {
+      const sam = Person(id: 'person:0011223344556677', name: 'Sam');
+      await startWith(const HubConfig(people: [sam]));
+      final (status, _) = await send('POST', 'sources',
+          {'kind': 'ics', 'url': 'https://example.com/a.ics', 'personId': sam.id});
+      expect(status, 200);
+      expect(sources().single.personId, sam.id);
+      expect(
+          (await send('POST', 'sources', {
+            'kind': 'ics',
+            'url': 'https://example.com/b.ics',
+            'personId': 'person:nobody',
+          }))
+              .$1,
+          400);
+      expect(sources(), hasLength(1));
     });
 
     test('refuses to change the kind, entity or URL', () async {

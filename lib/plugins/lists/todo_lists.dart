@@ -1,4 +1,5 @@
 import '../../config/hub_config.dart';
+import '../../config/person.dart';
 import '../../modules/lists/models.dart';
 import '../../services/home_assistant_service.dart';
 
@@ -13,8 +14,14 @@ String? validateTodoEntityId(String entityId) =>
     : 'Pick a todo.* entity';
 
 /// "Alex" for a chore list, "List" for a plain one.
-String todoListKindLabel(TodoListConfig list) =>
-    list.isChore ? list.person : 'List';
+String todoListKindLabel(TodoListConfig list, List<Person> people) =>
+    personById(people, list.personId)?.name ?? 'List';
+
+/// Null when [personId] is '' or someone in [people]; otherwise why not.
+String? validateListPersonId(String personId, List<Person> people) =>
+    personId.isEmpty || personById(people, personId) != null
+    ? null
+    : 'no person $personId';
 
 /// One line for a list's live state, read from the entity HA caches: a
 /// `todo.*` entity's state is its count of open items.

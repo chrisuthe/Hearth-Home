@@ -578,8 +578,10 @@ void main() {
   });
 
   group('choresTodayProvider', () {
-    const ava = TodoListConfig(entityId: 'todo.ava', name: 'Ava', person: 'Ava');
-    const ben = TodoListConfig(entityId: 'todo.ben', name: 'Ben', person: 'Ben');
+    const ava =
+        TodoListConfig(entityId: 'todo.ava', name: 'Ava', personId: 'person:ava');
+    const ben =
+        TodoListConfig(entityId: 'todo.ben', name: 'Ben', personId: 'person:ben');
     const groceries = TodoListConfig(entityId: 'todo.groceries');
 
     test('late first, then config order; plain lists left out; midnight tick',

@@ -111,6 +111,8 @@ Registry is `_firstPartyPlugins` in `lib/plugins/plugin_registry.dart`, sorted b
 
 **Modules ≠ plugins.** A module is a *screen*; a plugin is a *settings panel*. Some features have both (Calendar, Lists, Frigate, Mealie, Protect), some only a plugin (Weather, Network, System), and Live TV is a module with no plugin of its own — it's configured by the Plex Cast plugin's pairing.
 
+**People** (`hearth.people`) is a plugin with no module: the household registry in `config.people` (`lib/config/person.dart`), each person optionally linked to an HA `person.*` for an avatar and presence (`lib/services/people.dart`). Lists and Calendar reference people by `personId`, never by name; change the registry through `HubConfig.withPeople` so a removed person's id is cleared everywhere. Design: `docs/specs/2026-10-15-people-design.md`.
+
 Plugin routes are **not** auto-gated by `isVisible` — a hidden plugin's routes still resolve, so each handler must enforce its own gate (see `CapturePlugin._gated`).
 
 ## Git

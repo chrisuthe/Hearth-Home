@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hearth/config/hub_config.dart';
+import 'package:hearth/config/person.dart';
 import 'package:hearth/modules/lists/chores_view.dart';
 import 'package:hearth/modules/lists/lists_providers.dart';
 import 'package:hearth/modules/lists/lists_screen.dart';
@@ -117,10 +118,13 @@ void main() {
       config: HubConfig(
         haUrl: 'http://ha.invalid:8123',
         haToken: 'token',
+        people: [
+          for (var p = 0; p < people; p++)
+            Person(id: 'person:$p', name: p == 0 ? kLongName : 'Person $p'),
+        ],
         todoLists: [
           for (final (p, id) in ids.indexed)
-            TodoListConfig(
-                entityId: id, person: p == 0 ? kLongName : 'Person $p'),
+            TodoListConfig(entityId: id, personId: 'person:$p'),
         ],
       ),
       overrides: [
