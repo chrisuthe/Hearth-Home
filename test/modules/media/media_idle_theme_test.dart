@@ -1,11 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hearth/app/theme/classic_theme_scope.dart';
 import 'package:hearth/app/theme/hearth_colors.dart';
 import 'package:hearth/app/theme/hearth_theme.dart';
 import 'package:hearth/config/hub_config.dart';
 import 'package:hearth/models/music_state.dart';
+import 'package:hearth/modules/media/cinematic/browse_overlay.dart';
 import 'package:hearth/modules/media/cinematic/cinematic_screen.dart';
 import 'package:hearth/modules/media/cinematic/top_chrome.dart';
 import 'package:hearth/services/music_assistant_service.dart';
@@ -39,6 +41,15 @@ class _FakeMusic extends MusicAssistantService {
   Future<List<MaQueueItem>> getQueueItems(String queueId,
           {int limit = 100, int offset = 0}) async =>
       const [];
+
+  @override
+  Future<MaSearchResults> searchLibrary(String query, {int limit = 25}) async =>
+      const MaSearchResults();
+
+  @override
+  Future<List<MaMediaItem>> getLibraryItems(String mediaType,
+          {int limit = 100, int offset = 0, bool favorite = false}) async =>
+      const [];
 }
 
 const _idle = MusicPlayerState(
@@ -60,7 +71,8 @@ const _playing = MusicPlayerState(
   volume: 0.4,
 );
 
-Future<void> _pump(WidgetTester tester, MusicPlayerState player) async {
+Future<void> _pump(WidgetTester tester, MusicPlayerState player,
+    {StreamController<Map<String, MusicPlayerState>>? feed}) async {
   tester.view.physicalSize = const Size(1184, 864);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
@@ -69,7 +81,8 @@ Future<void> _pump(WidgetTester tester, MusicPlayerState player) async {
     overrides: [
       hubConfigProvider.overrideWith((ref) => _MemoryConfig()),
       musicAssistantServiceProvider.overrideWith((ref) => _FakeMusic(players)),
-      maAllPlayersProvider.overrideWith((ref) => Stream.value(players)),
+      maAllPlayersProvider.overrideWith(
+          (ref) => feed?.stream ?? Stream.value(players)),
       sendspinStateProvider.overrideWith((ref) => const Stream.empty()),
     ],
     child: MaterialApp(
@@ -90,9 +103,9 @@ void main() {
     expect(_chipColor(tester), HearthColors.bright.text);
     expect(_chipColor(tester), isNot(Colors.white));
     expect(
-      find.ancestor(
-          of: find.byType(TopChrome), matching: find.byType(ClassicThemeScope)),
-      findsNothing,
+      Theme.of(tester.element(find.byType(TopChrome)))
+          .extension<HearthColors>(),
+      HearthColors.bright,
     );
   });
 
@@ -100,9 +113,30 @@ void main() {
     await _pump(tester, _playing);
     expect(_chipColor(tester), HearthColors.classic.text);
     expect(
-      find.ancestor(
-          of: find.byType(TopChrome), matching: find.byType(ClassicThemeScope)),
-      findsOneWidget,
+      Theme.of(tester.element(find.byType(TopChrome)))
+          .extension<HearthColors>(),
+      HearthColors.classic,
     );
+  });
+
+  testWidgets('a track starting keeps the open browse search', (tester) async {
+    final feed = StreamController<Map<String, MusicPlayerState>>();
+    addTearDown(feed.close);
+    await _pump(tester, _idle, feed: feed);
+    feed.add({'kitchen': _idle});
+    await tester.pump();
+    await tester.tap(find.text('Search & Browse'));
+    await tester.pump(const Duration(milliseconds: 400));
+    final before = tester.state(find.byType(BrowseOverlay));
+    await tester.enterText(find.byType(TextField).first, 'floyd');
+    await tester.pump(const Duration(milliseconds: 400));
+
+    feed.add({'kitchen': _playing});
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(tester.state(find.byType(BrowseOverlay)), same(before));
+    expect(find.text('floyd'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 2));
   });
 }

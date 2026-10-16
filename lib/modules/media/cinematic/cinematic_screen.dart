@@ -126,8 +126,8 @@ class _CinematicScreenState extends ConsumerState<CinematicScreen>
 
     // The player is Classic while a track is on; with none, the chrome
     // follows the app theme. The dark-glass overlays are pinned Classic.
-    Widget themed(Widget screen) =>
-        state?.currentTrack != null ? ClassicThemeScope(child: screen) : screen;
+    Widget themed(Widget screen) => ClassicThemeScope(
+        pinned: state?.currentTrack != null, child: screen);
 
     if (_browseOpen) {
       return themed(Stack(
