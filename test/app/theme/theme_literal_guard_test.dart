@@ -33,6 +33,7 @@ const kThemedFiles = <String>[
   'lib/screens/settings/update_settings.dart',
   'lib/screens/settings/wifi_settings.dart',
   'lib/screens/settings/display_settings.dart',
+  'lib/screens/settings/photo_sources_section.dart',
   'lib/plugins/calendar/calendar_settings_section.dart',
   'lib/plugins/lists/lists_settings_section.dart',
   'lib/plugins/people/people_settings_section.dart',

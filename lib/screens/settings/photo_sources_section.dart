@@ -6,6 +6,7 @@ import '../../config/hub_config.dart';
 import '../../models/immich_album.dart';
 import '../../models/immich_person.dart';
 import '../../services/immich_service.dart';
+import '../../app/theme/hearth_colors.dart';
 import '../../app/tokens/tokens.dart';
 
 /// Debounce delay before a smart-search query keystroke is persisted.
@@ -90,8 +91,8 @@ class _PhotoSourcesSectionState extends ConsumerState<PhotoSourcesSection> {
         SwitchListTile(
           title: const Text('Album'),
           subtitle: config.albumEnabled && config.albumId.isEmpty
-              ? const Text('Pick an album below',
-                  style: TextStyle(color: Colors.amber))
+              ? Text('Pick an album below',
+                  style: TextStyle(color: context.hearthColors.warning))
               : null,
           value: config.albumEnabled,
           onChanged: (v) => update(config.copyWith(albumEnabled: v)),
@@ -111,8 +112,8 @@ class _PhotoSourcesSectionState extends ConsumerState<PhotoSourcesSection> {
         SwitchListTile(
           title: const Text('People'),
           subtitle: config.peopleEnabled && config.personIds.isEmpty
-              ? const Text('Pick at least one person below',
-                  style: TextStyle(color: Colors.amber))
+              ? Text('Pick at least one person below',
+                  style: TextStyle(color: context.hearthColors.warning))
               : null,
           value: config.peopleEnabled,
           onChanged: (v) => update(config.copyWith(peopleEnabled: v)),
@@ -132,8 +133,8 @@ class _PhotoSourcesSectionState extends ConsumerState<PhotoSourcesSection> {
         SwitchListTile(
           title: const Text('Smart search'),
           subtitle: config.smartSearchEnabled && config.smartSearchQuery.isEmpty
-              ? const Text('Enter a query below',
-                  style: TextStyle(color: Colors.amber))
+              ? Text('Enter a query below',
+                  style: TextStyle(color: context.hearthColors.warning))
               : null,
           value: config.smartSearchEnabled,
           onChanged: (v) => update(config.copyWith(smartSearchEnabled: v)),
