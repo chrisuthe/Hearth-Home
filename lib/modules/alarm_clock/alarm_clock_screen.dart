@@ -126,7 +126,7 @@ class AlarmClockScreen extends ConsumerWidget {
           const SizedBox(height: HearthSpacing.x2),
           Text(
             'Tap + to create one',
-            style: TextStyle(fontSize: HearthFont.label, color: c.inkAt(0.24)),
+            style: TextStyle(fontSize: HearthFont.label, color: c.textMuted),
           ),
         ],
       ),

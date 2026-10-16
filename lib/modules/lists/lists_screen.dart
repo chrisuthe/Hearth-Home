@@ -557,7 +557,7 @@ class _NotConfigured extends StatelessWidget {
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 14,
-                  color: context.hearthColors.inkAt(0.3),
+                  color: context.hearthColors.textMuted,
                 ),
               ),
             ],

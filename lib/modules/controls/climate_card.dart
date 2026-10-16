@@ -25,7 +25,7 @@ class ClimateCard extends StatelessWidget {
   Color _modeColor(HearthColors c, String? mode) {
     switch (mode) {
       case 'heat':
-        return c.warning;
+        return c.danger;
       case 'cool':
         return c.accentText;
       case 'heat_cool':

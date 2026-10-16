@@ -147,7 +147,7 @@ class _MealieScreenState extends ConsumerState<MealieScreen>
                   Text('Add your Mealie URL and token in Settings',
                       style: TextStyle(
                           fontSize: 14,
-                          color: c.inkAt(0.3))),
+                          color: c.textMuted)),
                 ],
               ),
             )

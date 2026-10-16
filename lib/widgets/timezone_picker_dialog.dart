@@ -123,7 +123,7 @@ class _TimezonePickerDialogState extends State<TimezonePickerDialog> {
       dense: true,
       visualDensity: VisualDensity.compact,
       leading: isSelected
-          ? Icon(Icons.check, size: HearthIcon.xs, color: context.hearthColors.warning)
+          ? Icon(Icons.check, size: HearthIcon.xs, color: context.hearthColors.accentText)
           : const SizedBox(width: HearthIcon.xs),
       title: Text(label, style: const TextStyle(fontSize: HearthFont.body)),
       onTap: () => Navigator.pop(context, value),

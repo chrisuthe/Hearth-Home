@@ -194,7 +194,7 @@ class _UrlEditorDialogState extends State<_UrlEditorDialog> {
                 labelText: 'URL',
                 hintText: 'https://…',
                 labelStyle: TextStyle(color: c.textMuted),
-                hintStyle: TextStyle(color: c.inkAt(0.24)),
+                hintStyle: TextStyle(color: c.textMuted),
               ),
               keyboardType: TextInputType.url,
               autocorrect: false,

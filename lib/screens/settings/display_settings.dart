@@ -33,7 +33,7 @@ class DisplaySettingsSection extends ConsumerWidget {
                 if (entry.key == current)
                   Icon(Icons.check,
                       size: HearthIcon.xs,
-                      color: context.hearthColors.warning)
+                      color: context.hearthColors.accentText)
                 else
                   const SizedBox(width: HearthIcon.xs),
                 const SizedBox(width: HearthSpacing.x3),
