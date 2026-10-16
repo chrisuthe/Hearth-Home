@@ -38,6 +38,8 @@ class HearthApp extends ConsumerWidget {
       debugShowCheckedModeBanner: false,
       scrollBehavior: const _TouchScrollBehavior(),
       theme: buildHearthTheme(ref.watch(hearthColorsProvider)),
+      // HearthColors.lerp snaps, so an animated change would flicker.
+      themeAnimationDuration: Duration.zero,
       builder: (context, child) {
         final control = HearthOskControl.instance;
         if (control == null || child == null) {

@@ -414,7 +414,7 @@ class _ScrollWheelState extends State<_ScrollWheel> {
                       fontWeight: FontWeight.w200,
                       color: index == _selectedIndex
                           ? c.text
-                          : c.textFaint,
+                          : c.textMuted,
                     ),
                   ),
                 );
