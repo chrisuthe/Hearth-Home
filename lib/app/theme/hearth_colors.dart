@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../config/hearth_theme_id.dart';
 import '../../packages/hearth_osk/hearth_osk.dart';
 import '../tokens/calendar_tokens.dart';
+import 'memories_accent_scope.dart';
 import 'osk_themes.dart';
 import 'palettes/catppuccin.dart';
 import 'palettes/tokyo_night.dart';
@@ -39,6 +40,7 @@ class HearthColors extends ThemeExtension<HearthColors> {
     required this.warning,
     required this.osk,
     required this.calendar,
+    this.followsPhoto = false,
   });
 
   /// Base for translucent foreground washes (borders, dividers, overlays).
@@ -88,6 +90,10 @@ class HearthColors extends ThemeExtension<HearthColors> {
 
   /// Calendar screen palette.
   final CalendarColors calendar;
+
+  /// The accent roles follow the memory photo on screen (Memories). [of]
+  /// then reads them from the [MemoriesAccentScope] above.
+  final bool followsPhoto;
 
   /// Today's look. Tints use `Color.from` so they equal
   /// `Colors.black.withValues(alpha: x)` exactly.
@@ -177,6 +183,11 @@ class HearthColors extends ThemeExtension<HearthColors> {
     calendar: CalendarColors.classic,
   ));
 
+  /// Classic, with the accent family taken from the memory photo on screen.
+  /// These are its values with no photo: the accent roles equal
+  /// `kMemoriesFallback`, which is also what Material is seeded from.
+  static final HearthColors memories = classic.copyWith(followsPhoto: true);
+
   static HearthColors _withCalendar(HearthColors base) =>
       base.copyWith(calendar: CalendarColors.derive(base));
 
@@ -185,6 +196,7 @@ class HearthColors extends ThemeExtension<HearthColors> {
         HearthThemeId.classic => classic,
         HearthThemeId.bright => bright,
         HearthThemeId.warm => warm,
+        HearthThemeId.memories => memories,
         HearthThemeId.catppuccinLatte => CatppuccinPalettes.latte,
         HearthThemeId.catppuccinFrappe => CatppuccinPalettes.frappe,
         HearthThemeId.catppuccinMacchiato => CatppuccinPalettes.macchiato,
@@ -193,12 +205,28 @@ class HearthColors extends ThemeExtension<HearthColors> {
         HearthThemeId.tokyoNightStorm => TokyoNightPalettes.storm,
         HearthThemeId.tokyoNightMoon => TokyoNightPalettes.moon,
         HearthThemeId.tokyoNightDay => TokyoNightPalettes.day,
-        // Temporary: the remaining palettes land in later tasks.
-        _ => classic,
       };
 
-  static HearthColors of(BuildContext context) =>
-      Theme.of(context).extension<HearthColors>() ?? classic;
+  /// The palette in effect at [context]. A theme that follows the photo
+  /// also depends on the [MemoriesAccentScope], so the widget rebuilds as
+  /// the accent fades; any other theme never does.
+  static HearthColors of(BuildContext context) {
+    final colors = Theme.of(context).extension<HearthColors>() ?? classic;
+    return colors.followsPhoto ? MemoriesAccentScope.colorsOf(context) : colors;
+  }
+
+  /// A copy with the four accent roles from [a], and the Calendar's accent
+  /// and accent tints made from them.
+  HearthColors withMemoriesAccent(
+          ({Color accent, Color accentText, Color accentFill, Color onAccent})
+              a) =>
+      copyWith(
+        accent: a.accent,
+        accentText: a.accentText,
+        accentFill: a.accentFill,
+        onAccent: a.onAccent,
+        calendar: calendar.withAccent(a.accent, a.accentText),
+      );
 
   Color inkAt(double alpha) => ink.withValues(alpha: alpha);
 
@@ -235,6 +263,7 @@ class HearthColors extends ThemeExtension<HearthColors> {
     Color? warning,
     HearthOskTheme? osk,
     CalendarColors? calendar,
+    bool? followsPhoto,
   }) =>
       HearthColors(
         ink: ink ?? this.ink,
@@ -260,6 +289,7 @@ class HearthColors extends ThemeExtension<HearthColors> {
         warning: warning ?? this.warning,
         osk: osk ?? this.osk,
         calendar: calendar ?? this.calendar,
+        followsPhoto: followsPhoto ?? this.followsPhoto,
       );
 
   /// Hearth never animates a theme change, so this snaps at the midpoint.

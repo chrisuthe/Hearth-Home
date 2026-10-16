@@ -2,9 +2,14 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_color_utilities/material_color_utilities.dart';
 
 import '../app/theme/hearth_colors.dart';
+import '../app/theme/theme_providers.dart';
+import '../config/hearth_theme_id.dart';
+import '../screens/ambient/photo_carousel.dart' show PhotoFrame;
+import 'photo_providers.dart';
 
 /// The four accent roles the Memories theme takes from a photo.
 typedef MemoriesAccent = ({
@@ -117,3 +122,46 @@ double _contrast(Color a, Color b) {
   final x = a.computeLuminance(), y = b.computeLuminance();
   return (x > y ? x + 0.05 : y + 0.05) / (x > y ? y + 0.05 : x + 0.05);
 }
+
+/// The accent seed of the current photo, tagged with the frame it came from so
+/// the Memories host can match it to the photo on screen. Null unless the
+/// theme is Memories, or while the photo changes. A null seed (no sample: a
+/// remote path or a failed decode; or a photo with no usable color) means the
+/// fallback accent.
+final memoriesSeedProvider =
+    FutureProvider<({PhotoFrame frame, Color? seed})?>((ref) async {
+  final memories = ref.watch(
+    hearthThemeIdProvider.select((id) => id == HearthThemeId.memories),
+  );
+  if (!memories) return null;
+  final frame = ref.watch(currentPhotoProvider);
+  if (frame == null) return null;
+
+  // A change mid-extraction disposes this run; onDispose can't be registered
+  // after that.
+  var disposed = false;
+  ref.onDispose(() => disposed = true);
+
+  // As in blurredPhotoProvider: the sample's image can be disposed before this
+  // run's onDispose fires, so check it is still current, then clone it.
+  final sample = await ref.watch(photoSampleProvider.future);
+  if (disposed) return null;
+  if (sample == null) return (frame: frame, seed: null);
+  if (!identical(ref.read(photoSampleProvider).valueOrNull, sample)) {
+    return null;
+  }
+  final ui.Image clone;
+  try {
+    clone = sample.clone();
+  } on StateError {
+    return null;
+  }
+  final Color? seed;
+  try {
+    seed = await extractAccentSeed(clone);
+  } finally {
+    clone.dispose();
+  }
+  if (disposed) return null;
+  return (frame: frame, seed: seed);
+});

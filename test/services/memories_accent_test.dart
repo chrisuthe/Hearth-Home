@@ -1,12 +1,20 @@
+import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:flutter/painting.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hearth/app/theme/hearth_colors.dart';
+import 'package:hearth/app/theme/theme_providers.dart';
+import 'package:hearth/config/hearth_theme_id.dart';
+import 'package:hearth/config/screen_background.dart';
+import 'package:hearth/services/immich_service.dart' show kCenterFocalPoint;
 import 'package:hearth/services/memories_accent.dart';
+import 'package:hearth/services/photo_providers.dart';
 import 'package:material_color_utilities/material_color_utilities.dart';
 
 import '../app/theme/contrast_helpers.dart';
+import 'photo_fixture.dart';
 
 const _black = Color(0xFF000000);
 const _white = Color(0xFFFFFFFF);
@@ -147,5 +155,59 @@ void main() {
       if (contrast(a.onAccent, a.accentFill) < 4.5) fails.add('fill $seed');
     }
     expect(fails, isEmpty);
+  });
+
+  group('memoriesSeedProvider', () {
+    late Directory dir;
+    setUp(() => dir = Directory.systemTemp.createTempSync());
+    tearDown(() => dir.deleteSync(recursive: true));
+
+    ProviderContainer container(HearthThemeId theme) {
+      final c = ProviderContainer(overrides: [
+        // Blurred, so the sample exists whatever the theme.
+        screenBackgroundProvider.overrideWithValue(ScreenBackground.blurred),
+        hearthThemeIdProvider.overrideWithValue(theme),
+      ]);
+      addTearDown(c.dispose);
+      return c;
+    }
+
+    Future<String> writePhoto() async {
+      final file = File('${dir.path}/a.png');
+      await file.writeAsBytes(await redBluePng());
+      return file.path;
+    }
+
+    testWidgets('is null unless the theme is Memories', (tester) async {
+      await tester.runAsync(() async {
+        final c = container(HearthThemeId.classic);
+        c.read(currentPhotoProvider.notifier).state =
+            (path: await writePhoto(), focal: kCenterFocalPoint);
+        expect(await c.read(memoriesSeedProvider.future), isNull);
+      });
+    });
+
+    testWidgets('seeds the current photo, tagged with its frame',
+        (tester) async {
+      await tester.runAsync(() async {
+        final c = container(HearthThemeId.memories);
+        final frame = (path: await writePhoto(), focal: kCenterFocalPoint);
+        c.read(currentPhotoProvider.notifier).state = frame;
+        final result = await c.read(memoriesSeedProvider.future);
+        expect(result!.frame, frame);
+        expect(result.seed, isNotNull);
+      });
+    });
+
+    testWidgets('a photo with no sample seeds the fallback', (tester) async {
+      await tester.runAsync(() async {
+        final c = container(HearthThemeId.memories);
+        const frame = (path: 'http://x/a.jpg', focal: kCenterFocalPoint);
+        c.read(currentPhotoProvider.notifier).state = frame;
+        final result = await c.read(memoriesSeedProvider.future);
+        expect(result!.frame, frame);
+        expect(result.seed, isNull);
+      });
+    });
   });
 }
