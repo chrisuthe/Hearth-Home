@@ -10,6 +10,7 @@ import 'packages/hearth_osk/hearth_osk.dart';
 import 'services/app_updater.dart';
 import 'services/capture_service.dart';
 import 'services/display_rotation_service.dart';
+import 'services/frame_timing_log.dart';
 import 'services/local_api_server.dart';
 import 'services/osk_integration.dart';
 import 'services/third_party_licenses.dart';
@@ -36,6 +37,7 @@ const double kWindowHeight = 864;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  installFrameTimingLog();
   registerThirdPartyLicenses();
 
   // Kiosk tablets: hide Android's status and navigation bars. Sticky, so an
