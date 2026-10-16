@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../packages/hearth_osk/hearth_osk.dart';
+import 'osk_themes.dart';
+
 /// How strongly a screen scrim darkens the photo behind it.
 enum TintStrength { light, medium, heavy }
 
@@ -26,6 +29,7 @@ class HearthColors extends ThemeExtension<HearthColors> {
     required this.photoTintLight,
     required this.photoTintMedium,
     required this.photoTintHeavy,
+    required this.osk,
   });
 
   /// Base for translucent foreground washes (borders, dividers, overlays).
@@ -62,6 +66,9 @@ class HearthColors extends ThemeExtension<HearthColors> {
   final Color photoTintMedium;
   final Color photoTintHeavy;
 
+  /// On-screen keyboard palette.
+  final HearthOskTheme osk;
+
   /// Today's look. Tints use `Color.from` so they equal
   /// `Colors.black.withValues(alpha: x)` exactly.
   static const HearthColors classic = HearthColors(
@@ -82,6 +89,7 @@ class HearthColors extends ThemeExtension<HearthColors> {
     photoTintLight: Color.from(alpha: 0.6, red: 0, green: 0, blue: 0),
     photoTintMedium: Color.from(alpha: 0.7, red: 0, green: 0, blue: 0),
     photoTintHeavy: Color.from(alpha: 0.85, red: 0, green: 0, blue: 0),
+    osk: classicOskTheme,
   );
 
   static HearthColors of(BuildContext context) =>
@@ -116,6 +124,7 @@ class HearthColors extends ThemeExtension<HearthColors> {
     Color? photoTintLight,
     Color? photoTintMedium,
     Color? photoTintHeavy,
+    HearthOskTheme? osk,
   }) =>
       HearthColors(
         ink: ink ?? this.ink,
@@ -135,6 +144,7 @@ class HearthColors extends ThemeExtension<HearthColors> {
         photoTintLight: photoTintLight ?? this.photoTintLight,
         photoTintMedium: photoTintMedium ?? this.photoTintMedium,
         photoTintHeavy: photoTintHeavy ?? this.photoTintHeavy,
+        osk: osk ?? this.osk,
       );
 
   /// Hearth never animates a theme change, so this snaps at the midpoint.

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../hearth_plugin.dart';
 import '../plugin_registry.dart';
+import '../../app/theme/hearth_colors.dart';
 
 /// Sidebar widget listing all registered plugins grouped by category.
 ///
@@ -93,6 +94,7 @@ class _Row extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.hearthColors;
     return InkWell(
       onTap: onTap,
       child: Container(
@@ -101,7 +103,7 @@ class _Row extends ConsumerWidget {
         child: Row(
           children: [
             Icon(plugin.icon,
-                color: selected ? const Color(0xFF99EEBB) : Colors.white70,
+                color: selected ? const Color(0xFF99EEBB) : c.textSecondary,
                 size: 16),
             const SizedBox(width: 10),
             Expanded(
@@ -109,7 +111,7 @@ class _Row extends ConsumerWidget {
                 plugin.name,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: selected ? const Color(0xFF99EEBB) : Colors.white,
+                  color: selected ? const Color(0xFF99EEBB) : c.text,
                   fontSize: 13,
                 ),
               ),

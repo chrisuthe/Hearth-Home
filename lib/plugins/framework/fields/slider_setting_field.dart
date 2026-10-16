@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../config/hub_config.dart';
 import '../web_context.dart';
 import 'setting_field.dart';
+import '../../../app/theme/hearth_colors.dart';
 
 /// Numeric slider field. Renders a Flutter [Slider] on device and an
 /// `<input type="range">` on the web portal.
@@ -172,6 +173,7 @@ class _SliderRowState extends ConsumerState<_SliderRow> {
     final display = widget.field.labelBuilder != null
         ? widget.field.labelBuilder!(_value)
         : _value.round().toString();
+    final c = context.hearthColors;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Column(
@@ -180,10 +182,10 @@ class _SliderRowState extends ConsumerState<_SliderRow> {
           Row(
             children: [
               Text(widget.field.label,
-                  style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                  style: TextStyle(color: c.textSecondary, fontSize: 13)),
               const Spacer(),
               Text(display,
-                  style: const TextStyle(color: Colors.white, fontSize: 13)),
+                  style: TextStyle(color: c.text, fontSize: 13)),
             ],
           ),
           Slider(
@@ -191,7 +193,7 @@ class _SliderRowState extends ConsumerState<_SliderRow> {
             min: widget.field.min,
             max: widget.field.max,
             divisions: widget.field.divisions,
-            activeColor: const Color(0xFF646cff),
+            activeColor: c.accent,
             onChanged: _onChanged,
           ),
         ],

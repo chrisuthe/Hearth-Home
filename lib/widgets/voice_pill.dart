@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../app/tokens/tokens.dart';
+import '../app/theme/hearth_colors.dart';
 import '../config/hub_config.dart';
 import '../services/voice_assistant_service.dart';
 
@@ -116,41 +117,40 @@ class _PillContent extends StatelessWidget {
     required this.pulseAnimation,
   });
 
-  static const _accent = Color(0xFF646CFF);
-
   @override
   Widget build(BuildContext context) {
+    final c = context.hearthColors;
     return Container(
       constraints: const BoxConstraints(maxWidth: 720),
       padding: const EdgeInsets.symmetric(horizontal: HearthSpacing.x5, vertical: HearthSpacing.x3),
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.7),
+        color: c.canvasAt(0.7),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.12),
+          color: c.inkAt(0.12),
         ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
-        children: _buildContent(),
+        children: _buildContent(c),
       ),
     );
   }
 
-  List<Widget> _buildContent() {
+  List<Widget> _buildContent(HearthColors c) {
     switch (state.state) {
       case VoiceState.listening:
         return [
           FadeTransition(
             opacity: Tween<double>(begin: 0.4, end: 1.0)
                 .animate(pulseAnimation),
-            child: const Icon(Icons.mic, color: _accent, size: HearthIcon.xl),
+            child: Icon(Icons.mic, color: c.accent, size: HearthIcon.xl),
           ),
           const SizedBox(width: HearthSpacing.x2),
-          const Text(
+          Text(
             'Listening...',
             style: TextStyle(
-              color: Colors.white,
+              color: c.text,
               fontSize: HearthFont.headline,
               fontWeight: FontWeight.w400,
             ),
@@ -162,8 +162,8 @@ class _PillContent extends StatelessWidget {
           Flexible(
             child: Text(
               state.transcription ?? 'Processing...',
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: c.text,
                 fontSize: HearthFont.headline,
                 fontWeight: FontWeight.w400,
               ),
@@ -172,25 +172,25 @@ class _PillContent extends StatelessWidget {
             ),
           ),
           const SizedBox(width: HearthSpacing.x2),
-          const SizedBox(
+          SizedBox(
             width: HearthIcon.lg,
             height: HearthIcon.lg,
             child: CircularProgressIndicator(
               strokeWidth: 4,
-              color: _accent,
+              color: c.accent,
             ),
           ),
         ];
 
       case VoiceState.responding:
         return [
-          const Icon(Icons.volume_up, color: _accent, size: HearthIcon.xl),
+          Icon(Icons.volume_up, color: c.accent, size: HearthIcon.xl),
           const SizedBox(width: HearthSpacing.x2),
           Flexible(
             child: Text(
               state.responseText ?? '',
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: c.text,
                 fontSize: HearthFont.headline,
                 fontWeight: FontWeight.w400,
               ),

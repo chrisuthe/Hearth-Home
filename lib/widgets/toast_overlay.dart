@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../app/tokens/tokens.dart';
+import '../app/theme/hearth_colors.dart';
 import '../services/toast_service.dart';
 
 /// Floating pill that displays brief toast messages near the bottom of the
@@ -81,12 +82,10 @@ class _ToastPill extends StatelessWidget {
 
   const _ToastPill({required this.toast});
 
-  static const _accent = Color(0xFF646CFF);
-
-  Color _iconColor() {
+  Color _iconColor(HearthColors c) {
     switch (toast.type) {
       case ToastType.info:
-        return _accent;
+        return c.accent;
       case ToastType.success:
         return const Color(0xFF4CAF50);
       case ToastType.warning:
@@ -98,28 +97,29 @@ class _ToastPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.hearthColors;
     return Container(
       constraints: const BoxConstraints(maxWidth: 800),
       padding: const EdgeInsets.symmetric(horizontal: HearthSpacing.x5, vertical: HearthSpacing.x3),
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.7),
+        color: c.canvasAt(0.7),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.12),
+          color: c.inkAt(0.12),
         ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           if (toast.icon != null) ...[
-            Icon(toast.icon, color: _iconColor(), size: HearthIcon.xl),
+            Icon(toast.icon, color: _iconColor(c), size: HearthIcon.xl),
             const SizedBox(width: HearthSpacing.x3),
           ],
           Flexible(
             child: Text(
               toast.message,
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: c.text,
                 fontSize: HearthFont.headline,
                 fontWeight: FontWeight.w400,
               ),

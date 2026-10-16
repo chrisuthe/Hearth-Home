@@ -44,7 +44,7 @@ class HearthApp extends ConsumerWidget {
         }
         return HearthOskScope(
           control: control,
-          theme: hearthOskTheme,
+          theme: HearthColors.of(context).osk,
           child: child,
         );
       },

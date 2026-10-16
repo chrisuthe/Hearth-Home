@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../config/hub_config.dart';
 import '../web_context.dart';
 import 'setting_field.dart';
+import '../../../app/theme/hearth_colors.dart';
 
 /// Plain text input. Maps 1:1 to a string field on HubConfig via configPath.
 ///
@@ -107,23 +108,24 @@ class _TextFieldRowState extends ConsumerState<_TextFieldRow> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.hearthColors;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(widget.field.label,
-              style: const TextStyle(color: Colors.white70, fontSize: 13)),
+              style: TextStyle(color: c.textSecondary, fontSize: 13)),
           const SizedBox(height: 4),
           TextField(
             controller: _controller,
-            style: const TextStyle(color: Colors.white),
+            style: TextStyle(color: c.text),
             decoration: InputDecoration(
               hintText: widget.field.hint,
-              hintStyle: const TextStyle(color: Colors.white38),
+              hintStyle: TextStyle(color: c.textFaint),
               errorText: _error,
               filled: true,
-              fillColor: const Color(0xFF161618),
+              fillColor: c.card,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(6),
                 borderSide: BorderSide.none,

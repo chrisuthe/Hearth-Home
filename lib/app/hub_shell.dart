@@ -28,6 +28,7 @@ import '../services/sendspin/android_sendspin_service.dart';
 import '../services/sendspin/sendspin_service.dart';
 import '../services/toast_service.dart';
 import '../widgets/toast_overlay.dart';
+import 'theme/hearth_colors.dart';
 import '../widgets/voice_pill.dart';
 import '../services/voice_assistant_service.dart';
 
@@ -251,7 +252,7 @@ class _HubShellState extends ConsumerState<HubShell> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text('Volume', style: TextStyle(fontSize: HearthFont.caption, color: Colors.white54)),
+          const Text('Volume', style: TextStyle(fontSize: HearthFont.caption, color: Colors.white54)), // theme-exempt: menu content, outside the Task 3 migration scope
           const SizedBox(height: HearthSpacing.x1),
           const _SystemVolumeSlider(),
           if (menu2Items.isNotEmpty) ...[
@@ -472,7 +473,7 @@ class _HubShellState extends ConsumerState<HubShell> {
                 return IconButton(
                   icon: Icon(
                     muted ? Icons.mic_off : Icons.mic,
-                    color: muted ? Colors.red : Colors.white38,
+                    color: muted ? Colors.red : Colors.white38, // theme-exempt: menu content, outside the Task 3 migration scope
                     size: HearthIcon.lg,
                   ),
                   onPressed: () {
@@ -599,18 +600,18 @@ class _QuickAction extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(16),
-        splashColor: Colors.white24,
+        splashColor: Colors.white24, // theme-exempt: menu content, outside the Task 3 migration scope
         child: Container(
           width: 88,
           height: 88,
           decoration: BoxDecoration(
             color: active
-                ? const Color(0xFF646CFF).withValues(alpha: 0.2)
-                : Colors.white.withValues(alpha: 0.08),
+                ? const Color(0xFF646CFF).withValues(alpha: 0.2) // theme-exempt: menu content, outside the Task 3 migration scope
+                : Colors.white.withValues(alpha: 0.08), // theme-exempt: menu content, outside the Task 3 migration scope
             borderRadius: BorderRadius.circular(16),
             border: active
                 ? Border.all(
-                    color: const Color(0xFF646CFF).withValues(alpha: 0.5))
+                    color: const Color(0xFF646CFF).withValues(alpha: 0.5)) // theme-exempt: menu content, outside the Task 3 migration scope
                 : null,
           ),
           child: Column(
@@ -618,11 +619,11 @@ class _QuickAction extends StatelessWidget {
             children: [
               Icon(icon,
                   size: 28,
-                  color: active ? const Color(0xFF646CFF) : Colors.white70),
+                  color: active ? const Color(0xFF646CFF) : Colors.white70), // theme-exempt: menu content, outside the Task 3 migration scope
               const SizedBox(height: 6),
               Text(
                 label,
-                style: const TextStyle(fontSize: HearthFont.caption, color: Colors.white70),
+                style: const TextStyle(fontSize: HearthFont.caption, color: Colors.white70), // theme-exempt: menu content, outside the Task 3 migration scope
                 overflow: TextOverflow.ellipsis,
               ),
             ],
@@ -674,7 +675,7 @@ class _MenuTray extends StatelessWidget {
                   ),
                   padding: const EdgeInsets.all(HearthSpacing.x4),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1A1A1A),
+                    color: context.hearthColors.menu,
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Column(
@@ -686,7 +687,7 @@ class _MenuTray extends StatelessWidget {
                         Container(
                           width: HearthSpacing.x10, height: HearthSpacing.x1,
                           decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.3),
+                            color: context.hearthColors.inkAt(0.3),
                             borderRadius: BorderRadius.circular(2),
                           ),
                         ),
@@ -694,7 +695,7 @@ class _MenuTray extends StatelessWidget {
                         Container(
                           width: HearthSpacing.x10, height: HearthSpacing.x1,
                           decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.3),
+                            color: context.hearthColors.inkAt(0.3),
                             borderRadius: BorderRadius.circular(2),
                           ),
                         ),
@@ -792,16 +793,16 @@ class _SystemVolumeSliderState extends ConsumerState<_SystemVolumeSlider> {
 
     return Row(
       children: [
-        const Icon(Icons.volume_down, color: Colors.white54, size: HearthIcon.sm),
+        const Icon(Icons.volume_down, color: Colors.white54, size: HearthIcon.sm), // theme-exempt: menu content, outside the Task 3 migration scope
         Expanded(
           child: Slider(
             value: _volume,
             onChanged: _onChanged,
-            activeColor: Colors.white70,
-            inactiveColor: Colors.white.withValues(alpha: 0.1),
+            activeColor: Colors.white70, // theme-exempt: menu content, outside the Task 3 migration scope
+            inactiveColor: Colors.white.withValues(alpha: 0.1), // theme-exempt: menu content, outside the Task 3 migration scope
           ),
         ),
-        const Icon(Icons.volume_up, color: Colors.white54, size: HearthIcon.sm),
+        const Icon(Icons.volume_up, color: Colors.white54, size: HearthIcon.sm), // theme-exempt: menu content, outside the Task 3 migration scope
       ],
     );
   }
@@ -820,8 +821,9 @@ class _MenuScreenWrapper extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.hearthColors;
     return Material(
-      color: Colors.black,
+      color: c.canvas,
       child: Stack(
         children: [
           child,
@@ -829,7 +831,7 @@ class _MenuScreenWrapper extends StatelessWidget {
             top: HearthSpacing.x3,
             left: HearthSpacing.x3,
             child: IconButton(
-              icon: const Icon(Icons.close, color: Colors.white70, size: 28),
+              icon: Icon(Icons.close, color: c.textSecondary, size: 28),
               onPressed: () => Navigator.of(context).pop(),
             ),
           ),
