@@ -1,7 +1,23 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../utils/logger.dart';
+
+/// Stands in for the platform check in tests.
+@visibleForTesting
+bool? debugWifiManagedBySystemOverride;
+
+/// Whether the OS owns Wi-Fi, so Hearth hands off to the system settings
+/// page instead of scanning and joining networks itself. True on Android,
+/// where an ordinary app can neither join a network nor read the SSID
+/// without location permission.
+///
+/// `dart:io`, not `defaultTargetPlatform`: the latter reports Android under
+/// `flutter test`.
+bool get wifiManagedBySystem =>
+    debugWifiManagedBySystemOverride ?? (!kIsWeb && Platform.isAndroid);
 
 /// A WiFi network discovered via nmcli.
 class WifiNetwork {
@@ -48,6 +64,18 @@ class WifiNetwork {
 /// All methods return empty results or false on non-Linux platforms so
 /// the Windows dev build works without any special-casing in UI code.
 class WifiService {
+  static const _channel = MethodChannel('com.hearth/wifi');
+
+  /// Opens the system Wi-Fi settings page. Android only — see
+  /// [wifiManagedBySystem].
+  Future<void> openSystemSettings() async {
+    try {
+      await _channel.invokeMethod('openSettings');
+    } on PlatformException catch (e) {
+      Log.e('WiFi', 'Open system settings failed: $e');
+    }
+  }
+
   /// Scans for available WiFi networks.
   ///
   /// Runs: `nmcli -t -f SSID,SIGNAL,SECURITY device wifi list --rescan yes`
