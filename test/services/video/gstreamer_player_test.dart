@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutterpi_gstreamer_video_player/flutterpi_gstreamer_video_player.dart';
@@ -176,6 +177,46 @@ void main() {
           isInitialized: true, size: const Size(1920, 1080));
       await player.stop();
       expect(player.videoSize.value, isNull);
+    });
+  });
+
+  group('buildView', () {
+    // The camera and Protect screens build the view once, right after
+    // play() is fired. Initialization finishes seconds later, and on the Pi
+    // nothing else rebuilt those screens until the photo carousel ticked
+    // (every 15 s), so the spinner stayed up over a stream that was already
+    // playing. The view has to follow initialization on its own.
+    testWidgets('swaps the spinner for the video once initialized',
+        (tester) async {
+      await tester.pumpWidget(Directionality(
+        textDirection: TextDirection.ltr,
+        child: player.buildView(),
+      ));
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(find.byType(VideoPlayer), findsNothing);
+
+      controller.value = controller.value.copyWith(
+          isInitialized: true, size: const Size(2560, 1440));
+      await tester.pump();
+
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+      expect(find.byType(VideoPlayer), findsOneWidget);
+    });
+
+    testWidgets('returns to the spinner on stop', (tester) async {
+      controller.value = controller.value.copyWith(
+          isInitialized: true, size: const Size(2560, 1440));
+      await tester.pumpWidget(Directionality(
+        textDirection: TextDirection.ltr,
+        child: player.buildView(),
+      ));
+      expect(find.byType(VideoPlayer), findsOneWidget);
+
+      await player.stop();
+      await tester.pump();
+
+      expect(find.byType(VideoPlayer), findsNothing);
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
     });
   });
 }
