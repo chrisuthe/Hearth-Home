@@ -74,7 +74,7 @@ The alternative was for Hearth to write its own copy of the pipeline against `:p
 
 As with the Ava fork:
 
-- SendspinDroid is a submodule at `android/third_party/sendspindroid`, pinned to commit `0e6c67c5`, the merge of phase 2. There is no tag yet. A `v*` tag there runs SendspinDroid's release workflow and publishes an app release (**verified**, `.github/workflows/release.yml`), so a tag is cut only when there is a reason to; the pin moves to it then.
+- SendspinDroid is a submodule at `android/third_party/sendspindroid`, pinned first to commit `0e6c67c5`, the merge of phase 2, and since 2026-10-17 to tag `v2.0.0` (`a135c27c`); see [Pin bump to v2.0.0](#pin-bump-to-v200). A `v*` tag there runs SendspinDroid's release workflow and publishes an app release (**verified**, `.github/workflows/release.yml`), so a tag is cut only when there is a reason to; the pin moves to it then.
 - Hearth builds `:shared` and `:player` from its own scripts under `android/sendspin/shared` and `android/sendspin/player`, with source sets pointing into the submodule, and includes them from `android/settings.gradle.kts` as `:sendspin-shared` and `:sendspin-player`.
 - The scripts take their SDK levels from `:app`, as `android/ava/satellite/build.gradle.kts` does.
 - **Done.** `0e6c67c5` is the merge of pull request 329 (**verified**, `git log -1` in the submodule). The module layout read there: `:shared` has `commonMain`, `jvmShared`, `androidMain` and `jvmMain` sources, Kotlin only; `:player` has a bare manifest, sources under `src/main/java`, and `consumer-rules.pro`; neither imports AndroidX (**verified**). `:app` depends on `:sendspin-player`.
@@ -189,6 +189,30 @@ Found, not fixed here:
 - `client/hello` names the product "SendSpinDroid": `MessageBuilder` in SendspinDroid's `:shared` hardcodes `product_name`, and `manufacturer` is `Build.MANUFACTURER` ("Electron" on this tablet). A SendspinDroid change, so `SendSpinHost` can supply both.
 - Stopping the player sends `client/goodbye` reason `another_server` before `shutdown`: `InboundConnections.close()` releases the held connection with `leaveForAnotherServer()`. Same in SendspinDroid's app.
 - The volume truncation is in SendspinDroid's `setVolume`; its own app has the same off-by-one.
+
+## Pin bump to v2.0.0
+
+2026-10-17. The pin moved from `0e6c67c5` to tag `v2.0.0` (`a135c27c`), 184 commits later, from Beta21 to the final release. `0e6c67c5` is an ancestor of the tag (**verified**, `git merge-base --is-ancestor`).
+
+**Build scripts.** Upstream's `shared/` and `player/` scripts list the same dependencies as before, and `player/consumer-rules.pro` and the player's manifest are unchanged (**verified**, `git diff` of each). The only script change is the KMP target block renamed from `androidLibrary {}` to `android {}`, which upstream needs for its move to AGP 9.2.1 and Gradle 9.4.1. Hearth stays on AGP 9.1.0, where `androidLibrary {}` builds with no warning, so neither Hearth script changed. The licence is unchanged (**verified**).
+
+**Adapted in Hearth:**
+
+- `SendSpinHost.serverColors` is new and abstract. `HearthSendSpinHost` returns false: nothing in Dart reads the server's colors, and `client/hello` then lists no `color@v1`, as before.
+- `SendSpin.Callback.onMetadataUpdate` now takes the protocol's `TrackMetadata` and the extrapolated position. `SendspinPlayer` maps it onto the same `metadata` keys, so Dart is unchanged. The new `albumArtist` and `year` are not passed on, because `SendspinMetadata` has no fields for them.
+- `onPlayerRoleChanged(false)`: the server removed the player role, and the output has stopped. `SendspinPlayer` releases it, as upstream's `PlaybackService` does.
+- State and buffer depth are read from `engine.hostPlayer`, not `engine.player`. During a gapless format switch the retired player keeps playing while the new one waits, and `hostPlayer` is the one being heard. Upstream's `PlaybackService` made the same change.
+- **Network changes (upstream #340).** `SendspinPlayer` called `client.onNetworkChanged()` on every link-property change. That resets the clock filter and drops queued audio, so an IPv6 temporary-address rotation silenced playback for seconds. It now resets only when the default network itself changes. An address change only re-announces, as upstream's `LinkAddressesChanged` does.
+
+**Comes in with the pin, no Hearth change:** the listener no longer kills the process when the engine fails in its own coroutine, a taken port among those failures (#361); the clock filter is a port of the reference implementation's and accounts for deep sleep (#339); a format change with no gap where the formats allow it (#338); recovery paths in playback (#337); `client/hello` lists stereo formats only; the output delay a server set is restored on each new connection; and the stall watchdog runs on the monotonic clock. Dynamic pairing code changes (rounds, QR) do not apply while Hearth leaves the method off.
+
+**Not taken:**
+
+- **The spec's volume curve (upstream #342).** `VolumeLaw` and the full-volume (HDMI CEC/ARC) detection live in upstream's `:app`, not in `:player`. Hearth still maps the protocol volume linearly onto the `STREAM_MUSIC` index, which is not the spec's `(volume / 100)^1.5` amplitude. That gap predates this bump, and closing it means porting `VolumeLaw` into `MediaVolume`, which also changes what Dart's system slider shows.
+- The user sync offset (`SendSpin.setUserSyncOffsetMs`) and `setDeviceName`: Hearth has no sync-offset setting, and a renamed player is a new `configure`.
+- The three items under "Found, not fixed here" are still open upstream: the hardcoded `product_name`, the goodbye reason on close, and the `setVolume` truncation (**verified**, none of those files changed). Hearth's half-step in `reportVolume` stays.
+
+**Checks.** `flutter build apk --debug` and `scripts/build-android-apk.sh` (R8) both build (**verified**). Not run on the tablet yet (**assumed**): playback, a format change mid-queue, and a network change while playing.
 
 ## Muting at wake
 

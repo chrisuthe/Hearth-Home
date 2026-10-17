@@ -29,6 +29,9 @@ class HearthSendSpinHost(
     override val lowMemoryMode: Boolean get() = false
     override val highPowerMode: Boolean get() = true
 
+    // Nothing in Dart reads the server's colors, so color@v1 is not claimed.
+    override val serverColors: Boolean get() = false
+
     // SendspinDroid's default.
     override fun preferredCodec(): String = "opus"
 
