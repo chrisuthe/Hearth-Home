@@ -171,6 +171,7 @@ class _AlarmClockPanel extends ConsumerWidget {
             onPressed: () {
               Navigator.of(context).push(
                 MaterialPageRoute<void>(
+                  settings: const RouteSettings(name: 'alarm_editor'),
                   builder: (_) => const AlarmEditorScreen(),
                 ),
               );

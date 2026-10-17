@@ -6,8 +6,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../config/hub_config.dart';
 import 'current_screen_provider.dart';
 import 'idle_controller.dart';
+import 'page_visibility.dart';
 import 'page_indicator.dart';
 import '../models/photo_memory.dart';
+import '../modules/hearth_module.dart';
 import '../modules/module_registry.dart';
 import '../screens/ambient/ambient_screen.dart';
 import '../screens/timer/timer_screen.dart';
@@ -92,7 +94,20 @@ class _HubShellState extends ConsumerState<HubShell> {
     final info = CurrentScreen(id: _screenIds[page], index: page);
     final notifier = ref.read(currentScreenProvider.notifier);
     if (notifier.state != info) notifier.state = info;
+    ref.read(basePageProvider.notifier).state = info.id;
   }
+
+  /// Pushes [m]'s screen over the shell, named by its id so the page reads
+  /// `route:<id>` while it is open (see [PageRouteObserver]).
+  void _openMenuModule(HearthModule m) => Navigator.of(context).push(
+        MaterialPageRoute(
+          settings: RouteSettings(name: m.id),
+          builder: (_) => _MenuScreenWrapper(
+            title: m.name,
+            child: m.buildScreen(isActive: true),
+          ),
+        ),
+      );
 
   String? _edgeFor(String action) {
     final config = ref.read(hubConfigProvider);
@@ -210,9 +225,10 @@ class _HubShellState extends ConsumerState<HubShell> {
           _Menu1TimerAction(
             onTap: () {
               setState(() => _menu1Open = false);
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const TimerScreen()),
-              );
+              Navigator.of(context).push(MaterialPageRoute(
+                settings: const RouteSettings(name: 'timer'),
+                builder: (_) => const TimerScreen(),
+              ));
             },
           ),
           _QuickAction(
@@ -232,12 +248,7 @@ class _HubShellState extends ConsumerState<HubShell> {
             label: m.name,
             onTap: () {
               setState(() => _menu1Open = false);
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => _MenuScreenWrapper(
-                  title: m.name,
-                  child: m.buildScreen(isActive: true),
-                )),
-              );
+              _openMenuModule(m);
             },
           )),
         ],
@@ -267,12 +278,7 @@ class _HubShellState extends ConsumerState<HubShell> {
                 label: m.name,
                 onTap: () {
                   setState(() => _menu2Open = false);
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => _MenuScreenWrapper(
-                      title: m.name,
-                      child: m.buildScreen(isActive: true),
-                    )),
-                  );
+                  _openMenuModule(m);
                 },
               )).toList(),
             ),

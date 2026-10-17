@@ -5,6 +5,7 @@ import 'dart:ui' as ui;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hearth/app/theme/theme_providers.dart';
+import 'package:hearth/config/hearth_theme_id.dart';
 import 'package:hearth/config/screen_background.dart';
 import 'package:hearth/services/immich_service.dart' show kCenterFocalPoint;
 import 'package:hearth/services/photo_blur.dart';
@@ -36,6 +37,38 @@ void main() {
       final c = _container(ScreenBackground.solid);
       c.read(currentPhotoProvider.notifier).state =
           (path: await writePhoto('a.png'), focal: kCenterFocalPoint);
+      expect(await c.read(blurredPhotoProvider.future), isNull);
+    });
+  });
+
+  testWidgets('the sample is null for Solid unless the theme is Memories',
+      (tester) async {
+    await tester.runAsync(() async {
+      final path = await writePhoto('a.png');
+      final solid = _container(ScreenBackground.solid);
+      solid.read(currentPhotoProvider.notifier).state =
+          (path: path, focal: kCenterFocalPoint);
+      expect(await solid.read(photoSampleProvider.future), isNull);
+
+      final memories = ProviderContainer(overrides: [
+        screenBackgroundProvider.overrideWithValue(ScreenBackground.solid),
+        hearthThemeIdProvider.overrideWithValue(HearthThemeId.memories),
+      ]);
+      addTearDown(memories.dispose);
+      memories.read(currentPhotoProvider.notifier).state =
+          (path: path, focal: kCenterFocalPoint);
+      expect((await memories.read(photoSampleProvider.future))!.width, 300);
+    });
+  });
+
+  testWidgets('a photo that fails to decode yields a null sample',
+      (tester) async {
+    await tester.runAsync(() async {
+      final file = File('${dir.path}/bad.png')..writeAsBytesSync([1, 2, 3]);
+      final c = _container(ScreenBackground.blurred);
+      c.read(currentPhotoProvider.notifier).state =
+          (path: file.path, focal: kCenterFocalPoint);
+      expect(await c.read(photoSampleProvider.future), isNull);
       expect(await c.read(blurredPhotoProvider.future), isNull);
     });
   });
@@ -83,7 +116,7 @@ void main() {
       final pending = <Completer<ui.Image>>[];
       final c = ProviderContainer(overrides: [
         screenBackgroundProvider.overrideWithValue(ScreenBackground.blurred),
-        photoBlurProvider.overrideWithValue((bytes) {
+        photoDecodeProvider.overrideWithValue((bytes) {
           final completer = Completer<ui.Image>();
           pending.add(completer);
           return completer.future;
@@ -106,15 +139,47 @@ void main() {
         await Future<void>.delayed(const Duration(milliseconds: 10));
       }
 
-      final stale = await decodeAndBlur(await redBluePng());
+      final stale = await decodeSample(await redBluePng());
       pending[0].complete(stale);
       await Future<void>.delayed(const Duration(milliseconds: 100));
       expect(stale.debugDisposed, isTrue);
 
-      final current = await decodeAndBlur(await redBluePng());
+      final current = await decodeSample(await redBluePng());
       pending[1].complete(current);
-      expect(await fresh, same(current));
+      final blurred = await fresh;
+      expect(blurred, isNotNull);
+      expect(blurred!.debugDisposed, isFalse);
       expect(current.debugDisposed, isFalse);
+      expect(await c.read(photoSampleProvider.future), same(current));
+    });
+  });
+
+  testWidgets('a photo change as the sample lands does not error the blur',
+      (tester) async {
+    await tester.runAsync(() async {
+      final c = _container(ScreenBackground.blurred);
+      final notifier = c.read(currentPhotoProvider.notifier);
+      final a = await writePhoto('a.png');
+      final b = await writePhoto('b.png');
+      notifier.state = (path: a, focal: kCenterFocalPoint);
+
+      // Change the photo the moment the first sample's data lands, before the
+      // blur run resumes from awaiting it.
+      var switched = false;
+      c.listen<AsyncValue<ui.Image?>>(photoSampleProvider, (prev, next) {
+        if (!switched && next.valueOrNull != null) {
+          switched = true;
+          notifier.state = (path: b, focal: kCenterFocalPoint);
+          // Re-make the sample now, disposing the one the blur is about to use.
+          c.read(photoSampleProvider);
+        }
+      });
+      final blur = c.listen(blurredPhotoProvider, (_, _) {});
+      await Future<void>.delayed(const Duration(seconds: 1));
+      expect(switched, isTrue);
+      expect(blur.read().hasError, isFalse);
+      final settled = await c.read(blurredPhotoProvider.future);
+      expect(settled?.debugDisposed ?? false, isFalse);
     });
   });
 }

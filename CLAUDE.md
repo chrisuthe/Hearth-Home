@@ -83,7 +83,7 @@ No backend or database. Config is a single `hub_config.json` in the OS app-suppo
 
 Night mode has four mutually exclusive sources: `none`, `clock`, `ha_entity`, `api`. Only one is active — no fallback chain.
 
-The look is two fields: `theme` (`classic | bright | warm`) and `screenBackground` (`solid | blurred`, a blurred copy of the current photo behind each screen). Their Theme and Background controls are in the Display settings.
+The look is two fields: `theme` (`classic | bright | warm | memories | catppuccin_latte | catppuccin_frappe | catppuccin_macchiato | catppuccin_mocha | tokyonight_night | tokyonight_storm | tokyonight_moon | tokyonight_day`) and `screenBackground` (`solid | blurred`, a blurred copy of the current photo behind each screen). Their Theme and Background controls are in the Display settings.
 
 ### Display Canvas & Orientation
 
@@ -128,6 +128,7 @@ The default branch is `main`. All PRs target `main`.
 - UI colors come from `HearthColors` roles (`context.hearthColors`, `lib/app/theme/hearth_colors.dart`), never literals. `test/app/theme/theme_literal_guard_test.dart` enforces this for the files it lists; out-of-scope surfaces mark literals `// theme-exempt: <reason>`
 - Themes are `HearthThemeId` + `HearthColors.forTheme`. `test/app/theme/contrast_test.dart` is binding: a palette change that fails it is wrong, not the test. New screens draw their backdrop with `ThemedBackground`
 - Classic keeps a true-black canvas for AMOLED power savings; Home and the Media player while playing stay on Classic (`ClassicThemeScope`)
+- New palettes go in `lib/app/theme/palettes/`, need a `notices.json` entry, and must pass `contrast_test.dart`
 
 ## Dependency maintenance
 

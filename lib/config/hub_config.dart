@@ -306,7 +306,10 @@ class HubConfig {
   /// at launch on the Pi and by `setPreferredOrientations` on Android.
   final String displayOrientation;
 
-  /// `HearthThemeId` wire value: classic | bright | warm.
+  /// `HearthThemeId` wire value: classic | bright | warm | memories |
+  /// catppuccin_latte | catppuccin_frappe | catppuccin_macchiato |
+  /// catppuccin_mocha | tokyonight_night | tokyonight_storm |
+  /// tokyonight_moon | tokyonight_day. Unknown values load as classic.
   final String theme;
 
   /// `ScreenBackground` wire value: solid | blurred.

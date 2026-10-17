@@ -78,7 +78,10 @@ class HomeScreen extends ConsumerWidget {
                 _TimerPill(
                   timerService: timerService,
                   onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const TimerScreen()),
+                    MaterialPageRoute(
+                      settings: const RouteSettings(name: 'timer'),
+                      builder: (_) => const TimerScreen(),
+                    ),
                   ),
                 ),
                 const SizedBox(height: HearthSpacing.x4),

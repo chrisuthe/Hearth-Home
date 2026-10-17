@@ -26,7 +26,17 @@ HearthThemeId _harnessTheme = HearthThemeId.classic;
 ThemeData harnessTheme() =>
     buildHearthTheme(HearthColors.forTheme(_harnessTheme));
 
-/// Registers one test per canvas in [kLayoutCanvases] and theme. Each sizes the test
+/// The themes [testLayouts] runs: Classic, one light, one dark and Memories.
+/// Running all 12 would cost three times the runtime for no layout gain.
+const kPortraitThemes = [
+  HearthThemeId.classic,
+  HearthThemeId.catppuccinLatte,
+  HearthThemeId.tokyoNight,
+  HearthThemeId.memories,
+];
+
+/// Registers one test per canvas in [kLayoutCanvases] and theme in
+/// [kPortraitThemes]. Each sizes the test
 /// surface, runs [body] and then fails on anything the framework reported
 /// while laying out or painting — a RenderFlex overflow included.
 ///
@@ -37,7 +47,7 @@ void testLayouts(
   Future<void> Function(WidgetTester tester, Size canvas) body,
 ) {
   for (final entry in kLayoutCanvases.entries) {
-    for (final theme in HearthThemeId.values) {
+    for (final theme in kPortraitThemes) {
       testWidgets('$description — ${entry.key} — ${theme.label}', (
         tester,
       ) async {
@@ -71,8 +81,12 @@ void expectNoLayoutErrors(WidgetTester tester, String reason) {
 }
 
 /// `MaterialApp` shell, themed per [testLayouts], matching how the app hosts its screens.
-Widget hostScreen(Widget child) => MaterialApp(
+Widget hostScreen(
+  Widget child, {
+  List<NavigatorObserver> navigatorObservers = const [],
+}) => MaterialApp(
   debugShowCheckedModeBanner: false,
   theme: harnessTheme(),
+  navigatorObservers: navigatorObservers,
   home: Scaffold(body: child),
 );

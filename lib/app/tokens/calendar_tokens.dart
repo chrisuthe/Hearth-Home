@@ -216,6 +216,49 @@ class CalendarColors {
     );
   }
 
+  /// This palette with a new accent and the tints made from it, for a theme
+  /// whose accent changes at runtime (Memories).
+  CalendarColors withAccent(Color accent, Color accentText) => CalendarColors(
+        accent: accent,
+        accentText: accentText,
+        onFill: onFill,
+        text: text,
+        textMuted: textMuted,
+        textDim: textDim,
+        textFaint: textFaint,
+        gridLine: gridLine,
+        divider: divider,
+        control: control,
+        segmentTrack: segmentTrack,
+        card: card,
+        todayTint: accent.withValues(alpha: 0.13),
+        nowTint: accent.withValues(alpha: 0.30),
+        weekendTint: weekendTint,
+        nowLine: nowLine,
+        pillOffOutline: pillOffOutline,
+        pillOffText: pillOffText,
+        pillOffAvatar: pillOffAvatar,
+        pillAvatar: pillAvatar,
+        stale: stale,
+        staleFill: staleFill,
+        staleBorder: staleBorder,
+        error: error,
+        errorFill: errorFill,
+        errorBorder: errorBorder,
+        bannerDetail: bannerDetail,
+        sheet: sheet,
+        sheetBorder: sheetBorder,
+        sheetHandle: sheetHandle,
+        sheetIcon: sheetIcon,
+        sheetSecondary: sheetSecondary,
+        emptyDisc: accent.withValues(alpha: 0.14),
+        glanceCard: glanceCard,
+        glanceBorder: glanceBorder,
+        glanceLabel: glanceLabel,
+        glanceTime: glanceTime,
+        glanceMeta: glanceMeta,
+      );
+
   static CalendarColors of(BuildContext context) =>
       HearthColors.of(context).calendar;
 

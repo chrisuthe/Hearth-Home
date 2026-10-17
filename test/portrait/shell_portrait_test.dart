@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hearth/app/hub_shell.dart';
 import 'package:hearth/app/page_indicator.dart';
+import 'package:hearth/app/page_visibility.dart';
 import 'package:hearth/config/hub_config.dart';
 import 'package:hearth/config/webview_config.dart';
 import 'package:hearth/models/hearth_notification.dart';
@@ -76,7 +77,13 @@ Future<void> _pumpShell(
           .overrideWith((ref) => Stream.value(samplePlayers())),
       voiceAssistantStateProvider.overrideWith((ref) => Stream.value(voice)),
     ],
-    child: hostScreen(const HubShell()),
+    // The observer as HearthApp registers it, so pushed routes publish.
+    child: Consumer(
+      builder: (context, ref, _) => hostScreen(
+        const HubShell(),
+        navigatorObservers: [ref.watch(pageRouteObserverProvider)],
+      ),
+    ),
   ));
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 400));
@@ -97,6 +104,44 @@ Future<void> _swipeFromEdge(
 }
 
 void main() {
+  testLayouts('HubShell tracks an edge-menu module route',
+      (tester, canvas) async {
+    await _pumpShell(tester);
+    final container = ProviderScope.containerOf(
+        tester.element(find.byType(HubShell)));
+    expect(container.read(currentPageProvider), 'home');
+    await _swipeFromEdge(tester, canvas, top: false);
+    await tester.tap(find.text('Controls'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(container.read(currentPageProvider), 'route:controls');
+    await tester.tap(find.byIcon(Icons.close));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(container.read(currentPageProvider), 'home');
+    await unmount(tester);
+  });
+
+  testLayouts('HubShell tracks the timer pushed from Home',
+      (tester, canvas) async {
+    await _pumpShell(tester, config: const HubConfig(setupComplete: true));
+    final container = ProviderScope.containerOf(
+        tester.element(find.byType(HubShell)));
+    // Wake the shell so Home's pill can be tapped.
+    await tester.tapAt(canvas.center(Offset.zero));
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.tap(find.descendant(
+        of: find.byType(HomeScreen), matching: find.byIcon(Icons.timer)));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(container.read(currentPageProvider), 'route:timer');
+    await tester.tap(find.byIcon(Icons.arrow_back));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(container.read(currentPageProvider), 'home');
+    await unmount(tester);
+  });
+
   testLayouts('HubShell on Home with the page indicator',
       (tester, canvas) async {
     await _pumpShell(tester, config: const HubConfig(setupComplete: true));

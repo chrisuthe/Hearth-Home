@@ -135,7 +135,10 @@ class AlarmClockScreen extends ConsumerWidget {
 
   Future<void> _addAlarm(BuildContext context, WidgetRef ref) async {
     final result = await Navigator.of(context).push<Alarm>(
-      MaterialPageRoute(builder: (_) => const AlarmEditorScreen()),
+      MaterialPageRoute(
+        settings: const RouteSettings(name: 'alarm_editor'),
+        builder: (_) => const AlarmEditorScreen(),
+      ),
     );
     if (result != null) {
       ref.read(alarmServiceProvider).addAlarm(result);
@@ -145,7 +148,10 @@ class AlarmClockScreen extends ConsumerWidget {
   Future<void> _editAlarm(
       BuildContext context, WidgetRef ref, Alarm alarm) async {
     final result = await Navigator.of(context).push<Alarm>(
-      MaterialPageRoute(builder: (_) => AlarmEditorScreen(alarm: alarm)),
+      MaterialPageRoute(
+        settings: const RouteSettings(name: 'alarm_editor'),
+        builder: (_) => AlarmEditorScreen(alarm: alarm),
+      ),
     );
     if (result != null) {
       ref.read(alarmServiceProvider).updateAlarm(result);

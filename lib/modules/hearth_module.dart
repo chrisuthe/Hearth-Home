@@ -36,4 +36,8 @@ abstract class HearthModule {
   /// from community ones. Required — first-party modules return false,
   /// community modules return true.
   bool get isCommunity;
+
+  /// Whether the memory photo shows through this screen when the Background
+  /// setting is Solid (the screen tints the photo rather than covering it).
+  bool get showsPhoto => false;
 }
