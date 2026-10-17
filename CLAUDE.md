@@ -175,17 +175,20 @@ The R8 keep rule for the fork's protobuf-lite messages
 names their package, `com.example.esphomeproto`; a proto in another package
 needs adding there, or the release APK crashes when Home Assistant connects.
 
-**SendspinDroid is pinned the same way, by commit.** `android/third_party/sendspindroid`
-records commit `0e6c67c5`; there is no tag, because a `v*` tag in SendspinDroid
-publishes an app release. Renovate cannot see the pin or anything behind it.
+**SendspinDroid is pinned the same way.** `android/third_party/sendspindroid`
+records commit `a135c27c` (tag `v2.0.0`). Pin release tags: a `v*` tag in
+SendspinDroid publishes an app release, so tags mark tested points.
+Renovate cannot see the pin or anything behind it.
 SendspinDroid has no version catalog, so `android/sendspin/shared/build.gradle.kts`
 and `android/sendspin/player/build.gradle.kts` copy the dependency versions and
 exclusions from its `shared/` and `player/` scripts by hand. Bump it by hand:
-check out the new commit inside the submodule, diff those two upstream scripts
+check out the new tag inside the submodule, diff those two upstream scripts
 since the old pin, carry any change across, commit the pointer, and run both
 `flutter build apk --debug` and `scripts/build-android-apk.sh` (R8 reads the
-player's `consumer-rules.pro` from the submodule). It is ours, not a fork, so the
-drift check does not cover it.
+player's `consumer-rules.pro` from the submodule). Also diff upstream's
+`app/.../playback/PlaybackService.kt`: `SendspinPlayer` is ported from it, and
+fixes made there (not in `:player`/`:shared`) never reach Hearth through the
+pin. It is ours, not a fork, so the drift check does not cover it.
 
 Two checks cover what Renovate cannot see:
 - `.gitea/workflows/upstream-drift.yml` — weekly, compares each fork's
