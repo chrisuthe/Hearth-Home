@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -28,7 +29,12 @@ class MediaKitVideoPlayer implements HearthVideoPlayer {
         configuration: const PlayerConfiguration(logLevel: MPVLogLevel.warn),
       );
       _listenForDiagnostics(player);
-      _controller = VideoController(player);
+      _controller = VideoController(
+        player,
+        configuration: VideoControllerConfiguration(
+          hwdec: hwdecFor(url, android: Platform.isAndroid),
+        ),
+      );
       _player!.open(Media(url));
       // mpv starts each player at full volume.
       _volume = 1.0;
@@ -159,6 +165,23 @@ class MediaKitVideoPlayer implements HearthVideoPlayer {
     if (_controller == null) return const SizedBox.shrink();
     return Video(controller: _controller!, fit: fit);
   }
+}
+
+/// mpv's `hwdec` for [url], or null to keep media_kit's default.
+///
+/// Android decodes RTSP camera feeds in software. media_kit's default there,
+/// mediacodec, starts its decoder mid-stream (a camera feed joins between
+/// keyframes, and the decoder restarts when the video surface attaches), and
+/// the Apolosign's Rockchip decoder sometimes never returns a frame from such
+/// a start. ffmpeg's mediacodec loop then spins on mpv's core thread, so the
+/// view spins forever and `dispose()` never completes, leaving the RTSP
+/// session and the decoder open until the app restarts. The Pi already decodes
+/// RTSP in software (`avdec_h264` in `GstreamerVideoPlayer`).
+@visibleForTesting
+String? hwdecFor(String url, {required bool android}) {
+  if (!android) return null;
+  final rtsp = url.startsWith('rtsp://') || url.startsWith('rtsps://');
+  return rtsp ? 'no' : null;
 }
 
 void registerMediaKitPlayer() {
