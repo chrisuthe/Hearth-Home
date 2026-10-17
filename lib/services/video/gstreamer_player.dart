@@ -172,20 +172,33 @@ class GstreamerVideoPlayer implements HearthVideoPlayer {
   @override
   ValueListenable<Size?> get videoSize => _videoSize;
 
+  /// Follows initialization itself, like media_kit's `Video`: the controller
+  /// is created and initialized after [play] returns, and the camera and
+  /// Protect screens build this view only once, straight after firing
+  /// [play]. Built as a snapshot, the spinner stayed up over a playing stream
+  /// until something unrelated rebuilt the screen.
   @override
   Widget buildView({BoxFit fit = BoxFit.contain}) {
-    if (_controller == null || !_controller!.value.isInitialized) {
-      return const Center(
-        child: CircularProgressIndicator(color: Color(0xFF646CFF)),
-      );
-    }
-    return FittedBox(
-      fit: fit,
-      child: SizedBox(
-        width: _controller!.value.size.width,
-        height: _controller!.value.size.height,
-        child: VideoPlayer(_controller!),
-      ),
+    // _videoSize changes exactly when the controller initializes, and again
+    // on stop, so it is the rebuild signal.
+    return ValueListenableBuilder<Size?>(
+      valueListenable: _videoSize,
+      builder: (context, _, _) {
+        final controller = _controller;
+        if (controller == null || !controller.value.isInitialized) {
+          return const Center(
+            child: CircularProgressIndicator(color: Color(0xFF646CFF)),
+          );
+        }
+        return FittedBox(
+          fit: fit,
+          child: SizedBox(
+            width: controller.value.size.width,
+            height: controller.value.size.height,
+            child: VideoPlayer(controller),
+          ),
+        );
+      },
     );
   }
 }
