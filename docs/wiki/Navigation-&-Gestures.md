@@ -99,6 +99,28 @@ full-screen, a **[[notification|Notifications]]** card or ringing
 and notifications also *wake* the kiosk when they start, so they surface over the ambient
 screen on their own.
 
+## Changing screens remotely
+
+Home Assistant can switch the kiosk to any screen in the swipe row, plus Home and Settings —
+for example, Cameras when the doorbell rings. With **[[MQTT|Home Assistant Device (MQTT)]]**
+set up, use the **Screen** select on the Hearth device. Without it, call the local API:
+
+```
+POST http://<hearth-ip>:8090/api/screen
+Authorization: Bearer <API key>
+Content-Type: application/json
+
+{"screen": "cameras"}
+```
+
+`screen` takes a screen's ID or its name (`"Cameras"`). `GET` the same address to read the
+current screen and the list of IDs and names. An unknown screen returns `404` with the IDs
+that are available. See **[[The Web Portal]]** for how to get the API key.
+
+A remote switch counts as a touch: it closes any open menu or menu screen, and the idle
+timeout then returns the kiosk to Home as usual. Screens placed only in a menu can't be
+opened this way.
+
 ## On Android
 
 Everything on this page works the same on an [[Android Tablet]]. The **Volume** slider in
