@@ -100,7 +100,7 @@
       "source": "https://github.com/chrisuthe/SendspinDroid",
       "covers": ["android/third_party/sendspindroid", "android/sendspin/shared", "android/sendspin/player"],
       "status": "verified",
-      "checked": "LICENSE in the submodule at 0e6c67c5"
+      "checked": "LICENSE in the submodule at v2.0.0 (a135c27c)"
     },
     {
       "id": "ktor",

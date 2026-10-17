@@ -17,6 +17,7 @@ import com.sendspindroid.playback.SendSpinEngine
 import com.sendspindroid.sendspin.PlaybackState
 import com.sendspindroid.sendspin.SendSpin
 import com.sendspindroid.sendspin.SyncAudioPlayer
+import com.sendspindroid.sendspin.protocol.TrackMetadata
 import com.sendspindroid.sendspin.transport.SendspinWebSocketServer
 import kotlin.concurrent.thread
 import kotlin.math.roundToInt
@@ -271,7 +272,6 @@ class SendspinPlayer(
      */
     private fun advertiseAgainAfterNetworkChange() {
         if (closed) return
-        current?.onNetworkChanged()
         if (unavailable && boundPort == null) startAdvertising() else advertiser?.refresh()
     }
 
@@ -355,26 +355,24 @@ class SendspinPlayer(
             report()
         }
 
-        override fun onMetadataUpdate(
-            title: String,
-            artist: String,
-            album: String,
-            artworkUrl: String,
-            durationMs: Long,
-            positionMs: Long,
-            playbackSpeed: Int,
-        ) = onMain {
-            // server/state carries the full state, so "" means the track has no such field.
-            metadata = mapOf(
-                "title" to title.ifEmpty { null },
-                "artist" to artist.ifEmpty { null },
-                "album" to album.ifEmpty { null },
-                "artworkUrl" to artworkUrl.ifEmpty { null },
-                "durationMs" to durationMs,
+        override fun onMetadataUpdate(metadata: TrackMetadata, positionMs: Long) = onMain {
+            // server/state carries the full state, so null means the track has no such field.
+            this@SendspinPlayer.metadata = mapOf(
+                "title" to metadata.title?.ifEmpty { null },
+                "artist" to metadata.artist?.ifEmpty { null },
+                "album" to metadata.album?.ifEmpty { null },
+                "artworkUrl" to metadata.artworkUrl?.ifEmpty { null },
+                "durationMs" to metadata.durationMs,
                 "positionMs" to positionMs,
-                "playbackSpeed" to playbackSpeed,
+                // No progress object means no position, so nothing to advance.
+                "playbackSpeed" to (metadata.progress?.playbackSpeed ?: 0),
             )
             report()
+        }
+
+        // A removal has already stopped the output; release it, as PlaybackService does.
+        override fun onPlayerRoleChanged(active: Boolean) {
+            if (!active) onMain { engine.releasePlayer() }
         }
 
         // The Media screen loads art from the metadata URL.
@@ -456,9 +454,15 @@ class SendspinPlayer(
                     val now = properties.linkAddresses.map { it.address }
                     val first = network == null
                     if (!first && changed == network && now == addresses) return@post
+                    val newNetwork = changed != network
                     network = changed
                     addresses = now
                     if (!first) {
+                        // Only a new network resets the client's clock and queue. An
+                        // address change on the same one (an IPv6 temporary address)
+                        // keeps the connection, and resetting it silenced playback
+                        // for seconds; a change that breaks the path closes the socket.
+                        if (newNetwork) current?.onNetworkChanged()
                         Timber.i("Network changed - Sendspin advertising again")
                         advertiseAgainAfterNetworkChange()
                     }
@@ -478,7 +482,7 @@ class SendspinPlayer(
     private fun connectionState(): String {
         if (unavailable) return "disconnected"
         if (clientState !is TransportState.Ready) return "advertising"
-        val player = engine.player ?: return "connected"
+        val player = engine.hostPlayer ?: return "connected"
         return when (player.getPlaybackState()) {
             PlaybackState.PLAYING -> "streaming"
             else -> "syncing"
@@ -507,7 +511,7 @@ class SendspinPlayer(
                 "codec" to stream?.codec,
                 "sampleRate" to stream?.sampleRate,
                 "channels" to stream?.channels,
-                "bufferDepthMs" to (engine.player?.getBufferedDurationMs() ?: 0L).toInt(),
+                "bufferDepthMs" to (engine.hostPlayer?.getBufferedDurationMs() ?: 0L).toInt(),
                 "clockOffsetMs" to if (ready) clockPrecisionMs() else 0,
                 "outputDelayMs" to host.outputDelayMs(),
                 "pairedServers" to runCatching { secrets.trustStore.listRecords().size }.getOrDefault(0),

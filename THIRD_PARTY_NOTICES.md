@@ -117,7 +117,7 @@ Hearth builds SendspinDroid's :shared and :player modules, the protocol client a
 - Licence: MIT (`assets/licenses/sendspindroid-mit.txt`)
 - Source: <https://github.com/chrisuthe/SendspinDroid>
 - Platforms: android
-- Status: **verified**. LICENSE in the submodule at 0e6c67c5.
+- Status: **verified**. LICENSE in the submodule at v2.0.0 (a135c27c).
 
 <a id="ktor"></a>
 ## Ktor
