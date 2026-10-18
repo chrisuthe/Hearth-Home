@@ -25,7 +25,7 @@ class _Bridge extends AndroidAppsBridge {
 void main() {
   tearDown(() => debugAndroidAppsSupportedOverride = null);
 
-  testLayouts('app launch card', (tester, canvas) async {
+  testLayoutsAndSplitHalves('app launch card', (tester, canvas) async {
     debugAndroidAppsSupportedOverride = true;
     const hub = HubConfig(androidApps: [_app]);
     await pumpModule(

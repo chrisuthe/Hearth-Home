@@ -124,13 +124,15 @@ void main() {
     await unmount(tester);
   });
 
-  testLayouts('HubShell tracks the timer pushed from Home',
+  testLayoutsAndSplitHalves('HubShell tracks the timer pushed from Home',
       (tester, canvas) async {
     await _pumpShell(tester, config: const HubConfig(setupComplete: true));
     final container = ProviderScope.containerOf(
         tester.element(find.byType(HubShell)));
     // Wake the shell so Home's pill can be tapped.
-    await tester.tapAt(canvas.center(Offset.zero));
+    // The centre of Hearth's half of a split screen is Home's weather, which
+    // opens a dialog, so the tap is left out there.
+    if (canvas.width >= 800) await tester.tapAt(canvas.center(Offset.zero));
     await tester.pump(const Duration(milliseconds: 400));
     await tester.tap(find.descendant(
         of: find.byType(HomeScreen), matching: find.byIcon(Icons.timer)));
@@ -215,7 +217,8 @@ void main() {
     await unmount(tester);
   });
 
-  testLayouts('HubShell with a toast, a voice response and notifications',
+  testLayoutsAndSplitHalves(
+      'HubShell with a toast, a voice response and notifications',
       (tester, canvas) async {
     final deck = silentNotifications()
       ..ingest(sampleNotification(0))
@@ -231,12 +234,21 @@ void main() {
             'closed it and turned the porch light on for you.',
       ),
     );
+    // Two cards fill Hearth's half of a split screen and cover the mic toggle,
+    // so clear them there first.
+    final cramped = canvas.height < 800;
+    if (cramped) {
+      for (final n in deck.notifications.toList()) {
+        deck.dismiss(n.id);
+      }
+      await tester.pump(const Duration(milliseconds: 400));
+    }
     // The mic toggle raises a toast.
     await tester.tap(find.byIcon(Icons.mic));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     expect(find.text('Microphone muted'), findsOneWidget);
-    expect(find.byType(Dismissible), findsNWidgets(2));
+    expect(find.byType(Dismissible), findsNWidgets(cramped ? 0 : 2));
     await unmount(tester);
     // Past the toast's own dismiss timer.
     await tester.pump(const Duration(seconds: 4));

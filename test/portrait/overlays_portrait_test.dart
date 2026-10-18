@@ -54,7 +54,7 @@ Future<void> _pumpOverlay(
 
 void main() {
   group('Notification deck', () {
-    testLayouts('three long cards, one an alert', (tester, canvas) async {
+    testLayoutsAndSplitHalves('three long cards, one an alert', (tester, canvas) async {
       final service = silentNotifications()
         ..ingest(sampleNotification(0))
         ..ingest(sampleNotification(1, priority: NotificationPriority.alert))
@@ -70,7 +70,7 @@ void main() {
   });
 
   group('Alarm alert', () {
-    testLayouts('ringing alarm with a long label', (tester, canvas) async {
+    testLayoutsAndSplitHalves('ringing alarm with a long label', (tester, canvas) async {
       await _pumpOverlay(
         tester,
         AlarmAlertOverlay(onWake: () {}),
