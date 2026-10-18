@@ -11,6 +11,8 @@ import 'protect/protect_module.dart';
 import 'mealie/mealie_module.dart';
 import 'livetv/live_tv_module.dart';
 import 'webview/webview_module.dart';
+import 'android_app/android_app_module.dart';
+import '../services/android_apps.dart';
 
 /// Static, app-lifetime modules. These don't depend on config.
 final List<HearthModule> _staticModules = <HearthModule>[
@@ -32,6 +34,7 @@ final List<HearthModule> _staticModules = <HearthModule>[
 List<HearthModule> modulesForConfig(HubConfig config) => [
       ..._staticModules,
       ...config.webviews.map((w) => WebviewModule(config: w)),
+      if (androidAppsSupported) ...config.androidApps.map(AndroidAppModule.new),
     ];
 
 /// All modules available in the app, including dynamic ones derived from

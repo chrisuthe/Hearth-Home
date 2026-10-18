@@ -82,3 +82,7 @@ final androidAppsBridgeProvider =
 final androidAppIconProvider =
     FutureProvider.family<Uint8List?, String>(
         (ref, pkg) => ref.watch(androidAppsBridgeProvider).icon(pkg));
+
+/// Launchable apps on the tablet, fetched once per read.
+final installedAndroidAppsProvider = FutureProvider<List<InstalledApp>>(
+    (ref) => ref.watch(androidAppsBridgeProvider).listApps());

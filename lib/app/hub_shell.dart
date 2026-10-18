@@ -24,6 +24,8 @@ import '../modules/alarm_clock/alarm_service.dart';
 import '../modules/alarm_clock/sunrise_controller.dart';
 import '../modules/lists/lists_providers.dart';
 import '../modules/webview/webview_session_pool.dart';
+import '../modules/android_app/android_app_launch_card.dart';
+import '../modules/android_app/android_app_module.dart';
 import '../services/dlna/dlna_cast_overlay.dart';
 import '../services/plex/plex_cast_overlay.dart';
 import '../modules/livetv/live_tv_overlay.dart';
@@ -123,15 +125,21 @@ class _HubShellState extends ConsumerState<HubShell> {
 
   /// Pushes [m]'s screen over the shell, named by its id so the page reads
   /// `route:<id>` while it is open (see [PageRouteObserver]).
-  void _openMenuModule(HearthModule m) => Navigator.of(context).push(
-        MaterialPageRoute(
-          settings: RouteSettings(name: m.id),
-          builder: (_) => _MenuScreenWrapper(
-            title: m.name,
-            child: m.buildScreen(isActive: true),
-          ),
+  void _openMenuModule(HearthModule m) {
+    if (m is AndroidAppModule) {
+      launchAndroidApp(ref, m.config);
+      return;
+    }
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        settings: RouteSettings(name: m.id),
+        builder: (_) => _MenuScreenWrapper(
+          title: m.name,
+          child: m.buildScreen(isActive: true),
         ),
-      );
+      ),
+    );
+  }
 
   String? _edgeFor(String action) {
     final config = ref.read(hubConfigProvider);
