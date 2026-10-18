@@ -177,7 +177,12 @@ right.
 Hearth brings it forward** (decided): every overlay that calls `onWake` in
 `HubShell` (`hub_shell.dart`, the layer-5 overlays: notification deck,
 including short info cards, alarm alert, DLNA cast, Plex cast, Live TV).
-The hook goes on that shared path, not on a filtered subset. The test shows
+It triggers on the same conditions, not a filtered subset. *(Planning
+finding: the overlays call `onWake` from post-frame callbacks, and a
+backgrounded Flutter app renders no frames, so the hook cannot sit on
+`onWake` itself. A provider-level listener watches the five overlays'
+sources directly and fires on new events only, so a notification left on
+the deck doesn't pull Hearth forward again and again.)* The test shows
 YouTube enters PiP on its own when Hearth comes forward; Hearth does nothing
 to the other app. After the interruption the app **stays in the corner
 until tapped**. *(Design call: with every wake interrupting, auto-returning
