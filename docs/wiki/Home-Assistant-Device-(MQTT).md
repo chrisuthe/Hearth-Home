@@ -59,6 +59,7 @@ The examples below use `kitchen_hearth` — replace it with yours.
 | **Now Playing** | sensor | Track title (or `idle`); `artist`, `album`, `player_id` and `playback_state` attributes. |
 | **Timer** | sensor | `active` / `fired` / `idle`; `count`, `fired`, `remaining_seconds` and `remaining` attributes for the soonest timer. Updates about every 30 seconds while a timer runs. |
 | **Next Alarm** | sensor | The next alarm's time (ISO format, or `none`); `label`, `days_summary` and `sunrise_enabled` attributes. |
+| **Screen** | select | The screen showing, by name, **writable**: pick one to switch the kiosk to it. Lists Home, Settings and every screen in the swipe row — see [[Navigation & Gestures]]. |
 | **Volume** | number | The kiosk's master output volume (0–100), **writable** from Home Assistant. Pi only — not offered on Android yet. |
 
 Home Assistant names the entities after the device, so with the device called *Hearth* they
@@ -79,6 +80,7 @@ Hearth listens on these topics. Publish to them from Home Assistant automations 
 | `hearth/<device-id>/alarm/snooze` | *(empty)* | Snooze the ringing alarm. |
 | `hearth/<device-id>/alarm/dismiss` | *(empty)* | Dismiss the ringing alarm. |
 | `hearth/<device-id>/notify` | `{"title":"…","message":"…"}` | Show a notification card — see **[[Notifications]]**. |
+| `hearth/<device-id>/screen/set` | `Calendar` or `calendar` | Switch to a screen, by name or ID (what the **Screen** select sends). |
 
 For `alarm/create`: `time` is 24-hour `HH:MM`; `days` uses ISO weekdays (1 = Monday …
 7 = Sunday), and an empty or missing list makes a one-time alarm; `label` and

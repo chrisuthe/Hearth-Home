@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hearth/app/current_screen_provider.dart';
 import 'package:hearth/app/hub_shell.dart';
 import 'package:hearth/app/page_indicator.dart';
 import 'package:hearth/app/page_visibility.dart';
+import 'package:hearth/app/screen_navigator.dart';
 import 'package:hearth/config/hub_config.dart';
 import 'package:hearth/config/webview_config.dart';
 import 'package:hearth/models/hearth_notification.dart';
@@ -139,6 +141,26 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     expect(container.read(currentPageProvider), 'home');
+    await unmount(tester);
+  });
+
+  testLayouts('HubShell shows a screen the navigator asks for',
+      (tester, canvas) async {
+    await _pumpShell(tester);
+    final container = ProviderScope.containerOf(
+        tester.element(find.byType(HubShell)));
+    // A module open from the tray: the request pops it to reach the page.
+    await _swipeFromEdge(tester, canvas, top: false);
+    await tester.tap(find.text('Controls'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(container.read(currentPageProvider), 'route:controls');
+    container.read(screenNavigatorProvider).show('settings');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(container.read(currentPageProvider), 'settings');
+    expect(container.read(currentScreenProvider).id, 'settings');
     await unmount(tester);
   });
 

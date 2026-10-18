@@ -8,6 +8,7 @@ import 'current_screen_provider.dart';
 import 'idle_controller.dart';
 import 'page_visibility.dart';
 import 'page_indicator.dart';
+import 'screen_navigator.dart';
 import '../models/photo_memory.dart';
 import '../modules/hearth_module.dart';
 import '../modules/module_registry.dart';
@@ -66,16 +67,20 @@ class _HubShellState extends ConsumerState<HubShell> {
   int _currentPage = 0;
   bool _menu1Open = false;
   bool _menu2Open = false;
+  StreamSubscription<String>? _screenRequests;
   static const double _edgeZoneHeight = 80;
 
   @override
   void initState() {
     super.initState();
     _focusNode = FocusNode();
+    _screenRequests =
+        ref.read(screenNavigatorProvider).requests.listen(_showRequestedScreen);
   }
 
   @override
   void dispose() {
+    _screenRequests?.cancel();
     _focusNode.dispose();
     _pageController?.dispose();
     super.dispose();
@@ -85,6 +90,25 @@ class _HubShellState extends ConsumerState<HubShell> {
     ref.read(idleControllerProvider).onUserActivity();
     // Resume any paused webviews.
     ref.read(webviewSessionPoolProvider).resumeAll();
+  }
+
+  /// Shows screen [id] for [ScreenNavigator] (the local API and MQTT). It
+  /// counts as activity, so the idle return to Home restarts from now; menus
+  /// close and pushed routes pop so the page is what's on screen.
+  void _showRequestedScreen(String id) {
+    final index = _screenIds.indexOf(id);
+    if (!mounted || index < 0) return;
+    _onUserActivity();
+    setState(() {
+      _menu1Open = false;
+      _menu2Open = false;
+    });
+    Navigator.of(context).popUntil((route) => route.isFirst);
+    _pageController?.animateToPage(
+      index,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
   }
 
   /// Reflect the active page into [currentScreenProvider] so services (MQTT)
@@ -321,27 +345,15 @@ class _HubShellState extends ConsumerState<HubShell> {
     final config = ref.watch(hubConfigProvider);
     final idleController = ref.read(idleControllerProvider);
 
-    final modules = ref.watch(swipeModulesProvider);
-    final hasCustomOrder = config.moduleOrder.isNotEmpty;
-    // With custom ordering, all modules go right of Home.
-    // With default ordering, negative defaultOrder goes left.
-    final leftModules = hasCustomOrder
-        ? <dynamic>[]
-        : modules.where((m) => m.defaultOrder < 0).toList();
-    final rightModules = hasCustomOrder
-        ? modules
-        : modules.where((m) => m.defaultOrder >= 0).toList();
-    final homeIndex = leftModules.length;
-    _pageCount = leftModules.length + 1 + rightModules.length + 1; // +Home +Settings
+    final layout = ref.watch(shellLayoutProvider);
+    final leftModules = layout.left;
+    final rightModules = layout.right;
+    final homeIndex = layout.homeIndex;
 
     // Mirror the page order as ids so the page listener can resolve an index
     // to a screen id for currentScreenProvider (consumed by MqttService).
-    _screenIds = <String>[
-      ...leftModules.map((m) => m.id),
-      'home',
-      ...rightModules.map((m) => m.id),
-      'settings',
-    ];
+    _screenIds = [for (final s in layout.screens) s.id];
+    _pageCount = _screenIds.length;
 
     // Recreate PageController when the module layout changes.
     if (_pageController == null || _homeIndex != homeIndex) {

@@ -5,6 +5,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart' show LicenseRegistry;
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../app/screen_navigator.dart';
 import '../models/hearth_notification.dart';
 import '../modules/alarm_clock/alarm_models.dart';
 import '../modules/alarm_clock/alarm_service.dart';
@@ -36,6 +37,8 @@ import 'update_service.dart';
 ///   POST /api/config       — update config fields
 ///   POST /api/display-mode — set night/day mode
 ///   GET  /api/display-mode — query current mode
+///   GET  /api/screen       — current screen and the swipe row's screens
+///   POST /api/screen       — show a screen by id or name ({"screen": "calendar"})
 ///   POST /api/notify       — surface a notification card (HA rest_command)
 ///   GET  /api/wifi/scan    — scan for WiFi networks
 ///   POST /api/wifi/connect — connect to a WiFi network
@@ -52,6 +55,7 @@ class LocalApiServer {
   final UpdateService _updateService;
   final AlarmService? _alarmService;
   final NotificationService? _notificationService;
+  final ScreenNavigator? _screenNavigator;
 
   /// Android routes the update endpoints to [_appUpdater] instead of
   /// `hearth-updater.service`.
@@ -116,6 +120,7 @@ class LocalApiServer {
     UpdateService? updateService,
     AlarmService? alarmService,
     NotificationService? notificationService,
+    ScreenNavigator? screenNavigator,
     bool? android,
     AppUpdater? appUpdater,
     Future<String> Function()? installedVersion,
@@ -131,6 +136,7 @@ class LocalApiServer {
         _updateService = updateService ?? UpdateService(),
         _alarmService = alarmService,
         _notificationService = notificationService,
+        _screenNavigator = screenNavigator,
         _android = android ?? Platform.isAndroid,
         _appUpdater = appUpdater,
         _installedVersion = installedVersion ??
@@ -301,6 +307,15 @@ class LocalApiServer {
             await _handleSetDisplayMode(request);
           } else if (request.method == 'GET') {
             await _handleGetDisplayMode(request);
+          } else {
+            request.response.statusCode = 405;
+            await request.response.close();
+          }
+        } else if (path == '/api/screen') {
+          if (request.method == 'POST') {
+            await _handleSetScreen(request);
+          } else if (request.method == 'GET') {
+            await _handleGetScreen(request);
           } else {
             request.response.statusCode = 405;
             await request.response.close();
@@ -622,6 +637,62 @@ class LocalApiServer {
     request.response.statusCode = 200;
     request.response.headers.contentType = ContentType.json;
     request.response.write(jsonEncode({'mode': mode.name}));
+    await request.response.close();
+  }
+
+  // --- Screen endpoints ---
+
+  /// `GET /api/screen` — `{"screen": id, "index": n, "screens": [{id, name}]}`,
+  /// screens in swipe order.
+  Future<void> _handleGetScreen(HttpRequest request) async {
+    final navigator = _screenNavigator;
+    request.response.headers.contentType = ContentType.json;
+    if (navigator == null) {
+      request.response.statusCode = 503;
+      request.response
+          .write(jsonEncode({'error': 'screen control unavailable'}));
+      await request.response.close();
+      return;
+    }
+    final current = navigator.current;
+    request.response.statusCode = 200;
+    request.response.write(jsonEncode({
+      'screen': current.id,
+      'index': current.index,
+      'screens': [
+        for (final s in navigator.screens) {'id': s.id, 'name': s.name},
+      ],
+    }));
+    await request.response.close();
+  }
+
+  /// `POST /api/screen` — body `{"screen": "<id or name>"}`. Shows that
+  /// screen as a touch would, so the idle return to Home still applies.
+  Future<void> _handleSetScreen(HttpRequest request) async {
+    final navigator = _screenNavigator;
+    if (navigator == null) {
+      request.response.statusCode = 503;
+      request.response.headers.contentType = ContentType.json;
+      request.response
+          .write(jsonEncode({'error': 'screen control unavailable'}));
+      await request.response.close();
+      return;
+    }
+    final json = await _readJsonBody(request);
+    final requested = json['screen'];
+    final screen = requested is String ? navigator.show(requested) : null;
+    request.response.headers.contentType = ContentType.json;
+    if (screen == null) {
+      request.response.statusCode = requested is String ? 404 : 400;
+      request.response.write(jsonEncode({
+        'error': requested is String ? 'unknown screen' : 'screen required',
+        'screens': [for (final s in navigator.screens) s.id],
+      }));
+      await request.response.close();
+      return;
+    }
+    request.response.statusCode = 200;
+    request.response.write(jsonEncode({'screen': screen.id}));
     await request.response.close();
   }
 
@@ -1110,6 +1181,7 @@ final localApiServerProvider = Provider<LocalApiServer>((ref) {
     updateService: updateService,
     alarmService: alarmService,
     notificationService: notificationService,
+    screenNavigator: ref.read(screenNavigatorProvider),
     android: android,
     appUpdater: android ? ref.read(appUpdaterProvider.notifier) : null,
     // Generic tearoff: lets plugin routes reach any service provider

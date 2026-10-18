@@ -9,6 +9,7 @@ import 'package:mqtt_client/mqtt_client.dart';
 import 'package:mqtt_client/mqtt_server_client.dart';
 
 import '../app/current_screen_provider.dart';
+import '../app/screen_navigator.dart';
 import '../config/hub_config.dart';
 import '../models/hearth_notification.dart';
 import '../models/music_state.dart';
@@ -46,7 +47,7 @@ class MqttDiscoveryEntry {
 /// On connect it publishes retained discovery payloads (one shared Hearth
 /// device-identity block across every entity), publishes current state for
 /// each read entity, and subscribes to the command topics that drive Hearth
-/// from HA (volume, timers, alarms). State is republished whenever the
+/// from HA (volume, timers, alarms, the screen select). State is republished whenever the
 /// underlying service reports a change.
 class MqttService extends ChangeNotifier {
   MqttService(
@@ -98,6 +99,10 @@ class MqttService extends ChangeNotifier {
   String _swVersion = '';
   String _defaultDeviceName = 'Hearth';
   String? _configurationUrl;
+
+  // Screen select options last sent with discovery; a layout change only
+  // republishes discovery when these change.
+  List<String> _screenOptions = const [];
 
   Timer? _reconnectTimer;
   int _reconnectDelay = 1;
@@ -322,6 +327,7 @@ class MqttService extends ChangeNotifier {
   String get _alarmSnoozeTopic => '$_baseTopic/alarm/snooze';
   String get _alarmDismissTopic => '$_baseTopic/alarm/dismiss';
   String get _notifyTopic => '$_baseTopic/notify';
+  String get _screenCmdTopic => '$_baseTopic/screen/set';
 
   /// Read the version, default name and portal URL sent with discovery.
   Future<void> _refreshIdentity() async {
@@ -362,6 +368,7 @@ class MqttService extends ChangeNotifier {
   // --- Discovery ------------------------------------------------------------
 
   void _publishDiscovery() {
+    _screenOptions = screenOptions(_ref.read(shellLayoutProvider).screens);
     final entries = buildDiscoveryEntries(
       clientId: _clientId,
       discoveryPrefix: _discoveryPrefix,
@@ -369,6 +376,7 @@ class MqttService extends ChangeNotifier {
       configurationUrl: _configurationUrl,
       deviceName: _deviceName,
       includeVolume: _volumeSupported,
+      screenOptions: _screenOptions,
     );
     for (final e in entries) {
       _publish(e.topic, jsonEncode(e.config));
@@ -395,6 +403,22 @@ class MqttService extends ChangeNotifier {
     _publish(_stateTopic('current_screen'), screen.id);
     _publish(_attrTopic('current_screen'),
         jsonEncode({'screen_index': screen.index}));
+    // The select reports the screen by name, matching its options.
+    final screens = _ref.read(shellLayoutProvider).screens;
+    final name = screens
+        .firstWhere((s) => s.id == screen.id,
+            orElse: () => ShellScreen(id: screen.id, name: screen.id))
+        .name;
+    _publish(_stateTopic('screen'), name);
+  }
+
+  /// The swipe row changed: republish the screen select's options when they
+  /// differ, and its state, since the current screen's name may have changed.
+  void onScreensChanged(ShellLayout layout) {
+    if (!listEquals(screenOptions(layout.screens), _screenOptions)) {
+      _publishDiscovery();
+    }
+    onCurrentScreenChanged(_ref.read(currentScreenProvider));
   }
 
   void onNowPlayingChanged() {
@@ -536,6 +560,7 @@ class MqttService extends ChangeNotifier {
       _alarmSnoozeTopic,
       _alarmDismissTopic,
       _notifyTopic,
+      _screenCmdTopic,
     ]) {
       c.subscribe(topic, MqttQos.atLeastOnce);
     }
@@ -573,6 +598,10 @@ class MqttService extends ChangeNotifier {
         _ref.read(alarmServiceProvider).dismiss();
       } else if (topic == _notifyTopic) {
         _handleNotify(payload);
+      } else if (topic == _screenCmdTopic) {
+        if (_ref.read(screenNavigatorProvider).show(payload) == null) {
+          Log.w('MQTT', 'Unknown screen: $payload');
+        }
       } else {
         Log.w('MQTT', 'Unhandled command topic: $topic');
       }
@@ -737,6 +766,7 @@ class MqttService extends ChangeNotifier {
     required String? configurationUrl,
     String deviceName = 'Hearth',
     bool includeVolume = true,
+    List<String> screenOptions = const ['Home', 'Settings'],
   }) {
     final base = 'hearth/$clientId';
     final device = <String, dynamic>{
@@ -771,6 +801,15 @@ class MqttService extends ChangeNotifier {
       sensor('now_playing', 'Now Playing', 'mdi:music'),
       sensor('timer', 'Timer', 'mdi:timer-outline'),
       sensor('next_alarm', 'Next Alarm', 'mdi:alarm'),
+      MqttDiscoveryEntry(topic('select', 'screen'), {
+        'name': 'Screen',
+        'unique_id': uid('screen'),
+        'state_topic': '$base/screen/state',
+        'command_topic': '$base/screen/set',
+        'options': screenOptions,
+        'icon': 'mdi:view-carousel',
+        'device': device,
+      }),
       if (includeVolume)
         MqttDiscoveryEntry(volumeDiscoveryTopic(discoveryPrefix, clientId), {
           'name': 'Volume',
@@ -787,6 +826,13 @@ class MqttService extends ChangeNotifier {
         }),
     ];
   }
+
+  /// The screen select's options: each screen's name, once. A name two
+  /// screens share is offered once and selects the first; the other is still
+  /// reachable by id on the command topic.
+  @visibleForTesting
+  static List<String> screenOptions(List<ShellScreen> screens) =>
+      {for (final s in screens) s.name}.toList();
 
   @visibleForTesting
   static String volumeDiscoveryTopic(String discoveryPrefix, String clientId) =>
@@ -912,6 +958,12 @@ final mqttServiceProvider = ChangeNotifierProvider<MqttService>((ref) {
   ref.listen<CurrentScreen>(
     currentScreenProvider,
     (_, next) => service.onCurrentScreenChanged(next),
+  );
+
+  // Screen select: its options follow the swipe row.
+  ref.listen<ShellLayout>(
+    shellLayoutProvider,
+    (_, next) => service.onScreensChanged(next),
   );
 
   // Timer + alarm sensors: read the stable notifier and listen directly

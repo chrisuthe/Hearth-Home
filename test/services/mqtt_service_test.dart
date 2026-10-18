@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hearth/app/screen_navigator.dart';
 import 'package:hearth/config/hub_config.dart';
 import 'package:hearth/models/hearth_notification.dart';
 import 'package:hearth/modules/alarm_clock/alarm_models.dart';
@@ -212,15 +213,42 @@ void main() {
     );
 
     test('covers every exposed entity', () {
-      expect(entries.length, 5);
+      expect(entries.length, 6);
       final uids = entries.map((e) => e.config['unique_id']).toSet();
       expect(uids, {
         'hearth_kitchen_current_screen',
         'hearth_kitchen_now_playing',
         'hearth_kitchen_timer',
         'hearth_kitchen_next_alarm',
+        'hearth_kitchen_screen',
         'hearth_kitchen_volume',
       });
+    });
+
+    test('screen select carries its options and command topic', () {
+      final e = MqttService.buildDiscoveryEntries(
+        clientId: 'kitchen',
+        discoveryPrefix: 'homeassistant',
+        swVersion: '1.2.3',
+        configurationUrl: null,
+        screenOptions: const ['Music', 'Home', 'Settings'],
+      ).firstWhere((e) => e.config['unique_id'] == 'hearth_kitchen_screen');
+      expect(e.topic, 'homeassistant/select/hearth_kitchen/screen/config');
+      expect(e.config['options'], ['Music', 'Home', 'Settings']);
+      expect(e.config['command_topic'], 'hearth/kitchen/screen/set');
+      expect(e.config['state_topic'], 'hearth/kitchen/screen/state');
+    });
+
+    test('screen options name each screen once', () {
+      expect(
+        MqttService.screenOptions(const [
+          ShellScreen(id: 'home', name: 'Home'),
+          ShellScreen(id: 'webview:a', name: 'Dashboard'),
+          ShellScreen(id: 'webview:b', name: 'Dashboard'),
+          ShellScreen(id: 'settings', name: 'Settings'),
+        ]),
+        ['Home', 'Dashboard', 'Settings'],
+      );
     });
 
     test('every entry shares one identical device-identity block', () {
@@ -285,7 +313,7 @@ void main() {
         configurationUrl: null,
         includeVolume: false,
       );
-      expect(e.length, 4);
+      expect(e.length, 5);
       expect(e.map((x) => x.topic),
           isNot(contains(MqttService.volumeDiscoveryTopic('homeassistant', 'k'))));
     });
@@ -325,6 +353,18 @@ void main() {
     });
 
     tearDown(() => container.dispose());
+
+    test('screen/set asks HubShell for the named screen', () async {
+      final seen = <String>[];
+      final sub =
+          container.read(screenNavigatorProvider).requests.listen(seen.add);
+      await service.handleCommand(topic('screen/set'), 'Cameras');
+      await service.handleCommand(topic('screen/set'), 'media');
+      await service.handleCommand(topic('screen/set'), 'Nowhere');
+      await Future<void>.delayed(Duration.zero);
+      expect(seen, ['cameras', 'media']);
+      await sub.cancel();
+    });
 
     test('timer/start starts a timer of the given duration', () {
       service.handleCommand(topic('timer/start'), '{"duration": 300}');

@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hearth/app/current_screen_provider.dart';
+import 'package:hearth/app/screen_navigator.dart';
 import 'package:hearth/config/hub_config.dart';
 import 'package:hearth/modules/calendar/models.dart';
 import 'package:hearth/plugins/capture/capture_plugin.dart';
@@ -472,6 +474,86 @@ void main() {
       final response = await get('/api/display-mode', headers: authHeaders);
       final json = jsonDecode(await readBody(response)) as Map<String, dynamic>;
       expect(json['mode'], 'night');
+    });
+
+    // --- Screen ---
+
+    group('screen', () {
+      late ProviderContainer container;
+      late ScreenNavigator navigator;
+      late List<String> requests;
+
+      setUp(() async {
+        // The default swipe row: media · home · controls · cameras · settings.
+        container = ProviderContainer(overrides: [
+          hubConfigProvider.overrideWith((ref) => _MemoryHubConfigNotifier()),
+        ]);
+        navigator = container.read(screenNavigatorProvider);
+        requests = [];
+        navigator.requests.listen(requests.add);
+        await server.stop();
+        server = LocalApiServer(
+          displayModeService: displayService,
+          configNotifier: configNotifier,
+          screenNavigator: navigator,
+        );
+        port = await server.start(port: 0);
+      });
+
+      tearDown(() => container.dispose());
+
+      test('GET /api/screen lists the screens and the current one', () async {
+        container.read(currentScreenProvider.notifier).state =
+            const CurrentScreen(id: 'controls', index: 2);
+        final r = await get('/api/screen', headers: authHeaders);
+        expect(r.statusCode, 200);
+        final json = jsonDecode(await readBody(r)) as Map<String, dynamic>;
+        expect(json['screen'], 'controls');
+        expect(json['index'], 2);
+        expect(json['screens'], [
+          {'id': 'media', 'name': 'Music'},
+          {'id': 'home', 'name': 'Home'},
+          {'id': 'controls', 'name': 'Controls'},
+          {'id': 'cameras', 'name': 'Cameras'},
+          {'id': 'settings', 'name': 'Settings'},
+        ]);
+      });
+
+      test('POST /api/screen requests the screen by id or name', () async {
+        var r = await post('/api/screen',
+            body: jsonEncode({'screen': 'cameras'}), headers: authHeaders);
+        expect(r.statusCode, 200);
+        expect(jsonDecode(await readBody(r)), {'screen': 'cameras'});
+        r = await post('/api/screen',
+            body: jsonEncode({'screen': 'Music'}), headers: authHeaders);
+        expect(jsonDecode(await readBody(r)), {'screen': 'media'});
+        expect(requests, ['cameras', 'media']);
+      });
+
+      test('POST /api/screen rejects an unknown or missing screen', () async {
+        var r = await post('/api/screen',
+            body: jsonEncode({'screen': 'calendar'}), headers: authHeaders);
+        expect(r.statusCode, 404);
+        final json = jsonDecode(await readBody(r)) as Map<String, dynamic>;
+        expect(json['screens'], contains('home'));
+        r = await post('/api/screen', body: '{}', headers: authHeaders);
+        expect(r.statusCode, 400);
+        await readBody(r);
+        expect(requests, isEmpty);
+      });
+
+      test('/api/screen requires the API key', () async {
+        final r = await post('/api/screen',
+            body: jsonEncode({'screen': 'home'}));
+        expect(r.statusCode, 401);
+        await readBody(r);
+        expect(requests, isEmpty);
+      });
+    });
+
+    test('/api/screen is 503 without a navigator', () async {
+      final r = await get('/api/screen', headers: authHeaders);
+      expect(r.statusCode, 503);
     });
 
     // --- Error handling ---
