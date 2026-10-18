@@ -15,6 +15,7 @@ import 'notification_service.dart';
 import '../plugins/plugin_registry.dart';
 import '../plugins/hearth_plugin.dart';
 import '../plugins/framework/plugin_router.dart';
+import '../plugins/framework/web_assets.dart' show hearthFaviconLink;
 import '../plugins/framework/web_renderer.dart';
 import 'display_mode_service.dart';
 import 'third_party_licenses.dart';
@@ -1204,6 +1205,7 @@ const _logsPageHtml = r'''
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Hearth Logs</title>
+''' '$hearthFaviconLink' r'''
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -1340,6 +1342,7 @@ const _pinPageHtml = r'''
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Hearth — Unlock</title>
+''' '$hearthFaviconLink' r'''
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
