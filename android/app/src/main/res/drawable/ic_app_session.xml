@@ -1,9 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generated from assets/logos/hearth-logo-dark.svg (the mark only). -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
-    <path
-        android:fillColor="#FFFFFFFF"
-        android:pathData="M10,20v-6h4v6h5v-8h3L12,3 2,12h3v8z" />
+    <group
+        android:scaleX="0.05005"
+        android:scaleY="0.05005"
+        android:translateX="-13.6325"
+        android:translateY="-11.6083">
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M321.7 271.9H438.25V423.25A155.87 158.74 0 0 1 702.6 537.24V651.6H586.1V554.89A73.93 71.82 0 0 0 438.25 554.89V651.6H321.7Z" />
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M493.29 628.85A18.88 18.88 0 1 0 531.05 628.85A18.88 18.88 0 1 0 493.29 628.85Z" />
+    </group>
 </vector>
