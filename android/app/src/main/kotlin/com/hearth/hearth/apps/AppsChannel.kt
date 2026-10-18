@@ -102,7 +102,7 @@ class AppsChannel(private val activity: Activity, messenger: BinaryMessenger) :
         } else {
             launchFullscreen(intent)
         }
-        // Task 5: AppSessionService is started here.
+        AppSessionService.start(activity)
         return true
     }
 
@@ -141,11 +141,7 @@ class AppsChannel(private val activity: Activity, messenger: BinaryMessenger) :
             Log.w(TAG, "bringToFront skipped: overlay permission not granted")
             return
         }
-        activity.startActivity(
-            Intent(activity, MainActivity::class.java).addFlags(
-                Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT,
-            ),
-        )
+        activity.startActivity(AppSessionService.frontIntent(activity))
     }
 
     private companion object {

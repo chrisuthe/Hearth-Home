@@ -2,6 +2,7 @@ package com.hearth.hearth
 
 import android.content.Intent
 import android.os.Bundle
+import com.hearth.hearth.apps.AppSessionService
 import com.hearth.hearth.apps.AppsChannel
 import com.hearth.hearth.capture.CaptureChannel
 import com.hearth.hearth.capture.ScreenCaptureService
@@ -32,10 +33,12 @@ class MainActivity : FlutterActivity() {
     override fun onResume() {
         super.onResume()
         resumed = true
+        AppSessionService.onHearthResumedChanged()
     }
 
     override fun onPause() {
         resumed = false
+        AppSessionService.onHearthResumedChanged()
         super.onPause()
     }
 
@@ -70,6 +73,8 @@ class MainActivity : FlutterActivity() {
             stopService(Intent(this, HearthAudioService::class.java))
             // Consent lasts one session; the next launch asks again.
             stopService(Intent(this, ScreenCaptureService::class.java))
+            // Nothing left to keep alive, nothing to come back to.
+            stopService(Intent(this, AppSessionService::class.java))
         }
         super.cleanUpFlutterEngine(flutterEngine)
     }
