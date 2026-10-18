@@ -23,6 +23,10 @@ const _textShadows = [
 
 const _iconShadows = _textShadows;
 
+/// Below this width Home stacks the weather above the clock instead of
+/// setting them side by side.
+const double kHomeStackBelowWidth = 800;
+
 /// The home screen — transparent overlay on the photo carousel.
 class HomeScreen extends ConsumerWidget {
   final String? dateLabel;
@@ -87,7 +91,8 @@ class HomeScreen extends ConsumerWidget {
                 const SizedBox(height: HearthSpacing.x4),
                 // Clock + date + memory label | Weather. Side by side they
                 // need more width than a portrait panel has, so stack them.
-                if (MediaQuery.orientationOf(context) == Orientation.portrait) ...[
+                if (MediaQuery.orientationOf(context) == Orientation.portrait ||
+                    MediaQuery.sizeOf(context).width < kHomeStackBelowWidth) ...[
                   Align(
                     alignment: Alignment.centerRight,
                     child: _WeatherDisplay(weather: weather),

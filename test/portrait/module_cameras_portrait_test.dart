@@ -39,13 +39,13 @@ void main() {
         ],
       );
 
-  testLayouts('cameras with none configured', (tester, canvas) async {
+  testLayoutsAndSplitHalves('cameras with none configured', (tester, canvas) async {
     await pump(tester, 0);
     expect(find.text('No cameras'), findsOneWidget);
   });
 
   for (final count in [1, 2, 4, 6, 9]) {
-    testLayouts('camera grid with $count cameras', (tester, canvas) async {
+    testLayoutsAndSplitHalves('camera grid with $count cameras', (tester, canvas) async {
       await pump(tester, count);
       expect(find.byIcon(Icons.play_circle_outline), findsWidgets);
 
@@ -55,11 +55,15 @@ void main() {
               of: find.byIcon(Icons.play_circle_outline).first,
               matching: find.byType(ClipRRect))
           .first);
-      expect(tile.width, greaterThanOrEqualTo(360));
+      // Full canvases keep 360; Hearth's half of a split screen is narrower.
+      final minTile = kSplitHalfCanvases.containsValue(canvas)
+          ? canvas.width * 0.3
+          : 360.0;
+      expect(tile.width, greaterThanOrEqualTo(minTile));
     });
   }
 
-  testLayouts('expanded camera view', (tester, canvas) async {
+  testLayoutsAndSplitHalves('expanded camera view', (tester, canvas) async {
     await pump(tester, 6);
     await tester.tap(find.byIcon(Icons.play_circle_outline).at(1));
     await tester.pump();

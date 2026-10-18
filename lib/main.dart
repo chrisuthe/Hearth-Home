@@ -7,9 +7,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'app/app.dart';
 import 'config/hub_config.dart';
 import 'packages/hearth_osk/hearth_osk.dart';
+import 'services/android_apps.dart';
 import 'services/app_updater.dart';
 import 'services/capture_service.dart';
 import 'services/display_rotation_service.dart';
+import 'services/foreground_summoner.dart';
 import 'services/frame_timing_log.dart';
 import 'services/local_api_server.dart';
 import 'services/osk_integration.dart';
@@ -146,6 +148,9 @@ Future<void> main() async {
     container.read(plexServiceProvider);
     // Android self-update: eager read starts the daily auto-update check.
     if (Platform.isAndroid) container.read(appUpdaterProvider);
+    // App launcher: brings Hearth forward over a launched app when anything
+    // would wake it. Listens without frames, so it must start at boot.
+    if (androidAppsSupported) container.read(foregroundSummonerProvider);
   }
 
   // Eager-load AlarmService so persisted alarms are loaded and the

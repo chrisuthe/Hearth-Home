@@ -196,7 +196,7 @@ class _NotificationCardState extends State<NotificationCard>
   Widget _metaRow(HearthNotification n, Color accent) {
     return Row(
       children: [
-        _sourceChip(n.sourceLabel),
+        Flexible(child: _sourceChip(n.sourceLabel)),
         const SizedBox(width: HearthSpacing.x3),
         Container(
           width: 9,
@@ -243,6 +243,8 @@ class _NotificationCardState extends State<NotificationCard>
       ),
       child: Text(
         label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
         style: const TextStyle(
           fontSize: HearthFont.caption,
           fontWeight: FontWeight.w700,
