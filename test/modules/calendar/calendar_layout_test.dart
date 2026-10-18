@@ -268,6 +268,25 @@ void main() {
       expect(items.length, 4);
     });
 
+    test('a multi-day event cut off by the row end still sorts first', () {
+      // Sunday is the row's last column, so the three-day break shows as one
+      // column there; it must not lose its lane to single-day events.
+      final sun = DateTime(2026, 10, 18);
+      final items = layoutLanes(
+        [
+          allDay('Picture day', sun, 1),
+          allDay('Recycling day', sun, 1),
+          allDay('School break', sun, 3),
+        ],
+        DateTime(2026, 10, 12),
+        7,
+      );
+      final by = {for (final i in items) i.event.summary: i};
+      expect(by['School break']!.startCol, 6);
+      expect(by['School break']!.endCol, 7);
+      expect(by['School break']!.lane, 0);
+    });
+
     test('events outside the row are dropped', () {
       expect(
         layoutLanes(

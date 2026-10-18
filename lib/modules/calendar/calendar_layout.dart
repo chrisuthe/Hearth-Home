@@ -115,18 +115,20 @@ List<LaneItem> layoutLanes(
   int days,
 ) {
   final last = addDays(first, days - 1);
-  final spans = <({CalendarEvent e, int s, int t})>[];
+  final spans = <({CalendarEvent e, int s, int t, int length})>[];
   for (final e in events) {
     final d = eventDays(e);
     if (d.last.isBefore(first) || d.first.isAfter(last)) continue;
     final s = d.first.isBefore(first) ? 0 : _dayIndex(first, d.first);
     final t = d.last.isAfter(last) ? days : _dayIndex(first, d.last) + 1;
-    spans.add((e: e, s: s, t: t));
+    // The whole event's length, not the clipped span: a bar cut off by the
+    // row's end is still multi-day and keeps its place on top.
+    spans.add((e: e, s: s, t: t, length: _dayIndex(d.first, d.last) + 1));
   }
   spans.sort((a, b) {
     final byStart = a.s.compareTo(b.s);
     if (byStart != 0) return byStart;
-    final byLength = (b.t - b.s).compareTo(a.t - a.s);
+    final byLength = b.length.compareTo(a.length);
     if (byLength != 0) return byLength;
     if (a.e.allDay != b.e.allDay) return a.e.allDay ? -1 : 1;
     return a.e.start.compareTo(b.e.start);
