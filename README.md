@@ -1,4 +1,4 @@
-# Hearth
+# hearth
 
 Open-source Flutter smart home kiosk — a Google Nest Hub replacement. It is built for a Raspberry Pi 5 with an 11" AMOLED display, running via [flutter-pi](https://github.com/ardera/flutter-pi), and also runs as an  APK on Android kiosk tablets.
 
