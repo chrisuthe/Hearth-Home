@@ -2,6 +2,8 @@ package com.hearth.hearth
 
 import android.content.Intent
 import android.os.Bundle
+import com.hearth.hearth.apps.AppSessionService
+import com.hearth.hearth.apps.AppsChannel
 import com.hearth.hearth.capture.CaptureChannel
 import com.hearth.hearth.capture.ScreenCaptureService
 import com.hearth.hearth.sendspin.SendspinChannel
@@ -16,6 +18,7 @@ class MainActivity : FlutterActivity() {
     private var appUpdate: AppUpdateChannel? = null
     private var capture: CaptureChannel? = null
     private var wifi: WifiChannel? = null
+    private var apps: AppsChannel? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         live++
@@ -27,6 +30,18 @@ class MainActivity : FlutterActivity() {
         live--
     }
 
+    override fun onStart() {
+        super.onStart()
+        started++
+        AppSessionService.onHearthVisibilityChanged()
+    }
+
+    override fun onStop() {
+        started--
+        AppSessionService.onHearthVisibilityChanged()
+        super.onStop()
+    }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         val messenger = flutterEngine.dartExecutor.binaryMessenger
@@ -35,6 +50,7 @@ class MainActivity : FlutterActivity() {
         appUpdate = AppUpdateChannel(this, messenger)
         capture = CaptureChannel(this, messenger)
         wifi = WifiChannel(this, messenger)
+        apps = AppsChannel(this, messenger)
     }
 
     override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
@@ -48,6 +64,8 @@ class MainActivity : FlutterActivity() {
         capture = null
         wifi?.dispose()
         wifi = null
+        apps?.dispose()
+        apps = null
         // Dart owns the satellite and Sendspin; without it nothing could
         // configure, mute or stop them. A newer instance (a relaunch with
         // CLEAR_TASK) already owns them.
@@ -55,6 +73,8 @@ class MainActivity : FlutterActivity() {
             stopService(Intent(this, HearthAudioService::class.java))
             // Consent lasts one session; the next launch asks again.
             stopService(Intent(this, ScreenCaptureService::class.java))
+            // Nothing left to keep alive, nothing to come back to.
+            stopService(Intent(this, AppSessionService::class.java))
         }
         super.cleanUpFlutterEngine(flutterEngine)
     }
@@ -75,8 +95,18 @@ class MainActivity : FlutterActivity() {
         voice?.onRequestPermissionsResult(requestCode)
     }
 
-    private companion object {
+    companion object {
+        /** Instances between onStart and onStop. Main thread. */
+        private var started = 0
+
+        /**
+         * Hearth is on screen: full screen, in a split half (focused or not),
+         * or under a translucent dialog it opened. Main thread.
+         */
+        val visible: Boolean
+            get() = started > 0
+
         /** Instances between onCreate and onDestroy, for the service stop. */
-        var live = 0
+        private var live = 0
     }
 }

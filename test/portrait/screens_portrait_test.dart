@@ -72,7 +72,7 @@ void main() {
       await tester.pump(const Duration(seconds: 4));
     }
 
-    testLayouts('with weather, timers, a memory label and now playing',
+    testLayoutsAndSplitHalves('with weather, timers, a memory label and now playing',
         (tester, canvas) async {
       await pumpHome(tester, populated: true);
       expect(find.text(longTitle), findsOneWidget);
@@ -80,7 +80,7 @@ void main() {
       await unmount(tester);
     });
 
-    testLayouts('with the calendar glance and everything else',
+    testLayoutsAndSplitHalves('with the calendar glance and everything else',
         (tester, canvas) async {
       final now = DateTime.now();
       final today = DateTime(now.year, now.month, now.day);
@@ -107,7 +107,7 @@ void main() {
       await unmount(tester);
     });
 
-    testLayouts('with the chore glance, the calendar glance and the rest',
+    testLayoutsAndSplitHalves('with the chore glance, the calendar glance and the rest',
         (tester, canvas) async {
       final now = DateTime.now();
       final today = TodoDue.date(now);
@@ -137,7 +137,7 @@ void main() {
       await unmount(tester);
     });
 
-    testLayouts('with nothing configured', (tester, canvas) async {
+    testLayoutsAndSplitHalves('with nothing configured', (tester, canvas) async {
       await pumpHome(tester, populated: false, use24h: true);
       expect(find.text('Set a timer'), findsOneWidget);
       await unmount(tester);
@@ -222,21 +222,21 @@ void main() {
       return timers;
     }
 
-    testLayouts('duration picker', (tester, canvas) async {
+    testLayoutsAndSplitHalves('duration picker', (tester, canvas) async {
       await pumpTimers(tester, const []);
       expect(find.text('Start'), findsOneWidget);
       expect(find.text('15 min'), findsOneWidget);
       await unmount(tester);
     });
 
-    testLayouts('one running timer', (tester, canvas) async {
+    testLayoutsAndSplitHalves('one running timer', (tester, canvas) async {
       await pumpTimers(
           tester, const [Duration(hours: 10, minutes: 30, seconds: 15)]);
       expect(find.byType(TimerDisplay), findsOneWidget);
       await unmount(tester);
     });
 
-    testLayouts('five running timers', (tester, canvas) async {
+    testLayoutsAndSplitHalves('five running timers', (tester, canvas) async {
       await pumpTimers(tester, [
         for (var i = 1; i <= 5; i++) Duration(hours: i, minutes: 7 * i),
       ]);
@@ -244,7 +244,7 @@ void main() {
       await unmount(tester);
     });
 
-    testLayouts('voice timers beside a local one', (tester, canvas) async {
+    testLayoutsAndSplitHalves('voice timers beside a local one', (tester, canvas) async {
       final timers = await pumpTimers(tester, const [Duration(minutes: 5)]);
       timers
         ..applyRemoteEvent(const VoiceTimerEvent(
@@ -269,7 +269,7 @@ void main() {
       await unmount(tester);
     });
 
-    testLayouts('picker reopened over running timers', (tester, canvas) async {
+    testLayoutsAndSplitHalves('picker reopened over running timers', (tester, canvas) async {
       await pumpTimers(tester, const [Duration(minutes: 5)]);
       await tester.tap(find.byIcon(Icons.add_circle_outline));
       await tester.pump(const Duration(milliseconds: 300));

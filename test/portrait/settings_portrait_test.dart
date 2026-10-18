@@ -30,6 +30,7 @@ import 'package:hearth/services/local_api_server.dart';
 import 'package:hearth/services/mqtt_service.dart';
 import 'package:hearth/services/timezone_service.dart';
 import 'package:hearth/services/update_service.dart';
+import 'package:hearth/services/android_apps.dart';
 import 'package:hearth/services/voice_satellite_bridge.dart';
 import 'package:hearth/services/wifi_service.dart';
 import 'package:hearth/widgets/entity_picker_dialog.dart';
@@ -251,6 +252,7 @@ List<Override> _overrides({HubConfig? config}) => [
       alarmServiceProvider.overrideWith((ref) => _alarms()),
       deviceIpProvider.overrideWith((ref) async => '192.168.100.250'),
       webPinProvider.overrideWithValue('1234'),
+      androidAppsBridgeProvider.overrideWithValue(_FakeAppsBridge()),
       installedVersionProvider.overrideWith((ref) => '1.42.17-a-long-dev-suffix'),
       latestUpdateProvider.overrideWith((ref) async => const UpdateInfo(
             version: '1.43.0',
@@ -334,7 +336,21 @@ Future<List<String>> _walkPanels(WidgetTester tester) async {
   return problems;
 }
 
+class _FakeAppsBridge extends AndroidAppsBridge {
+  @override
+  Future<List<InstalledApp>> listApps() async => const [
+    InstalledApp(packageName: 'com.example.tv', label: 'Example TV'),
+  ];
+
+  @override
+  Future<bool> overlayGranted() async => false;
+}
+
 void main() {
+  // The Apps panel only exists on Android.
+  setUp(() => debugAndroidAppsSupportedOverride = true);
+  tearDown(() => debugAndroidAppsSupportedOverride = null);
+
   testLayouts('settings screen: every sidebar entry, scrolled to its end',
       (tester, canvas) async {
     await tester.pumpWidget(ProviderScope(
@@ -554,6 +570,10 @@ void main() {
   });
   // Opened the way a user does: from the real panel, at the panel's width.
   group('dialogs opened from a panel', () {
+    // These open dialogs from other panels; the extra Apps row shifts the
+    // sidebar scroll, which is not what they exercise.
+    setUp(() => debugAndroidAppsSupportedOverride = false);
+
     Future<void> openFrom(
       WidgetTester tester, {
       required String plugin,

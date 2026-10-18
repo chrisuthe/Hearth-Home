@@ -19,6 +19,21 @@ const kLayoutCanvases = <String, Size>{
   'portrait 800x1280': kNarrowPortraitCanvas,
 };
 
+/// Hearth's half of a split screen on the Apolosign (Hearth on top, the app
+/// below).
+const kSplitPortraitHalfCanvas = Size(720, 640);
+
+/// Hearth's half of a split screen on the T901 held landscape (Hearth left,
+/// the app right).
+const kSplitLandscapeHalfCanvas = Size(550, 690);
+
+/// The canvases [testSplitHalfLayouts] runs. Only the surfaces split mode
+/// depends on are covered at these sizes, not all of Hearth.
+const kSplitHalfCanvases = <String, Size>{
+  'split half 720x640': kSplitPortraitHalfCanvas,
+  'split half 550x690': kSplitLandscapeHalfCanvas,
+};
+
 /// The theme [hostScreen] and [harnessTheme] use; [testLayouts] sets it.
 HearthThemeId _harnessTheme = HearthThemeId.classic;
 
@@ -44,9 +59,10 @@ const kPortraitThemes = [
 /// margin on a device rather than the other way round.
 void testLayouts(
   String description,
-  Future<void> Function(WidgetTester tester, Size canvas) body,
-) {
-  for (final entry in kLayoutCanvases.entries) {
+  Future<void> Function(WidgetTester tester, Size canvas) body, {
+  Map<String, Size> canvases = kLayoutCanvases,
+}) {
+  for (final entry in canvases.entries) {
     for (final theme in kPortraitThemes) {
       testWidgets('$description — ${entry.key} — ${theme.label}', (
         tester,
@@ -62,6 +78,21 @@ void testLayouts(
       });
     }
   }
+}
+
+/// [testLayouts] at Hearth's half of a split screen ([kSplitHalfCanvases]).
+void testSplitHalfLayouts(
+  String description,
+  Future<void> Function(WidgetTester tester, Size canvas) body,
+) => testLayouts(description, body, canvases: kSplitHalfCanvases);
+
+/// Both: every full canvas and the split halves.
+void testLayoutsAndSplitHalves(
+  String description,
+  Future<void> Function(WidgetTester tester, Size canvas) body,
+) {
+  testLayouts(description, body);
+  testSplitHalfLayouts(description, body);
 }
 
 /// Sizes the test surface to [canvas] at 1.0 device pixel ratio.

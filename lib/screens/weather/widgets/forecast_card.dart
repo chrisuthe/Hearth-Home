@@ -110,14 +110,18 @@ class ForecastCard extends StatelessWidget {
   }
 
   Widget _metricRow(IconData icon, String value, {required Color color}) {
-    return Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-      Icon(icon, size: HearthIcon.sm, color: color),
-      const SizedBox(width: HearthSpacing.x2),
-      Text(value, style: TextStyle(
-        fontFamily: 'Inter', fontSize: HearthFont.bodyLg, fontWeight: FontWeight.w600,
-        color: color,
-        fontFeatures: const [FontFeature.tabularFigures()],
-      )),
-    ]);
+    // Scales down in a narrow card (Hearth's half of a split screen).
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+        Icon(icon, size: HearthIcon.sm, color: color),
+        const SizedBox(width: HearthSpacing.x2),
+        Text(value, style: TextStyle(
+          fontFamily: 'Inter', fontSize: HearthFont.bodyLg, fontWeight: FontWeight.w600,
+          color: color,
+          fontFeatures: const [FontFeature.tabularFigures()],
+        )),
+      ]),
+    );
   }
 }
