@@ -74,8 +74,9 @@ void main() {
     final clock = find.byWidgetPredicate(
         (w) =>
             w is Text &&
-            w.style?.fontSize == 96 &&
-            w.style?.fontWeight == FontWeight.w100);
+            w.style?.fontSize == 76 &&
+            w.style?.fontWeight == FontWeight.w400 &&
+            w.style?.height == 1.0);
     expect(clock, findsOneWidget);
     final paragraph = tester.renderObject<RenderParagraph>(
         find.descendant(of: clock, matching: find.byType(RichText)));
