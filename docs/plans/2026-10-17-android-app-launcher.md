@@ -1,5 +1,7 @@
 # Android App Launcher Implementation Plan
 
+> **Superseded on hardware:** the split approach below (app top, Hearth bottom via a relaunch trick) failed on the T901; Hearth now stays top/left and the app opens `LAUNCH_ADJACENT` bottom/right. See the spec's "First hardware pass".
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Hearth on Android launches chosen installed apps (YouTube, Plex) from tiles, in a split screen (app top, Hearth bottom) or full screen with picture-in-picture, and keeps working and can come forward while the app is in front.

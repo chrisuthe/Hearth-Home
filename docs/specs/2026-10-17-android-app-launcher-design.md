@@ -1,6 +1,6 @@
 # Android app launcher: split screen and picture-in-picture
 
-Status: design, not built. Android only.
+Status: built; first hardware pass 2026-10-17 (T901). Android only.
 
 ## Why
 
@@ -21,8 +21,9 @@ with) from a tile, and keeps working while that app is on screen.
 
 There are two layouts, chosen per tablet:
 
-- **Split (the default).** The screen splits into two stacked halves:
-  **the app on top, Hearth on the bottom.** Hearth's half is normal Hearth:
+- **Split (the default).** The screen splits into two halves: **Hearth
+  top/left, the app bottom/right** (stacked in portrait, side by side in
+  landscape). Hearth's half is normal Hearth:
   swipe row, edge menus, idle fade to photos, alarms, timers, notifications,
   cameras. Nothing ever covers the app. On the 21" tall tablet, half the
   screen is big enough for Hearth's alerts as they are; no full-screen
@@ -33,7 +34,9 @@ There are two layouts, chosen per tablet:
   by the user tapping that button or by Hearth bringing itself forward for
   anything that wakes it, the app shrinks into a corner window and keeps
   playing. Tapping the corner window brings the app back full screen. This
-  suits the smaller 16:9 / 16:10 tablets.
+  suits the smaller 16:9 / 16:10 tablets. *(The corner window is
+  **unverified** with Hearth installed: see "First hardware pass" below.
+  The settings text promises only that Hearth comes back.)*
 
 Where Android can't split (a small screen, or Android older than 12L), a
 split launch opens the app full screen, and the corner-window behaviour
@@ -45,7 +48,7 @@ are not offered on Linux or Windows.
 ## Goals
 
 - Launch a chosen installed app from a Hearth tile.
-- Split by default, app on top, Hearth on the bottom.
+- Split by default, Hearth top/left, the app bottom/right.
 - Per-tablet setting to open apps full screen instead.
 - Hearth's timers, alarms, notifications and cameras keep working the whole
   time an app is in front, in both layouts.
@@ -80,7 +83,7 @@ are not offered on Linux or Windows.
 - **The game stops when Hearth comes forward.** The point is that it keeps
   playing.
 
-## What was verified on hardware (2026-10-17)
+## What was verified on hardware (2026-10-17, before the build)
 
 Tested over adb on a Relndoo T901 (Android 15, SDK 35, 800x1280,
 sw688dp, so a "large screen"), with the stock launcher as the home app and
@@ -108,9 +111,57 @@ Hearth half in split is therefore roughly 720x640 dp. *(Identified from the
 requirements doc, not stated in conversation.)*
 
 **Landscape tablets** split side by side, not stacked (seen on the T901):
-the app on the left, Hearth on the right, by the same mechanism that puts
-Hearth on the bottom in portrait. A tablet where that half is too narrow is
-set to "Full screen". *(Design call.)*
+Hearth on the left, the app on the right, by the same mechanism that puts
+Hearth on top in portrait. A tablet where that half is too narrow is set to
+"Full screen". *(Design call.)*
+
+## First hardware pass (2026-10-17, T901)
+
+Relndoo T901, Android 15, landscape, debug build. The stock launcher held
+the HOME role; Hearth was **not** the home app. Verification step 0 ran
+here, on the T901 in landscape, **not** on the Apolosign in portrait.
+
+| Test | Result |
+|---|---|
+| Step 0: relaunch trick (Hearth relaunches itself `LAUNCH_ADJACENT` after the app) | **Failed.** WM Shell re-fronted Hearth's existing task (`onActivityRestartAttempt`); no split, Hearth covered the app. |
+| Fallback: the app launched `LAUNCH_ADJACENT` from Hearth | **Works.** Split with Hearth `[0,0][631,800]` (left) and YouTube `[643,0][1280,800]` (right). Shipped. |
+| Floating button | Leaked in the build tested: visible in split and over full-screen Hearth (it went away when `SYSTEM_ALERT_WINDOW` was revoked). Fixed after the pass by gating on visibility and always removing the view; **the fix has not been re-run on hardware.** |
+| Full screen: launch, button over the app, tap it | Launch OK; button shown over YouTube; the tap brought Hearth forward and hid the button. |
+| Full screen: YouTube into the corner window | **Not seen** in 3 attempts (the button; `am start -f 0x10020000` of Hearth; a plain Home key with the stock launcher, which had produced PiP before Hearth was installed). Cause undetermined (YouTube's state or ads are possible). **PiP is unverified.** |
+| 5-minute timer, YouTube in front, Hearth backgrounded | **Pass.** At fire time Hearth came forward on its own, process alive, timer card shown. |
+| Apps panel on the device | **Pass.** Lists apps and switches the layout. |
+| Swipe card | **Pass.** Shows YouTube's real icon; swiping onto the page launches nothing. |
+
+Not run: the Apolosign 21.5" portrait split; Plex (not installed); the
+release (R8) build. Hearth's Android launcher icon is still Flutter's
+default from the scaffold, so the floating button shows a Flutter logo.
+Audio focus and night mode while an app is in front were not observed.
+
+**Next: a PiP A/B (not yet run).** With the stock launcher as home and a
+non-music, ad-free video playing in YouTube full screen:
+
+1. `am start` Chrome over YouTube. If YouTube does not go to PiP, the cause
+   is the device or YouTube, not Hearth.
+2. `am start -f 0x10020000 -n com.hearth.hearth/.MainActivity`.
+3. The real summoner (fire a timer or a notification).
+
+For each, capture logcat (`PipTransition`) and `dumpsys activity
+activities`.
+
+### Deviations from this design
+
+- **Split puts Hearth top/left**, the app bottom/right, through
+  `FLAG_ACTIVITY_LAUNCH_ADJACENT` on the app's intent: the fallback this
+  design already accepted, because the relaunch trick failed on hardware.
+- **Menu tiles show a generic `Icons.apps`.** Only the swipe card shows the
+  app's own launcher icon.
+- **The floating button is gated on Hearth's visibility**
+  (`onStart`/`onStop`), not on its focus: it stays hidden in split, where
+  Hearth is on screen but may not be focused, and under Hearth's own
+  translucent dialogs (permission, consent, install).
+- **Hearth brings itself forward only during an app session**: while
+  `AppSessionService` runs (an app was launched from Hearth) and Hearth is
+  off screen. Before any launch, nothing reorders Hearth.
 
 ## How it works
 
@@ -133,7 +184,8 @@ do: `modulesForConfig()` synthesizes one module per entry in a new
 
 Each entry stores the package name, a display name and a stable id of the
 form `app:<package>`. The tile shows the app's own launcher icon, fetched
-from `PackageManager` over the channel, not a Material icon. *(Design call.)*
+from `PackageManager` over the channel, not a Material icon. *(Design call.
+Shipped on the swipe card only; menu tiles show `Icons.apps`.)*
 If the package is uninstalled, the tile reports "not installed" rather than
 disappearing, so the user can see what happened.
 
@@ -157,21 +209,18 @@ A new method channel, `com.hearth/apps`, following the existing
 list launchable apps, fetch an icon, launch a package in a given layout,
 report whether an app is in front.
 
-**Split launch, Hearth on the bottom.** The tested default puts the newly
-launched app on the bottom, the wrong half. The approach to try:
+**Split launch (shipped): Hearth top/left, the app bottom/right.** Hearth
+starts the app's launch intent with `FLAG_ACTIVITY_LAUNCH_ADJACENT |
+FLAG_ACTIVITY_NEW_TASK`, so the app is the new window and takes the
+bottom/right half (`AppsChannel.launchSplitAdjacent`). On a screen under
+600dp smallest width, a split launch opens full screen instead.
 
-1. Hearth launches the app full screen (normal `startActivity`).
-2. Immediately after, Hearth starts its own `MainActivity` with
-   `FLAG_ACTIVITY_LAUNCH_ADJACENT | FLAG_ACTIVITY_NEW_TASK`, so Hearth is the
-   "new" window and lands bottom, with the app on top.
-
-This is unproven. Step 2 is a background activity start (needs the
-permission below), and it reuses Hearth's existing task (`singleTop`,
-`taskAffinity=""`), which may behave differently from a fresh one. **Prove it
-on hardware first, before building anything around it.** If it does not
-work, **accept Android's default: Hearth on top, app on the bottom**, and
-ship split that way (decided). A landscape split is then Hearth left, app
-right.
+The design first called for a relaunch trick to put Hearth on the bottom:
+launch the app full screen, then start Hearth's own `MainActivity`
+`LAUNCH_ADJACENT`. **It failed on hardware** (T901, 2026-10-17): WM Shell
+re-fronted Hearth's existing task instead of splitting, and Hearth covered
+the app. It was removed, and the fallback this design had already accepted
+shipped.
 
 **Corner-window mode.** Launch the app full screen. **Anything that wakes
 Hearth brings it forward** (decided): every overlay that calls `onWake` in
@@ -184,14 +233,17 @@ backgrounded Flutter app renders no frames, so the hook cannot sit on
 sources directly and fires on new events only, so a notification left on
 the deck doesn't pull Hearth forward again and again.)* The test shows
 YouTube enters PiP on its own when Hearth comes forward; Hearth does nothing
-to the other app. After the interruption the app **stays in the corner
-until tapped**. *(Design call: with every wake interrupting, auto-returning
+to the other app (**unverified with Hearth installed**: see "First hardware
+pass"). After the interruption the app **stays in the corner until
+tapped**. Hearth brings itself forward only while an app session runs and
+Hearth is off screen. *(Design call: with every wake interrupting, auto-returning
 to full screen would bounce the game back and forth.)*
 
 **Floating Hearth button** (decided). While an app Hearth launched is full
 screen, Hearth draws a small button over it (a `TYPE_APPLICATION_OVERLAY`
 window from the native side). Tapping it brings Hearth forward, which sends
-the app to the corner. The button is hidden while Hearth is in front, and in
+the app to the corner. The button is hidden while Hearth is visible
+(between `onStart` and `onStop`): in front, under its own dialogs, and in
 split mode, where Hearth is already on screen. Its look, size, position and
 whether it can be dragged are the builder's call; it must stay out of the
 way of the video and of a PiP window.
@@ -201,8 +253,8 @@ way of the video and of a PiP window.
 - **"Display over other apps"** (`SYSTEM_ALERT_WINDOW`) is required for
   both layouts. It draws the floating button, and it exempts Hearth from
   Android's block on bringing itself forward from the background (corner-
-  window mode, and step 2 of the split launch). Settings shows when it is
-  missing, with a button to the system screen that grants it.
+  window mode). Settings shows when it is missing, with a button to the
+  system screen that grants it.
 - Being the **home app** is not required. Hearth already declares the `HOME`
   intent filter, and the Apolosign uses it that way; it is fine either way.
 
@@ -241,9 +293,10 @@ service is still harmless there.
 On the T901 and the 21" tablet, with Hearth installed:
 
 0. First, before anything else is built: the Hearth-on-the-bottom relaunch
-   trick, on the Apolosign in portrait.
-1. Split: launch YouTube from a menu tile; app on top, Hearth bottom (or the
-   accepted fallback). Set a 60s timer in Hearth's half; it rings in the half
+   trick, on the Apolosign in portrait. *(Ran on the T901 in landscape
+   instead, and failed; see "First hardware pass".)*
+1. Split: launch YouTube from a menu tile; Hearth top/left, the app
+   bottom/right. Set a 60s timer in Hearth's half; it rings in the half
    and the video never stops.
 2. Full screen: launch YouTube, play a video, tap the floating Hearth button;
    the video goes to the corner and keeps playing. Leave it 5+ minutes with
