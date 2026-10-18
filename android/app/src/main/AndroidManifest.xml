@@ -18,6 +18,9 @@
     <!-- Self-update: hands the release APK to PackageInstaller. The user
          still grants "Install unknown apps" and confirms each install. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
+    <!-- App launcher: Hearth brings itself back to the front over a launched
+         app, which Android only allows with "Display over other apps". -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
     <!-- usesCleartextTraffic: HA, Immich, Frigate and Plex are commonly
          plain-HTTP hosts on the LAN, and :8090 is served over HTTP. -->
     <application
@@ -88,6 +91,11 @@
 
          In particular, this is used by the Flutter engine in io.flutter.plugin.text.ProcessTextPlugin. -->
     <queries>
+        <!-- Package visibility for the app launcher's installed-app list. -->
+        <intent>
+            <action android:name="android.intent.action.MAIN"/>
+            <category android:name="android.intent.category.LAUNCHER"/>
+        </intent>
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>

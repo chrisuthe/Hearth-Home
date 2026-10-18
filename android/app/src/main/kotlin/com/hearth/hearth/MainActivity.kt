@@ -2,6 +2,7 @@ package com.hearth.hearth
 
 import android.content.Intent
 import android.os.Bundle
+import com.hearth.hearth.apps.AppsChannel
 import com.hearth.hearth.capture.CaptureChannel
 import com.hearth.hearth.capture.ScreenCaptureService
 import com.hearth.hearth.sendspin.SendspinChannel
@@ -16,6 +17,7 @@ class MainActivity : FlutterActivity() {
     private var appUpdate: AppUpdateChannel? = null
     private var capture: CaptureChannel? = null
     private var wifi: WifiChannel? = null
+    private var apps: AppsChannel? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         live++
@@ -27,6 +29,16 @@ class MainActivity : FlutterActivity() {
         live--
     }
 
+    override fun onResume() {
+        super.onResume()
+        resumed = true
+    }
+
+    override fun onPause() {
+        resumed = false
+        super.onPause()
+    }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         val messenger = flutterEngine.dartExecutor.binaryMessenger
@@ -35,6 +47,7 @@ class MainActivity : FlutterActivity() {
         appUpdate = AppUpdateChannel(this, messenger)
         capture = CaptureChannel(this, messenger)
         wifi = WifiChannel(this, messenger)
+        apps = AppsChannel(this, messenger)
     }
 
     override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
@@ -48,6 +61,8 @@ class MainActivity : FlutterActivity() {
         capture = null
         wifi?.dispose()
         wifi = null
+        apps?.dispose()
+        apps = null
         // Dart owns the satellite and Sendspin; without it nothing could
         // configure, mute or stop them. A newer instance (a relaunch with
         // CLEAR_TASK) already owns them.
@@ -75,8 +90,12 @@ class MainActivity : FlutterActivity() {
         voice?.onRequestPermissionsResult(requestCode)
     }
 
-    private companion object {
+    companion object {
+        /** True between onResume and onPause: Hearth is the focused app. */
+        @Volatile
+        var resumed = false
+
         /** Instances between onCreate and onDestroy, for the service stop. */
-        var live = 0
+        private var live = 0
     }
 }
