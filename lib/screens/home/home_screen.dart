@@ -87,7 +87,8 @@ class HomeScreen extends ConsumerWidget {
                 const SizedBox(height: HearthSpacing.x4),
                 // Clock + date + memory label | Weather. Side by side they
                 // need more width than a portrait panel has, so stack them.
-                if (MediaQuery.orientationOf(context) == Orientation.portrait) ...[
+                if (MediaQuery.orientationOf(context) == Orientation.portrait ||
+                    MediaQuery.sizeOf(context).width < 800) ...[
                   Align(
                     alignment: Alignment.centerRight,
                     child: _WeatherDisplay(weather: weather),

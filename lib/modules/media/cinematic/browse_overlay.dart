@@ -323,27 +323,35 @@ class _SectionTabs extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        for (final s in _Section.values) ...[
-          _Tab(
-            label: switch (s) {
-              _Section.albums => 'Albums',
-              _Section.artists => 'Artists',
-              _Section.playlists => 'Playlists',
-              _Section.tracks => 'Tracks',
-            },
-            icon: switch (s) {
-              _Section.albums => Icons.album,
-              _Section.artists => Icons.person,
-              _Section.playlists => Icons.queue_music,
-              _Section.tracks => Icons.music_note,
-            },
-            active: !searching && active == s,
-            disabled: searching,
-            onTap: onSelect == null ? null : () => onSelect!(s),
+        Expanded(
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                for (final s in _Section.values) ...[
+                  _Tab(
+                    label: switch (s) {
+                      _Section.albums => 'Albums',
+                      _Section.artists => 'Artists',
+                      _Section.playlists => 'Playlists',
+                      _Section.tracks => 'Tracks',
+                    },
+                    icon: switch (s) {
+                      _Section.albums => Icons.album,
+                      _Section.artists => Icons.person,
+                      _Section.playlists => Icons.queue_music,
+                      _Section.tracks => Icons.music_note,
+                    },
+                    active: !searching && active == s,
+                    disabled: searching,
+                    onTap: onSelect == null ? null : () => onSelect!(s),
+                  ),
+                  const SizedBox(width: HearthSpacing.x2),
+                ],
+              ],
+            ),
           ),
-          const SizedBox(width: HearthSpacing.x2),
-        ],
-        const Spacer(),
+        ),
         if (searching)
           const Text(
             'Search results',

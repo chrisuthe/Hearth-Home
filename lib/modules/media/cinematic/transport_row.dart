@@ -26,6 +26,10 @@ class TransportRow extends StatelessWidget {
   /// Controls cluster (~650) plus a progress bar still worth reading.
   static const double _compactBelow = 900;
 
+  /// Below this the volume cluster no longer fits beside the times (Hearth's
+  /// half of a split screen), so it is left out.
+  static const double _volumeBelow = 700;
+
   final MusicPlayerState state;
   final DrawerMetrics metrics;
   final VoidCallback? onPlayPause;
@@ -56,6 +60,7 @@ class TransportRow extends StatelessWidget {
       final controls = _Controls(
         state: state,
         compact: compact,
+        showVolume: constraints.maxWidth >= _volumeBelow,
         onPlayPause: onPlayPause,
         onNext: onNext,
         onPrev: onPrev,
@@ -302,9 +307,13 @@ class _Controls extends StatelessWidget {
   /// lyrics) so the working ones keep their full tap targets.
   final bool compact;
 
+  /// Leaves out the divider, volume icon and bar when there is no room.
+  final bool showVolume;
+
   const _Controls({
     required this.state,
     this.compact = false,
+    this.showVolume = true,
     this.onPlayPause,
     this.onNext,
     this.onPrev,
@@ -343,22 +352,24 @@ class _Controls extends StatelessWidget {
         ),
         if (!compact)
           const _CIconBtn(icon: Icons.lyrics_outlined, size: 44, dim: true),
-        const SizedBox(width: HearthSpacing.x3),
-        Container(
-          width: 1,
-          height: 32,
-          color: c.inkAt(0.15),
-        ),
-        const SizedBox(width: HearthSpacing.x3),
-        _VolumeIcon(volume: state.volume, muted: state.muted),
-        const SizedBox(width: HearthSpacing.x3),
-        SizedBox(
-          width: 100,
-          child: _VolumeBar(
-            value: state.muted ? 0.0 : state.volume,
-            onChanged: onVolumeChanged,
+        if (showVolume) ...[
+          const SizedBox(width: HearthSpacing.x3),
+          Container(
+            width: 1,
+            height: 32,
+            color: c.inkAt(0.15),
           ),
-        ),
+          const SizedBox(width: HearthSpacing.x3),
+          _VolumeIcon(volume: state.volume, muted: state.muted),
+          const SizedBox(width: HearthSpacing.x3),
+          SizedBox(
+            width: 100,
+            child: _VolumeBar(
+              value: state.muted ? 0.0 : state.volume,
+              onChanged: onVolumeChanged,
+            ),
+          ),
+        ],
       ],
     );
   }

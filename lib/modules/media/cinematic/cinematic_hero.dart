@@ -22,6 +22,10 @@ class CinematicHero extends StatelessWidget {
   /// Narrowest meta column worth setting a 48–64 px title in.
   static const double _minMetaWidth = 400;
 
+  /// Below this beside the art the meta column cannot be read at all (the
+  /// half of a split screen), so the stacked hero is scaled down to fit.
+  static const double _unusableMetaWidth = 250;
+
   /// Gap + the meta column at its tallest (two title lines, stats row).
   static const double _stackedMetaHeight = 24 + 270;
 
@@ -52,6 +56,24 @@ class CinematicHero extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [art, const SizedBox(height: HearthSpacing.x6), meta],
+            ),
+          );
+        }
+        if (besideArt < _unusableMetaWidth) {
+          return Center(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: SizedBox(
+                width: constraints.maxWidth,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    art,
+                    const SizedBox(height: HearthSpacing.x6),
+                    meta,
+                  ],
+                ),
+              ),
             ),
           );
         }
