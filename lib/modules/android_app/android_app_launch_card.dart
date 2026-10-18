@@ -11,10 +11,9 @@ import '../../services/toast_service.dart';
 /// package is not installed.
 Future<void> launchAndroidApp(WidgetRef ref, AndroidAppConfig app) async {
   final layout = ref.read(hubConfigProvider).androidAppLayout;
-  final ok = await ref.read(androidAppsBridgeProvider).launch(
-        app.packageName,
-        layout,
-      );
+  final ok = await ref
+      .read(androidAppsBridgeProvider)
+      .launch(app.packageName, layout);
   if (!ok) {
     ref
         .read(toastProvider.notifier)

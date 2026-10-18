@@ -9,18 +9,22 @@ import 'package:hearth/services/android_apps.dart';
 
 import '../../portrait/module_support.dart';
 
-const _app = AndroidAppConfig(packageName: 'com.example.tv', name: 'Example TV');
+const _app = AndroidAppConfig(
+  packageName: 'com.example.tv',
+  name: 'Example TV',
+);
 
 class _FakeBridge extends AndroidAppsBridge {
-  _FakeBridge({this.installed = const ['com.example.tv']});
+  _FakeBridge({List<String> installed = const ['com.example.tv']})
+    : installed = [...installed];
 
   final List<String> installed;
   final launches = <(String, AndroidAppLayout)>[];
 
   @override
   Future<List<InstalledApp>> listApps() async => [
-        for (final p in installed) InstalledApp(packageName: p, label: p),
-      ];
+    for (final p in installed) InstalledApp(packageName: p, label: p),
+  ];
 
   @override
   Future<Uint8List?> icon(String packageName) async => null;
@@ -47,8 +51,9 @@ void main() {
     debugAndroidAppsSupportedOverride = true;
     await pumpModule(
       tester,
-      modulesForConfig(hub).firstWhere((m) => m.id == _app.id)
-          .buildScreen(isActive: isActive),
+      modulesForConfig(
+        hub,
+      ).firstWhere((m) => m.id == _app.id).buildScreen(isActive: isActive),
       config: hub,
       overrides: [androidAppsBridgeProvider.overrideWithValue(fake)],
     );
@@ -57,15 +62,17 @@ void main() {
 
   test('modules are absent off Android', () {
     debugAndroidAppsSupportedOverride = false;
-    expect(modulesForConfig(config).where((m) => m.id.startsWith('app:')),
-        isEmpty);
+    expect(
+      modulesForConfig(config).where((m) => m.id.startsWith('app:')),
+      isEmpty,
+    );
   });
 
   test('one module per configured app on Android', () {
     debugAndroidAppsSupportedOverride = true;
-    final ids = modulesForConfig(config)
-        .where((m) => m.id.startsWith('app:'))
-        .map((m) => m.id);
+    final ids = modulesForConfig(
+      config,
+    ).where((m) => m.id.startsWith('app:')).map((m) => m.id);
     expect(ids, ['app:com.example.tv']);
   });
 
@@ -75,11 +82,16 @@ void main() {
     expect(find.text('Open'), findsOneWidget);
   });
 
-  testWidgets('tapping Open launches with the configured layout',
-      (tester) async {
-    final bridge = await pumpCard(tester,
-        hub: const HubConfig(
-            androidApps: [_app], androidAppLayout: AndroidAppLayout.fullscreen));
+  testWidgets('tapping Open launches with the configured layout', (
+    tester,
+  ) async {
+    final bridge = await pumpCard(
+      tester,
+      hub: const HubConfig(
+        androidApps: [_app],
+        androidAppLayout: AndroidAppLayout.fullscreen,
+      ),
+    );
     await tester.tap(find.text('Open'));
     await tester.pump();
     expect(bridge.launches, [('com.example.tv', AndroidAppLayout.fullscreen)]);
@@ -98,7 +110,38 @@ void main() {
     await tester.pump();
     expect(bridge.launches, isEmpty);
     expect(find.byType(FilledButton), findsOneWidget);
-    expect(tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
-        isNull);
+    expect(
+      tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
+      isNull,
+    );
+  });
+
+  testWidgets('remounting the card picks up an app installed since', (
+    tester,
+  ) async {
+    final bridge = _FakeBridge(installed: []);
+    debugAndroidAppsSupportedOverride = true;
+    final overrides = [androidAppsBridgeProvider.overrideWithValue(bridge)];
+    Widget card() => modulesForConfig(
+      config,
+    ).firstWhere((m) => m.id == _app.id).buildScreen(isActive: false);
+
+    await pumpModule(tester, card(), config: config, overrides: overrides);
+    expect(find.text('Not installed'), findsOneWidget);
+
+    await pumpModule(
+      tester,
+      const SizedBox(),
+      config: config,
+      overrides: overrides,
+    );
+    bridge.installed.add(_app.packageName);
+    await pumpModule(tester, card(), config: config, overrides: overrides);
+
+    expect(find.text('Not installed'), findsNothing);
+    expect(
+      tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
+      isNotNull,
+    );
   });
 }

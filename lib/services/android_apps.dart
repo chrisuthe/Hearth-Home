@@ -61,8 +61,10 @@ class AndroidAppsBridge {
 
   /// False when the package is not installed or the call failed.
   Future<bool> launch(String packageName, AndroidAppLayout layout) async =>
-      await _call<bool>(
-          'launch', {'packageName': packageName, 'layout': layout.name}) ??
+      await _call<bool>('launch', {
+        'packageName': packageName,
+        'layout': layout.name,
+      }) ??
       false;
 
   /// Whether "Display over other apps" is granted.
@@ -75,14 +77,18 @@ class AndroidAppsBridge {
   Future<void> bringToFront() => _call<void>('bringToFront');
 }
 
-final androidAppsBridgeProvider =
-    Provider<AndroidAppsBridge>((ref) => AndroidAppsBridge());
+final androidAppsBridgeProvider = Provider<AndroidAppsBridge>(
+  (ref) => AndroidAppsBridge(),
+);
 
 /// App icon PNG, cached per package.
-final androidAppIconProvider =
-    FutureProvider.family<Uint8List?, String>(
-        (ref, pkg) => ref.watch(androidAppsBridgeProvider).icon(pkg));
+final androidAppIconProvider = FutureProvider.family<Uint8List?, String>(
+  (ref, pkg) => ref.watch(androidAppsBridgeProvider).icon(pkg),
+);
 
-/// Launchable apps on the tablet, fetched once per read.
-final installedAndroidAppsProvider = FutureProvider<List<InstalledApp>>(
-    (ref) => ref.watch(androidAppsBridgeProvider).listApps());
+/// Launchable apps on the tablet. Auto-disposed, so each time a card mounts
+/// it asks again and an app installed after Hearth started is picked up.
+final installedAndroidAppsProvider =
+    FutureProvider.autoDispose<List<InstalledApp>>(
+      (ref) => ref.watch(androidAppsBridgeProvider).listApps(),
+    );

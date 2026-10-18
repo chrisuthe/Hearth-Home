@@ -14,8 +14,9 @@ const _app = AndroidAppConfig(packageName: 'com.example.tv', name: kLongName);
 
 class _Bridge extends AndroidAppsBridge {
   @override
-  Future<List<InstalledApp>> listApps() async =>
-      const [InstalledApp(packageName: 'com.example.tv', label: 'TV')];
+  Future<List<InstalledApp>> listApps() async => const [
+    InstalledApp(packageName: 'com.example.tv', label: 'TV'),
+  ];
 
   @override
   Future<Uint8List?> icon(String packageName) async => null;
@@ -29,9 +30,9 @@ void main() {
     const hub = HubConfig(androidApps: [_app]);
     await pumpModule(
       tester,
-      modulesForConfig(hub)
-          .firstWhere((m) => m.id == _app.id)
-          .buildScreen(isActive: true),
+      modulesForConfig(
+        hub,
+      ).firstWhere((m) => m.id == _app.id).buildScreen(isActive: true),
       config: hub,
       overrides: [androidAppsBridgeProvider.overrideWithValue(_Bridge())],
     );
@@ -41,5 +42,6 @@ void main() {
 }
 
 Matcher containsRect(Rect inner) => predicate<Rect>(
-    (outer) => outer.contains(inner.topLeft) && outer.contains(inner.bottomRight),
-    'contains $inner');
+  (outer) => outer.contains(inner.topLeft) && outer.contains(inner.bottomRight),
+  'contains $inner',
+);

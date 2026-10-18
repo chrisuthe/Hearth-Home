@@ -32,10 +32,10 @@ final List<HearthModule> _staticModules = <HearthModule>[
 /// [WidgetRef] — e.g. the Screens & Order web panel render — can enumerate
 /// modules. Widget code should prefer [allModulesProvider].
 List<HearthModule> modulesForConfig(HubConfig config) => [
-      ..._staticModules,
-      ...config.webviews.map((w) => WebviewModule(config: w)),
-      if (androidAppsSupported) ...config.androidApps.map(AndroidAppModule.new),
-    ];
+  ..._staticModules,
+  ...config.webviews.map((w) => WebviewModule(config: w)),
+  if (androidAppsSupported) ...config.androidApps.map(AndroidAppModule.new),
+];
 
 /// All modules available in the app, including dynamic ones derived from
 /// the user's webview configuration. Static modules come first; webviews
