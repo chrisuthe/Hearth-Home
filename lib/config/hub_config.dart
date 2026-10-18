@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../utils/logger.dart';
 import '../modules/calendar/models.dart';
 import '../modules/lists/models.dart';
+import 'android_app_config.dart';
 import 'display_orientation.dart';
 import 'hearth_theme_id.dart';
 import 'person.dart';
@@ -386,6 +387,12 @@ class HubConfig {
   /// as additional pages in HubShell's PageView via the webview module.
   final List<WebviewConfig> webviews;
 
+  /// Installed Android apps launched from Hearth (Android only).
+  final List<AndroidAppConfig> androidApps;
+
+  /// Whether a launched app shares the screen with Hearth or fills it.
+  final AndroidAppLayout androidAppLayout;
+
   /// The household, in display order. Calendar sources and chore lists
   /// point at a person by id; see [withPeople]. Unrelated to Immich's
   /// photo people in [photoSources].
@@ -490,6 +497,8 @@ class HubConfig {
     this.photoSources = const PhotoSourcesConfig(),
     this.uiScale = 1.0,
     this.webviews = const [],
+    this.androidApps = const [],
+    this.androidAppLayout = AndroidAppLayout.split,
     this.people = const [],
     this.calendarSources = const [],
     this.calendarIcsPollMinutes = 30,
@@ -600,6 +609,8 @@ class HubConfig {
     PhotoSourcesConfig? photoSources,
     double? uiScale,
     List<WebviewConfig>? webviews,
+    List<AndroidAppConfig>? androidApps,
+    AndroidAppLayout? androidAppLayout,
     List<Person>? people,
     List<CalendarSource>? calendarSources,
     int? calendarIcsPollMinutes,
@@ -694,6 +705,8 @@ class HubConfig {
       photoSources: photoSources ?? this.photoSources,
       uiScale: uiScale ?? this.uiScale,
       webviews: webviews ?? this.webviews,
+      androidApps: androidApps ?? this.androidApps,
+      androidAppLayout: androidAppLayout ?? this.androidAppLayout,
       people: people ?? this.people,
       calendarSources: calendarSources ?? this.calendarSources,
       calendarIcsPollMinutes:
@@ -805,6 +818,8 @@ class HubConfig {
         'photoSources': photoSources.toJson(),
         'uiScale': uiScale,
         'webviews': webviews.map((w) => w.toJson()).toList(),
+        'androidApps': androidApps.map((a) => a.toJson()).toList(),
+        'androidAppLayout': androidAppLayout.toJson(),
         'people': people.map((p) => p.toJson()).toList(),
         'calendarSources': calendarSources.map((s) => s.toJson()).toList(),
         'calendarIcsPollMinutes': calendarIcsPollMinutes,
@@ -939,6 +954,14 @@ class HubConfig {
                     WebviewConfig.fromJson(j as Map<String, dynamic>))
                 .toList() ??
             const [],
+        androidApps: (json['androidApps'] as List<dynamic>?)
+                ?.whereType<Map<String, dynamic>>()
+                .map(AndroidAppConfig.fromJson)
+                .where((a) => a.packageName.isNotEmpty)
+                .toList() ??
+            const [],
+        androidAppLayout:
+            AndroidAppLayout.fromJson(json['androidAppLayout'] as String?),
         people: (json['people'] as List<dynamic>?)
                 ?.whereType<Map<String, dynamic>>()
                 .map(Person.fromJson)
