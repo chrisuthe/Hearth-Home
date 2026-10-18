@@ -132,7 +132,7 @@ void main() {
     // Wake the shell so Home's pill can be tapped.
     // The centre of Hearth's half of a split screen is Home's weather, which
     // opens a dialog, so the tap is left out there.
-    if (canvas.width >= 800) await tester.tapAt(canvas.center(Offset.zero));
+    if (canvas.width >= kHomeStackBelowWidth) await tester.tapAt(canvas.center(Offset.zero));
     await tester.pump(const Duration(milliseconds: 400));
     await tester.tap(find.descendant(
         of: find.byType(HomeScreen), matching: find.byIcon(Icons.timer)));

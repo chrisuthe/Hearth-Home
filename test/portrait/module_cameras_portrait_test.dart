@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hearth/models/frigate_event.dart';
@@ -57,7 +55,11 @@ void main() {
               of: find.byIcon(Icons.play_circle_outline).first,
               matching: find.byType(ClipRRect))
           .first);
-      expect(tile.width, greaterThanOrEqualTo(min(360.0, canvas.width * 0.3)));
+      // Full canvases keep 360; Hearth's half of a split screen is narrower.
+      final minTile = kSplitHalfCanvases.containsValue(canvas)
+          ? canvas.width * 0.3
+          : 360.0;
+      expect(tile.width, greaterThanOrEqualTo(minTile));
     });
   }
 

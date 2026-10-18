@@ -154,8 +154,6 @@ class _DrawerBody extends StatelessWidget {
   final String playerId;
   final bool showRightPane;
 
-  static const double _rightPaneMinWidth = 640;
-
   const _DrawerBody({
     required this.state,
     required this.playerId,
@@ -168,28 +166,22 @@ class _DrawerBody extends StatelessWidget {
       playerId: playerId,
       currentQueueItemId: state.currentTrack?.queueItemId,
     );
-    return LayoutBuilder(builder: (context, constraints) {
-      // The mixer beside the queue needs more than Hearth's half of a split
-      // screen gives it.
-      if (!showRightPane || constraints.maxWidth < _rightPaneMinWidth) {
-        return queue;
-      }
-      return Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Expanded(flex: 13, child: queue),
-          const SizedBox(width: HearthSpacing.x6),
-          Container(
-            width: 1,
-            color: context.hearthColors.glassBorder,
-          ),
-          const SizedBox(width: HearthSpacing.x6),
-          Expanded(
-            flex: 10,
-            child: BrowseShelves(playerId: playerId),
-          ),
-        ],
-      );
-    });
+    if (!showRightPane) return queue;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Expanded(flex: 13, child: queue),
+        const SizedBox(width: HearthSpacing.x6),
+        Container(
+          width: 1,
+          color: context.hearthColors.glassBorder,
+        ),
+        const SizedBox(width: HearthSpacing.x6),
+        Expanded(
+          flex: 10,
+          child: BrowseShelves(playerId: playerId),
+        ),
+      ],
+    );
   }
 }
