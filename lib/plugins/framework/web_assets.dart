@@ -3,7 +3,7 @@
 // file serving needed.
 
 /// The Hearth mark as the portal's favicon, inlined so it needs no route.
-/// Generated from assets/logos/hearth-logo-dark.svg (the mark only).
+/// Generated from branding/hearth-logo-dark.svg (the mark only).
 const hearthFaviconLink =
     r'''<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='312.34 271.90 399.61 399.61'%3E%3Cpath fill='%23872711' d='M321.7 271.9H438.25V423.25A155.87 158.74 0 0 1 702.6 537.24V651.6H586.1V554.89A73.93 71.82 0 0 0 438.25 554.89V651.6H321.7Z'/%3E%3Ccircle cx='512.17' cy='628.85' r='42.66' fill='%23EA8C05' fill-opacity='0.164'/%3E%3Ccircle cx='512.17' cy='628.85' r='29.9' fill='%23EA8C05' fill-opacity='0.157'/%3E%3Ccircle cx='512.17' cy='628.85' r='18.88' fill='%23EA8C05'/%3E%3C/svg%3E">''';
 
