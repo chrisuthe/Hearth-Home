@@ -110,6 +110,8 @@ void main() {
         body: jsonEncode({
           'selected': [
             {'packageName': 'com.example.tv', 'name': 'Example TV'},
+            {'packageName': '', 'name': 'Blank'},
+            {'name': 'No package'},
           ],
           'layout': 'fullscreen',
         }),

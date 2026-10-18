@@ -70,10 +70,11 @@ class AppsPlugin extends HearthPlugin {
     router.post('apps', (req) async {
       if (await _gated(req)) return;
       final raw = (req.body['selected'] as List?) ?? const [];
+      // Same rule as HubConfig.fromJson: an app without a package is dropped.
       final selected = [
         for (final item in raw)
           AndroidAppConfig.fromJson((item as Map).cast<String, dynamic>()),
-      ];
+      ].where((a) => a.packageName.isNotEmpty).toList();
       final layout = req.body['layout'] is String
           ? AndroidAppLayout.fromJson(req.body['layout'] as String)
           : req.config.androidAppLayout;
@@ -179,7 +180,8 @@ class _AppsPanelState extends ConsumerState<_AppsPanel>
           padding: const EdgeInsets.only(top: 8, bottom: 16),
           child: Text(
             'Split keeps Hearth on screen beside the app. Full screen '
-            'shrinks the app into a corner when Hearth needs you.',
+            "opens the app over Hearth; Hearth's button and alerts bring "
+            'Hearth back.',
             style: TextStyle(color: colors.textMuted, fontSize: 12),
           ),
         ),
@@ -229,24 +231,41 @@ class _AppsPanelState extends ConsumerState<_AppsPanel>
             'Could not list the apps on this tablet.',
             style: TextStyle(color: colors.textMuted),
           ),
-          data: (apps) => Column(
-            children: [
-              for (final app in apps)
-                CheckboxListTile(
-                  contentPadding: EdgeInsets.zero,
-                  controlAffinity: ListTileControlAffinity.leading,
-                  title: Text(app.label),
-                  value: selected.contains(app.packageName),
-                  onChanged: (on) => _toggle(
-                    AndroidAppConfig(
-                      packageName: app.packageName,
-                      name: app.label,
+          data: (apps) {
+            final installedPkgs = {for (final a in apps) a.packageName};
+            return Column(
+              children: [
+                for (final app in apps)
+                  CheckboxListTile(
+                    contentPadding: EdgeInsets.zero,
+                    controlAffinity: ListTileControlAffinity.leading,
+                    title: Text(app.label),
+                    value: selected.contains(app.packageName),
+                    onChanged: (on) => _toggle(
+                      AndroidAppConfig(
+                        packageName: app.packageName,
+                        name: app.label,
+                      ),
+                      on ?? false,
                     ),
-                    on ?? false,
                   ),
-                ),
-            ],
-          ),
+                // Chosen but since uninstalled: listed so it can be unticked.
+                for (final app in config.androidApps)
+                  if (!installedPkgs.contains(app.packageName))
+                    CheckboxListTile(
+                      contentPadding: EdgeInsets.zero,
+                      controlAffinity: ListTileControlAffinity.leading,
+                      title: Text(app.name),
+                      subtitle: Text(
+                        'Not installed',
+                        style: TextStyle(color: colors.textMuted),
+                      ),
+                      value: true,
+                      onChanged: (on) => _toggle(app, on ?? false),
+                    ),
+              ],
+            );
+          },
         ),
       ],
     );
@@ -267,6 +286,7 @@ const _appsHtml = r'''
   }
   #apps-panel .ap-row input { accent-color: #646cff; }
   #apps-panel .ap-hint { font-size: 12px; color: #888; padding: 4px 0 12px; }
+  #apps-panel .ap-missing { font-size: 12px; color: #888; margin-left: auto; }
   #apps-panel .ap-head {
     font-size: 11px; font-weight: 600; letter-spacing: 1.2px; color: #888;
     margin: 16px 0 8px;
@@ -287,11 +307,11 @@ const _appsHtml = r'''
 <div id="apps-panel">
   <div class="field" data-config-path="androidAppLayout">
     <label>Open apps in</label>
-    <select id="ap-layout">
+    <select id="ap-layout" disabled>
       <option value="split">Split</option>
       <option value="fullscreen">Full screen</option>
     </select>
-    <div class="ap-hint">Split keeps Hearth on screen beside the app. Full screen shrinks the app into a corner when Hearth needs you.</div>
+    <div class="ap-hint">Split keeps Hearth on screen beside the app. Full screen opens the app over Hearth; Hearth's button and alerts bring Hearth back.</div>
   </div>
   <div id="ap-perm"></div>
   <div class="field" data-config-path="androidApps">
@@ -309,8 +329,12 @@ const _appsHtml = r'''
   var installed = [];
   var selected = [];
   var saveTimer = null;
+  // Until the first load resolves, `selected` is empty: saving then would
+  // wipe the configured apps.
+  var loaded = false;
 
   function save() {
+    if (!loaded) return;
     clearTimeout(saveTimer);
     saveTimer = setTimeout(function () {
       hearth.action('apps', { selected: selected, layout: layoutSel.value })
@@ -326,7 +350,17 @@ const _appsHtml = r'''
 
   function render() {
     list.textContent = '';
-    installed.forEach(function (a) {
+    // Chosen but since uninstalled: listed so it can be unticked.
+    var rows = installed.slice();
+    selected.forEach(function (s) {
+      var found = installed.some(function (a) {
+        return a.packageName === s.packageName;
+      });
+      if (!found) {
+        rows.push({ packageName: s.packageName, label: s.name, missing: true });
+      }
+    });
+    rows.forEach(function (a) {
       var row = document.createElement('label');
       row.className = 'ap-row';
       var cb = document.createElement('input');
@@ -345,6 +379,12 @@ const _appsHtml = r'''
       txt.textContent = a.label;
       row.appendChild(cb);
       row.appendChild(txt);
+      if (a.missing) {
+        var note = document.createElement('span');
+        note.className = 'ap-missing';
+        note.textContent = 'Not installed';
+        row.appendChild(note);
+      }
       list.appendChild(row);
     });
   }
@@ -367,6 +407,8 @@ const _appsHtml = r'''
       installed = data.installed || [];
       selected = data.selected || [];
       layoutSel.value = data.layout || 'split';
+      loaded = true;
+      layoutSel.disabled = false;
       renderPerm(!!data.overlayGranted);
       render();
     }).catch(function (e) {

@@ -79,6 +79,34 @@ void main() {
     expect(html, contains('data-config-path="androidAppLayout"'));
   });
 
+  // The web panel's script runs in the browser, so these pin the guards in
+  // its source rather than executing it.
+  test('web panel cannot save before its first load', () {
+    final html = AppsPlugin().buildSettingsHtml(
+      const WebContext(
+        config: HubConfig(),
+        apiBearerToken: 't',
+        pluginActionPrefix: '/api/plugin/hearth.apps',
+      ),
+    );
+    // Saving before the GET resolves would post `selected: []` and wipe the
+    // configured apps.
+    expect(html, contains('<select id="ap-layout" disabled>'));
+    expect(html, contains('if (!loaded) return;'));
+    expect(html, contains('layoutSel.disabled = false;'));
+  });
+
+  test('web panel lists selected apps that are not installed', () {
+    final html = AppsPlugin().buildSettingsHtml(
+      const WebContext(
+        config: HubConfig(),
+        apiBearerToken: 't',
+        pluginActionPrefix: '/api/plugin/hearth.apps',
+      ),
+    );
+    expect(html, contains('Not installed'));
+  });
+
   group('panel', () {
     late ProviderContainer container;
 
@@ -125,6 +153,33 @@ void main() {
       final after = container.read(hubConfigProvider);
       expect(after.androidApps, isEmpty);
       expect(after.modulePlacements['app:com.example.tv'], ['swipe']);
+    });
+
+    testWidgets('a selected app that is not installed can be unticked', (
+      tester,
+    ) async {
+      await pumpPanel(
+        tester,
+        config: const HubConfig(
+          androidApps: [
+            AndroidAppConfig(packageName: 'com.gone.app', name: 'Gone App'),
+            AndroidAppConfig(packageName: 'com.example.tv', name: 'Example TV'),
+          ],
+        ),
+      );
+      expect(find.text('Gone App'), findsOneWidget);
+      expect(find.text('Not installed'), findsOneWidget);
+      expect(find.text('Example TV'), findsOneWidget);
+
+      await tester.tap(find.text('Gone App'));
+      await tester.pump();
+      expect(container.read(hubConfigProvider).androidApps, [
+        const AndroidAppConfig(
+          packageName: 'com.example.tv',
+          name: 'Example TV',
+        ),
+      ]);
+      expect(find.text('Gone App'), findsNothing);
     });
 
     testWidgets('choosing Full screen writes the layout', (tester) async {
