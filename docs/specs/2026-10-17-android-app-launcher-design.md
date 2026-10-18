@@ -125,7 +125,7 @@ here, on the T901 in landscape, **not** on the Apolosign in portrait.
 |---|---|
 | Step 0: relaunch trick (Hearth relaunches itself `LAUNCH_ADJACENT` after the app) | **Failed.** WM Shell re-fronted Hearth's existing task (`onActivityRestartAttempt`); no split, Hearth covered the app. |
 | Fallback: the app launched `LAUNCH_ADJACENT` from Hearth | **Works.** Split with Hearth `[0,0][631,800]` (left) and YouTube `[643,0][1280,800]` (right). Shipped. |
-| Floating button | Leaked in the build tested: visible in split and over full-screen Hearth (it went away when `SYSTEM_ALERT_WINDOW` was revoked). Fixed after the pass by gating on visibility and always removing the view; **the fix has not been re-run on hardware.** |
+| Floating button | Leaked in the build tested: visible in split and over full-screen Hearth (it went away when `SYSTEM_ALERT_WINDOW` was revoked). Fixed after the pass by gating on visibility and always removing the view; re-run on the T901 the same day: hidden in split, shown over a full-screen app, hidden again once its tap brought Hearth back (**verified**). |
 | Full screen: launch, button over the app, tap it | Launch OK; button shown over YouTube; the tap brought Hearth forward and hid the button. |
 | Full screen: YouTube into the corner window | **Not seen** in 3 attempts (the button; `am start -f 0x10020000` of Hearth; a plain Home key with the stock launcher, which had produced PiP before Hearth was installed). Cause undetermined (YouTube's state or ads are possible). **PiP is unverified.** |
 | 5-minute timer, YouTube in front, Hearth backgrounded | **Pass.** At fire time Hearth came forward on its own, process alive, timer card shown. |
