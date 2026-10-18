@@ -98,7 +98,7 @@ class AppsChannel(private val activity: Activity, messenger: BinaryMessenger) :
         val intent = activity.packageManager.getLaunchIntentForPackage(pkg) ?: return false
         val smallScreen = activity.resources.configuration.smallestScreenWidthDp < 600
         if (layout == "split" && !smallScreen) {
-            launchSplitRelaunch(intent)
+            launchSplitAdjacent(intent)
         } else {
             launchFullscreen(intent)
         }
