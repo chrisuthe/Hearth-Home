@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/theme/classic_theme_scope.dart';
+import '../../app/tokens/calendar_tokens.dart';
 import '../../app/tokens/tokens.dart';
 import '../../config/hub_config.dart';
 import '../../modules/calendar/calendar_glance.dart';
@@ -23,9 +24,8 @@ const _textShadows = [
 
 const _iconShadows = _textShadows;
 
-/// Below this width Home stacks the weather above the clock instead of
-/// setting them side by side.
-const double kHomeStackBelowWidth = 800;
+/// Size of the clock and the temperature in the bottom panel.
+const double _panelNumeralSize = 76;
 
 /// The home screen — transparent overlay on the photo carousel.
 class HomeScreen extends ConsumerWidget {
@@ -74,10 +74,6 @@ class HomeScreen extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Each draws nothing (and takes no space) when there is nothing
-                // to show.
-                ChoreGlance(onTap: onListsTap),
-                CalendarGlance(onTap: onCalendarTap),
                 // Timer pill
                 _TimerPill(
                   timerService: timerService,
@@ -89,24 +85,11 @@ class HomeScreen extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: HearthSpacing.x4),
-                // Clock + date + memory label | Weather. Side by side they
-                // need more width than a portrait panel has, so stack them.
-                if (MediaQuery.orientationOf(context) == Orientation.portrait ||
-                    MediaQuery.sizeOf(context).width < kHomeStackBelowWidth) ...[
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: _WeatherDisplay(weather: weather),
-                  ),
-                  const SizedBox(height: HearthSpacing.x4),
-                  _ClockDisplay(dateLabel: dateLabel),
-                ] else
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Expanded(child: _ClockDisplay(dateLabel: dateLabel)),
-                      _WeatherDisplay(weather: weather),
-                    ],
-                  ),
+                // Each draws nothing (and takes no space) when there is nothing
+                // to show.
+                ChoreGlance(onTap: onListsTap),
+                CalendarGlance(onTap: onCalendarTap),
+                _ClockWeatherPanel(dateLabel: dateLabel, weather: weather),
               ],
             ),
           ),
@@ -123,6 +106,57 @@ class HomeScreen extends ConsumerWidget {
             },
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Clock + date + memory label | Weather, on one line over a light scrim.
+///
+/// Each side scales down rather than overflowing, so a 24h clock, a long
+/// condition label or a narrow portrait canvas still fits.
+class _ClockWeatherPanel extends StatelessWidget {
+  final String? dateLabel;
+  final dynamic weather;
+  const _ClockWeatherPanel({this.dateLabel, this.weather});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(
+          horizontal: HearthSpacing.x5, vertical: HearthSpacing.x4),
+      decoration: BoxDecoration(
+        // Lighter than the calendar glance card it sits under.
+        color: Colors.black.withValues(alpha: 0.3),
+        borderRadius: BorderRadius.circular(CalendarRadii.glance),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) => Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Expanded(
+              child: Align(
+                alignment: Alignment.bottomLeft,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.bottomLeft,
+                  child: _ClockDisplay(dateLabel: dateLabel),
+                ),
+              ),
+            ),
+            const SizedBox(width: HearthSpacing.x4),
+            ConstrainedBox(
+              constraints:
+                  BoxConstraints(maxWidth: constraints.maxWidth * 0.45),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.bottomRight,
+                child: _WeatherDisplay(weather: weather),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -167,8 +201,8 @@ class _ClockDisplayState extends ConsumerState<_ClockDisplay> {
         Text(
           timeStr,
           style: const TextStyle(
-            fontSize: 96,
-            fontWeight: FontWeight.w100,
+            fontSize: _panelNumeralSize,
+            fontWeight: FontWeight.w400,
             height: 1.0,
             shadows: _textShadows,
           ),
@@ -178,6 +212,7 @@ class _ClockDisplayState extends ConsumerState<_ClockDisplay> {
           dateStr,
           style: TextStyle(
             fontSize: HearthFont.title,
+            fontWeight: FontWeight.w500,
             color: Colors.white.withValues(alpha: 0.8),
             shadows: _textShadows,
           ),
@@ -188,6 +223,7 @@ class _ClockDisplayState extends ConsumerState<_ClockDisplay> {
             widget.dateLabel!,
             style: TextStyle(
               fontSize: HearthFont.body,
+              fontWeight: FontWeight.w500,
               color: Colors.white.withValues(alpha: 0.7),
               shadows: _textShadows,
             ),
@@ -208,8 +244,8 @@ class _WeatherDisplay extends StatelessWidget {
       return const Text(
         '--\u00B0',
         style: TextStyle(
-          fontSize: 96,
-          fontWeight: FontWeight.w200,
+          fontSize: _panelNumeralSize,
+          fontWeight: FontWeight.w400,
           shadows: _textShadows,
         ),
       );
@@ -228,16 +264,16 @@ class _WeatherDisplay extends StatelessWidget {
             children: [
               Icon(
                 weatherIconForCondition(weather.condition),
-                size: HearthIcon.xxl,
+                size: HearthIcon.xl,
                 color: Colors.white70,
                 shadows: _iconShadows,
               ),
-              const SizedBox(width: HearthSpacing.x6),
+              const SizedBox(width: HearthSpacing.x4),
               Text(
                 '${weather.temperature.round()}\u00B0',
                 style: const TextStyle(
-                  fontSize: 96,
-                  fontWeight: FontWeight.w200,
+                  fontSize: _panelNumeralSize,
+                  fontWeight: FontWeight.w400,
                   shadows: _textShadows,
                 ),
               ),
@@ -247,7 +283,8 @@ class _WeatherDisplay extends StatelessWidget {
             Text(
               '${conditionLabel(weather.condition)} \u00B7 H:${weather.dailyForecast.first.high.round()}\u00B0 L:${weather.dailyForecast.first.low.round()}\u00B0',
               style: TextStyle(
-                fontSize: HearthFont.headline,
+                fontSize: HearthFont.titleLg,
+                fontWeight: FontWeight.w500,
                 color: Colors.white.withValues(alpha: 0.6),
                 shadows: _textShadows,
               ),
