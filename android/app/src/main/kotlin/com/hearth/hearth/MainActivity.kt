@@ -30,16 +30,16 @@ class MainActivity : FlutterActivity() {
         live--
     }
 
-    override fun onResume() {
-        super.onResume()
-        resumed = true
-        AppSessionService.onHearthResumedChanged()
+    override fun onStart() {
+        super.onStart()
+        started++
+        AppSessionService.onHearthVisibilityChanged()
     }
 
-    override fun onPause() {
-        resumed = false
-        AppSessionService.onHearthResumedChanged()
-        super.onPause()
+    override fun onStop() {
+        started--
+        AppSessionService.onHearthVisibilityChanged()
+        super.onStop()
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -96,9 +96,15 @@ class MainActivity : FlutterActivity() {
     }
 
     companion object {
-        /** True between onResume and onPause: Hearth is the focused app. */
-        @Volatile
-        var resumed = false
+        /** Instances between onStart and onStop. Main thread. */
+        private var started = 0
+
+        /**
+         * Hearth is on screen: full screen, in a split half (focused or not),
+         * or under a translucent dialog it opened. Main thread.
+         */
+        val visible: Boolean
+            get() = started > 0
 
         /** Instances between onCreate and onDestroy, for the service stop. */
         private var live = 0

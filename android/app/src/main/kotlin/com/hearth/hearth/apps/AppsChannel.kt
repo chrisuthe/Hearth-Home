@@ -6,8 +6,6 @@ import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.net.Uri
-import android.os.Handler
-import android.os.Looper
 import android.provider.Settings
 import android.util.Log
 import com.hearth.hearth.MainActivity
@@ -24,7 +22,6 @@ class AppsChannel(private val activity: Activity, messenger: BinaryMessenger) :
     MethodChannel.MethodCallHandler {
 
     private val channel = MethodChannel(messenger, "com.hearth/apps")
-    private val handler = Handler(Looper.getMainLooper())
 
     init {
         channel.setMethodCallHandler(this)
@@ -32,7 +29,6 @@ class AppsChannel(private val activity: Activity, messenger: BinaryMessenger) :
 
     fun dispose() {
         channel.setMethodCallHandler(null)
-        handler.removeCallbacksAndMessages(null)
     }
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
@@ -102,7 +98,13 @@ class AppsChannel(private val activity: Activity, messenger: BinaryMessenger) :
         } else {
             launchFullscreen(intent)
         }
-        AppSessionService.start(activity)
+        // The app is open either way; a refused session only costs the button
+        // and the keep-alive, so it must not report the launch as failed.
+        try {
+            AppSessionService.start(activity)
+        } catch (e: Exception) {
+            Log.e(TAG, "App session start refused", e)
+        }
         return true
     }
 
@@ -111,22 +113,10 @@ class AppsChannel(private val activity: Activity, messenger: BinaryMessenger) :
     }
 
     /**
-     * Relaunch trick: the app starts full screen, then Hearth relaunches
-     * adjacent to it so Hearth lands bottom/right.
+     * The app opens adjacent to Hearth, so Hearth stays top/left. Relaunching
+     * Hearth adjacent to the app instead only re-fronted Hearth's task on
+     * hardware (T901, Android 15), with no split.
      */
-    private fun launchSplitRelaunch(intent: Intent) {
-        launchFullscreen(intent)
-        handler.postDelayed({
-            activity.startActivity(
-                Intent(activity, MainActivity::class.java).addFlags(
-                    Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_LAUNCH_ADJACENT,
-                ),
-            )
-        }, 250)
-    }
-
-    /** Alternative: the app opens adjacent to Hearth, Hearth stays top/left. */
-    @Suppress("unused")
     private fun launchSplitAdjacent(intent: Intent) {
         activity.startActivity(
             intent.addFlags(
@@ -136,7 +126,9 @@ class AppsChannel(private val activity: Activity, messenger: BinaryMessenger) :
     }
 
     private fun bringToFront() {
-        if (MainActivity.resumed) return
+        // Already on screen (in a split half too), or no app was launched, so
+        // there is nothing to come forward over.
+        if (MainActivity.visible || !AppSessionService.active) return
         if (!Settings.canDrawOverlays(activity)) {
             Log.w(TAG, "bringToFront skipped: overlay permission not granted")
             return

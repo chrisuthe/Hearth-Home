@@ -70,9 +70,9 @@ class AppSessionService : Service() {
         super.onDestroy()
     }
 
-    /** Shows the button while Hearth is behind another app. Main thread. */
+    /** Shows the button while Hearth is off screen behind another app. Main thread. */
     private fun updateButton() {
-        if (!MainActivity.resumed && Settings.canDrawOverlays(this)) showButton() else hideButton()
+        if (!MainActivity.visible && Settings.canDrawOverlays(this)) showButton() else hideButton()
     }
 
     private fun showButton() {
@@ -114,8 +114,14 @@ class AppSessionService : Service() {
     private fun hideButton() {
         val view = button ?: return
         button = null
-        // Revoking the permission removes the window without telling us.
-        if (view.isAttachedToWindow) getSystemService(WindowManager::class.java).removeView(view)
+        // An added view stays registered with the window manager until it is
+        // removed, attached or not: it only attaches on the next traversal, so
+        // a hide straight after a show would otherwise leak the window.
+        try {
+            getSystemService(WindowManager::class.java).removeView(view)
+        } catch (e: IllegalArgumentException) {
+            Log.w(TAG, "Floating button already gone", e)
+        }
     }
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
@@ -154,8 +160,12 @@ class AppSessionService : Service() {
             ContextCompat.startForegroundService(context, Intent(context, AppSessionService::class.java))
         }
 
-        /** Hearth came to the front or went behind; shows or hides the button. Main thread. */
-        fun onHearthResumedChanged() {
+        /** An app session is running: an app was launched from Hearth. Main thread. */
+        val active: Boolean
+            get() = instance != null
+
+        /** Hearth came on screen or went off it; shows or hides the button. Main thread. */
+        fun onHearthVisibilityChanged() {
             instance?.updateButton()
         }
     }
