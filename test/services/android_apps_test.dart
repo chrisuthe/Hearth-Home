@@ -23,8 +23,10 @@ void main() {
       ];
     });
     final apps = await AndroidAppsBridge().listApps();
-    expect(apps.map((a) => a.packageName),
-        ['com.plexapp.android', 'com.netflix']);
+    expect(apps.map((a) => a.packageName), [
+      'com.plexapp.android',
+      'com.netflix',
+    ]);
     expect(apps.first.label, 'Plex');
   });
 
@@ -35,8 +37,10 @@ void main() {
       args = call.arguments;
       return true;
     });
-    final ok = await AndroidAppsBridge()
-        .launch('com.plexapp.android', AndroidAppLayout.split);
+    final ok = await AndroidAppsBridge().launch(
+      'com.plexapp.android',
+      AndroidAppLayout.split,
+    );
     expect(ok, isTrue);
     expect(args, {'packageName': 'com.plexapp.android', 'layout': 'split'});
   });
@@ -44,15 +48,17 @@ void main() {
   test('launch returns false for missing package', () async {
     handle((call) async => false);
     expect(
-        await AndroidAppsBridge()
-            .launch('com.nope', AndroidAppLayout.fullscreen),
-        isFalse);
+      await AndroidAppsBridge().launch('com.nope', AndroidAppLayout.fullscreen),
+      isFalse,
+    );
   });
 
   test('launch returns false when channel is missing', () async {
     handle(null);
     expect(
-        await AndroidAppsBridge().launch('x', AndroidAppLayout.split), isFalse);
+      await AndroidAppsBridge().launch('x', AndroidAppLayout.split),
+      isFalse,
+    );
   });
 
   test('overlayGranted false on PlatformException', () async {

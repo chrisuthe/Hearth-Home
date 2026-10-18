@@ -19,11 +19,12 @@ const kLayoutCanvases = <String, Size>{
   'portrait 800x1280': kNarrowPortraitCanvas,
 };
 
-/// Hearth's half of a split screen on the Apolosign (the app on top, Hearth
+/// Hearth's half of a split screen on the Apolosign (Hearth on top, the app
 /// below).
 const kSplitPortraitHalfCanvas = Size(720, 640);
 
-/// Hearth's half of a split screen on the T901 held landscape (the app left).
+/// Hearth's half of a split screen on the T901 held landscape (Hearth left,
+/// the app right).
 const kSplitLandscapeHalfCanvas = Size(550, 690);
 
 /// The canvases [testSplitHalfLayouts] runs. Only the surfaces split mode

@@ -188,7 +188,9 @@ void main() {
 
   test('summons without any frame', () async {
     // A bare ProviderContainer and plain `test`: no widget tree, no binding,
-    // no pump. Each source must reach bringToFront on its own.
+    // no pump. Each source must reach bringToFront on its own. Listener
+    // delivery is synchronous, but in production a provider rebuilt after a
+    // config change still waits for a frame, which this does not cover.
     final h = _Harness();
     addTearDown(h.dispose);
 

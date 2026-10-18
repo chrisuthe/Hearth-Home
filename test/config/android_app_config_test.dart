@@ -7,7 +7,9 @@ void main() {
     const config = HubConfig(
       androidApps: [
         AndroidAppConfig(
-            packageName: 'com.google.android.youtube', name: 'YouTube'),
+          packageName: 'com.google.android.youtube',
+          name: 'YouTube',
+        ),
         AndroidAppConfig(packageName: 'com.spotify.music', name: 'Spotify'),
       ],
       androidAppLayout: AndroidAppLayout.fullscreen,
@@ -30,7 +32,9 @@ void main() {
 
   test('id is app:<package>', () {
     const app = AndroidAppConfig(
-        packageName: 'com.google.android.youtube', name: 'YouTube');
+      packageName: 'com.google.android.youtube',
+      name: 'YouTube',
+    );
     expect(app.id, 'app:com.google.android.youtube');
   });
 
