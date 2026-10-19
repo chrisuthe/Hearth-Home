@@ -1,5 +1,5 @@
 #!/bin/bash
-# Build the release arm64 APK and leave hearth-android-<version>.apk and its
+# Build the release ARM APK (arm64 and 32-bit armv7) and leave hearth-android-<version>.apk and its
 # .sha256 in the project root. Both build-pi-image workflows run this, so a
 # local run reproduces what CI ships.
 #
@@ -67,7 +67,10 @@ fi
 
 # --no-tree-shake-icons: WebviewConfig.icon builds IconData from a code point
 # stored in config, which a release build otherwise rejects.
-flutter build apk --release --target-platform android-arm64 \
+# android-arm: 32-bit Android on a 64-bit CPU (e.g. LineageOS on an Echo
+# Show) only loads armeabi-v7a libraries. One APK carries both ABIs, because
+# UpdateService takes the first hearth-android-*.apk asset it finds.
+flutter build apk --release --target-platform android-arm,android-arm64 \
     --no-tree-shake-icons \
     --build-name "$BUILD_NAME" --build-number "$BUILD_NUMBER"
 

@@ -4,7 +4,7 @@
 > one tablet so far. Some features do nothing yet — see [what works](#what-works) below
 > before you rely on it.
 
-Hearth runs on an **arm64 Android tablet, Android 10 or later**. It installs as an ordinary
+Hearth runs on an **ARM Android tablet, Android 10 or later**: arm64, or 32-bit armv7 (untested). It installs as an ordinary
 app, offers itself as the tablet's **Home app** so it starts on boot, runs fullscreen, and
 updates itself from new releases.
 
