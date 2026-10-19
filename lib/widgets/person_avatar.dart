@@ -13,14 +13,23 @@ class PersonAvatar extends StatelessWidget {
   final PersonView view;
   final double size;
 
-  const PersonAvatar({super.key, required this.view, this.size = 28});
+  /// A badge with an icon for where they are instead of the dot. For large
+  /// avatars only: below about 48 the icon is too small to read.
+  final bool presenceIcon;
+
+  const PersonAvatar({
+    super.key,
+    required this.view,
+    this.size = 28,
+    this.presenceIcon = false,
+  });
 
   @override
   Widget build(BuildContext context) {
     final initial = _Initial(view: view, size: size);
     final url = view.avatarUrl;
     final presence = view.presence;
-    final dot = size * 0.34;
+    final dot = size * (presenceIcon ? 0.4 : 0.34);
     return SizedBox(
       width: size,
       height: size,
@@ -46,7 +55,8 @@ class PersonAvatar extends StatelessWidget {
               child: Tooltip(
                 message: presence,
                 child: Container(
-                  key: const ValueKey('presence-dot'),
+                  key: ValueKey(
+                      presenceIcon ? 'presence-icon' : 'presence-dot'),
                   width: dot,
                   height: dot,
                   decoration: BoxDecoration(
@@ -54,6 +64,13 @@ class PersonAvatar extends StatelessWidget {
                     shape: BoxShape.circle,
                     border: Border.all(color: context.hearthColors.canvas, width: 1.5),
                   ),
+                  child: presenceIcon
+                      ? Icon(
+                          presenceIconData(presence),
+                          size: dot * 0.62,
+                          color: Colors.black87, // theme-exempt: on a data color
+                        )
+                      : null,
                 ),
               ),
             ),
@@ -67,6 +84,13 @@ Color presenceColor(String presence) => switch (presence) {
       'Home' => kPresenceHome,
       'Away' => kPresenceAway,
       _ => kPresenceZone,
+    };
+
+/// Any zone gets the pin until zones show their own HA icon.
+IconData presenceIconData(String presence) => switch (presence) {
+      'Home' => Icons.home_rounded,
+      'Away' => Icons.directions_walk,
+      _ => Icons.place,
     };
 
 class _Initial extends StatelessWidget {
