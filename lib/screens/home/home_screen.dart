@@ -5,9 +5,11 @@ import '../../app/theme/classic_theme_scope.dart';
 import '../../app/tokens/calendar_tokens.dart';
 import '../../app/tokens/tokens.dart';
 import '../../config/hub_config.dart';
+import '../../config/person.dart';
 import '../../modules/calendar/calendar_glance.dart';
 import '../../modules/lists/chore_glance.dart';
 import '../../services/music_assistant_service.dart';
+import '../../services/people.dart';
 import '../../services/weather_service.dart';
 import '../../utils/weather_icon_mapping.dart';
 import '../../utils/weather_utils.dart';
@@ -15,6 +17,7 @@ import '../timer/timer_screen.dart';
 import '../weather/weather_screen.dart';
 import '../../services/timer_service.dart';
 import '../../utils/time_format.dart';
+import '../../widgets/person_avatar.dart';
 
 /// Standard text shadows for legibility over full-bleed photos.
 const _textShadows = [
@@ -115,13 +118,14 @@ class HomeScreen extends ConsumerWidget {
 ///
 /// Each side scales down rather than overflowing, so a 24h clock, a long
 /// condition label or a narrow portrait canvas still fits.
-class _ClockWeatherPanel extends StatelessWidget {
+class _ClockWeatherPanel extends ConsumerWidget {
   final String? dateLabel;
   final dynamic weather;
   const _ClockWeatherPanel({this.dateLabel, this.weather});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final people = ref.watch(hubConfigProvider.select((c) => c.people));
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(
@@ -131,8 +135,13 @@ class _ClockWeatherPanel extends StatelessWidget {
         color: Colors.black.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(CalendarRadii.glance),
       ),
-      child: LayoutBuilder(
-        builder: (context, constraints) => Row(
+      child: LayoutBuilder(builder: (context, constraints) {
+        final faces = people.isEmpty ? null : _PeopleRow(people: people);
+        // Faces sit between clock and weather while they take a quarter of
+        // the panel at most; otherwise they get a line of their own.
+        final inline = people.length * (_faceSize + _faceGap) <=
+            constraints.maxWidth * 0.25;
+        final row = Row(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             Expanded(
@@ -145,6 +154,13 @@ class _ClockWeatherPanel extends StatelessWidget {
                 ),
               ),
             ),
+            if (faces != null && inline) ...[
+              const SizedBox(width: HearthSpacing.x4),
+              Padding(
+                padding: const EdgeInsets.only(bottom: HearthSpacing.x1),
+                child: faces,
+              ),
+            ],
             const SizedBox(width: HearthSpacing.x4),
             ConstrainedBox(
               constraints:
@@ -156,8 +172,46 @@ class _ClockWeatherPanel extends StatelessWidget {
               ),
             ),
           ],
-        ),
-      ),
+        );
+        if (faces == null || inline) return row;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [faces, const SizedBox(height: HearthSpacing.x4), row],
+        );
+      }),
+    );
+  }
+}
+
+const double _faceSize = 56;
+const double _faceGap = HearthSpacing.x3;
+
+/// Everyone in People, with a badge for where HA says they are.
+class _PeopleRow extends StatelessWidget {
+  final List<Person> people;
+  const _PeopleRow({required this.people});
+
+  @override
+  Widget build(BuildContext context) => Wrap(
+        spacing: _faceGap,
+        runSpacing: HearthSpacing.x2,
+        children: [for (final p in people) _PersonFace(person: p)],
+      );
+}
+
+class _PersonFace extends ConsumerWidget {
+  final Person person;
+  const _PersonFace({required this.person});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final view =
+        person.isLinked ? ref.watch(personViewProvider(person.id)) : null;
+    return PersonAvatar(
+      view: view ?? PersonView(person),
+      size: _faceSize,
+      presenceIcon: true,
     );
   }
 }

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hearth/config/hub_config.dart';
+import 'package:hearth/config/person.dart';
+import 'package:hearth/models/ha_entity.dart';
 import 'package:hearth/modules/calendar/calendar_providers.dart';
 import 'package:hearth/modules/calendar/models.dart';
 import 'package:hearth/modules/lists/lists_providers.dart';
@@ -10,14 +12,17 @@ import 'package:hearth/screens/home/home_screen.dart';
 import 'package:hearth/screens/timer/timer_screen.dart';
 import 'package:hearth/screens/weather/day_detail_screen.dart';
 import 'package:hearth/screens/weather/weather_screen.dart';
+import 'package:hearth/services/home_assistant_service.dart';
 import 'package:hearth/services/music_assistant_service.dart';
 import 'package:hearth/services/notification_service.dart';
 import 'package:hearth/services/timer_service.dart';
 import 'package:hearth/services/voice_satellite_bridge.dart';
 import 'package:hearth/services/weather_service.dart';
+import 'package:hearth/widgets/person_avatar.dart';
 
 import '../modules/calendar/calendar_fixtures.dart';
 import '../modules/lists/lists_fixtures.dart';
+import 'module_support.dart' show FakeHomeAssistant;
 import 'portrait_fixtures.dart';
 import 'portrait_harness.dart';
 
@@ -29,6 +34,8 @@ void main() {
       bool use24h = false,
       List<CalendarEvent>? calendar,
       Map<String, List<TodoItem>>? chores,
+      List<Person> people = const [],
+      List<HaEntity> entities = const [],
     }) async {
       final timers = TimerService();
       if (populated) {
@@ -47,13 +54,16 @@ void main() {
               config = config.copyWith(
                   todoChoreGlance: true, todoLists: c.todoLists);
             }
-            return MemoryConfigNotifier(config);
+            return MemoryConfigNotifier(config.copyWith(people: people));
           }),
           if (calendar != null)
             calendarEventsProvider.overrideWithValue(merged(calendar)),
           if (chores != null)
             todoListProvider.overrideWith(
                 (ref, id) => FakeTodoLists(chores).stream(id)),
+          if (entities.isNotEmpty)
+            homeAssistantServiceProvider
+                .overrideWithValue(FakeHomeAssistant(entities)),
           timerServiceProvider.overrideWith((ref) => timers),
           weatherStateProvider.overrideWith((ref) => populated
               ? Stream.value(sampleWeather('lightning-rainy'))
@@ -137,9 +147,41 @@ void main() {
       await unmount(tester);
     });
 
+    // Three fit between clock and weather in landscape; six always wrap.
+    for (final count in [3, 6]) {
+      testLayoutsAndSplitHalves('with $count people on the clock panel',
+          (tester, canvas) async {
+        HaEntity person(String id, String state) => HaEntity(
+              entityId: id,
+              state: state,
+              attributes: const {},
+              lastChanged: DateTime(2026),
+            );
+        const names = ['Ava', 'Ben', 'Cy', 'Di', 'Ed', 'Flo'];
+        await pumpHome(tester, populated: true, people: [
+          for (final (i, name) in names.take(count).indexed)
+            Person(
+              id: 'person:$i',
+              name: name,
+              haPersonEntityId: i < 3 ? 'person.${name.toLowerCase()}' : '',
+            ),
+        ], entities: [
+          person('person.ava', 'home'),
+          person('person.ben', 'not_home'),
+          person('person.cy', 'Work'),
+        ]);
+        expect(find.byType(PersonAvatar), findsNWidgets(count));
+        expect(find.byKey(const ValueKey('presence-icon')), findsNWidgets(3),
+            reason: 'only the first three are linked');
+        expect(find.byIcon(Icons.home_rounded), findsOneWidget);
+        await unmount(tester);
+      });
+    }
+
     testLayoutsAndSplitHalves('with nothing configured', (tester, canvas) async {
       await pumpHome(tester, populated: false, use24h: true);
       expect(find.text('Set a timer'), findsOneWidget);
+      expect(find.byType(PersonAvatar), findsNothing);
       await unmount(tester);
     });
   });
