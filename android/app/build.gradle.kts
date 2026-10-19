@@ -70,6 +70,16 @@ android {
     }
 }
 
+// Plugin AARs and the microfeatures CMake build ship x86_64 libraries, and
+// the Flutter Gradle Plugin always keeps x86_64 in abiFilters (a build-type
+// filter only adds to it). A release build has no x86_64 Flutter engine, so
+// drop them there; debug keeps them for the emulator.
+androidComponents {
+    onVariants(selector().withBuildType("release")) { variant ->
+        variant.packaging.jniLibs.excludes.add("lib/x86_64/**")
+    }
+}
+
 kotlin {
     compilerOptions {
         jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17

@@ -45,7 +45,7 @@ The emulator segfaulted on boot with `-gpu swiftshader_indirect` on this host an
 | `minSdk` | 29 | Android 10 is the oldest supported release. Flutter's default is 24. |
 | `compileSdk` / `targetSdk` | 36 | Left on `flutter.compileSdkVersion` / `flutter.targetSdkVersion` so they move with the Flutter pin. |
 | `ndkVersion` | 28.2.13676358 | Left on `flutter.ndkVersion` for the same reason. |
-| ABIs | arm64-v8a, armeabi-v7a, x86_64 in debug | Flutter's debug default. Releases ship `--target-platform android-arm,android-arm64` in one APK: 32-bit Android on a 64-bit CPU (LineageOS on an Echo Show) loads only armeabi-v7a, and `UpdateService` takes the first `hearth-android-*.apk` asset, so per-ABI APKs would race. |
+| ABIs | arm64-v8a, armeabi-v7a, x86_64 in debug | Flutter's debug default. Releases ship `--target-platform android-arm,android-arm64` in one APK: 32-bit Android on a 64-bit CPU (LineageOS on an Echo Show) loads only armeabi-v7a, and `UpdateService` takes the first `hearth-android-*.apk` asset, so per-ABI APKs would race. The release variant also excludes `lib/x86_64/**` at packaging (`androidComponents` in `android/app/build.gradle.kts`): plugin AARs and microfeatures ship x86_64, the Flutter plugin always keeps x86_64 in `abiFilters`, and a release has no x86_64 engine, so those 22 MB were dead weight that would crash an x86_64 device. |
 
 ### Commands
 
@@ -66,7 +66,7 @@ It wraps `flutter build apk --release --target-platform android-arm,android-arm6
 
 `--no-tree-shake-icons` is required: `WebviewConfig.icon` builds `IconData` from a code point stored in config, and the release build fails without the flag (**verified**).
 
-The debug APK is 228 MB because it carries three ABIs plus the Vulkan validation layer (**verified**). The release arm64 APK was 66 MB, 82 MB once the voice satellite and Sendspin were in; with armeabi-v7a added it is 107 MB (2.3.0, **verified**).
+The debug APK is 228 MB because it carries three ABIs plus the Vulkan validation layer (**verified**). The release arm64 APK was 66 MB, 82 MB once the voice satellite and Sendspin were in; with armeabi-v7a added and x86_64 dropped it is 84 MB (2.3.0, **verified**).
 
 To reach the web portal on an emulator: `adb forward tcp:8090 tcp:8090` (**verified**).
 
