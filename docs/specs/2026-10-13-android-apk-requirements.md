@@ -45,7 +45,7 @@ The emulator segfaulted on boot with `-gpu swiftshader_indirect` on this host an
 | `minSdk` | 29 | Android 10 is the oldest supported release. Flutter's default is 24. |
 | `compileSdk` / `targetSdk` | 36 | Left on `flutter.compileSdkVersion` / `flutter.targetSdkVersion` so they move with the Flutter pin. |
 | `ndkVersion` | 28.2.13676358 | Left on `flutter.ndkVersion` for the same reason. |
-| ABIs | arm64-v8a, armeabi-v7a, x86_64 in debug | Flutter's debug default. Ship releases with `--target-platform android-arm64`. |
+| ABIs | arm64-v8a, armeabi-v7a, x86_64 in debug | Flutter's debug default. Releases ship `--target-platform android-arm,android-arm64` in one APK: 32-bit Android on a 64-bit CPU (LineageOS on an Echo Show) loads only armeabi-v7a, and `UpdateService` takes the first `hearth-android-*.apk` asset, so per-ABI APKs would race. |
 
 ### Commands
 
@@ -62,11 +62,11 @@ For a device build, the script CI runs (see [Release signing](#release-signing) 
 ./scripts/build-android-apk.sh
 ```
 
-It wraps `flutter build apk --release --target-platform android-arm64 --no-tree-shake-icons` and leaves `hearth-android-<version>.apk` and its `.sha256` in the project root.
+It wraps `flutter build apk --release --target-platform android-arm,android-arm64 --no-tree-shake-icons` and leaves `hearth-android-<version>.apk` and its `.sha256` in the project root.
 
 `--no-tree-shake-icons` is required: `WebviewConfig.icon` builds `IconData` from a code point stored in config, and the release build fails without the flag (**verified**).
 
-The debug APK is 228 MB because it carries three ABIs plus the Vulkan validation layer (**verified**). The release arm64 APK is 66 MB (**verified**).
+The debug APK is 228 MB because it carries three ABIs plus the Vulkan validation layer (**verified**). The release arm64 APK was 66 MB, 82 MB once the voice satellite and Sendspin were in; with armeabi-v7a added it is 107 MB (2.3.0, **verified**).
 
 To reach the web portal on an emulator: `adb forward tcp:8090 tcp:8090` (**verified**).
 
@@ -222,3 +222,4 @@ Ordered so that each step leaves something usable on a wall. Each is sized as it
 14. **Keyboard decision** — in-app OSK versus system IME as the Android default.
 15. **Volume over MQTT** — the MQTT `volume` number entity is Linux-only because volume goes through ALSA (`lib/utils/alsa_utils.dart`). An `AudioManager` path would serve it and Plex (`lib/services/plex/plex_service.dart`), which shares the ALSA helpers.
 16. **Rest of Hearth at split-half sizes** — `test/portrait/` covers only the surfaces split mode depends on at Hearth's half (720x640 on the Apolosign, 550x690 on the T901). Still failing at one or both: Media (now playing with the drawer, browse, players popover, browse over the mini bar), the Protect grid, the on-screen keyboard and the custom URL editor, the Live TV grid, Calendar (dense month, event detail), Lists chores, the weather day detail, and three settings dialogs at 550x690 (display profile picker, night mode clock prompt, timezone picker). In a 640px-tall half two notification cards cover the mic toggle, and a centre wake tap lands on Home's weather and opens its dialog.
+17. **32-bit hardware pass** — the release APK carries armeabi-v7a for 32-bit Android on a 64-bit CPU (LineageOS 18.1 on an Echo Show). Every native library builds for it (libflutter, libmpv, libmicrofeatures, LiteRT, the media_kit helper), but nothing has run on a 32-bit device. Check launch, a libmpv stream, the photo carousel and the voice satellite under the device's memory (an Echo Show can have 1 GB).

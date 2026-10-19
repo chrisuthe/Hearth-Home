@@ -80,7 +80,7 @@ The wiki has the details: [Installation](https://github.com/chrisuthe/Hearth-Hom
 
 ## Install on an Android tablet (experimental)
 
-Hearth runs on arm64 Android 10+ tablets meant to stay on the wall.
+Hearth runs on ARM Android 10+ tablets meant to stay on the wall: arm64, or 32-bit armv7 (untested).
 
 1. Download `hearth-android-<version>.apk` from the [latest release](https://github.com/chrisuthe/Hearth-Home/releases/latest).
 2. Open it on the tablet and allow installs from that source when Android asks.
@@ -129,7 +129,7 @@ flutter test test/portrait    # every surface at landscape and portrait sizes
 ```bash
 git submodule update --init   # the Ava fork and SendspinDroid
 flutter build apk --debug
-./scripts/build-android-apk.sh   # release arm64 APK, as CI builds it
+./scripts/build-android-apk.sh   # release ARM APK (arm64 + armv7), as CI builds it
 ```
 
 **Target hardware:** Raspberry Pi 5 with the 11" AMOLED (2368x1728, rendered at 1184x864). Layouts must also hold in portrait at 864x1184 and 800x1280; `test/portrait/` checks all three. The official 7" touchscreen and HDMI monitors are supported too.
